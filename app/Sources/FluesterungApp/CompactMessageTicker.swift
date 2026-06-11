@@ -6,6 +6,9 @@ import SwiftUI
 struct CompactMessageTicker: View {
     let text: String
 
+    /// The ticker is a teaser, not the reading surface — long messages are
+    /// truncated; the full text lives in the expanded (hover) view.
+    private let previewLimit = 48
     private let maxWidth: CGFloat = 110
     private let pointsPerSecond: CGFloat = 26
     private let gap: CGFloat = 30
@@ -49,10 +52,14 @@ struct CompactMessageTicker: View {
     }
 
     private var tickerText: some View {
-        Text(text)
+        Text(displayText)
             .font(.system(size: 12, weight: .medium, design: .rounded))
             .foregroundStyle(.white.opacity(0.85))
             .lineLimit(1)
+    }
+
+    private var displayText: String {
+        text.count > previewLimit ? text.prefix(previewLimit).trimmingCharacters(in: .whitespaces) + "…" : text
     }
 
     private var edgeFade: LinearGradient {
