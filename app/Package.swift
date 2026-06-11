@@ -17,11 +17,6 @@ let package = Package(
             ],
             path: "Sources/FluesterungApp"
         ),
-        .executableTarget(
-            name: "flustr",
-            dependencies: ["FluesterungKit"],
-            path: "Sources/Flustr"
-        ),
         .testTarget(
             name: "FluesterungKitTests",
             dependencies: ["FluesterungKit"]

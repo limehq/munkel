@@ -1,0 +1,15 @@
+{
+	"name": "flustr",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "bun build src/flustr.ts --compile --outfile dist/flustr",
+		"test": "bun test",
+		"typecheck": "tsc --noEmit"
+	},
+	"devDependencies": {
+		"@types/bun": "^1.2.0",
+		"typescript": "^5.8.2"
+	}
+}
