@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import DynamicNotchKit
 import SwiftUI
@@ -33,8 +34,9 @@ final class NotchPresenter {
         let model = MessageDisplayModel()
         currentModel = model
 
+        let notchSize = Self.hardwareNotchSize()
         let notch = DynamicNotch(hoverBehavior: .all) {
-            MessageNotchContainer(model: model, message: message) { [weak self] in
+            MessageNotchContainer(model: model, message: message, notchSize: notchSize) { [weak self] in
                 self?.teaserFinished()
             }
         }
@@ -66,6 +68,23 @@ final class NotchPresenter {
     private func teaserFinished() {
         guard let notch = currentNotch, currentModel?.fullyExpanded != true else { return }
         scheduleHide(of: notch, after: afterTeaserDelay)
+    }
+
+    /// Measures the hardware notch cutout of the screen the notch shows on
+    /// (DynamicNotchKit defaults to NSScreen.screens[0]). Zero without notch.
+    private static func hardwareNotchSize() -> CGSize {
+        guard
+            let screen = NSScreen.screens.first,
+            screen.safeAreaInsets.top > 0,
+            let topLeft = screen.auxiliaryTopLeftArea,
+            let topRight = screen.auxiliaryTopRightArea
+        else {
+            return .zero
+        }
+        return CGSize(
+            width: screen.frame.width - topLeft.width - topRight.width,
+            height: screen.safeAreaInsets.top
+        )
     }
 
     private func scheduleHide(of notch: MessageNotch, after delay: Duration) {

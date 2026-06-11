@@ -5,12 +5,12 @@ import SwiftUI
 /// reports completion. Texts that fit are shown statically.
 struct TickerText: View {
     let text: String
+    var windowWidth: CGFloat = 190
     var onFinished: () -> Void = {}
 
     /// The teaser is a preview, not the reading surface — long messages are
     /// truncated; the full text lives in the hover-expanded view.
     private let previewLimit = 48
-    private let windowWidth: CGFloat = 190
     private let pointsPerSecond: CGFloat = 30
     /// Lets the entrance animation settle before the text starts moving.
     private let startDelay: TimeInterval = 0.9
