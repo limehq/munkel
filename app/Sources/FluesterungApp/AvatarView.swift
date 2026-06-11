@@ -39,12 +39,17 @@ struct AvatarView: View {
     }
 
     private var palette: [Color] {
+        Self.palette(for: name)
+    }
+
+    /// Stable per-sender colors, shared with effects like the pulse ring.
+    static func palette(for name: String) -> [Color] {
         // FNV-1a: stable across launches, unlike Hasher-based hashValue
         var hash: UInt64 = 0xcbf2_9ce4_8422_2325
         for byte in name.utf8 {
             hash ^= UInt64(byte)
             hash = hash &* 0x0000_0100_0000_01B3
         }
-        return Self.palettes[Int(hash % UInt64(Self.palettes.count))]
+        return palettes[Int(hash % UInt64(palettes.count))]
     }
 }
