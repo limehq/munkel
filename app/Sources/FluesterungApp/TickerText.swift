@@ -13,6 +13,9 @@ struct TickerText: View {
     /// Standstill before scrolling starts, so the beginning is readable
     /// after the notch has finished expanding.
     private let startDelay: TimeInterval = 1.6
+    /// The scroll overshoots by this much so the text's end comes to rest
+    /// clear of the trailing edge fade (which covers the last ~10pt).
+    private let endPadding: CGFloat = 14
 
     @State private var textWidth: CGFloat = .zero
     @State private var appearedAt = Date()
@@ -22,7 +25,7 @@ struct TickerText: View {
         Group {
             if textWidth > windowWidth {
                 TimelineView(.animation(minimumInterval: nil, paused: finished)) { context in
-                    let maxOffset = textWidth - windowWidth
+                    let maxOffset = textWidth - windowWidth + endPadding
                     let elapsed = max(0, context.date.timeIntervalSince(appearedAt) - startDelay)
                     let offset = min(CGFloat(elapsed) * pointsPerSecond, maxOffset)
                     displayedText
