@@ -8,7 +8,7 @@ import SwiftUI
 /// defers hiding while the pointer is over the notch.
 @MainActor
 final class NotchPresenter {
-    private typealias MessageNotch = DynamicNotch<MessageNotchView, CompactAvatarView, EmptyView>
+    private typealias MessageNotch = DynamicNotch<MessageNotchView, CompactAvatarView, CompactMessageTicker>
 
     private var currentNotch: MessageNotch?
     private var hideTask: Task<Void, Never>?
@@ -32,12 +32,12 @@ final class NotchPresenter {
         } compactLeading: {
             CompactAvatarView(name: message.sender)
         } compactTrailing: {
-            EmptyView()
+            CompactMessageTicker(text: message.text)
         }
         // Livelier panel entrance; hover-expand converts directly instead of
         // hiding in between.
         notch.transitionConfiguration = .init(
-            openingAnimation: .spring(response: 0.45, dampingFraction: 0.65),
+            openingAnimation: .spring(response: 0.6, dampingFraction: 0.7),
             conversionAnimation: .spring(response: 0.35, dampingFraction: 0.7),
             skipIntermediateHides: true
         )

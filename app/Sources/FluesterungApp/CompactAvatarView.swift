@@ -24,10 +24,10 @@ struct CompactAvatarView: View {
             // to the right of the compact-leading area).
             .offset(x: appeared ? 0 : 12)
             .onAppear {
-                withAnimation(.spring(response: 0.4, dampingFraction: 0.55)) {
+                withAnimation(.spring(response: 0.55, dampingFraction: 0.6)) {
                     appeared = true
                 }
-                withAnimation(.easeOut(duration: 0.8).delay(0.35)) {
+                withAnimation(.easeOut(duration: 1.0).delay(0.55)) {
                     pulsed = true
                 }
             }
