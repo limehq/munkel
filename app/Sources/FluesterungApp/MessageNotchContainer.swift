@@ -61,14 +61,9 @@ struct MessageNotchContainer: View {
             }
             .offset(y: notchSize.height > 0 ? avatarOffsetY : 0)
         }
-        // Clicking anywhere on the BLACK SHAPE copies — not just our content
-        // rectangle. The hit area extends over the library's side insets,
-        // the menu-bar strip and the bottom margin. The strip button still
-        // wins on its own area (deepest hit target first).
-        .contentShape(NotchHitArea(topExtra: notchSize.height))
-        .onTapGesture {
-            model.copy(message.text)
-        }
+        // Click-anywhere-to-copy is handled by an AppKit event monitor in
+        // NotchPresenter — a SwiftUI tap gesture here would lose the first
+        // click to window activation.
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.fullyExpanded)
     }
 
@@ -96,21 +91,5 @@ struct MessageNotchContainer: View {
     /// Vertically centers the avatar in the menu-bar-height strip above.
     private var avatarOffsetY: CGFloat {
         -(notchSize.height + avatarSize) / 2
-    }
-}
-
-/// The full black notch shape as a tap target: our content rect plus the
-/// library's 15pt safe-area + 15pt corner padding per side, the menu-bar
-/// strip above and the 15pt bottom inset.
-private struct NotchHitArea: Shape {
-    var topExtra: CGFloat
-
-    func path(in rect: CGRect) -> Path {
-        Path(CGRect(
-            x: rect.minX - 30,
-            y: rect.minY - topExtra,
-            width: rect.width + 60,
-            height: rect.height + topExtra + 15
-        ))
     }
 }

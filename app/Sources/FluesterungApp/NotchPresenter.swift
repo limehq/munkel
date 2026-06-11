@@ -15,6 +15,7 @@ final class NotchPresenter {
     private var currentModel: MessageDisplayModel?
     private var hideTask: Task<Void, Never>?
     private var hoverObservation: AnyCancellable?
+    private var clickMonitor: Any?
 
     /// Linger after the teaser finished its single scroll-through.
     private let afterTeaserDelay: Duration = .seconds(2)
@@ -32,6 +33,7 @@ final class NotchPresenter {
     func show(sender: String, text: String) async {
         hideTask?.cancel()
         hoverObservation = nil
+        removeClickMonitor()
         if let previous = currentNotch {
             await previous.hide()
         }
@@ -68,7 +70,31 @@ final class NotchPresenter {
             }
 
         await notch.expand()
+        installClickMonitor(for: notch, model: model, text: text)
         scheduleHide(of: notch, after: safetyDuration(for: text))
+    }
+
+    /// Click-anywhere-to-copy, at the AppKit level: the panel is never the
+    /// key window, so the first click would normally be swallowed as
+    /// window activation (acceptsFirstMouse). A local monitor sees the
+    /// event before that. Transparent panel regions pass clicks through,
+    /// so matching the window means the click hit the visible shape.
+    private func installClickMonitor(for notch: MessageNotch, model: MessageDisplayModel, text: String) {
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak notch, weak model] event in
+            MainActor.assumeIsolated {
+                if let panel = notch?.windowController?.window, event.window === panel {
+                    model?.copy(text)
+                }
+            }
+            return event
+        }
+    }
+
+    private func removeClickMonitor() {
+        if let clickMonitor {
+            NSEvent.removeMonitor(clickMonitor)
+        }
+        clickMonitor = nil
     }
 
     private func teaserFinished() {
