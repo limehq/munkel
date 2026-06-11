@@ -2,22 +2,25 @@ import Combine
 import DynamicNotchKit
 import SwiftUI
 
-/// Presents incoming messages in the notch — deliberately unobtrusive:
-/// only the sender's avatar appears compact next to the notch; hovering
-/// expands to the full message with the copy button. DynamicNotchKit itself
-/// defers hiding while the pointer is over the notch.
+/// Presents incoming messages below the notch: a slim one-line teaser
+/// (avatar + text scrolling through once), expanding to the full message
+/// with the copy button on hover. DynamicNotchKit itself defers hiding
+/// while the pointer is over the notch.
 @MainActor
 final class NotchPresenter {
-    private typealias MessageNotch = DynamicNotch<MessageNotchView, CompactAvatarView, CompactMessageTicker>
+    private typealias MessageNotch = DynamicNotch<MessageNotchContainer, EmptyView, EmptyView>
 
     private var currentNotch: MessageNotch?
+    private var currentModel: MessageDisplayModel?
     private var hideTask: Task<Void, Never>?
     private var hoverObservation: AnyCancellable?
 
-    /// How long the compact avatar stays when the message is never hovered.
-    private let compactDuration: Duration = .seconds(6)
+    /// Linger after the teaser finished its single scroll-through.
+    private let afterTeaserDelay: Duration = .seconds(2)
     /// Grace period after the pointer leaves the expanded message.
     private let afterReadDelay: Duration = .seconds(1)
+    /// Upper bound in case the teaser never reports completion.
+    private let safetyDuration: Duration = .seconds(15)
 
     func show(sender: String, text: String) async {
         hideTask?.cancel()
@@ -27,18 +30,16 @@ final class NotchPresenter {
         }
 
         let message = IncomingMessage(sender: sender, text: text)
+        let model = MessageDisplayModel()
+        currentModel = model
+
         let notch = DynamicNotch(hoverBehavior: .all) {
-            MessageNotchView(message: message)
-        } compactLeading: {
-            CompactAvatarView(name: message.sender)
-        } compactTrailing: {
-            CompactMessageTicker(text: message.text)
+            MessageNotchContainer(model: model, message: message) { [weak self] in
+                self?.teaserFinished()
+            }
         }
-        // Livelier panel entrance; hover-expand converts directly instead of
-        // hiding in between.
         notch.transitionConfiguration = .init(
             openingAnimation: .spring(response: 0.6, dampingFraction: 0.7),
-            conversionAnimation: .spring(response: 0.35, dampingFraction: 0.7),
             skipIntermediateHides: true
         )
         currentNotch = notch
@@ -51,15 +52,20 @@ final class NotchPresenter {
                 Task { @MainActor in
                     if hovering {
                         self.hideTask?.cancel()
-                        await notch.expand()
+                        self.currentModel?.fullyExpanded = true
                     } else {
                         self.scheduleHide(of: notch, after: self.afterReadDelay)
                     }
                 }
             }
 
-        await notch.compact()
-        scheduleHide(of: notch, after: compactDuration)
+        await notch.expand()
+        scheduleHide(of: notch, after: safetyDuration)
+    }
+
+    private func teaserFinished() {
+        guard let notch = currentNotch, currentModel?.fullyExpanded != true else { return }
+        scheduleHide(of: notch, after: afterTeaserDelay)
     }
 
     private func scheduleHide(of notch: MessageNotch, after delay: Duration) {

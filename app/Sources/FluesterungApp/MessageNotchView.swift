@@ -19,7 +19,7 @@ struct MessageNotchView: View {
                 Text(message.text)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.white)
-                    .lineLimit(3)
+                    .lineLimit(6)
                     .fixedSize(horizontal: false, vertical: true)
             }
 
