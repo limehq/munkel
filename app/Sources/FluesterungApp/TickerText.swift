@@ -1,8 +1,9 @@
 import SwiftUI
 
 /// Single-line message teaser below the notch: starts at the beginning of
-/// the text and scrolls through exactly once, then stops at the end and
-/// reports completion. Texts that fit are shown statically.
+/// the text, stands still long enough to catch the first words, scrolls
+/// through exactly once, then stops at the end and reports completion.
+/// Texts that fit are shown statically.
 struct TickerText: View {
     let text: String
     var windowWidth: CGFloat = 190
@@ -11,9 +12,10 @@ struct TickerText: View {
     /// The teaser is a preview, not the reading surface — long messages are
     /// truncated; the full text lives in the hover-expanded view.
     private let previewLimit = 48
-    private let pointsPerSecond: CGFloat = 30
-    /// Lets the entrance animation settle before the text starts moving.
-    private let startDelay: TimeInterval = 0.9
+    private let pointsPerSecond: CGFloat = 24
+    /// Standstill before scrolling starts, so the beginning is readable
+    /// after the notch has finished expanding.
+    private let startDelay: TimeInterval = 1.6
 
     @State private var textWidth: CGFloat = .zero
     @State private var appearedAt = Date()
@@ -29,6 +31,9 @@ struct TickerText: View {
                     displayedText
                         .fixedSize()
                         .offset(x: -offset)
+                        .frame(width: windowWidth, alignment: .leading)
+                        .clipped()
+                        .mask(edgeFade(fadeLeading: offset > 0.5))
                         .onChange(of: offset >= maxOffset) { _, done in
                             if done {
                                 finished = true
@@ -36,9 +41,9 @@ struct TickerText: View {
                             }
                         }
                 }
-                .frame(width: windowWidth, alignment: .leading)
-                .clipped()
-                .mask(edgeFade)
+                // The scroll clock starts only once the ticker is actually
+                // on screen — not when the view tree is built.
+                .onAppear { appearedAt = Date() }
             } else {
                 displayedText
                     .onAppear { onFinished() }
@@ -55,7 +60,6 @@ struct TickerText: View {
                     textWidth = width
                 }
         }
-        .onAppear { appearedAt = Date() }
     }
 
     private var displayedText: some View {
@@ -69,11 +73,13 @@ struct TickerText: View {
         text.count > previewLimit ? text.prefix(previewLimit).trimmingCharacters(in: .whitespaces) + "…" : text
     }
 
-    private var edgeFade: LinearGradient {
+    /// The leading fade only appears once the text actually moves — the
+    /// first characters must be fully readable at the start.
+    private func edgeFade(fadeLeading: Bool) -> LinearGradient {
         LinearGradient(
             stops: [
-                .init(color: .clear, location: 0),
-                .init(color: .black, location: 0.03),
+                .init(color: fadeLeading ? .clear : .black, location: 0),
+                .init(color: .black, location: fadeLeading ? 0.04 : 0),
                 .init(color: .black, location: 0.96),
                 .init(color: .clear, location: 1),
             ],

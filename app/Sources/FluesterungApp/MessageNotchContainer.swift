@@ -35,6 +35,13 @@ struct MessageNotchContainer: View {
                 fallbackTeaser
             }
         }
+        // The copy button lives permanently in the strip right of the
+        // cutout, in both states — so it never jumps away under the
+        // pointer when hovering morphs the teaser into the full view.
+        .overlay(alignment: .topTrailing) {
+            CopyMessageButton(text: message.text, diameter: avatarSize)
+                .offset(y: notchSize.height > 0 ? avatarOffsetY : 0)
+        }
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.fullyExpanded)
     }
 
