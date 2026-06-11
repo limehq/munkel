@@ -15,8 +15,10 @@ end-to-end encryption key. The relay only routes opaque blobs.
 | `PROTOCOL.md` | Wire protocol v1 (WebSocket + JSON, E2E AES-256-GCM) | ✅ v1 |
 | `server/` | Cloudflare Workers + **Durable Objects** (Hono + partyserver, TypeScript) | ✅ implemented, 18 tests green |
 | `app/` | Swift menu-bar app: `FluesterungKit` (crypto, protocol, relay client) + MenuBarExtra UI + notch display | ✅ working, 22 Kit tests green |
-| `cli/` | Swift `fluester` CLI (talks to the app via Unix domain socket) | planned |
+| `app/Sources/Flustr` | `flustr` CLI (talks to the app via Unix domain socket) | ✅ working |
 | MCP server | thin wrapper around the CLI/socket | planned |
+
+Production relay: **wss://fluesterung.limehq.workers.dev** (the app's default).
 
 ## Architecture decisions
 
@@ -74,7 +76,25 @@ open .build/Fluesterung.app
 Menu bar icon → create or join a group, set your display name, send to the
 group or a single member. Incoming messages appear in the notch.
 Settings live under the `dev.uq.fluesterung` defaults domain; the relay URL
-defaults to `ws://127.0.0.1:8787` (point it at the deployed Worker later).
+defaults to the deployed Worker (override with `ws://127.0.0.1:8787` for
+local development against `wrangler dev`).
+
+## flustr CLI
+
+```sh
+cd app && swift build -c release --product flustr
+cp .build/release/flustr ~/.local/bin/
+
+flustr groups                       # ● yolbe  —  Anna, Ben
+flustr yolbe Jurij hey              # direct message, recipient by display name
+flustr yolbe all "Kaffee, jemand?"  # group broadcast
+```
+
+The CLI is a thin client: it talks to the running app over
+`~/Library/Application Support/Fluesterung/control.sock` (newline-delimited
+JSON; see `ControlProtocol.swift`). The app resolves group-code prefixes and
+recipient display names, and owns all crypto and relay connections — ideal
+substrate for an MCP server.
 
 ### Testing without a second Mac
 

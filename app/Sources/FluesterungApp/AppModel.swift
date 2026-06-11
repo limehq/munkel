@@ -23,10 +23,11 @@ final class AppModel: ObservableObject {
 
     private static let groupsKey = "groupCodes"
     private static let relayURLKey = "relayURL"
-    private static let defaultRelayURL = "ws://127.0.0.1:8787"
+    private static let defaultRelayURL = "wss://fluesterung.limehq.workers.dev"
 
     private var sessions: [String: GroupSession] = [:]
     private let notch = NotchPresenter()
+    private var controlServer: ControlServer?
 
     init() {
         self.displayName = Identity.displayName
@@ -35,6 +36,9 @@ final class AppModel: ObservableObject {
         for code in groupCodes {
             openSession(code: code)
         }
+        let server = ControlServer(model: self)
+        server.start()
+        self.controlServer = server
     }
 
     func session(for code: String) -> GroupSession? {
@@ -68,6 +72,64 @@ final class AppModel: ObservableObject {
     func send(text: String, group code: String, to memberId: String? = nil) {
         guard let session = sessions[code] else { return }
         Task { await session.sendChat(text, to: memberId) }
+    }
+
+    // MARK: - flustr CLI (via ControlServer)
+
+    func handleControl(_ request: ControlRequest) async -> ControlResponse {
+        switch request.action {
+        case "groups":
+            let infos = groupCodes.map { code in
+                ControlGroupInfo(
+                    code: code,
+                    connected: sessions[code]?.isConnected ?? false,
+                    members: sessions[code]?.members.map(\.label) ?? []
+                )
+            }
+            return ControlResponse(ok: true, groups: infos)
+
+        case "send":
+            guard let text = request.text, !text.isEmpty else {
+                return ControlResponse(ok: false, error: "Leere Nachricht")
+            }
+            guard let groupQuery = request.group else {
+                return ControlResponse(ok: false, error: "Gruppe fehlt")
+            }
+            guard let session = resolveGroup(groupQuery) else {
+                return ControlResponse(ok: false, error: "Unbekannte oder mehrdeutige Gruppe \"\(groupQuery)\" — flustr groups zeigt alle")
+            }
+
+            var recipientId: String?
+            if let to = request.to, !["all", "alle", "*"].contains(to.lowercased()) {
+                let matches = session.members.filter {
+                    $0.label.caseInsensitiveCompare(to) == .orderedSame || $0.id.hasPrefix(to.lowercased())
+                }
+                guard matches.count == 1 else {
+                    let problem = matches.isEmpty ? "ist nicht online" : "ist mehrdeutig"
+                    return ControlResponse(ok: false, error: "\"\(to)\" \(problem) in \(session.code)")
+                }
+                recipientId = matches[0].id
+            }
+
+            let sent = await session.sendChat(text, to: recipientId)
+            return sent
+                ? ControlResponse(ok: true)
+                : ControlResponse(ok: false, error: "Senden fehlgeschlagen — keine Verbindung zum Relay?")
+
+        default:
+            return ControlResponse(ok: false, error: "Unbekannte Aktion \"\(request.action)\"")
+        }
+    }
+
+    /// Exact code match first, then unique prefix (so `flustr kaffee …` works).
+    private func resolveGroup(_ query: String) -> GroupSession? {
+        let normalized = GroupKey.normalize(query)
+        if let exact = sessions[normalized] {
+            return exact
+        }
+        let prefixMatches = groupCodes.filter { $0.hasPrefix(normalized) }
+        guard prefixMatches.count == 1 else { return nil }
+        return sessions[prefixMatches[0]]
     }
 
     private func openSession(code: String) {

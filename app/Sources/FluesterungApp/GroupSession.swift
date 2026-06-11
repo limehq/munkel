@@ -49,22 +49,26 @@ final class GroupSession {
         Task { await client.close() }
     }
 
-    func sendChat(_ text: String, to memberId: String? = nil) async {
+    @discardableResult
+    func sendChat(_ text: String, to memberId: String? = nil) async -> Bool {
         let payload = AppPayload.chat(text: text, sentAt: Date())
-        await send(payload, to: memberId)
+        return await send(payload, to: memberId)
     }
 
-    func sendProfile(to memberId: String? = nil) async {
+    @discardableResult
+    func sendProfile(to memberId: String? = nil) async -> Bool {
         let payload = AppPayload.profile(displayName: Identity.displayName, avatar: nil)
-        await send(payload, to: memberId)
+        return await send(payload, to: memberId)
     }
 
-    private func send(_ payload: AppPayload, to memberId: String?) async {
+    private func send(_ payload: AppPayload, to memberId: String?) async -> Bool {
         do {
             let sealed = try MessageCrypto.seal(payload.encoded(), using: key.messageKey)
             try await client.send(.send(payload: sealed, to: memberId))
+            return true
         } catch {
             NSLog("fluesterung: send failed in \(code): \(error)")
+            return false
         }
     }
 
