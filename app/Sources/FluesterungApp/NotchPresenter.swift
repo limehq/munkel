@@ -1,18 +1,27 @@
+import Combine
 import DynamicNotchKit
 import SwiftUI
 
-/// Presents incoming messages in the notch. One DynamicNotch instance per
-/// message; auto-dismiss after a fixed duration. DynamicNotchKit itself
-/// defers hiding while the pointer hovers the notch.
+/// Presents incoming messages in the notch — deliberately unobtrusive:
+/// only the sender's avatar appears compact next to the notch; hovering
+/// expands to the full message with the copy button. DynamicNotchKit itself
+/// defers hiding while the pointer is over the notch.
 @MainActor
 final class NotchPresenter {
-    private var currentNotch: DynamicNotch<MessageNotchView, EmptyView, EmptyView>?
-    private var hideTask: Task<Void, Never>?
+    private typealias MessageNotch = DynamicNotch<MessageNotchView, AvatarView, EmptyView>
 
-    private let displayDuration: Duration = .seconds(5)
+    private var currentNotch: MessageNotch?
+    private var hideTask: Task<Void, Never>?
+    private var hoverObservation: AnyCancellable?
+
+    /// How long the compact avatar stays when the message is never hovered.
+    private let compactDuration: Duration = .seconds(6)
+    /// Grace period after the pointer leaves the expanded message.
+    private let afterReadDelay: Duration = .seconds(1)
 
     func show(sender: String, text: String) async {
         hideTask?.cancel()
+        hoverObservation = nil
         if let previous = currentNotch {
             await previous.hide()
         }
@@ -20,13 +29,36 @@ final class NotchPresenter {
         let message = IncomingMessage(sender: sender, text: text)
         let notch = DynamicNotch(hoverBehavior: .all) {
             MessageNotchView(message: message)
+        } compactLeading: {
+            AvatarView(name: message.sender, size: 20)
+        } compactTrailing: {
+            EmptyView()
         }
         currentNotch = notch
 
-        await notch.expand()
+        hoverObservation = notch.$isHovering
+            .removeDuplicates()
+            .dropFirst()
+            .sink { [weak self, weak notch] hovering in
+                guard let self, let notch else { return }
+                Task { @MainActor in
+                    if hovering {
+                        self.hideTask?.cancel()
+                        await notch.expand()
+                    } else {
+                        self.scheduleHide(of: notch, after: self.afterReadDelay)
+                    }
+                }
+            }
 
+        await notch.compact()
+        scheduleHide(of: notch, after: compactDuration)
+    }
+
+    private func scheduleHide(of notch: MessageNotch, after delay: Duration) {
+        hideTask?.cancel()
         hideTask = Task { [weak notch] in
-            try? await Task.sleep(for: displayDuration)
+            try? await Task.sleep(for: delay)
             guard !Task.isCancelled, let notch else { return }
             await notch.hide()
         }
