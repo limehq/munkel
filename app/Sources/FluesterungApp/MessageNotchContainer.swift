@@ -20,12 +20,13 @@ struct MessageNotchContainer: View {
             if model.fullyExpanded {
                 MessageNotchView(message: message)
             } else {
-                HStack(spacing: 10) {
+                VStack(alignment: .leading, spacing: 5) {
                     CompactAvatarView(name: message.sender)
                     TickerText(text: message.text, onFinished: onTeaserFinished)
                 }
                 .padding(.horizontal, 6)
-                .padding(.vertical, 2)
+                .padding(.vertical, 4)
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.fullyExpanded)
