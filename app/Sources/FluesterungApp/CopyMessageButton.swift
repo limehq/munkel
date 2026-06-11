@@ -1,16 +1,15 @@
-import AppKit
 import SwiftUI
 
-/// Puts the full message text on the clipboard, morphing briefly into a
-/// green checkmark as confirmation.
+/// Presentational copy affordance: morphs into a green checkmark while
+/// `copied` is true. The copy state lives in MessageDisplayModel so that
+/// click-anywhere-to-copy flashes the same feedback.
 struct CopyMessageButton: View {
-    let text: String
+    let copied: Bool
     var diameter: CGFloat = 28
-
-    @State private var copied = false
+    var action: () -> Void
 
     var body: some View {
-        Button(action: copy) {
+        Button(action: action) {
             Image(systemName: copied ? "checkmark" : "doc.on.doc")
                 .font(.system(size: diameter * 0.43, weight: .semibold))
                 .foregroundStyle(copied ? Color.green : .white.opacity(0.65))
@@ -20,17 +19,5 @@ struct CopyMessageButton: View {
         }
         .buttonStyle(.plain)
         .help("Nachricht kopieren")
-    }
-
-    private func copy() {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
-
-        withAnimation(.spring(duration: 0.3)) { copied = true }
-        Task {
-            try? await Task.sleep(for: .seconds(1.5))
-            withAnimation(.spring(duration: 0.3)) { copied = false }
-        }
     }
 }

@@ -1,10 +1,25 @@
+import AppKit
 import SwiftUI
 
 /// Drives the in-place morph between the one-line teaser and the full
-/// message view inside a single expanded notch.
+/// message view inside a single expanded notch, plus the shared
+/// copied-feedback state.
 @MainActor
 final class MessageDisplayModel: ObservableObject {
     @Published var fullyExpanded = false
+    @Published var copied = false
+
+    func copy(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+
+        withAnimation(.spring(duration: 0.3)) { copied = true }
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            withAnimation(.spring(duration: 0.3)) { copied = false }
+        }
+    }
 }
 
 /// The notch content for one message. Teaser state: the avatar sits at
@@ -41,8 +56,16 @@ struct MessageNotchContainer: View {
         // cutout, in both states — so it never jumps away under the
         // pointer when hovering morphs the teaser into the full view.
         .overlay(alignment: .topTrailing) {
-            CopyMessageButton(text: message.text, diameter: avatarSize)
-                .offset(y: notchSize.height > 0 ? avatarOffsetY : 0)
+            CopyMessageButton(copied: model.copied, diameter: avatarSize) {
+                model.copy(message.text)
+            }
+            .offset(y: notchSize.height > 0 ? avatarOffsetY : 0)
+        }
+        // Clicking anywhere on the message copies it too; the strip button
+        // still wins on its own area (deepest hit target first).
+        .contentShape(Rectangle())
+        .onTapGesture {
+            model.copy(message.text)
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.fullyExpanded)
     }
