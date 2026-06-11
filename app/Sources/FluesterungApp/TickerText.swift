@@ -9,9 +9,6 @@ struct TickerText: View {
     var windowWidth: CGFloat = 190
     var onFinished: () -> Void = {}
 
-    /// The teaser is a preview, not the reading surface — long messages are
-    /// truncated; the full text lives in the hover-expanded view.
-    private let previewLimit = 48
     private let pointsPerSecond: CGFloat = 24
     /// Standstill before scrolling starts, so the beginning is readable
     /// after the notch has finished expanding.
@@ -63,14 +60,10 @@ struct TickerText: View {
     }
 
     private var displayedText: some View {
-        Text(preview)
+        Text(text)
             .font(.system(size: 12, weight: .medium, design: .rounded))
             .foregroundStyle(.white.opacity(0.85))
             .lineLimit(1)
-    }
-
-    private var preview: String {
-        text.count > previewLimit ? text.prefix(previewLimit).trimmingCharacters(in: .whitespaces) + "…" : text
     }
 
     /// The leading fade only appears once the text actually moves — the

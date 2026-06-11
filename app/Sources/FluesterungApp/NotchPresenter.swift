@@ -20,8 +20,14 @@ final class NotchPresenter {
     private let afterTeaserDelay: Duration = .seconds(2)
     /// Grace period after the pointer leaves the expanded message.
     private let afterReadDelay: Duration = .seconds(1)
-    /// Upper bound in case the teaser never reports completion.
-    private let safetyDuration: Duration = .seconds(15)
+    /// Upper bound in case the teaser never reports completion — sized to
+    /// the text so long messages aren't cut off mid-scroll. Rough estimate:
+    /// ~7pt per character at the ticker's font, scrolling at 24pt/s through
+    /// a 250pt window, plus generous start/finish buffers.
+    private func safetyDuration(for text: String) -> Duration {
+        let scrollSeconds = max(0, (Double(text.count) * 7 - 250) / 24)
+        return .seconds(min(90, 10 + scrollSeconds))
+    }
 
     func show(sender: String, text: String) async {
         hideTask?.cancel()
@@ -62,7 +68,7 @@ final class NotchPresenter {
             }
 
         await notch.expand()
-        scheduleHide(of: notch, after: safetyDuration)
+        scheduleHide(of: notch, after: safetyDuration(for: text))
     }
 
     private func teaserFinished() {
