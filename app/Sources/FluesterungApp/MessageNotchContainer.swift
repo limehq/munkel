@@ -20,10 +20,10 @@ struct MessageNotchContainer: View {
     var onTeaserFinished: () -> Void
 
     private let avatarSize: CGFloat = 20
-    private let tickerWindow: CGFloat = 220
-    /// Horizontal space the library adds around the expanded content:
-    /// 15pt safe-area inset + 15pt notch-shape corner padding per side.
-    private let libraryLeadingInset: CGFloat = 30
+    /// Wide enough that the avatar (sitting at the content's leading edge,
+    /// 30pt from the shape's left side) stays clear of the camera cutout:
+    /// side zone = (tickerWindow + 60 − notchWidth) / 2 ≥ 55pt for ≤200pt notches.
+    private let tickerWindow: CGFloat = 250
 
     var body: some View {
         Group {
@@ -38,13 +38,15 @@ struct MessageNotchContainer: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.fullyExpanded)
     }
 
-    /// Text below the notch; avatar lifted into the strip left of the cutout.
+    /// Text below the notch; avatar lifted into the strip left of the cutout,
+    /// flush with the text's leading edge so the line starts right under it.
     private var notchedTeaser: some View {
         TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
-            .padding(.vertical, 4)
+            .padding(.top, 2)
+            .padding(.bottom, -6)
             .overlay(alignment: .topLeading) {
                 CompactAvatarView(name: message.sender)
-                    .offset(x: avatarOffsetX, y: avatarOffsetY)
+                    .offset(y: avatarOffsetY)
             }
     }
 
@@ -55,14 +57,6 @@ struct MessageNotchContainer: View {
             TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
         }
         .padding(.vertical, 4)
-    }
-
-    /// Centers the avatar in the black zone between the shape's left edge
-    /// and the hardware cutout — never behind the camera housing.
-    private var avatarOffsetX: CGFloat {
-        let shapeWidth = tickerWindow + libraryLeadingInset * 2
-        let sideZone = max(avatarSize + 8, (shapeWidth - notchSize.width) / 2)
-        return -libraryLeadingInset + (sideZone - avatarSize) / 2
     }
 
     /// Vertically centers the avatar in the menu-bar-height strip above.
