@@ -26,7 +26,6 @@ struct MessageNotchView: View {
         }
         .padding(.horizontal, 6)
         .padding(.vertical, 4)
-        .frame(minWidth: 280, maxWidth: 360, alignment: .leading)
     }
 
 }

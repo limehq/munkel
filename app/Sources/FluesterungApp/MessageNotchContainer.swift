@@ -28,7 +28,9 @@ struct MessageNotchContainer: View {
     var body: some View {
         Group {
             if model.fullyExpanded {
+                // Same width as the teaser: hovering only grows downward.
                 MessageNotchView(message: message)
+                    .frame(width: tickerWindow, alignment: .leading)
             } else if notchSize.height > 0 {
                 notchedTeaser
             } else {
