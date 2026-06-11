@@ -23,7 +23,15 @@ struct TickerText: View {
 
     var body: some View {
         Group {
-            if textWidth > windowWidth {
+            if textWidth == .zero {
+                // First frame, width not measured yet: render already
+                // clipped to the final window so the notch shape opens at
+                // its real size instead of flashing text-wide first.
+                displayedText
+                    .fixedSize()
+                    .frame(width: windowWidth, alignment: .leading)
+                    .clipped()
+            } else if textWidth > windowWidth {
                 TimelineView(.animation(minimumInterval: nil, paused: finished)) { context in
                     let maxOffset = textWidth - windowWidth + endPadding
                     let elapsed = max(0, context.date.timeIntervalSince(appearedAt) - startDelay)
