@@ -14,7 +14,7 @@ end-to-end encryption key. The relay only routes opaque blobs.
 | `notch-poc/` | Swift, SwiftUI, [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) | ✅ working PoC |
 | `PROTOCOL.md` | Wire protocol v1 (WebSocket + JSON, E2E AES-256-GCM) | ✅ v1 |
 | `server/` | Cloudflare Workers + **Durable Objects** (Hono + partyserver, TypeScript) | ✅ implemented, 18 tests green |
-| `app/` | Swift menu-bar app (holds the relay connection, renders the notch) | planned |
+| `app/` | Swift menu-bar app: `FluesterungKit` (crypto, protocol, relay client) + MenuBarExtra UI + notch display | ✅ working, 22 Kit tests green |
 | `cli/` | Swift `fluester` CLI (talks to the app via Unix domain socket) | planned |
 | MCP server | thin wrapper around the CLI/socket | planned |
 
@@ -61,3 +61,30 @@ bun run deploy     # wrangler deploy
 ```
 
 Connect with `GET /ws?group=<32-hex>&member=<uuid>` — see `PROTOCOL.md`.
+
+## macOS app
+
+```sh
+cd app
+swift test            # FluesterungKit unit tests (crypto, protocol, payloads)
+./make-bundle.sh      # build .build/Fluesterung.app (LSUIElement bundle)
+open .build/Fluesterung.app
+```
+
+Menu bar icon → create or join a group, set your display name, send to the
+group or a single member. Incoming messages appear in the notch.
+Settings live under the `dev.uq.fluesterung` defaults domain; the relay URL
+defaults to `ws://127.0.0.1:8787` (point it at the deployed Worker later).
+
+### Testing without a second Mac
+
+`server/scripts/dev-send.ts` acts as a second group member — it implements
+the full PROTOCOL.md derivation + AES-GCM encryption in TypeScript, so a
+message it sends arriving in the notch also proves Swift↔TS crypto interop
+(the derivation is additionally pinned in `CryptoTests.swift`):
+
+```sh
+cd server
+bun run dev                                        # relay
+bun scripts/dev-send.ts kaffee-falke-42 Anna "Kaffee?"
+```
