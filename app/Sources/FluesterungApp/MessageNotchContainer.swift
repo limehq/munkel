@@ -26,7 +26,6 @@ struct MessageNotchContainer: View {
                 }
                 .padding(.horizontal, 6)
                 .padding(.vertical, 4)
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.fullyExpanded)
