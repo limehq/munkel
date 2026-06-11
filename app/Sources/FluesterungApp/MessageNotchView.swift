@@ -8,7 +8,7 @@ struct MessageNotchView: View {
     let message: IncomingMessage
 
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        HStack(alignment: .top, spacing: 12) {
             AvatarView(name: message.sender)
 
             VStack(alignment: .leading, spacing: 2) {
