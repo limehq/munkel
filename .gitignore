@@ -8,3 +8,6 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 .swiftpm/
+
+# Wrangler local state
+.wrangler/
