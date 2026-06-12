@@ -1,10 +1,10 @@
 {
-	"name": "flustr",
+	"name": "munkel",
 	"version": "0.0.1",
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"build": "bun build src/flustr.ts --compile --outfile dist/flustr",
+		"build": "bun build src/munkel.ts --compile --outfile dist/munkel",
 		"test": "bun test",
 		"typecheck": "tsc --noEmit"
 	},

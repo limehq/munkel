@@ -91,7 +91,7 @@ function MacScreen() {
           {/* menu bar */}
           <div className="flex h-7 items-center justify-between px-4 text-[11px] font-medium text-white/50">
             <div className="flex items-center gap-4">
-              <span className="font-semibold text-white/75">Munkel</span>
+              <span className="font-semibold text-white/75">Munkel2</span>
               <span className="hidden sm:inline">Group</span>
               <span className="hidden sm:inline">Help</span>
             </div>

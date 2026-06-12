@@ -1,7 +1,7 @@
 import CryptoKit
 import Foundation
 import Testing
-@testable import FluesterungKit
+@testable import MunkelKit
 
 @Suite("GroupKey derivation")
 struct GroupKeyTests {
@@ -18,7 +18,7 @@ struct GroupKeyTests {
     /// Pinned cross-implementation vector, computed independently by the
     /// WebCrypto implementation in server/scripts/dev-send.ts.
     @Test func interopVectorMatchesTypeScript() {
-        #expect(GroupKey(code: "kaffee-falke-42").groupId == "7f9ac7b3e63c21ee26f71874543c1dd9")
+        #expect(GroupKey(code: "kaffee-falke-42").groupId == "f90baea19828d68d487c9aa1cb48edf2")
     }
 
     @Test func normalizationFoldsCaseAndWhitespace() {

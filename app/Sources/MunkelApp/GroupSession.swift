@@ -1,5 +1,5 @@
 import Foundation
-import FluesterungKit
+import MunkelKit
 
 /// One joined group: holds the relay connection, decrypts incoming payloads,
 /// tracks presence and exchanges profile payloads.
@@ -76,7 +76,7 @@ final class GroupSession {
             try await client.send(.send(payload: sealed, to: memberId))
             return true
         } catch {
-            NSLog("fluesterung: send failed in \(code): \(error)")
+            NSLog("munkel: send failed in \(code): \(error)")
             return false
         }
     }
@@ -126,21 +126,21 @@ final class GroupSession {
                 break
 
             case let .error(code, message):
-                NSLog("fluesterung: relay error in \(self.code): \(code) \(message)")
+                NSLog("munkel: relay error in \(self.code): \(code) \(message)")
             }
         }
     }
 
     private func handleIncoming(from memberId: String, to: String?, payload: String) {
         guard let plaintext = try? MessageCrypto.open(payload, using: key.messageKey) else {
-            NSLog("fluesterung: dropping undecryptable payload in \(code)")
+            NSLog("munkel: dropping undecryptable payload in \(code)")
             return
         }
         let decoded: AppPayload
         do {
             decoded = try AppPayload.decoded(from: plaintext)
         } catch {
-            NSLog("fluesterung: dropping malformed payload in \(code): \(error)")
+            NSLog("munkel: dropping malformed payload in \(code): \(error)")
             return
         }
 

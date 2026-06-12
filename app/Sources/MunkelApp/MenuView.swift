@@ -16,7 +16,7 @@ struct MenuView: View {
             // GitHub login is mandatory: until it happens, the menu offers
             // nothing but the login flow.
             if model.githubUserLogin == nil {
-                Text("Melde dich mit GitHub an, um Flüsterung zu benutzen.")
+                Text("Melde dich mit GitHub an, um Munkel zu benutzen.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     // Without this the popup truncates to one ellipsized
@@ -84,7 +84,7 @@ struct MenuView: View {
         HStack {
             Image(systemName: "bubble.left.and.bubble.right.fill")
                 .foregroundStyle(.tint)
-            Text("Flüsterung")
+            Text("Munkel")
                 .font(.headline)
             Spacer()
             settingsMenu
@@ -98,7 +98,7 @@ struct MenuView: View {
             Button {
                 showAbout()
             } label: {
-                Label("Über Flüsterung", systemImage: "info.circle")
+                Label("Über Munkel", systemImage: "info.circle")
             }
             Button {
                 checkForUpdates()
@@ -138,7 +138,7 @@ struct MenuView: View {
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
         alert.messageText = "Nach Updates suchen"
-        alert.informativeText = "Du verwendest Flüsterung \(version). Die automatische Update-Prüfung ist noch nicht verfügbar."
+        alert.informativeText = "Du verwendest Munkel \(version). Die automatische Update-Prüfung ist noch nicht verfügbar."
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }

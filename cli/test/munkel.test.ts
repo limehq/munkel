@@ -3,9 +3,9 @@ import { tmpdir } from "node:os"
 import { join } from "node:path"
 
 // Runs the CLI as a subprocess against a fake app listening on a temporary
-// Unix socket (FLUSTR_SOCKET overrides the default path).
+// Unix socket (MUNKEL_SOCKET overrides the default path).
 
-const cliPath = new URL("../src/flustr.ts", import.meta.url).pathname
+const cliPath = new URL("../src/munkel.ts", import.meta.url).pathname
 
 let stopFakeApp: (() => void) | undefined
 afterEach(() => {
@@ -14,7 +14,7 @@ afterEach(() => {
 })
 
 function fakeApp(respond: (request: unknown) => unknown) {
-  const socketPath = join(tmpdir(), `flustr-test-${process.pid}-${Math.random().toString(36).slice(2)}.sock`)
+  const socketPath = join(tmpdir(), `munkel-test-${process.pid}-${Math.random().toString(36).slice(2)}.sock`)
   const requests: unknown[] = []
   const server = Bun.listen({
     unix: socketPath,
@@ -31,9 +31,9 @@ function fakeApp(respond: (request: unknown) => unknown) {
   return { socketPath, requests }
 }
 
-async function runFlustr(args: string[], socketPath = "/nonexistent/control.sock") {
+async function runMunkel(args: string[], socketPath = "/nonexistent/control.sock") {
   const proc = Bun.spawn(["bun", cliPath, ...args], {
-    env: { ...process.env, FLUSTR_SOCKET: socketPath },
+    env: { ...process.env, MUNKEL_SOCKET: socketPath },
     stdout: "pipe",
     stderr: "pipe",
   })
@@ -47,7 +47,7 @@ async function runFlustr(args: string[], socketPath = "/nonexistent/control.sock
 
 test("send delivers request and confirms", async () => {
   const app = fakeApp(() => ({ ok: true }))
-  const result = await runFlustr(["yolbe", "Jurij", "hey", "du"], app.socketPath)
+  const result = await runMunkel(["yolbe", "Jurij", "hey", "du"], app.socketPath)
 
   expect(result.exitCode).toBe(0)
   expect(result.stdout).toContain("geflüstert ✓")
@@ -64,7 +64,7 @@ test("groups lists members with connection status", async () => {
       { code: "kaffee-falke-42", connected: false, members: [] },
     ],
   }))
-  const result = await runFlustr(["groups"], app.socketPath)
+  const result = await runMunkel(["groups"], app.socketPath)
 
   expect(result.exitCode).toBe(0)
   expect(result.stdout).toContain("● yolbe  —  Anna, Ben")
@@ -74,7 +74,7 @@ test("groups lists members with connection status", async () => {
 
 test("groups with no groups prints hint", async () => {
   const app = fakeApp(() => ({ ok: true, groups: [] }))
-  const result = await runFlustr(["groups"], app.socketPath)
+  const result = await runMunkel(["groups"], app.socketPath)
 
   expect(result.exitCode).toBe(0)
   expect(result.stdout).toContain("Keine Gruppen")
@@ -82,7 +82,7 @@ test("groups with no groups prints hint", async () => {
 
 test("app error is reported on stderr", async () => {
   const app = fakeApp(() => ({ ok: false, error: "Unbekannte Gruppe: nope" }))
-  const result = await runFlustr(["nope", "all", "hi"], app.socketPath)
+  const result = await runMunkel(["nope", "all", "hi"], app.socketPath)
 
   expect(result.exitCode).toBe(1)
   expect(result.stderr).toContain("Unbekannte Gruppe: nope")
@@ -90,36 +90,36 @@ test("app error is reported on stderr", async () => {
 
 test("invalid response is rejected", async () => {
   const app = fakeApp(() => undefined) // serializes to "undefined\n" — not JSON
-  const result = await runFlustr(["yolbe", "all", "hi"], app.socketPath)
+  const result = await runMunkel(["yolbe", "all", "hi"], app.socketPath)
 
   expect(result.exitCode).toBe(1)
   expect(result.stderr).toContain("Keine gültige Antwort")
 })
 
 test("missing app yields a helpful error", async () => {
-  const result = await runFlustr(["yolbe", "all", "hi"])
+  const result = await runMunkel(["yolbe", "all", "hi"])
 
   expect(result.exitCode).toBe(1)
-  expect(result.stderr).toContain("Flüsterung-App läuft nicht")
+  expect(result.stderr).toContain("Munkel-App läuft nicht")
 })
 
 test("no arguments prints usage with exit 64", async () => {
-  const result = await runFlustr([])
+  const result = await runMunkel([])
 
   expect(result.exitCode).toBe(64)
-  expect(result.stdout).toContain("flustr <gruppe> <empfänger|all>")
+  expect(result.stdout).toContain("munkel <gruppe> <empfänger|all>")
 })
 
 test("--help prints usage with exit 0", async () => {
-  const result = await runFlustr(["--help"])
+  const result = await runMunkel(["--help"])
 
   expect(result.exitCode).toBe(0)
   expect(result.stdout).toContain("flüstere deinen Freunden")
 })
 
 test("too few send arguments prints usage error", async () => {
-  const result = await runFlustr(["yolbe", "Jurij"])
+  const result = await runMunkel(["yolbe", "Jurij"])
 
   expect(result.exitCode).toBe(64)
-  expect(result.stderr).toContain("usage: flustr")
+  expect(result.stderr).toContain("usage: munkel")
 })

@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import FluesterungKit
+@testable import MunkelKit
 
 @Suite("Wire protocol coding")
 struct WireMessageTests {

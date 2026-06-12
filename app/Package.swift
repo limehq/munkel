@@ -2,24 +2,24 @@
 import PackageDescription
 
 let package = Package(
-    name: "Fluesterung",
+    name: "Munkel",
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(url: "https://github.com/MrKai77/DynamicNotchKit", from: "1.1.0"),
     ],
     targets: [
-        .target(name: "FluesterungKit"),
+        .target(name: "MunkelKit"),
         .executableTarget(
-            name: "fluesterung",
+            name: "munkel",
             dependencies: [
-                "FluesterungKit",
+                "MunkelKit",
                 .product(name: "DynamicNotchKit", package: "DynamicNotchKit"),
             ],
-            path: "Sources/FluesterungApp"
+            path: "Sources/MunkelApp"
         ),
         .testTarget(
-            name: "FluesterungKitTests",
-            dependencies: ["FluesterungKit"]
+            name: "MunkelKitTests",
+            dependencies: ["MunkelKit"]
         ),
     ]
 )

@@ -3,7 +3,7 @@ import Foundation
 import ImageIO
 import Testing
 import UniformTypeIdentifiers
-@testable import FluesterungKit
+@testable import MunkelKit
 
 /// Renders a noisy test image — noise compresses badly, which is exactly
 /// what the budget stepping has to cope with.

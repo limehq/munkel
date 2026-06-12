@@ -1,6 +1,6 @@
 import Foundation
 import Testing
-@testable import FluesterungKit
+@testable import MunkelKit
 
 /// Scripted transport: returns canned JSON bodies in order and records every
 /// request; the sleep stub records intervals instead of waiting.
@@ -159,7 +159,7 @@ struct GitHubDeviceAuthTests {
 
         let request = script.requests[0]
         #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer gho_abc")
-        #expect(request.value(forHTTPHeaderField: "User-Agent") == "fluesterung")
+        #expect(request.value(forHTTPHeaderField: "User-Agent") == "munkel")
     }
 
     @Test func fetchUserAcceptsNullName() async throws {

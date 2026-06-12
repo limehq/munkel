@@ -16,7 +16,7 @@ if (!code) {
 
 const encoder = new TextEncoder();
 const normalized = code.normalize('NFC').trim().toLowerCase();
-const salt = encoder.encode('fluesterung-v1');
+const salt = encoder.encode('munkel-v1');
 
 const ikm = await crypto.subtle.importKey('raw', encoder.encode(normalized), 'HKDF', false, ['deriveBits']);
 

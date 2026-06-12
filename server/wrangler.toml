@@ -1,7 +1,11 @@
-name = "fluesterung"
+name = "munkel-relay"
 main = "src/index.ts"
 compatibility_date = "2026-03-07"
 compatibility_flags = ["nodejs_compat"]
+
+routes = [
+  { pattern = "relay.munkel.app", custom_domain = true }
+]
 
 [[durable_objects.bindings]]
 name = "GROUP_ROOM"

@@ -1,5 +1,5 @@
 import AppKit
-import FluesterungKit
+import MunkelKit
 import SwiftUI
 
 /// Sender avatar: the profile image when one arrived, otherwise initials on

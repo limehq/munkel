@@ -1,4 +1,4 @@
-# Flüsterung Wire Protocol (v1)
+# Munkel Wire Protocol (v1)
 
 The contract between the relay server (`server/`), the macOS app, and the CLI.
 The relay is intentionally dumb: it routes opaque encrypted blobs between group
@@ -29,8 +29,8 @@ Code normalization before derivation: Unicode NFC, trim, lowercase.
 
 | Value | Derivation | Length |
 |---|---|---|
-| `groupId` | `HKDF-SHA256(ikm = utf8(code), salt = "fluesterung-v1", info = "group-id")`, hex-encoded | 16 bytes → 32 hex chars |
-| `messageKey` | `HKDF-SHA256(ikm = utf8(code), salt = "fluesterung-v1", info = "message-key")` | 32 bytes |
+| `groupId` | `HKDF-SHA256(ikm = utf8(code), salt = "munkel-v1", info = "group-id")`, hex-encoded | 16 bytes → 32 hex chars |
+| `messageKey` | `HKDF-SHA256(ikm = utf8(code), salt = "munkel-v1", info = "message-key")` | 32 bytes |
 
 The server only ever sees `groupId` — it cannot recover the code or the key.
 

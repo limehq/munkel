@@ -6,14 +6,14 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 CONFIG="${1:-debug}"
-BUNDLE=".build/Fluesterung.app"
+BUNDLE=".build/Munkel.app"
 
 swift build -c "$CONFIG"
 
 rm -rf "$BUNDLE"
 mkdir -p "$BUNDLE/Contents/MacOS"
 
-cp ".build/$CONFIG/fluesterung" "$BUNDLE/Contents/MacOS/Fluesterung"
+cp ".build/$CONFIG/munkel" "$BUNDLE/Contents/MacOS/Munkel"
 
 cat > "$BUNDLE/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -21,11 +21,11 @@ cat > "$BUNDLE/Contents/Info.plist" <<'PLIST'
 <plist version="1.0">
 <dict>
 	<key>CFBundleExecutable</key>
-	<string>Fluesterung</string>
+	<string>Munkel</string>
 	<key>CFBundleIdentifier</key>
-	<string>dev.uq.fluesterung</string>
+	<string>dev.uq.munkel</string>
 	<key>CFBundleName</key>
-	<string>Flüsterung</string>
+	<string>Munkel</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

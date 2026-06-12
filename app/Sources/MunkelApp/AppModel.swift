@@ -1,6 +1,6 @@
 import AppKit
 import Foundation
-import FluesterungKit
+import MunkelKit
 
 enum GitHubLoginState: Equatable {
     case idle
@@ -35,7 +35,7 @@ final class AppModel: ObservableObject {
 
     private static let groupsKey = "groupCodes"
     private static let relayURLKey = "relayURL"
-    private static let defaultRelayURL = "wss://fluesterung.limehq.workers.dev"
+    private static let defaultRelayURL = "wss://relay.munkel.app"
 
     private var sessions: [String: GroupSession] = [:]
     private let notch = NotchPresenter()
@@ -223,7 +223,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    // MARK: - flustr CLI (via ControlServer)
+    // MARK: - munkel CLI (via ControlServer)
 
     func handleControl(_ request: ControlRequest) async -> ControlResponse {
         switch request.action {
@@ -245,7 +245,7 @@ final class AppModel: ObservableObject {
                 return ControlResponse(ok: false, error: "Kreis fehlt")
             }
             guard let session = resolveGroup(groupQuery) else {
-                return ControlResponse(ok: false, error: "Unbekannter oder mehrdeutiger Kreis \"\(groupQuery)\" — flustr groups zeigt alle")
+                return ControlResponse(ok: false, error: "Unbekannter oder mehrdeutiger Kreis \"\(groupQuery)\" — munkel groups zeigt alle")
             }
 
             var recipientId: String?
@@ -270,7 +270,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Exact code match first, then unique prefix (so `flustr kaffee …` works).
+    /// Exact code match first, then unique prefix (so `munkel kaffee …` works).
     private func resolveGroup(_ query: String) -> GroupSession? {
         let normalized = GroupKey.normalize(query)
         if let exact = sessions[normalized] {

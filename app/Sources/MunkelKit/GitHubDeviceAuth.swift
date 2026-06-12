@@ -139,7 +139,7 @@ public struct GitHubDeviceAuth: Sendable {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
         request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
-        request.setValue("fluesterung", forHTTPHeaderField: "User-Agent")
+        request.setValue("munkel", forHTTPHeaderField: "User-Agent")
 
         let json = try await send(request)
         guard let login = json["login"] as? String else {
@@ -163,7 +163,7 @@ public struct GitHubDeviceAuth: Sendable {
         guard let sizedURL = components.url else { throw GitHubAuthError.malformedResponse }
 
         var request = URLRequest(url: sizedURL)
-        request.setValue("fluesterung", forHTTPHeaderField: "User-Agent")
+        request.setValue("munkel", forHTTPHeaderField: "User-Agent")
         let (data, response) = try await transport(request)
         if let http = response as? HTTPURLResponse, http.statusCode != 200 {
             throw GitHubAuthError.http(http.statusCode)
@@ -178,7 +178,7 @@ public struct GitHubDeviceAuth: Sendable {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.setValue("fluesterung", forHTTPHeaderField: "User-Agent")
+        request.setValue("munkel", forHTTPHeaderField: "User-Agent")
         request.httpBody = Self.formEncode(fields).data(using: .utf8)
         return try await send(request)
     }

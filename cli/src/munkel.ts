@@ -1,12 +1,12 @@
 #!/usr/bin/env bun
-// flustr — whisper into your friends' notches.
+// munkel — whisper into your friends' notches.
 // Thin client: talks to the running menu-bar app over its Unix control
 // socket; the app owns the relay connections and the crypto.
 
 import { homedir } from "node:os"
 import { join } from "node:path"
 
-// Mirrors FluesterungKit/ControlProtocol.swift: newline-delimited JSON,
+// Mirrors MunkelKit/ControlProtocol.swift: newline-delimited JSON,
 // one request/response per connection.
 interface ControlRequest {
   action: string
@@ -28,22 +28,22 @@ interface ControlResponse {
 }
 
 const socketPath =
-  process.env.FLUSTR_SOCKET ??
-  join(homedir(), "Library", "Application Support", "Fluesterung", "control.sock")
+  process.env.MUNKEL_SOCKET ??
+  join(homedir(), "Library", "Application Support", "Munkel", "control.sock")
 
 function fail(message: string, code = 1): never {
-  console.error(`flustr: ${message}`)
+  console.error(`munkel: ${message}`)
   process.exit(code)
 }
 
-const usage = `flustr — flüstere deinen Freunden in die Notch
+const usage = `munkel — flüstere deinen Freunden in die Notch
 
-  flustr <gruppe> <empfänger|all> <nachricht…>   Nachricht senden
-  flustr groups                                  Gruppen & Mitglieder zeigen
+  munkel <gruppe> <empfänger|all> <nachricht…>   Nachricht senden
+  munkel groups                                  Gruppen & Mitglieder zeigen
 
 Beispiele:
-  flustr yolbe Jurij hey
-  flustr yolbe all "Kaffee? Ich geh zum Tresen"`
+  munkel yolbe Jurij hey
+  munkel yolbe all "Kaffee? Ich geh zum Tresen"`
 
 const args = process.argv.slice(2)
 
@@ -57,7 +57,7 @@ if (args[0] === "groups") {
   request = { action: "groups" }
 } else {
   if (args.length < 3) {
-    fail("usage: flustr <gruppe> <empfänger|all> <nachricht…>", 64)
+    fail("usage: munkel <gruppe> <empfänger|all> <nachricht…>", 64)
   }
   request = {
     action: "send",
@@ -97,7 +97,7 @@ try {
     },
   })
 } catch {
-  fail(`Flüsterung-App läuft nicht — bitte zuerst starten (Socket: ${socketPath})`)
+  fail(`Munkel-App läuft nicht — bitte zuerst starten (Socket: ${socketPath})`)
 }
 
 socket.write(JSON.stringify(request) + "\n")
@@ -116,7 +116,7 @@ if (!response.ok) {
 
 if (response.groups) {
   if (response.groups.length === 0) {
-    console.log("Keine Gruppen — erstelle eine in der Flüsterung-App")
+    console.log("Keine Gruppen — erstelle eine in der Munkel-App")
   }
   for (const group of response.groups) {
     const status = group.connected ? "●" : "○"

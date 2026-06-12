@@ -7,7 +7,7 @@ public struct GroupKey: Sendable {
     public let groupId: String
     public let messageKey: SymmetricKey
 
-    private static let salt = Data("fluesterung-v1".utf8)
+    private static let salt = Data("munkel-v1".utf8)
 
     public init(code: String) {
         let normalized = Self.normalize(code)

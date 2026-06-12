@@ -33,7 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(
             systemSymbolName: "bubble.left.and.bubble.right.fill",
-            accessibilityDescription: "Flüsterung"
+            accessibilityDescription: "Munkel"
         )
         item.button?.target = self
         item.button?.action = #selector(togglePopover(_:))
@@ -61,7 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 }
 
 @main
-struct FluesterungApp: App {
+struct MunkelApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {

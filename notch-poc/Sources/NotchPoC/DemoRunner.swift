@@ -30,7 +30,7 @@ final class DemoRunner {
     private func printInstructions() {
         print("""
 
-        fluesterung notch poc
+        munkel notch poc
         ─────────────────────
           ⏎               nächste Demo-Nachricht
           Name: Text      eigene Nachricht anzeigen

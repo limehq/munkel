@@ -1,8 +1,8 @@
 import Foundation
-import FluesterungKit
+import MunkelKit
 import Network
 
-/// Unix-domain-socket server inside the app, serving the `flustr` CLI.
+/// Unix-domain-socket server inside the app, serving the `munkel` CLI.
 /// The app holds the relay connections; the CLI is a thin client.
 @MainActor
 final class ControlServer {
@@ -14,7 +14,7 @@ final class ControlServer {
     }
 
     func start() {
-        let path = FluesterControl.socketURL.path
+        let path = MunkelControl.socketURL.path
         // Stale socket file from a previous run blocks the bind.
         try? FileManager.default.removeItem(atPath: path)
         do {
@@ -30,7 +30,7 @@ final class ControlServer {
             listener.start(queue: .main)
             self.listener = listener
         } catch {
-            NSLog("fluesterung: control socket failed to start: \(error)")
+            NSLog("munkel: control socket failed to start: \(error)")
         }
     }
 

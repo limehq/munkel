@@ -1,13 +1,13 @@
 import Foundation
 
 /// Contract between the menu-bar app (Unix-domain-socket server) and the
-/// `flustr` CLI: newline-delimited JSON, one request/response per connection.
-public enum FluesterControl {
-    /// `~/Library/Application Support/Fluesterung/control.sock`
+/// `munkel` CLI: newline-delimited JSON, one request/response per connection.
+public enum MunkelControl {
+    /// `~/Library/Application Support/Munkel/control.sock`
     public static var socketURL: URL {
         let directory = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Fluesterung", isDirectory: true)
+            .appendingPathComponent("Munkel", isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory.appendingPathComponent("control.sock")
     }
