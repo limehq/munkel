@@ -125,6 +125,13 @@ struct MessageNotchContainer: View {
         // The notch is always black — pin the content to dark so the
         // system light mode can't restyle field, caret and chip.
         .colorScheme(.dark)
+        // Message content must not leak into Teams/Zoom screen shares.
+        // Must stay on the root, outside any conditional branch — see
+        // CaptureExclusion for the invariant. Corollary: no .help()
+        // anywhere in notch content, because AppKit draws tooltips in
+        // their own window, which cannot inherit the exclusion and would
+        // surface in a share while the notch itself is invisible.
+        .excludedFromScreenCapture()
     }
 
     /// What else arrived in the last minute, dimmed and compact below the
@@ -162,7 +169,6 @@ struct MessageNotchContainer: View {
         .padding(.horizontal, 6)
         .padding(.bottom, 6)
         .contentShape(Rectangle())
-        .help(model.historyExpanded ? "Klicken zum Einklappen" : "Klicken, um alles zu lesen")
         // The click itself is handled by NotchPresenter's AppKit monitor,
         // which matches click coordinates against this marker's frame to
         // tell "expand history" apart from "start a reply".
@@ -177,7 +183,6 @@ struct MessageNotchContainer: View {
             Circle()
                 .fill(entry.groupColor)
                 .frame(width: 5, height: 5)
-                .help(entry.group)
             Text(entry.sender)
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.4))
@@ -203,11 +208,6 @@ struct MessageNotchContainer: View {
                     .background(.white.opacity(0.12), in: Circle())
             }
             .buttonStyle(.plain)
-            .help(
-                model.replyPrivately
-                    ? "Antwortet privat an \(message.sender) — klicken für alle"
-                    : "Antwortet an alle — klicken für privat"
-            )
 
             TextField(
                 "",

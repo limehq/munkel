@@ -18,6 +18,7 @@ struct CopyMessageButton: View {
                 .background(.white.opacity(0.1), in: Circle())
         }
         .buttonStyle(.plain)
-        .help("Nachricht kopieren")
+        // No .help: this button only lives in the notch, and tooltip
+        // windows can't inherit the capture exclusion (CaptureExclusion).
     }
 }

@@ -19,6 +19,27 @@ final class NotchPresenter {
     private var hoverObservation: AnyCancellable?
     private var clickMonitor: Any?
     private var outsideClickMonitor: Any?
+    private var screenChangeObservation: AnyCancellable?
+
+    init() {
+        // DynamicNotchKit silently rebuilds its panel — with the default,
+        // capturable sharingType — on every screen-parameter change
+        // (display plug/unplug, resolution switch, AirPlay). The
+        // CaptureExclusion view inside the content re-attaches and is the
+        // frame-exact protection; this re-asserts the flag afterwards as
+        // redundancy. The library reacts in its own async handler with
+        // unspecified ordering, hence the repeated delayed passes.
+        screenChangeObservation = NotificationCenter.default
+            .publisher(for: NSApplication.didChangeScreenParametersNotification)
+            .sink { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    for delay in [0, 50, 250, 1000] {
+                        try? await Task.sleep(for: .milliseconds(delay))
+                        self?.currentNotch?.windowController?.window?.sharingType = .none
+                    }
+                }
+            }
+    }
 
     /// RAM-only message history shown in the expanded notch: everything
     /// younger than this window, deleted afterwards (also live on screen).
@@ -177,6 +198,12 @@ final class NotchPresenter {
             }
 
         await notch.expand()
+        // Redundancy only — the frame-exact protection is the
+        // CaptureExclusion view at the content root, which attaches before
+        // any message content is composited. This late re-assertion (and
+        // the screen-change observer in init) merely narrows the damage
+        // should the content hierarchy ever lose that view.
+        notch.windowController?.window?.sharingType = .none
         notchVisible = true
         installClickMonitors(for: notch, model: model)
         startHistoryPruning(model: model)

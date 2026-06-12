@@ -15,10 +15,10 @@ struct MessageNotchView: View {
                 HStack(spacing: 4) {
                     Text(message.sender)
                         .font(.system(size: 11, weight: .semibold))
-                    // Globe: everyone saw this. Lock: only you did.
+                    // Globe: everyone saw this. Lock: only you did. No
+                    // .help — tooltip windows leak into screen shares.
                     Image(systemName: message.isDirect ? "lock.fill" : "globe")
                         .font(.system(size: 9))
-                        .help(message.isDirect ? "Privat an dich" : "An alle")
                     Text("·")
                     // Which circle it came from: stable color for
                     // at-a-glance recognition, name for certainty.

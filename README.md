@@ -29,6 +29,12 @@ Production relay: **wss://fluesterung.limehq.workers.dev** (the app's default).
 - **Notch is read-only**: show sender avatar + message, allow copy. No reply
   UI — that's deliberate product scope, not a TODO.
 - **UI/UX first**: the notch presentation is the product. PoC before plumbing.
+- **Capture-proof surfaces**: every window showing message content or circle
+  codes (notch panel, menu popover) is excluded from screen capture
+  (`NSWindow.sharingType = .none`, applied frame-exactly by the
+  `CaptureExclusion` view) — invisible in Teams/Zoom shares and screenshots,
+  visible on the physical display. Corollary: no `.help()` tooltips in notch
+  content, since tooltips get their own capturable window.
 
 ## Notch PoC
 

@@ -74,6 +74,10 @@ struct MenuView: View {
         .onTapGesture {
             NSApp.keyWindow?.makeFirstResponder(nil)
         }
+        // The popover shows every circle code (the sole credential — whoever
+        // reads one can join), the outgoing draft and the GitHub device
+        // code, so it stays out of screen shares like the notch does.
+        .excludedFromScreenCapture()
     }
 
     private var header: some View {
