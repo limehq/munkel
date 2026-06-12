@@ -14,7 +14,7 @@ end-to-end encryption key. The relay only routes opaque blobs.
 | `notch-poc/` | Swift, SwiftUI, [DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit) | ✅ working PoC |
 | `PROTOCOL.md` | Wire protocol v1 (WebSocket + JSON, E2E AES-256-GCM) | ✅ v1 |
 | `server/` | Cloudflare Workers + **Durable Objects** (Hono + partyserver, TypeScript) | ✅ implemented, 18 tests green |
-| `app/` | Swift menu-bar app: `FluesterungKit` (crypto, protocol, relay client) + MenuBarExtra UI + notch display | ✅ working, 22 Kit tests green |
+| `app/` | Swift menu-bar app: `FluesterungKit` (crypto, protocol, relay client, GitHub login) + MenuBarExtra UI + notch display | ✅ working, 39 Kit tests green |
 | `cli/` | `flustr` CLI (Bun/TypeScript, talks to the app via Unix domain socket) | ✅ working |
 | MCP server | thin wrapper around the CLI/socket | planned |
 
@@ -78,6 +78,29 @@ group or a single member. Incoming messages appear in the notch.
 Settings live under the `dev.uq.fluesterung` defaults domain; the relay URL
 defaults to the deployed Worker (override with `ws://127.0.0.1:8787` for
 local development against `wrangler dev`).
+
+### Login with GitHub
+
+"Mit GitHub anmelden" in the menu imports your GitHub username and avatar as
+your identity — still no account: the app runs the [OAuth device
+flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow)
+(user code is auto-copied, browser opens), requests a token with **empty
+scope**, fetches `GET /user` once, downloads the avatar, and **discards the
+token**. Stored locally: login name + a ≤20 KiB JPEG. The avatar travels to
+peers only inside the E2E-encrypted `profile` payload — receivers never
+contact GitHub, and the relay sees nothing.
+
+Honest limits: GitHub itself sees the login happen and keeps the
+authorization listed under Settings → Applications; and the imported profile
+is *display-only* — peers get no cryptographic proof that a member really
+owns the GitHub name they show (profiles are self-asserted, same as typed
+names).
+
+The OAuth app lives in the `limehq` org ("Flüsterung", device flow enabled,
+no client secret — none is needed). To point a build at a different OAuth
+app: create one, tick **Enable Device Flow**, then either edit
+`GitHubConfig.defaultClientID` or run
+`defaults write dev.uq.fluesterung githubClientID <CLIENT_ID>`.
 
 ## flustr CLI
 

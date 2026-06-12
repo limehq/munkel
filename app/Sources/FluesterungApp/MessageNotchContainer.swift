@@ -74,7 +74,7 @@ struct MessageNotchContainer: View {
             .padding(.top, 2)
             .padding(.bottom, -6)
             .overlay(alignment: .topLeading) {
-                CompactAvatarView(name: message.sender)
+                CompactAvatarView(name: message.sender, avatarData: message.avatarData)
                     .offset(y: avatarOffsetY)
             }
     }
@@ -82,7 +82,7 @@ struct MessageNotchContainer: View {
     /// Macs without a notch: keep the avatar in-row, nothing to tuck beside.
     private var fallbackTeaser: some View {
         HStack(spacing: 10) {
-            CompactAvatarView(name: message.sender)
+            CompactAvatarView(name: message.sender, avatarData: message.avatarData)
             TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
         }
         .padding(.vertical, 4)

@@ -5,12 +5,13 @@ import SwiftUI
 /// once with a soft pulse ring in the sender's color.
 struct CompactAvatarView: View {
     let name: String
+    var avatarData: Data? = nil
 
     @State private var appeared = false
     @State private var pulsed = false
 
     var body: some View {
-        AvatarView(name: name, size: 20)
+        AvatarView(name: name, imageData: avatarData, size: 20)
             .background {
                 Circle()
                     .stroke(AvatarView.palette(for: name).first ?? .white, lineWidth: 1)

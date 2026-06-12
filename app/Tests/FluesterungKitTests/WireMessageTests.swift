@@ -107,4 +107,25 @@ struct AppPayloadTests {
         #expect(json["kind"] as? String == "chat")
         #expect(json["sentAt"] as? String == "1970-01-01T00:00:00Z")
     }
+
+    @Test func profileWithoutAvatarOmitsKey() throws {
+        let data = try AppPayload.profile(displayName: "Anna", avatar: nil).encoded()
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["avatar"] == nil)
+    }
+
+    @Test func profileDecodesMissingAvatarAsNil() throws {
+        let decoded = try AppPayload.decoded(
+            from: Data(#"{"kind":"profile","displayName":"Anna"}"#.utf8)
+        )
+        #expect(decoded == .profile(displayName: "Anna", avatar: nil))
+    }
+
+    @Test func profileAvatarEncodesAsBase64String() throws {
+        let bytes = Data([0xFF, 0xD8, 0xFF, 0xE0])
+        let data = try AppPayload.profile(displayName: "Anna", avatar: bytes).encoded()
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        let base64 = try #require(json["avatar"] as? String)
+        #expect(Data(base64Encoded: base64) == bytes)
+    }
 }

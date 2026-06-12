@@ -75,7 +75,7 @@ The relay never sees these. Decrypted plaintext is JSON:
 | Kind | Fields | Notes |
 |---|---|---|
 | `chat` | `text`, `sentAt` (ISO-8601) | The actual message |
-| `profile` | `displayName`, `avatar?` (base64 JPEG/PNG, ≤32 KiB) | Broadcast after joining and whenever a `peer-joined` arrives, so newcomers learn who everyone is |
+| `profile` | `displayName`, `avatar?` (base64 JPEG/PNG, raw ≤24 KiB) | Broadcast after joining and whenever a `peer-joined` arrives, so newcomers learn who everyone is. Sending `profile` without `avatar` clears it. The raw cap keeps the double-base64-inflated frame (≈1.78×) under the relay's 48 KiB payload limit; clients drop incoming avatars above 32 KiB raw |
 
 ## Guarantees and non-guarantees
 

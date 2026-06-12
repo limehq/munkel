@@ -1,9 +1,13 @@
+import AppKit
+import FluesterungKit
 import SwiftUI
 
-/// Initials avatar with a gradient derived deterministically from the name,
-/// so every sender keeps a stable color across messages and launches.
+/// Sender avatar: the profile image when one arrived, otherwise initials on
+/// a gradient derived deterministically from the name, so every sender keeps
+/// a stable color across messages and launches.
 struct AvatarView: View {
     let name: String
+    var imageData: Data? = nil
     var size: CGFloat = 34
 
     private static let palettes: [[Color]] = [
@@ -17,19 +21,28 @@ struct AvatarView: View {
 
     var body: some View {
         ZStack {
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: palette,
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
+            // Peer-controlled bytes: AvatarCodec decodes via a pixel-capped
+            // ImageIO thumbnail, so declared-huge images can't balloon memory.
+            if let cgImage = imageData.flatMap({ AvatarCodec.decodeImage($0) }) {
+                Image(nsImage: NSImage(cgImage: cgImage, size: NSSize(width: size, height: size)))
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                Circle()
+                    .fill(
+                        LinearGradient(
+                            colors: palette,
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        )
                     )
-                )
-            Text(initials)
-                .font(.system(size: size * 0.38, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
+                Text(initials)
+                    .font(.system(size: size * 0.38, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+            }
         }
         .frame(width: size, height: size)
+        .clipShape(Circle())
     }
 
     private var initials: String {

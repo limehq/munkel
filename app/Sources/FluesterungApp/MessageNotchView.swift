@@ -9,7 +9,7 @@ struct MessageNotchView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 12) {
-            AvatarView(name: message.sender)
+            AvatarView(name: message.sender, imageData: message.avatarData)
 
             VStack(alignment: .leading, spacing: 2) {
                 Text(message.sender)

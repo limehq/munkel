@@ -30,7 +30,7 @@ final class NotchPresenter {
         return .seconds(min(90, 10 + scrollSeconds))
     }
 
-    func show(sender: String, text: String) async {
+    func show(sender: String, avatarData: Data?, text: String) async {
         hideTask?.cancel()
         hoverObservation = nil
         removeClickMonitor()
@@ -38,7 +38,7 @@ final class NotchPresenter {
             await previous.hide()
         }
 
-        let message = IncomingMessage(sender: sender, text: text)
+        let message = IncomingMessage(sender: sender, avatarData: avatarData, text: text)
         let model = MessageDisplayModel()
         currentModel = model
 

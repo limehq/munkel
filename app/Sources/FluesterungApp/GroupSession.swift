@@ -7,12 +7,17 @@ import FluesterungKit
 final class GroupSession {
     struct Member: Identifiable, Equatable {
         let id: String
-        var displayName: String?
+        var displayName: String? = nil
+        var avatar: Data? = nil
 
         var label: String {
             displayName ?? String(id.prefix(8))
         }
     }
+
+    /// Upper bound for peer-sent avatar bytes; anything larger is dropped
+    /// (the name is kept). Senders stay below this via AvatarCodec.
+    private static let maxIncomingAvatarBytes = 32_768
 
     let code: String
     private(set) var members: [Member] = []
@@ -57,7 +62,10 @@ final class GroupSession {
 
     @discardableResult
     func sendProfile(to memberId: String? = nil) async -> Bool {
-        let payload = AppPayload.profile(displayName: Identity.displayName, avatar: nil)
+        let payload = AppPayload.profile(
+            displayName: Identity.displayName,
+            avatar: Identity.avatarData
+        )
         return await send(payload, to: memberId)
     }
 
@@ -82,13 +90,25 @@ final class GroupSession {
             switch message {
             case let .welcome(memberIds):
                 isConnected = true
-                members = memberIds.map { Member(id: $0, displayName: nil) }
+                // Merge instead of reset: a welcome also arrives on every
+                // reconnect, and peers never re-introduce themselves to us —
+                // resetting would wipe known names and avatars for good.
+                // Tolerant of duplicate ids: the member list comes from the
+                // (untrusted) relay, and trapping here would be a remote DoS.
+                let known = Dictionary(
+                    members.map { ($0.id, $0) },
+                    uniquingKeysWith: { first, _ in first }
+                )
+                var seen = Set<String>()
+                members = memberIds
+                    .filter { seen.insert($0).inserted }
+                    .map { known[$0] ?? Member(id: $0) }
                 onStateChange?()
                 await sendProfile()
 
             case let .peerJoined(memberId):
                 if !members.contains(where: { $0.id == memberId }) {
-                    members.append(Member(id: memberId, displayName: nil))
+                    members.append(Member(id: memberId))
                 }
                 onStateChange?()
                 // Introduce ourselves directly to the newcomer.
@@ -124,17 +144,24 @@ final class GroupSession {
         }
 
         switch decoded {
-        case let .profile(displayName, _):
+        case let .profile(displayName, avatar):
+            // nil clears the avatar (peer logged out of GitHub).
+            let sanitizedAvatar = avatar.flatMap {
+                $0.count <= Self.maxIncomingAvatarBytes ? $0 : nil
+            }
             if let index = members.firstIndex(where: { $0.id == memberId }) {
                 members[index].displayName = displayName
+                members[index].avatar = sanitizedAvatar
             } else {
-                members.append(Member(id: memberId, displayName: displayName))
+                members.append(
+                    Member(id: memberId, displayName: displayName, avatar: sanitizedAvatar)
+                )
             }
             onStateChange?()
 
         case let .chat(text, _):
             let sender = members.first { $0.id == memberId }
-                ?? Member(id: memberId, displayName: nil)
+                ?? Member(id: memberId)
             onChat?(sender, text)
         }
     }

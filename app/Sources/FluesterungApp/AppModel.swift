@@ -2,17 +2,29 @@ import AppKit
 import Foundation
 import FluesterungKit
 
+enum GitHubLoginState: Equatable {
+    case idle
+    case requestingCode
+    case awaitingUser(userCode: String, verificationURI: URL, expiresAt: Date)
+    case fetchingProfile
+    case failed(String)
+}
+
 @MainActor
 final class AppModel: ObservableObject {
     @Published private(set) var groupCodes: [String] = []
     @Published var displayName: String {
         didSet {
+            guard displayName != oldValue else { return }
             Identity.displayName = displayName
-            for session in sessions.values {
-                Task { await session.sendProfile() }
-            }
+            // Debounced: the TextField writes per keystroke, and a profile
+            // now carries the avatar — broadcasting each edit would fan out
+            // kilobytes per key to every member of every group.
+            scheduleProfileBroadcast()
         }
     }
+    @Published private(set) var githubLoginState: GitHubLoginState = .idle
+    @Published private(set) var githubUserLogin: String? = Identity.githubLogin
     @Published var relayURLString: String {
         didSet {
             UserDefaults.standard.set(relayURLString, forKey: Self.relayURLKey)
@@ -31,6 +43,9 @@ final class AppModel: ObservableObject {
     private var controlServer: ControlServer?
     private var mouseMoveMonitor: Any?
     private var messageActive = false
+    private var githubLoginTask: Task<Void, Never>?
+    private var githubLoginGeneration = 0
+    private var profileBroadcastTask: Task<Void, Never>?
 
     init() {
         self.displayName = Identity.displayName
@@ -120,6 +135,127 @@ final class AppModel: ObservableObject {
         Task { await session.sendChat(text, to: memberId) }
     }
 
+    // MARK: - GitHub login (device flow)
+
+    func startGitHubLogin() {
+        githubLoginTask?.cancel()
+        githubLoginGeneration += 1
+        let generation = githubLoginGeneration
+        githubLoginState = .requestingCode
+        githubLoginTask = Task { await runGitHubLogin(generation: generation) }
+    }
+
+    func cancelGitHubLogin() {
+        githubLoginTask?.cancel()
+        githubLoginTask = nil
+        githubLoginGeneration += 1
+        githubLoginState = .idle
+    }
+
+    func logoutGitHub() {
+        applyProfile(
+            name: Identity.previousDisplayName ?? NSFullUserName(),
+            avatar: nil,
+            githubLogin: nil
+        )
+        Identity.previousDisplayName = nil
+    }
+
+    /// The whole flow lives in a model-held task: the `.window`-style
+    /// MenuBarExtra tears its views down whenever it closes (which opening
+    /// the browser forces), so polling must survive without any view alive.
+    ///
+    /// Every state write is generation-guarded: a cancelled task's in-flight
+    /// URLSession call surfaces as `URLError(.cancelled)` (not
+    /// `CancellationError`), and without the guard its dying catch arm would
+    /// overwrite the state a newer flow — or the cancel itself — just set.
+    private func runGitHubLogin(generation: Int) async {
+        let auth = GitHubDeviceAuth(clientID: GitHubConfig.clientID)
+        do {
+            let grant = try await auth.requestDeviceCode()
+            guard generation == githubLoginGeneration else { return }
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(grant.userCode, forType: .string)
+            githubLoginState = .awaitingUser(
+                userCode: grant.userCode,
+                verificationURI: grant.verificationURI,
+                expiresAt: grant.expiresAt
+            )
+            NSWorkspace.shared.open(grant.verificationURI)
+
+            // Token stays a local — used for one profile fetch, never stored.
+            let token = try await auth.pollForAccessToken(grant)
+            guard generation == githubLoginGeneration else { return }
+            githubLoginState = .fetchingProfile
+            let user = try await auth.fetchUser(token: token)
+
+            // Avatar is best-effort: login succeeds without one, the
+            // initials fallback covers display.
+            var avatar: Data?
+            if let url = user.avatarURL,
+               let raw = try? await auth.fetchAvatar(
+                   from: url, pixelSize: AvatarCodec.maxEncodedPixels
+               ) {
+                avatar = AvatarCodec.makeAvatar(from: raw)
+            }
+
+            guard generation == githubLoginGeneration else { return }
+            if Identity.githubLogin == nil {
+                Identity.previousDisplayName = Identity.displayName
+            }
+            applyProfile(name: user.login, avatar: avatar, githubLogin: user.login)
+            githubLoginState = .idle
+        } catch is CancellationError {
+            // Cancelled flows say nothing — cancelGitHubLogin already reset.
+        } catch let error as URLError where error.code == .cancelled {
+        } catch let error as GitHubAuthError {
+            guard generation == githubLoginGeneration else { return }
+            githubLoginState = .failed(Self.message(for: error))
+        } catch {
+            guard generation == githubLoginGeneration else { return }
+            githubLoginState = .failed("Keine Verbindung zu GitHub.")
+        }
+    }
+
+    /// Writes both identity halves before the single broadcast — a didSet
+    /// broadcast would race the avatar write and send a stale profile.
+    private func applyProfile(name: String, avatar: Data?, githubLogin login: String?) {
+        Identity.avatarData = avatar
+        Identity.githubLogin = login
+        githubUserLogin = login
+        displayName = name
+        profileBroadcastTask?.cancel()
+        broadcastProfile()
+    }
+
+    private func scheduleProfileBroadcast() {
+        profileBroadcastTask?.cancel()
+        profileBroadcastTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            self?.broadcastProfile()
+        }
+    }
+
+    private func broadcastProfile() {
+        for session in sessions.values {
+            Task { await session.sendProfile() }
+        }
+    }
+
+    private static func message(for error: GitHubAuthError) -> String {
+        switch error {
+        case .deviceFlowDisabled:
+            "Device Flow ist für die OAuth-App nicht aktiviert (siehe README)."
+        case .expired:
+            "Code abgelaufen — bitte erneut versuchen."
+        case .accessDenied:
+            "Anmeldung auf github.com abgelehnt."
+        case .http, .malformedResponse:
+            "GitHub hat unerwartet geantwortet — bitte erneut versuchen."
+        }
+    }
+
     // MARK: - flustr CLI (via ControlServer)
 
     func handleControl(_ request: ControlRequest) async -> ControlResponse {
@@ -189,7 +325,11 @@ final class AppModel: ObservableObject {
             Task {
                 await MainActor.run { self.messageActive = true }
                 self.notchMenu.hide()
-                await self.notch.show(sender: sender.label, text: text)
+                await self.notch.show(
+                    sender: sender.label,
+                    avatarData: sender.avatar,
+                    text: text
+                )
                 try? await Task.sleep(for: .seconds(5))
                 await MainActor.run { self.messageActive = false }
             }

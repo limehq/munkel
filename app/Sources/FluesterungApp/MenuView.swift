@@ -4,6 +4,7 @@ struct MenuView: View {
     @EnvironmentObject private var model: AppModel
     @State private var joinCode = ""
     @State private var lastCreatedCode: String?
+    @State private var userCodeCopied = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -22,6 +23,10 @@ struct MenuView: View {
             Divider()
 
             joinArea
+
+            Divider()
+
+            githubArea
 
             Divider()
 
@@ -64,6 +69,105 @@ struct MenuView: View {
                 }
             }
         }
+    }
+
+    @ViewBuilder
+    private var githubArea: some View {
+        switch model.githubLoginState {
+        case .idle:
+            if let login = model.githubUserLogin {
+                HStack(spacing: 8) {
+                    AvatarView(name: model.displayName, imageData: Identity.avatarData, size: 20)
+                    Text("Angemeldet als \(login)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Abmelden") { model.logoutGitHub() }
+                        .controlSize(.small)
+                }
+            } else {
+                Button {
+                    model.startGitHubLogin()
+                } label: {
+                    Label("Mit GitHub anmelden", systemImage: "person.crop.circle.badge.checkmark")
+                }
+                .disabled(!GitHubConfig.isConfigured)
+                .help(
+                    GitHubConfig.isConfigured
+                        ? "Holt Username + Avatar von GitHub (einmalig, kein Konto)"
+                        : "Keine Client-ID konfiguriert — siehe README"
+                )
+            }
+
+        case .requestingCode:
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Verbinde mit GitHub…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Abbrechen") { model.cancelGitHubLogin() }
+                    .controlSize(.small)
+            }
+
+        case let .awaitingUser(userCode, verificationURI, _):
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(userCode)
+                        .font(.system(.title3, design: .monospaced).weight(.bold))
+                        .textSelection(.enabled)
+                    Button {
+                        copyUserCode(userCode)
+                    } label: {
+                        Image(systemName: userCodeCopied ? "checkmark" : "doc.on.doc")
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.secondary)
+                    .help("Code kopieren")
+                    Spacer()
+                    Button("Abbrechen") { model.cancelGitHubLogin() }
+                        .controlSize(.small)
+                }
+                Text(
+                    userCodeCopied
+                        ? "Code kopiert — auf github.com einfügen."
+                        : "Diesen Code auf github.com einfügen."
+                )
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                Button("Browser erneut öffnen") {
+                    copyUserCode(userCode)
+                    NSWorkspace.shared.open(verificationURI)
+                }
+                .controlSize(.small)
+            }
+
+        case .fetchingProfile:
+            HStack(spacing: 8) {
+                ProgressView().controlSize(.small)
+                Text("Lade GitHub-Profil…")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+        case let .failed(message):
+            HStack {
+                Text(message)
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                Spacer()
+                Button("Erneut") { model.startGitHubLogin() }
+                    .controlSize(.small)
+                Button("Verwerfen") { model.cancelGitHubLogin() }
+                    .controlSize(.small)
+            }
+        }
+    }
+
+    private func copyUserCode(_ code: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(code, forType: .string)
+        userCodeCopied = true
     }
 
     private var footer: some View {
@@ -116,10 +220,17 @@ struct GroupSectionView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                Text(members.map(\.label).joined(separator: ", "))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(2)
+                HStack(spacing: 6) {
+                    HStack(spacing: -5) {
+                        ForEach(members.prefix(8)) { member in
+                            AvatarView(name: member.label, imageData: member.avatar, size: 16)
+                        }
+                    }
+                    Text(members.map(\.label).joined(separator: ", "))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
             }
 
             HStack(spacing: 6) {
