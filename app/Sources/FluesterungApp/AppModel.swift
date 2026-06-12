@@ -27,7 +27,10 @@ final class AppModel: ObservableObject {
 
     private var sessions: [String: GroupSession] = [:]
     private let notch = NotchPresenter()
+    private let notchMenu = NotchMenuPresenter()
     private var controlServer: ControlServer?
+    private var mouseMoveMonitor: Any?
+    private var messageActive = false
 
     init() {
         self.displayName = Identity.displayName
@@ -39,6 +42,49 @@ final class AppModel: ObservableObject {
         let server = ControlServer(model: self)
         server.start()
         self.controlServer = server
+        setupNotchMenuHoverMonitor()
+    }
+
+    private func setupNotchMenuHoverMonitor() {
+        mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
+            guard let self else { return }
+
+            MainActor.assumeIsolated {
+                guard let triggerZone = self.notchTriggerZone() else { return }
+                let mouseLocation = NSEvent.mouseLocation
+
+                if triggerZone.contains(mouseLocation) && !self.messageActive {
+                    self.notchMenu.show(model: self)
+                }
+            }
+        }
+    }
+
+    /// Trigger zone matches the hardware notch exactly: the menu only expands
+    /// when the cursor enters the notch cutout itself.
+    private func notchTriggerZone() -> NSRect? {
+        guard let screen = NSScreen.screens.first else { return nil }
+
+        // Measure hardware notch from auxiliary areas; fall back to a small
+        // top-center strip on Macs without a notch.
+        let notchWidth: CGFloat
+        let notchHeight: CGFloat
+        if screen.safeAreaInsets.top > 0,
+           let topLeft = screen.auxiliaryTopLeftArea,
+           let topRight = screen.auxiliaryTopRightArea {
+            notchWidth = screen.frame.width - topLeft.width - topRight.width
+            notchHeight = screen.safeAreaInsets.top
+        } else {
+            notchWidth = 200
+            notchHeight = 24
+        }
+
+        return NSRect(
+            x: screen.frame.midX - notchWidth / 2,
+            y: screen.frame.maxY - notchHeight,
+            width: notchWidth,
+            height: notchHeight
+        )
     }
 
     func session(for code: String) -> GroupSession? {
@@ -140,7 +186,13 @@ final class AppModel: ObservableObject {
         }
         session.onChat = { [weak self] sender, text in
             guard let self else { return }
-            Task { await self.notch.show(sender: sender.label, text: text) }
+            Task {
+                await MainActor.run { self.messageActive = true }
+                self.notchMenu.hide()
+                await self.notch.show(sender: sender.label, text: text)
+                try? await Task.sleep(for: .seconds(5))
+                await MainActor.run { self.messageActive = false }
+            }
         }
         sessions[code] = session
         session.start()
