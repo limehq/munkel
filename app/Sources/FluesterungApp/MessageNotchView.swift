@@ -19,6 +19,15 @@ struct MessageNotchView: View {
                     Image(systemName: message.isDirect ? "lock.fill" : "globe")
                         .font(.system(size: 9))
                         .help(message.isDirect ? "Privat an dich" : "An alle")
+                    Text("·")
+                    // Which circle it came from: stable color for
+                    // at-a-glance recognition, name for certainty.
+                    Circle()
+                        .fill(message.groupColor)
+                        .frame(width: 6, height: 6)
+                    Text(message.group)
+                        .font(.system(size: 10, design: .monospaced))
+                        .lineLimit(1)
                 }
                 .foregroundStyle(.white.opacity(0.55))
                 Text(message.text)

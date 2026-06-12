@@ -289,17 +289,18 @@ final class AppModel: ObservableObject {
         }
         session.onChat = { [weak self] sender, text, isDirect in
             guard let self else { return }
-            Task {
-                await self.notch.show(
-                    sender: sender.label,
-                    avatarData: sender.avatar,
-                    text: text,
-                    isDirect: isDirect
-                ) { [weak self] reply, privately in
-                    // Default mirrors how the message arrived; the toggle
-                    // in the reply field can override per message.
-                    self?.send(text: reply, group: code, to: privately ? sender.id : nil)
-                }
+            self.notch.show(
+                sender: sender.label,
+                avatarData: sender.avatar,
+                text: text,
+                isDirect: isDirect,
+                group: code,
+                groupColor: .groupColor(index: self.groupCodes.firstIndex(of: code) ?? 0),
+                inMultipleGroups: self.groupCodes.count > 1
+            ) { [weak self] reply, privately in
+                // Default mirrors how the message arrived; the toggle
+                // in the reply field can override per message.
+                self?.send(text: reply, group: code, to: privately ? sender.id : nil)
             }
         }
         sessions[code] = session

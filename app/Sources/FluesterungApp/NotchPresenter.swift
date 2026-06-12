@@ -15,9 +15,25 @@ final class NotchPresenter {
     private var currentNotch: MessageNotch?
     private var currentModel: MessageDisplayModel?
     private var hideTask: Task<Void, Never>?
+    private var pruneTask: Task<Void, Never>?
     private var hoverObservation: AnyCancellable?
     private var clickMonitor: Any?
     private var outsideClickMonitor: Any?
+
+    /// RAM-only message history shown in the expanded notch: everything
+    /// younger than this window, deleted afterwards (also live on screen).
+    private let historyWindow: TimeInterval = 60
+    private var history: [HistoryEntry] = []
+
+    /// Displays run strictly one after another; a message that gets
+    /// superseded while waiting is skipped (it lives on as a history row).
+    private var pendingShow: Task<Void, Never>?
+    private var showGeneration = 0
+    /// History id of the message currently on screen.
+    private var currentEntryID: UUID?
+    /// Whether a notch panel is actually on screen — `fullyExpanded` alone
+    /// is not enough, it stays true after the panel has hidden.
+    private var notchVisible = false
 
     /// Linger after the teaser finished its single scroll-through.
     private let afterTeaserDelay: Duration = .seconds(2)
@@ -37,19 +53,87 @@ final class NotchPresenter {
         avatarData: Data?,
         text: String,
         isDirect: Bool,
+        group: String,
+        groupColor: Color,
+        inMultipleGroups: Bool,
+        onReply: @escaping (_ text: String, _ privately: Bool) -> Void
+    ) {
+        let message = IncomingMessage(
+            sender: sender,
+            avatarData: avatarData,
+            text: text,
+            isDirect: isDirect,
+            group: group,
+            groupColor: groupColor,
+            inMultipleGroups: inMultipleGroups
+        )
+        let entry = HistoryEntry(
+            sender: sender,
+            text: text,
+            isDirect: isDirect,
+            group: group,
+            groupColor: groupColor,
+            receivedAt: Date()
+        )
+        pruneHistory()
+        history.append(entry)
+
+        // A living expanded instance absorbs new messages directly into
+        // its history rows — no teardown, no replay after un-hovering.
+        if notchVisible, let model = currentModel, model.fullyExpanded, !model.replySent,
+           let displayedID = currentEntryID {
+            withAnimation(.spring(duration: 0.3)) {
+                model.history = visibleHistory(excluding: displayedID)
+            }
+            return
+        }
+
+        // Strictly serialized, collapsing display chain. Without it, two
+        // messages arriving while the notch is hovered run show()
+        // concurrently (DynamicNotchKit defers hide() until un-hover, so
+        // both block, then interleave) — and one of the two panels ends
+        // up orphaned with no one left to ever close it.
+        showGeneration += 1
+        let generation = showGeneration
+        let previous = pendingShow
+        pendingShow = Task { [weak self] in
+            await previous?.value
+            guard let self, generation == self.showGeneration else { return }
+            await self.display(message, entryID: entry.id, generation: generation, onReply: onReply)
+        }
+    }
+
+    private func display(
+        _ message: IncomingMessage,
+        entryID: UUID,
+        generation: Int,
         onReply: @escaping (_ text: String, _ privately: Bool) -> Void
     ) async {
+        // Never yank an open reply field from under the user — wait until
+        // the reply is sent or dismissed.
+        while let current = currentModel, current.replying, !current.replySent {
+            try? await Task.sleep(for: .seconds(0.25))
+            guard generation == showGeneration else { return }
+        }
+
         hideTask?.cancel()
         hoverObservation = nil
         removeClickMonitors()
         if let previous = currentNotch {
+            // Deferred by DynamicNotchKit while the pointer stays on the
+            // notch; afterwards a newer message may have taken over.
             await previous.hide()
+            guard generation == showGeneration else { return }
         }
 
-        let message = IncomingMessage(sender: sender, avatarData: avatarData, text: text, isDirect: isDirect)
         let model = MessageDisplayModel()
         // Replies default to the channel the message came in on.
-        model.replyPrivately = isDirect
+        model.replyPrivately = message.isDirect
+        // The expanded state shows what else arrived in the last minute
+        // before this message.
+        pruneHistory()
+        model.history = visibleHistory(excluding: entryID)
+        currentEntryID = entryID
         currentModel = model
 
         let notchSize = Self.hardwareNotchSize()
@@ -93,8 +177,41 @@ final class NotchPresenter {
             }
 
         await notch.expand()
+        notchVisible = true
         installClickMonitors(for: notch, model: model)
-        scheduleHide(of: notch, after: safetyDuration(for: text))
+        startHistoryPruning(model: model)
+        scheduleHide(of: notch, after: safetyDuration(for: message.text))
+    }
+
+    /// Expires history entries live while the notch is on screen, so rows
+    /// vanish from the expanded view the moment they turn 60 seconds old.
+    private func startHistoryPruning(model: MessageDisplayModel) {
+        pruneTask?.cancel()
+        pruneTask = Task { [weak self, weak model] in
+            while !Task.isCancelled, let self, let model {
+                self.pruneHistory()
+                if let id = self.currentEntryID {
+                    let visible = self.visibleHistory(excluding: id)
+                    if model.history != visible {
+                        withAnimation(.spring(duration: 0.3)) {
+                            model.history = visible
+                        }
+                    }
+                }
+                try? await Task.sleep(for: .seconds(1))
+            }
+        }
+    }
+
+    /// Everything in the buffer except the message that's currently
+    /// displayed — chronological, so live-pushed newcomers appear as the
+    /// bottom-most row, directly above the current message.
+    private func visibleHistory(excluding id: UUID) -> [HistoryEntry] {
+        history.filter { $0.id != id }
+    }
+
+    private func pruneHistory() {
+        history.removeAll { Date().timeIntervalSince($0.receivedAt) > historyWindow }
     }
 
     /// Click-anywhere-to-reply, at the AppKit level: the panel is not key
@@ -109,7 +226,21 @@ final class NotchPresenter {
             MainActor.assumeIsolated {
                 guard let self, let model, let panel = notch?.windowController?.window else { return }
                 if event.window === panel {
-                    self.beginReply(model: model, panel: panel)
+                    // hitTest is useless here (NSHostingView returns
+                    // itself wherever SwiftUI content covers the marker),
+                    // so clicks are matched against the marker frames via
+                    // AppKit coordinate conversion instead. History clicks
+                    // toggle the truncation, clicks on the current message
+                    // open the reply — everything else on the shape is
+                    // inert (buttons handle themselves).
+                    if Self.click(event, lands: model.historyMarker) {
+                        withAnimation(.spring(duration: 0.3)) {
+                            model.historyExpanded.toggle()
+                        }
+                    } else if Self.click(event, lands: model.replyMarker)
+                        || Self.click(event, lands: model.teaserMarker) {
+                        self.beginReply(model: model, panel: panel)
+                    }
                 } else {
                     self.cancelReply()
                 }
@@ -121,6 +252,11 @@ final class NotchPresenter {
                 self?.cancelReply()
             }
         }
+    }
+
+    private static func click(_ event: NSEvent, lands marker: NSView?) -> Bool {
+        guard let marker, marker.window === event.window else { return false }
+        return marker.bounds.contains(marker.convert(event.locationInWindow, from: nil))
     }
 
     private func removeClickMonitors() {
@@ -186,10 +322,12 @@ final class NotchPresenter {
 
     private func scheduleHide(of notch: MessageNotch, after delay: Duration) {
         hideTask?.cancel()
-        hideTask = Task { [weak notch] in
+        hideTask = Task { [weak self, weak notch] in
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled, let notch else { return }
             await notch.hide()
+            self?.notchVisible = false
+            self?.pruneTask?.cancel()
         }
     }
 }
