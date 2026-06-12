@@ -68,9 +68,7 @@ struct MenuView: View {
 
     private var footer: some View {
         HStack {
-            TextField("Relay-URL", text: $model.relayURLString)
-                .textFieldStyle(.roundedBorder)
-                .font(.caption)
+            Spacer()
             Button("Beenden") {
                 NSApp.terminate(nil)
             }
