@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 
 /// The full (hover-expanded) view: avatar, sender, text. Copying lives in
-/// the persistent strip button (see MessageNotchContainer). Deliberately
-/// read-only — no reply affordance, per product decision.
+/// the persistent strip button; clicking the message opens the inline
+/// reply field (see MessageNotchContainer/NotchPresenter).
 struct MessageNotchView: View {
     let message: IncomingMessage
 
@@ -12,9 +12,15 @@ struct MessageNotchView: View {
             AvatarView(name: message.sender, imageData: message.avatarData)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(message.sender)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.55))
+                HStack(spacing: 4) {
+                    Text(message.sender)
+                        .font(.system(size: 11, weight: .semibold))
+                    // Globe: everyone saw this. Lock: only you did.
+                    Image(systemName: message.isDirect ? "lock.fill" : "globe")
+                        .font(.system(size: 9))
+                        .help(message.isDirect ? "Privat an dich" : "An alle")
+                }
+                .foregroundStyle(.white.opacity(0.55))
                 Text(message.text)
                     .font(.system(size: 14, weight: .medium))
                     .foregroundStyle(.white)

@@ -29,8 +29,9 @@ final class GroupSession {
 
     /// Called on any presence/connection change so the UI can refresh.
     var onStateChange: (() -> Void)?
-    /// Called with sender label and text when a chat message arrives.
-    var onChat: ((_ sender: Member, _ text: String) -> Void)?
+    /// Called when a chat message arrives; `isDirect` distinguishes a
+    /// private message (relay `to` set) from a group broadcast.
+    var onChat: ((_ sender: Member, _ text: String, _ isDirect: Bool) -> Void)?
 
     init(code: String, relayURL: URL) {
         self.code = code
@@ -118,8 +119,8 @@ final class GroupSession {
                 members.removeAll { $0.id == memberId }
                 onStateChange?()
 
-            case let .message(from, _, payload):
-                handleIncoming(from: from, payload: payload)
+            case let .message(from, to, payload):
+                handleIncoming(from: from, to: to, payload: payload)
 
             case .pong:
                 break
@@ -130,7 +131,7 @@ final class GroupSession {
         }
     }
 
-    private func handleIncoming(from memberId: String, payload: String) {
+    private func handleIncoming(from memberId: String, to: String?, payload: String) {
         guard let plaintext = try? MessageCrypto.open(payload, using: key.messageKey) else {
             NSLog("fluesterung: dropping undecryptable payload in \(code)")
             return
@@ -162,7 +163,7 @@ final class GroupSession {
         case let .chat(text, _):
             let sender = members.first { $0.id == memberId }
                 ?? Member(id: memberId)
-            onChat?(sender, text)
+            onChat?(sender, text, to != nil)
         }
     }
 }

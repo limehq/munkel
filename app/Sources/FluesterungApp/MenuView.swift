@@ -3,37 +3,77 @@ import SwiftUI
 struct MenuView: View {
     @EnvironmentObject private var model: AppModel
     @State private var joinCode = ""
-    @State private var lastCreatedCode: String?
     @State private var userCodeCopied = false
+    @State private var groupListHeight: CGFloat = 0
+
+    /// Cap before the group list starts scrolling.
+    private let maxGroupListHeight: CGFloat = 360
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
 
-            if model.groupCodes.isEmpty {
-                Text("Noch keine Gruppe. Erstelle eine oder tritt mit einem Code bei.")
+            // GitHub login is mandatory: until it happens, the menu offers
+            // nothing but the login flow.
+            if model.githubUserLogin == nil {
+                Text("Melde dich mit GitHub an, um Flüsterung zu benutzen.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    // Without this the popup truncates to one ellipsized
+                    // line instead of wrapping.
+                    .fixedSize(horizontal: false, vertical: true)
+
+                githubArea
+            } else {
+                if model.groupCodes.isEmpty {
+                    Text("Noch kein Kreis. Erstelle einen oder tritt mit einem Code bei.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        // Without this the popup truncates to one ellipsized
+                        // line instead of wrapping.
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                // Scrolls once the group list outgrows the cap. A bare
+                // maxHeight does not work here: ScrollView has no ideal
+                // height of its own and collapses to zero in this
+                // ideal-sized popup — so the content height is measured
+                // and applied explicitly.
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(model.groupCodes, id: \.self) { code in
+                            GroupSectionView(code: code)
+                        }
+                    }
+                    .background(
+                        GeometryReader { proxy in
+                            Color.clear.preference(
+                                key: GroupListHeightKey.self,
+                                value: proxy.size.height
+                            )
+                        }
+                    )
+                }
+                .onPreferenceChange(GroupListHeightKey.self) { groupListHeight = $0 }
+                .frame(height: groupListHeight == 0 ? nil : min(groupListHeight, maxGroupListHeight))
+
+                Divider()
+
+                joinArea
+
+                Divider()
+
+                githubArea
             }
-
-            ForEach(model.groupCodes, id: \.self) { code in
-                GroupSectionView(code: code)
-            }
-
-            Divider()
-
-            joinArea
-
-            Divider()
-
-            githubArea
-
-            Divider()
-
-            footer
         }
         .padding(14)
         .frame(width: 320)
+        // AppKit never blurs a focused control when empty space is
+        // clicked — do it ourselves so the focus ring can disappear.
+        .contentShape(Rectangle())
+        .onTapGesture {
+            NSApp.keyWindow?.makeFirstResponder(nil)
+        }
     }
 
     private var header: some View {
@@ -43,31 +83,85 @@ struct MenuView: View {
             Text("Flüsterung")
                 .font(.headline)
             Spacer()
-            TextField("Dein Name", text: $model.displayName)
-                .textFieldStyle(.roundedBorder)
-                .frame(width: 120)
+            settingsMenu
         }
     }
 
+    /// Apple convention for menu-bar apps: a gear "action menu" on the
+    /// right edge — About, update check, then quit with the standard ⌘Q.
+    private var settingsMenu: some View {
+        Menu {
+            Button {
+                showAbout()
+            } label: {
+                Label("Über Flüsterung", systemImage: "info.circle")
+            }
+            Button {
+                checkForUpdates()
+            } label: {
+                Label("Nach Updates suchen…", systemImage: "arrow.triangle.2.circlepath")
+            }
+            Divider()
+            Button {
+                NSApp.terminate(nil)
+            } label: {
+                Label("Beenden", systemImage: "power")
+            }
+            .keyboardShortcut("q")
+        } label: {
+            Image(systemName: "gearshape")
+                .foregroundStyle(.secondary)
+        }
+        .menuStyle(.borderlessButton)
+        .menuIndicator(.hidden)
+        .fixedSize()
+        .help("Einstellungen")
+    }
+
+    /// The standard about panel; it reads name and versions from the
+    /// bundle's Info.plist, so future info lands there (or in a Credits
+    /// file) rather than in code.
+    private func showAbout() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.orderFrontStandardAboutPanel(nil)
+    }
+
+    /// Placeholder until a real update channel exists (e.g. Sparkle or a
+    /// GitHub-Releases check) — shows the running version so the item is
+    /// already useful.
+    private func checkForUpdates() {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.messageText = "Nach Updates suchen"
+        alert.informativeText = "Du verwendest Flüsterung \(version). Die automatische Update-Prüfung ist noch nicht verfügbar."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    /// One field for both flows: join and create are the same operation in
+    /// the protocol (knowing the code is knowing the group), so the UI
+    /// stops pretending otherwise. The die fills in a generated code for
+    /// the cases where guessability matters.
     private var joinArea: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                TextField("Gruppencode", text: $joinCode)
-                    .textFieldStyle(.roundedBorder)
+                TextField("Dein Kreis", text: $joinCode)
+                    .frostedField()
                     .onSubmit(joinTapped)
+                Button {
+                    joinCode = GroupCode.generate()
+                } label: {
+                    Image(systemName: "die.face.5")
+                }
+                .help("Zufälligen Code würfeln")
                 Button("Beitreten", action: joinTapped)
                     .disabled(joinCode.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            HStack {
-                Button("Neue Gruppe erstellen") {
-                    lastCreatedCode = model.createGroup()
-                }
-                if let created = lastCreatedCode {
-                    Text("\(created) kopiert ✓")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
+            Text("Gibt es den Kreis noch nicht, wird er erstellt.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
@@ -78,7 +172,7 @@ struct MenuView: View {
             if let login = model.githubUserLogin {
                 HStack(spacing: 8) {
                     AvatarView(name: model.displayName, imageData: Identity.avatarData, size: 20)
-                    Text("Angemeldet als \(login)")
+                    Text("Angemeldet als \(model.displayName) (@\(login))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
@@ -170,18 +264,58 @@ struct MenuView: View {
         userCodeCopied = true
     }
 
-    private var footer: some View {
-        HStack {
-            Spacer()
-            Button("Beenden") {
-                NSApp.terminate(nil)
-            }
-        }
-    }
-
     private func joinTapped() {
         model.join(code: joinCode)
         joinCode = ""
+    }
+}
+
+private struct GroupListHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = max(value, nextValue())
+    }
+}
+
+/// Frosted-glass text field, replacing the opaque white .roundedBorder
+/// style: translucent material so the popover background shimmers
+/// through, plus a hairline border for definition.
+private struct FrostedField: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    @FocusState private var focused: Bool
+
+    func body(content: Content) -> some View {
+        content
+            .textFieldStyle(.plain)
+            .focused($focused)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 5)
+            // White tint over the material lightens it while keeping the
+            // translucency — gently in dark mode, where 35% white would
+            // turn the fields into gray slabs.
+            .background(
+                RoundedRectangle(cornerRadius: 7)
+                    .fill(.white.opacity(colorScheme == .dark ? 0.08 : 0.35))
+            )
+            .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 7))
+            .overlay(
+                RoundedRectangle(cornerRadius: 7)
+                    .strokeBorder(Color(nsColor: .separatorColor), lineWidth: 1)
+            )
+            // .plain draws no focus ring, so the frosted style brings its
+            // own: the system-typical soft accent halo around the field.
+            .overlay(
+                RoundedRectangle(cornerRadius: 8.5)
+                    .inset(by: -1.5)
+                    .stroke(Color.accentColor.opacity(focused ? 0.5 : 0), lineWidth: 3)
+            )
+            .animation(.easeOut(duration: 0.15), value: focused)
+    }
+}
+
+extension View {
+    func frostedField() -> some View {
+        modifier(FrostedField())
     }
 }
 
@@ -204,6 +338,15 @@ struct GroupSectionView: View {
                     .frame(width: 8, height: 8)
                 Text(code)
                     .font(.system(.subheadline, design: .monospaced).weight(.semibold))
+                Button {
+                    NSPasteboard.general.clearContents()
+                    NSPasteboard.general.setString(code, forType: .string)
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .help("Code kopieren")
                 Spacer()
                 Button {
                     model.leave(code: code)
@@ -212,7 +355,7 @@ struct GroupSectionView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .help("Gruppe verlassen")
+                .help("Kreis verlassen")
             }
 
             if members.isEmpty {
@@ -244,7 +387,7 @@ struct GroupSectionView: View {
                 .frame(width: 90)
 
                 TextField("Nachricht…", text: $draft)
-                    .textFieldStyle(.roundedBorder)
+                    .frostedField()
                     .onSubmit(sendTapped)
 
                 Button(action: sendTapped) {

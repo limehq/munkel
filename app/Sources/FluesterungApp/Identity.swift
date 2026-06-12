@@ -1,14 +1,13 @@
 import Foundation
 
-/// Local identity: a stable per-installation member UUID plus the
-/// user-chosen display name. No accounts — this never leaves the clients
-/// except inside encrypted profile payloads.
+/// Local identity: a stable per-installation member UUID plus the display
+/// name (the GitHub first name — login is mandatory, the name not editable).
+/// This never leaves the clients except inside encrypted profile payloads.
 enum Identity {
     private static let memberIdKey = "memberId"
     private static let displayNameKey = "displayName"
     private static let avatarDataKey = "avatarData"
     private static let githubLoginKey = "githubLogin"
-    private static let previousDisplayNameKey = "previousDisplayName"
 
     static var memberId: String {
         let defaults = UserDefaults.standard
@@ -37,11 +36,5 @@ enum Identity {
     static var githubLogin: String? {
         get { UserDefaults.standard.string(forKey: githubLoginKey) }
         set { UserDefaults.standard.set(newValue, forKey: githubLoginKey) }
-    }
-
-    /// The hand-picked name from before a GitHub login, restored on logout.
-    static var previousDisplayName: String? {
-        get { UserDefaults.standard.string(forKey: previousDisplayNameKey) }
-        set { UserDefaults.standard.set(newValue, forKey: previousDisplayNameKey) }
     }
 }

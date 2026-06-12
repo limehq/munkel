@@ -39,10 +39,7 @@ final class AppModel: ObservableObject {
 
     private var sessions: [String: GroupSession] = [:]
     private let notch = NotchPresenter()
-    private let notchMenu = NotchMenuPresenter()
     private var controlServer: ControlServer?
-    private var mouseMoveMonitor: Any?
-    private var messageActive = false
     private var githubLoginTask: Task<Void, Never>?
     private var githubLoginGeneration = 0
     private var profileBroadcastTask: Task<Void, Never>?
@@ -51,55 +48,16 @@ final class AppModel: ObservableObject {
         self.displayName = Identity.displayName
         self.relayURLString = UserDefaults.standard.string(forKey: Self.relayURLKey) ?? Self.defaultRelayURL
         self.groupCodes = UserDefaults.standard.stringArray(forKey: Self.groupsKey) ?? []
-        for code in groupCodes {
-            openSession(code: code)
+        // GitHub login is mandatory: without it no session connects — the
+        // persisted groups come back online with the next login.
+        if Identity.githubLogin != nil {
+            for code in groupCodes {
+                openSession(code: code)
+            }
         }
         let server = ControlServer(model: self)
         server.start()
         self.controlServer = server
-        setupNotchMenuHoverMonitor()
-    }
-
-    private func setupNotchMenuHoverMonitor() {
-        mouseMoveMonitor = NSEvent.addGlobalMonitorForEvents(matching: .mouseMoved) { [weak self] _ in
-            guard let self else { return }
-
-            MainActor.assumeIsolated {
-                guard let triggerZone = self.notchTriggerZone() else { return }
-                let mouseLocation = NSEvent.mouseLocation
-
-                if triggerZone.contains(mouseLocation) && !self.messageActive {
-                    self.notchMenu.show(model: self)
-                }
-            }
-        }
-    }
-
-    /// Trigger zone matches the hardware notch exactly: the menu only expands
-    /// when the cursor enters the notch cutout itself.
-    private func notchTriggerZone() -> NSRect? {
-        guard let screen = NSScreen.screens.first else { return nil }
-
-        // Measure hardware notch from auxiliary areas; fall back to a small
-        // top-center strip on Macs without a notch.
-        let notchWidth: CGFloat
-        let notchHeight: CGFloat
-        if screen.safeAreaInsets.top > 0,
-           let topLeft = screen.auxiliaryTopLeftArea,
-           let topRight = screen.auxiliaryTopRightArea {
-            notchWidth = screen.frame.width - topLeft.width - topRight.width
-            notchHeight = screen.safeAreaInsets.top
-        } else {
-            notchWidth = 200
-            notchHeight = 24
-        }
-
-        return NSRect(
-            x: screen.frame.midX - notchWidth / 2,
-            y: screen.frame.maxY - notchHeight,
-            width: notchWidth,
-            height: notchHeight
-        )
     }
 
     func session(for code: String) -> GroupSession? {
@@ -107,20 +65,12 @@ final class AppModel: ObservableObject {
     }
 
     func join(code rawCode: String) {
+        guard githubUserLogin != nil else { return }
         let code = GroupKey.normalize(rawCode)
         guard !code.isEmpty, sessions[code] == nil else { return }
         groupCodes.append(code)
         persistGroups()
         openSession(code: code)
-    }
-
-    @discardableResult
-    func createGroup() -> String {
-        let code = GroupCode.generate()
-        join(code: code)
-        NSPasteboard.general.clearContents()
-        NSPasteboard.general.setString(code, forType: .string)
-        return code
     }
 
     func leave(code: String) {
@@ -152,13 +102,17 @@ final class AppModel: ObservableObject {
         githubLoginState = .idle
     }
 
+    /// Logout makes the app unusable until the next login: all sessions
+    /// stop (the group codes stay persisted and reconnect after re-login).
     func logoutGitHub() {
-        applyProfile(
-            name: Identity.previousDisplayName ?? NSFullUserName(),
-            avatar: nil,
-            githubLogin: nil
-        )
-        Identity.previousDisplayName = nil
+        Identity.avatarData = nil
+        Identity.githubLogin = nil
+        githubUserLogin = nil
+        for session in sessions.values {
+            session.stop()
+        }
+        sessions = [:]
+        presenceVersion += 1
     }
 
     /// The whole flow lives in a model-held task: the `.window`-style
@@ -200,11 +154,12 @@ final class AppModel: ObservableObject {
             }
 
             guard generation == githubLoginGeneration else { return }
-            if Identity.githubLogin == nil {
-                Identity.previousDisplayName = Identity.displayName
-            }
-            applyProfile(name: user.login, avatar: avatar, githubLogin: user.login)
+            applyProfile(name: Self.firstName(of: user), avatar: avatar, githubLogin: user.login)
             githubLoginState = .idle
+            // Login gates everything: the persisted groups connect only now.
+            for code in groupCodes where sessions[code] == nil {
+                openSession(code: code)
+            }
         } catch is CancellationError {
             // Cancelled flows say nothing — cancelGitHubLogin already reset.
         } catch let error as URLError where error.code == .cancelled {
@@ -243,6 +198,18 @@ final class AppModel: ObservableObject {
         }
     }
 
+    /// The display name is always the GitHub first name — not editable.
+    /// Accounts without a public name fall back to the login.
+    private static func firstName(of user: GitHubUser) -> String {
+        guard
+            let name = user.name?.trimmingCharacters(in: .whitespaces),
+            let first = name.split(separator: " ").first
+        else {
+            return user.login
+        }
+        return String(first)
+    }
+
     private static func message(for error: GitHubAuthError) -> String {
         switch error {
         case .deviceFlowDisabled:
@@ -275,10 +242,10 @@ final class AppModel: ObservableObject {
                 return ControlResponse(ok: false, error: "Leere Nachricht")
             }
             guard let groupQuery = request.group else {
-                return ControlResponse(ok: false, error: "Gruppe fehlt")
+                return ControlResponse(ok: false, error: "Kreis fehlt")
             }
             guard let session = resolveGroup(groupQuery) else {
-                return ControlResponse(ok: false, error: "Unbekannte oder mehrdeutige Gruppe \"\(groupQuery)\" — flustr groups zeigt alle")
+                return ControlResponse(ok: false, error: "Unbekannter oder mehrdeutiger Kreis \"\(groupQuery)\" — flustr groups zeigt alle")
             }
 
             var recipientId: String?
@@ -320,18 +287,19 @@ final class AppModel: ObservableObject {
         session.onStateChange = { [weak self] in
             self?.presenceVersion += 1
         }
-        session.onChat = { [weak self] sender, text in
+        session.onChat = { [weak self] sender, text, isDirect in
             guard let self else { return }
             Task {
-                await MainActor.run { self.messageActive = true }
-                self.notchMenu.hide()
                 await self.notch.show(
                     sender: sender.label,
                     avatarData: sender.avatar,
-                    text: text
-                )
-                try? await Task.sleep(for: .seconds(5))
-                await MainActor.run { self.messageActive = false }
+                    text: text,
+                    isDirect: isDirect
+                ) { [weak self] reply, privately in
+                    // Default mirrors how the message arrived; the toggle
+                    // in the reply field can override per message.
+                    self?.send(text: reply, group: code, to: privately ? sender.id : nil)
+                }
             }
         }
         sessions[code] = session

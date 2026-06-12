@@ -5,8 +5,9 @@ import SwiftUI
 
 /// Presents incoming messages below the notch: a slim one-line teaser
 /// (avatar + text scrolling through once), expanding to the full message
-/// with the copy button on hover. DynamicNotchKit itself defers hiding
-/// while the pointer is over the notch.
+/// with the copy button on hover. Clicking the message opens an inline
+/// reply field addressed to the sender. DynamicNotchKit itself defers
+/// hiding while the pointer is over the notch.
 @MainActor
 final class NotchPresenter {
     private typealias MessageNotch = DynamicNotch<MessageNotchContainer, EmptyView, EmptyView>
@@ -16,6 +17,7 @@ final class NotchPresenter {
     private var hideTask: Task<Void, Never>?
     private var hoverObservation: AnyCancellable?
     private var clickMonitor: Any?
+    private var outsideClickMonitor: Any?
 
     /// Linger after the teaser finished its single scroll-through.
     private let afterTeaserDelay: Duration = .seconds(2)
@@ -30,21 +32,40 @@ final class NotchPresenter {
         return .seconds(min(90, 10 + scrollSeconds))
     }
 
-    func show(sender: String, avatarData: Data?, text: String) async {
+    func show(
+        sender: String,
+        avatarData: Data?,
+        text: String,
+        isDirect: Bool,
+        onReply: @escaping (_ text: String, _ privately: Bool) -> Void
+    ) async {
         hideTask?.cancel()
         hoverObservation = nil
-        removeClickMonitor()
+        removeClickMonitors()
         if let previous = currentNotch {
             await previous.hide()
         }
 
-        let message = IncomingMessage(sender: sender, avatarData: avatarData, text: text)
+        let message = IncomingMessage(sender: sender, avatarData: avatarData, text: text, isDirect: isDirect)
         let model = MessageDisplayModel()
+        // Replies default to the channel the message came in on.
+        model.replyPrivately = isDirect
         currentModel = model
 
         let notchSize = Self.hardwareNotchSize()
         let notch = DynamicNotch(hoverBehavior: .all) {
-            MessageNotchContainer(model: model, message: message, notchSize: notchSize) { [weak self] in
+            MessageNotchContainer(
+                model: model,
+                message: message,
+                notchSize: notchSize,
+                onReply: { [weak self] reply, privately in
+                    onReply(reply, privately)
+                    self?.replyWasSent()
+                },
+                onCancelReply: { [weak self] in
+                    self?.cancelReply()
+                }
+            ) { [weak self] in
                 self?.teaserFinished()
             }
         }
@@ -63,38 +84,82 @@ final class NotchPresenter {
                     if hovering {
                         self.hideTask?.cancel()
                         self.currentModel?.fullyExpanded = true
-                    } else {
+                    } else if self.currentModel?.replying != true {
+                        // While the reply field is open, leaving the notch
+                        // must not tear it down mid-typing.
                         self.scheduleHide(of: notch, after: self.afterReadDelay)
                     }
                 }
             }
 
         await notch.expand()
-        installClickMonitor(for: notch, model: model, text: text)
+        installClickMonitors(for: notch, model: model)
         scheduleHide(of: notch, after: safetyDuration(for: text))
     }
 
-    /// Click-anywhere-to-copy, at the AppKit level: the panel is never the
-    /// key window, so the first click would normally be swallowed as
+    /// Click-anywhere-to-reply, at the AppKit level: the panel is not key
+    /// until clicked, so the first click would normally be swallowed as
     /// window activation (acceptsFirstMouse). A local monitor sees the
     /// event before that. Transparent panel regions pass clicks through,
     /// so matching the window means the click hit the visible shape.
-    private func installClickMonitor(for notch: MessageNotch, model: MessageDisplayModel, text: String) {
-        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak notch, weak model] event in
+    /// Clicks anywhere else — own windows (local) or other apps (global,
+    /// which never sees own-app events) — dismiss an open reply field.
+    private func installClickMonitors(for notch: MessageNotch, model: MessageDisplayModel) {
+        clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self, weak notch, weak model] event in
             MainActor.assumeIsolated {
-                if let panel = notch?.windowController?.window, event.window === panel {
-                    model?.copy(text)
+                guard let self, let model, let panel = notch?.windowController?.window else { return }
+                if event.window === panel {
+                    self.beginReply(model: model, panel: panel)
+                } else {
+                    self.cancelReply()
                 }
             }
             return event
         }
+        outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in
+            MainActor.assumeIsolated {
+                self?.cancelReply()
+            }
+        }
     }
 
-    private func removeClickMonitor() {
+    private func removeClickMonitors() {
         if let clickMonitor {
             NSEvent.removeMonitor(clickMonitor)
         }
         clickMonitor = nil
+        if let outsideClickMonitor {
+            NSEvent.removeMonitor(outsideClickMonitor)
+        }
+        outsideClickMonitor = nil
+    }
+
+    private func beginReply(model: MessageDisplayModel, panel: NSWindow) {
+        guard !model.replying, !model.replySent else { return }
+        hideTask?.cancel()
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            model.fullyExpanded = true
+            model.replying = true
+        }
+        // The nonactivating panel can become key (DynamicNotchPanel
+        // overrides canBecomeKey) — required for typing into the field.
+        panel.makeKeyAndOrderFront(nil)
+    }
+
+    private func cancelReply() {
+        guard let notch = currentNotch, let model = currentModel,
+              model.replying, !model.replySent else { return }
+        model.replying = false
+        scheduleHide(of: notch, after: afterReadDelay)
+    }
+
+    private func replyWasSent() {
+        guard let notch = currentNotch, let model = currentModel else { return }
+        withAnimation(.spring(duration: 0.3)) {
+            model.replying = false
+            model.replySent = true
+        }
+        scheduleHide(of: notch, after: .seconds(1.2))
     }
 
     private func teaserFinished() {
