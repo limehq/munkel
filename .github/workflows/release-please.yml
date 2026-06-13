@@ -11,14 +11,17 @@ on:
     branches: [main]
 
 permissions:
-  contents: write
-  pull-requests: write
-  actions: write
+  contents: read
 
 jobs:
   release-please:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 5
+    # Least privilege: writes live on the job, not the workflow top level.
+    permissions:
+      contents: write # create the release tag + GitHub release
+      pull-requests: write # maintain the rolling release PR
+      actions: write # dispatch release.yml for the new tag
     steps:
       - uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         id: rp

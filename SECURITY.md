@@ -7,9 +7,11 @@ release, fixes land on `main` and are included in the next release.
 
 ## Reporting a vulnerability
 
-Use GitHub private vulnerability reporting for this repository. If that is not
-available, open a public issue asking for a private contact path, but do not
-include exploit details in the public issue.
+Report privately through GitHub's security advisories:
+https://github.com/limehq/munkel/security/advisories/new
+
+If that is not available, open a public issue asking for a private contact
+path, but do not include exploit details in the public issue.
 
 Please include:
 
@@ -28,7 +30,7 @@ Munkel is built for ephemeral, lightweight messaging:
 - Payloads are encrypted on-device before they reach the relay.
 - The relay still sees metadata: derived group IDs, member IDs, connection
   timing, message size, and routing targets.
-- Generated group codes are convenience-grade shared secrets. Use longer custom
+- Generated circle codes are convenience-grade shared secrets. Use longer custom
   codes for more sensitive conversations until the invite format is hardened.
 - Direct messages in v1 are relay-targeted, not pairwise encrypted.
 

@@ -16,7 +16,7 @@ struct MenuView: View {
             // GitHub login is mandatory: until it happens, the menu offers
             // nothing but the login flow.
             if model.githubUserLogin == nil {
-                Text("Melde dich mit GitHub an, um Munkel zu benutzen.")
+                Text("Sign in with GitHub to use Munkel.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     // Without this the popup truncates to one ellipsized
@@ -26,7 +26,7 @@ struct MenuView: View {
                 githubArea
             } else {
                 if model.groupCodes.isEmpty {
-                    Text("Noch kein Kreis. Erstelle einen oder tritt mit einem Code bei.")
+                    Text("No circles yet. Create one or join with a code.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         // Without this the popup truncates to one ellipsized
@@ -98,18 +98,18 @@ struct MenuView: View {
             Button {
                 showAbout()
             } label: {
-                Label("Über Munkel", systemImage: "info.circle")
+                Label("About Munkel", systemImage: "info.circle")
             }
             Button {
                 checkForUpdates()
             } label: {
-                Label("Nach Updates suchen…", systemImage: "arrow.triangle.2.circlepath")
+                Label("Check for Updates…", systemImage: "arrow.triangle.2.circlepath")
             }
             Divider()
             Button {
                 NSApp.terminate(nil)
             } label: {
-                Label("Beenden", systemImage: "power")
+                Label("Quit", systemImage: "power")
             }
             .keyboardShortcut("q")
         } label: {
@@ -119,7 +119,7 @@ struct MenuView: View {
         .menuStyle(.borderlessButton)
         .menuIndicator(.hidden)
         .fixedSize()
-        .help("Einstellungen")
+        .help("Settings")
     }
 
     /// The standard about panel; it reads name and versions from the
@@ -137,8 +137,8 @@ struct MenuView: View {
         let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "Nach Updates suchen"
-        alert.informativeText = "Du verwendest Munkel \(version). Die automatische Update-Prüfung ist noch nicht verfügbar."
+        alert.messageText = "Check for Updates"
+        alert.informativeText = "You're running Munkel \(version). Automatic update checks aren't available yet."
         alert.addButton(withTitle: "OK")
         alert.runModal()
     }
@@ -150,7 +150,7 @@ struct MenuView: View {
     private var joinArea: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                TextField("Dein Kreis", text: $joinCode)
+                TextField("Your circle", text: $joinCode)
                     .frostedField()
                     .onSubmit(joinTapped)
                 Button {
@@ -158,11 +158,11 @@ struct MenuView: View {
                 } label: {
                     Image(systemName: "die.face.5")
                 }
-                .help("Zufälligen Code würfeln")
-                Button("Beitreten", action: joinTapped)
+                .help("Roll a random code")
+                Button("Join", action: joinTapped)
                     .disabled(joinCode.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            Text("Gibt es den Kreis noch nicht, wird er erstellt.")
+            Text("If the circle doesn't exist yet, it's created.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -176,35 +176,35 @@ struct MenuView: View {
             if let login = model.githubUserLogin {
                 HStack(spacing: 8) {
                     AvatarView(name: model.displayName, imageData: Identity.avatarData, size: 20)
-                    Text("Angemeldet als \(model.displayName) (@\(login))")
+                    Text("Signed in as \(model.displayName) (@\(login))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Abmelden") { model.logoutGitHub() }
+                    Button("Sign out") { model.logoutGitHub() }
                         .controlSize(.small)
                 }
             } else {
                 Button {
                     model.startGitHubLogin()
                 } label: {
-                    Label("Mit GitHub anmelden", systemImage: "person.crop.circle.badge.checkmark")
+                    Label("Sign in with GitHub", systemImage: "person.crop.circle.badge.checkmark")
                 }
                 .disabled(!GitHubConfig.isConfigured)
                 .help(
                     GitHubConfig.isConfigured
-                        ? "Holt Username + Avatar von GitHub (einmalig, kein Konto)"
-                        : "Keine Client-ID konfiguriert — siehe README"
+                        ? "Fetches your username + avatar from GitHub (once, no account)"
+                        : "No client ID configured — see README"
                 )
             }
 
         case .requestingCode:
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text("Verbinde mit GitHub…")
+                Text("Connecting to GitHub…")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Button("Abbrechen") { model.cancelGitHubLogin() }
+                Button("Cancel") { model.cancelGitHubLogin() }
                     .controlSize(.small)
             }
 
@@ -221,19 +221,19 @@ struct MenuView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(.secondary)
-                    .help("Code kopieren")
+                    .help("Copy code")
                     Spacer()
-                    Button("Abbrechen") { model.cancelGitHubLogin() }
+                    Button("Cancel") { model.cancelGitHubLogin() }
                         .controlSize(.small)
                 }
                 Text(
                     userCodeCopied
-                        ? "Code kopiert — auf github.com einfügen."
-                        : "Diesen Code auf github.com einfügen."
+                        ? "Code copied — paste it on github.com."
+                        : "Paste this code on github.com."
                 )
                 .font(.caption)
                 .foregroundStyle(.secondary)
-                Button("Browser erneut öffnen") {
+                Button("Open browser again") {
                     copyUserCode(userCode)
                     NSWorkspace.shared.open(verificationURI)
                 }
@@ -243,7 +243,7 @@ struct MenuView: View {
         case .fetchingProfile:
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text("Lade GitHub-Profil…")
+                Text("Loading GitHub profile…")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -254,9 +254,9 @@ struct MenuView: View {
                     .font(.caption)
                     .foregroundStyle(.red)
                 Spacer()
-                Button("Erneut") { model.startGitHubLogin() }
+                Button("Retry") { model.startGitHubLogin() }
                     .controlSize(.small)
-                Button("Verwerfen") { model.cancelGitHubLogin() }
+                Button("Dismiss") { model.cancelGitHubLogin() }
                     .controlSize(.small)
             }
         }
@@ -350,7 +350,7 @@ struct GroupSectionView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .help("Code kopieren")
+                .help("Copy code")
                 Spacer()
                 Button {
                     model.leave(code: code)
@@ -359,11 +359,11 @@ struct GroupSectionView: View {
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)
-                .help("Kreis verlassen")
+                .help("Leave circle")
             }
 
             if members.isEmpty {
-                Text("Niemand sonst online")
+                Text("No one else online")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -382,7 +382,7 @@ struct GroupSectionView: View {
 
             HStack(spacing: 6) {
                 Picker("", selection: $recipient) {
-                    Text("Alle").tag(String?.none)
+                    Text("All").tag(String?.none)
                     ForEach(members) { member in
                         Text(member.label).tag(String?.some(member.id))
                     }
@@ -390,7 +390,7 @@ struct GroupSectionView: View {
                 .labelsHidden()
                 .frame(width: 90)
 
-                TextField("Nachricht…", text: $draft)
+                TextField("Message…", text: $draft)
                     .frostedField()
                     .onSubmit(sendTapped)
 
