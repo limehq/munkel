@@ -143,11 +143,10 @@ automatically on every deploy — no manual DNS steps.
 ## macOS app
 
 Menu bar icon → sign in with GitHub, create or join a circle, send to the
-circle or a single member. Incoming messages appear in the notch
-([DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit)): hovering
-keeps the message open (haptic feedback included), the copy button puts the
-text on the clipboard, inline reply can answer the sender or the circle, and on
-Macs without a notch a floating panel is used automatically.
+circle or a single member. Incoming messages appear in the notch via the app's
+own `NotchPanel` component: hovering keeps the message open, the copy button
+puts the text on the clipboard, inline reply can answer the sender or the
+circle, and on Macs without a notch a floating panel is used automatically.
 Settings live under the `dev.uq.munkel` defaults domain; the relay URL
 defaults to the deployed Worker (override with `ws://127.0.0.1:8787` for
 local development against `wrangler dev`).

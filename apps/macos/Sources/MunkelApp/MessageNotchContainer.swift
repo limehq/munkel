@@ -51,7 +51,7 @@ struct MessageNotchContainer: View {
     @ObservedObject var model: MessageDisplayModel
     let message: IncomingMessage
     /// Hardware notch cutout size, measured from NSScreen; .zero on Macs
-    /// without a notch (DynamicNotchKit then uses its floating style).
+    /// without a notch (the panel then uses its floating style).
     let notchSize: CGSize
     /// Called with the trimmed reply text and whether it goes privately to
     /// the sender (true) or to the whole circle; routing happens in AppModel.
