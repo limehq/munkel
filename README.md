@@ -199,7 +199,9 @@ munkel blue-table-42 all "coffee?"  # circle broadcast
 
 The CLI is a thin client: it talks to the running app over
 `~/Library/Application Support/Munkel/control.sock` (newline-delimited
-JSON; see `ControlProtocol.swift`, mirrored in `apps/cli/src/munkel.ts`). The
+JSON; see `ControlProtocol.swift`, mirrored in `apps/cli/src/munkel.ts`). If
+the app isn't running, the CLI launches it in the background (`open -g -b
+dev.uq.munkel`) and waits for the socket before sending. The
 socket path can be overridden via `MUNKEL_SOCKET` (used by the tests). The
 app resolves circle-code prefixes and recipient display names, and owns all
 crypto and relay connections — ideal substrate for scripting and agent

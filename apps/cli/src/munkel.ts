@@ -92,9 +92,8 @@ function feed(text: string) {
   }
 }
 
-let socket
-try {
-  socket = await Bun.connect({
+function connectOnce() {
+  return Bun.connect({
     unix: socketPath,
     socket: {
       data(_socket, data) {
@@ -107,9 +106,54 @@ try {
         resolve(received)
       },
     },
-  })
-} catch {
-  fail(`Munkel app isn't running — start it first (socket: ${socketPath})`)
+  }).catch(() => null)
+}
+
+// Ask macOS to launch the menu-bar app. `open -g` brings it up in the
+// background without stealing focus from the terminal; the bundle id is
+// stamped by make-bundle.sh. MUNKEL_LAUNCH_CMD overrides the command (used
+// by the tests to stand up a fake app).
+async function launchApp(): Promise<void> {
+  const override = process.env.MUNKEL_LAUNCH_CMD
+  const command = override ? ["sh", "-c", override] : ["open", "-g", "-b", "dev.uq.munkel"]
+  const proc = Bun.spawn(command, { stdout: "ignore", stderr: "pipe" })
+  if ((await proc.exited) !== 0) {
+    const detail = (await new Response(proc.stderr).text()).trim()
+    fail(
+      `couldn't start the Munkel app${detail ? ` (${detail})` : ""} — ` +
+        `install it with: brew install limehq/tap/munkel`,
+    )
+  }
+}
+
+// The app's control socket binds in AppModel.init(), so it appears shortly
+// after launch — poll until it's reachable or we give up.
+async function waitForSocket(timeoutMs = 8000, intervalMs = 150) {
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const socket = await connectOnce()
+    if (socket) return socket
+    if (Date.now() >= deadline) return null
+    await Bun.sleep(intervalMs)
+  }
+}
+
+let socket = await connectOnce()
+if (!socket) {
+  // A custom MUNKEL_SOCKET points at a specific server we shouldn't try to
+  // spawn; only auto-launch the installed app on the default path (the
+  // tests opt back in by setting MUNKEL_LAUNCH_CMD).
+  const autoLaunch =
+    process.env.MUNKEL_SOCKET === undefined || process.env.MUNKEL_LAUNCH_CMD !== undefined
+  if (!autoLaunch) {
+    fail(`Munkel app isn't running — start it first (socket: ${socketPath})`)
+  }
+  console.error("munkel: starting the Munkel app…")
+  await launchApp()
+  socket = await waitForSocket()
+  if (!socket) {
+    fail("started the Munkel app but its control socket never came up")
+  }
 }
 
 socket.write(JSON.stringify(request) + "\n")
