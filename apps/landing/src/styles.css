@@ -663,6 +663,50 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
 .footer-links a { font-size: var(--text-xs); color: var(--muted-foreground); }
 .footer-links a:hover { color: var(--foreground); }
 
+/* ---------- Launch badge track ---------- */
+.badge-track { text-align: center; overflow: hidden; }
+.badge-track h2 { font-size: var(--text-3xl); font-weight: 600; letter-spacing: var(--tracking-tight); margin-top: 0.75rem; }
+.badge-track > .container > p { max-width: 52ch; margin: 0.75rem auto 0; color: var(--muted-foreground); line-height: var(--leading-relaxed); text-wrap: pretty; }
+.badge-marquee {
+  margin-top: 3rem;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+.badge-marquee-row {
+  display: flex; align-items: center; gap: 1rem; width: max-content;
+  animation: badge-scroll 38s linear infinite;
+}
+.badge-marquee:hover .badge-marquee-row { animation-play-state: paused; }
+/* The duplicate copy joins the same flex row so the gap stays even, then the
+   row scrolls exactly one copy width for a seamless loop. */
+.badge-dup { display: contents; }
+@keyframes badge-scroll { to { transform: translateX(-50%); } }
+.launch-badge {
+  display: inline-flex; align-items: center; gap: 0.625rem; flex: none;
+  height: 54px; padding: 0 1rem;
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--card);
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.launch-badge:hover {
+  border-color: var(--ring); transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+.launch-badge img { height: 40px; width: auto; display: block; }
+.launch-badge .lb-glyph {
+  display: inline-flex; align-items: center; justify-content: center; flex: none;
+  width: 30px; height: 30px; border-radius: var(--radius-md);
+  background: var(--brand-soft); color: var(--brand);
+  box-shadow: 0 0 calc(var(--glow) * 16px) color-mix(in oklab, var(--brand) 18%, transparent);
+}
+.launch-badge .lb-glyph svg.lucide { width: 15px; height: 15px; }
+.launch-badge .lb-text { display: flex; flex-direction: column; text-align: left; line-height: 1.2; gap: 1px; }
+.launch-badge .lb-kicker {
+  font-family: var(--font-mono); font-size: 9px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--brand);
+}
+.launch-badge .lb-name { font-size: var(--text-sm); font-weight: 600; color: var(--foreground); white-space: nowrap; }
+
 /* ---------- Responsive ---------- */
 @media (max-width: 1080px) {
   .nav-links { display: none; }
@@ -705,4 +749,8 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
   .demo-caption { display: none; }
   .meanwhile { transition: none; transform: none; }
   .faq summary::after { transition: none; }
+  /* No marquee: hide the duplicate and let the badges wrap statically. */
+  .badge-marquee { -webkit-mask-image: none; mask-image: none; }
+  .badge-marquee-row { animation: none; flex-wrap: wrap; justify-content: center; width: auto; }
+  .badge-dup { display: none; }
 }
