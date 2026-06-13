@@ -6,6 +6,9 @@ struct MenuView: View {
     @State private var joinCode = ""
     @State private var userCodeCopied = false
     @State private var groupListHeight: CGFloat = 0
+    #if DEBUG
+    @AppStorage("devEchoBroadcasts") private var devEchoBroadcasts = true
+    #endif
 
     /// Cap before the group list starts scrolling.
     private let maxGroupListHeight: CGFloat = 360
@@ -115,6 +118,10 @@ struct MenuView: View {
             } label: {
                 Label("Quick send…", systemImage: "paperplane")
             }
+            #if DEBUG
+            Divider()
+            Toggle("Echo my broadcasts to me", isOn: $devEchoBroadcasts)
+            #endif
             Divider()
             Button {
                 NSApp.terminate(nil)
