@@ -4,7 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - "landing/**"
+      - "apps/landing/**"
+      - "package.json"
+      - "bun.lock"
+      - "turbo.json"
       - ".github/workflows/deploy-landing.yml"
 
 env:
@@ -17,24 +20,20 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-node@v5
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: landing/package-lock.json
+          bun-version: "1.3.13"
 
       - name: Install dependencies
-        working-directory: landing
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Build
-        working-directory: landing
-        run: npm run build
+        run: bunx turbo build --filter=@munkel/landing
 
       - name: Deploy to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          workingDirectory: landing
+          workingDirectory: apps/landing
           command: deploy
