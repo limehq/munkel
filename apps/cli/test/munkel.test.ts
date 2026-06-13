@@ -104,11 +104,60 @@ test("invalid response is rejected", async () => {
   expect(result.stderr).toContain("No valid response")
 })
 
-test("missing app yields a helpful error", async () => {
+test("custom socket with no app yields a helpful error (no auto-launch)", async () => {
+  // A custom MUNKEL_SOCKET (set by runMunkel) is treated as "point at this
+  // server"; the CLI must not try to spawn the installed app.
   const result = await runMunkel(["blue-table-42", "all", "hi"])
 
   expect(result.exitCode).toBe(1)
   expect(result.stderr).toContain("Munkel app isn't running")
+})
+
+test("auto-launches the app when its socket is down", async () => {
+  const socketPath = join(
+    tmpdir(),
+    `munkel-launch-${process.pid}-${Math.random().toString(36).slice(2)}.sock`,
+  )
+  // Stands in for `open -b dev.uq.munkel`: backgrounds a fake app that binds
+  // the socket a moment later, so the CLI exercises its launch + wait + retry.
+  const launcher = join(
+    tmpdir(),
+    `munkel-launcher-${process.pid}-${Math.random().toString(36).slice(2)}.ts`,
+  )
+  await Bun.write(
+    launcher,
+    [
+      "const server = Bun.listen({",
+      "  unix: process.argv[2],",
+      "  socket: {",
+      "    data(socket) {",
+      '      socket.write(JSON.stringify({ ok: true, groups: [] }) + "\\n")',
+      "      socket.end()",
+      "    },",
+      "  },",
+      "})",
+      "setTimeout(() => server.stop(true), 5000)",
+    ].join("\n"),
+  )
+
+  const proc = Bun.spawn(["bun", cliPath, "circles"], {
+    env: {
+      ...process.env,
+      MUNKEL_SOCKET: socketPath,
+      MUNKEL_LAUNCH_CMD: `bun ${launcher} ${socketPath} &`,
+    },
+    stdout: "pipe",
+    stderr: "pipe",
+  })
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ])
+
+  expect(exitCode).toBe(0)
+  expect(stderr).toContain("starting the Munkel app")
+  expect(stdout).toContain("No circles yet")
 })
 
 test("no arguments prints usage with exit 64", async () => {
