@@ -1,302 +1,937 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import {
-  ArrowRight,
+  Bot,
+  Check,
+  ChevronDown,
   Copy,
-  EyeOff,
-  Ghost,
-  KeyRound,
+  Download,
+  Info,
+  Laptop,
   Lock,
-  Sparkles,
+  MonitorOff,
+  Moon,
+  Package,
+  Sun,
   Terminal,
+  TimerOff,
+  UserRoundX,
+  Wifi,
 } from 'lucide-react'
 
 export const Route = createFileRoute('/')({ component: LandingPage })
 
-const WHISPERS = [
-  { name: 'Anna', text: 'Kaffee, jemand? ☕', hue: 'from-teal-300 to-emerald-400' },
-  { name: 'Ben', text: 'rooftop. five minutes.', hue: 'from-sky-300 to-indigo-400' },
-  { name: 'Mia', text: 'psst — look behind you', hue: 'from-rose-300 to-orange-300' },
-]
+const GITHUB_URL = 'https://github.com/limehq/munkel'
+const DOWNLOAD_URL = '#'
 
-function NotchDemo() {
-  const [idx, setIdx] = useState(0)
-  const [open, setOpen] = useState(false)
+function GithubIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      className={`lucide ${className}`.trim()}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+    >
+      <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path>
+      <path d="M9 18c-4.51 2-5-2-7-2"></path>
+    </svg>
+  )
+}
+
+/* ---------- Nav: floating bar + sliding active pill ---------- */
+
+const NAV_LINKS = [
+  ['#how', 'How it works'],
+  ['#features', 'Features'],
+  ['#cli', 'CLI'],
+  ['#agents', 'Agents'],
+  ['#privacy', 'Privacy'],
+] as const
+
+type PillRect = { left: number; top: number; width: number; height: number }
+
+function Nav() {
+  const [floating, setFloating] = useState(false)
+  const [active, setActive] = useState<string | null>(null)
+  const [pill, setPill] = useState<PillRect | null>(null)
+  const linksRef = useRef<HTMLDivElement>(null)
+  const activeRef = useRef<string | null>(null)
+
+  // Hysteresis: enter floating well below the top, leave only near the
+  // very top — so the bar never flip-flops around a single threshold.
+  useEffect(() => {
+    const onScroll = () => {
+      const y = window.scrollY
+      if (y > 72) setFloating(true)
+      else if (y < 16) setFloating(false)
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    onScroll()
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  const moveTo = (href: string) => {
+    const wrap = linksRef.current
+    if (!wrap) return
+    const a = wrap.querySelector<HTMLAnchorElement>(`a[href="${href}"]`)
+    if (!a) return
+    activeRef.current = href
+    setActive(href)
+    setPill({ left: a.offsetLeft, top: a.offsetTop, width: a.offsetWidth, height: a.offsetHeight })
+  }
 
   useEffect(() => {
-    let cancelled = false
+    const onResize = () => {
+      if (activeRef.current) moveTo(activeRef.current)
+    }
+    window.addEventListener('resize', onResize)
+    if (location.hash && NAV_LINKS.some(([href]) => href === location.hash)) {
+      const hash = location.hash
+      requestAnimationFrame(() => moveTo(hash))
+    }
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  const toggleTheme = () => {
+    const dark = document.documentElement.classList.toggle('dark')
+    try {
+      localStorage.setItem('munkel-theme', dark ? 'dark' : 'light')
+    } catch {
+      // private mode etc. — theme just won't persist
+    }
+  }
+
+  return (
+    <nav className={floating ? 'floating' : undefined}>
+      <div className="nav-inner">
+        <div className="nav-left">
+          <a href="#" className="wordmark">
+            <span className="dot"></span>munkel
+          </a>
+          <div className="nav-links" ref={linksRef}>
+            <span
+              className="nav-active-pill"
+              style={pill ? { ...pill, opacity: 1 } : undefined}
+            />
+            {NAV_LINKS.map(([href, label]) => (
+              <a
+                key={href}
+                href={href}
+                className={active === href ? 'active' : undefined}
+                onClick={() => moveTo(href)}
+              >
+                {label}
+              </a>
+            ))}
+          </div>
+        </div>
+        <div className="nav-actions">
+          <a className="icon-btn" href={GITHUB_URL} aria-label="GitHub" title="GitHub">
+            <GithubIcon />
+          </a>
+          <button className="icon-btn" onClick={toggleTheme} aria-label="Toggle theme">
+            <Moon className="moon" aria-hidden />
+            <Sun className="sun" aria-hidden />
+          </button>
+        </div>
+      </div>
+    </nav>
+  )
+}
+
+/* ---------- Hero: pinned scroll stage + notch whisper demo ---------- */
+
+const MESSAGES = [
+  { name: 'Anna', avatar: '/avatars/01.png', text: 'Kaffee, jemand?' },
+  { name: 'Ben', avatar: '/avatars/02.png', text: 'on my way' },
+  { name: 'Jurij', avatar: '/avatars/03.png', text: 'deploy is live, go look' },
+  { name: 'Mia', avatar: '/avatars/05.png', text: 'same table as last time' },
+]
+
+type NotchCtl = {
+  enabled: boolean
+  dwell: number
+  docked: boolean
+  openTeaser?: () => void
+  closeTeaser?: () => void
+}
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+function Hero() {
+  const stageRef = useRef<HTMLDivElement>(null)
+  const copyRef = useRef<HTMLDivElement>(null)
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const macRef = useRef<HTMLDivElement>(null)
+  const screenRef = useRef<HTMLDivElement>(null)
+  const hintRef = useRef<HTMLDivElement>(null)
+  const notchRef = useRef<HTMLDivElement>(null)
+  const msgRef = useRef<HTMLDivElement>(null)
+  const avatarRef = useRef<HTMLImageElement>(null)
+  const notchCtl = useRef<NotchCtl>({ enabled: true, dwell: 3400, docked: false })
+  const [clock, setClock] = useState('Thu 9:41')
+  const [msgCopied, setMsgCopied] = useState(false)
+
+  useEffect(() => {
+    const now = new Date()
+    setClock(
+      now.toLocaleDateString('en-US', { weekday: 'short' }) +
+        ' ' +
+        now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: false }),
+    )
+  }, [])
+
+  // Notch demo: opened by the scroll director the moment the MacBook
+  // docks. Once open, it stays open; messages rotate in place until
+  // closeTeaser(). The session token guarantees only ONE rotation loop
+  // is ever alive — a stale loop sleeping through a close/reopen cycle
+  // sees a newer session and exits.
+  useEffect(() => {
+    const root = notchRef.current
+    const elMsg = msgRef.current
+    const elAvatar = avatarRef.current
+    if (!root || !elMsg || !elAvatar) return
+
+    let hovered = false
+    let open = false
+    let session = 0
     let i = 0
-    let timer: ReturnType<typeof setTimeout>
-    const show = () => {
-      if (cancelled) return
-      setIdx(i % WHISPERS.length)
-      setOpen(true)
-      timer = setTimeout(hide, 3400)
+
+    const onEnter = () => {
+      hovered = true
     }
-    const hide = () => {
-      if (cancelled) return
-      setOpen(false)
-      i += 1
-      timer = setTimeout(show, 1200)
+    const onLeave = () => {
+      hovered = false
     }
-    timer = setTimeout(show, 900)
+    root.addEventListener('mouseenter', onEnter)
+    root.addEventListener('mouseleave', onLeave)
+
+    const ctl = notchCtl.current
+    ctl.openTeaser = async () => {
+      if (open) return
+      open = true
+      const s = ++session
+      const live = () => open && s === session
+      const m = MESSAGES[i % MESSAGES.length]
+      i++
+      elMsg.textContent = m.text
+      elAvatar.src = m.avatar
+      root.classList.add('teaser')
+      // Robustness: if the CSS transition is throttled/frozen (background
+      // tab, energy saver), snap to the final teaser state inline.
+      await sleep(600)
+      if (!live()) return
+      if (parseFloat(getComputedStyle(root).width) < 200) {
+        const small = window.matchMedia('(max-width: 900px)').matches
+        root.style.transition = 'none'
+        root.style.width = small ? '220px' : '260px'
+        root.style.height = small ? '44px' : '56px'
+        root.style.borderRadius = '0 0 18px 18px'
+        root.querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body').forEach((e) => {
+          e.style.transition = 'none'
+          e.style.opacity = '1'
+        })
+      }
+      while (live()) {
+        await sleep(ctl.dwell)
+        while (hovered && live()) {
+          await sleep(300)
+        }
+        if (!live()) break
+        const n = MESSAGES[i % MESSAGES.length]
+        i++
+        elMsg.style.transition = 'opacity 0.18s ease'
+        elAvatar.style.transition = 'opacity 0.18s ease'
+        elMsg.style.opacity = '0'
+        elAvatar.style.opacity = '0'
+        await sleep(200)
+        if (!live()) return
+        elMsg.textContent = n.text
+        elAvatar.src = n.avatar
+        elMsg.style.opacity = '1'
+        elAvatar.style.opacity = '1'
+        await sleep(220)
+        if (!live()) return
+        elMsg.style.transition = ''
+        elAvatar.style.transition = ''
+        elMsg.style.opacity = ''
+        elAvatar.style.opacity = ''
+      }
+    }
+    // Called by the scroll director when the user scrolls back above the
+    // dock point (the director handles the visual retract itself).
+    ctl.closeTeaser = () => {
+      open = false
+      session++
+      elMsg.style.transition = ''
+      elAvatar.style.transition = ''
+      elMsg.style.opacity = ''
+      elAvatar.style.opacity = ''
+    }
+
     return () => {
-      cancelled = true
-      clearTimeout(timer)
+      open = false
+      session++
+      ctl.openTeaser = undefined
+      ctl.closeTeaser = undefined
+      root.removeEventListener('mouseenter', onEnter)
+      root.removeEventListener('mouseleave', onLeave)
     }
   }, [])
 
-  const whisper = WHISPERS[idx]
+  // Scroll director — one scrubbed timeline: copy recedes → MacBook takes
+  // center stage → zoom toward the notch → demo starts.
+  useEffect(() => {
+    const stage = stageRef.current
+    const copy = copyRef.current
+    const wrap = wrapRef.current
+    const mac = macRef.current
+    const screen = screenRef.current
+    const hint = hintRef.current
+    const mbn = notchRef.current
+    if (!stage || !copy || !wrap || !mac || !screen || !mbn) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+
+    const ctl = notchCtl.current
+    const clamp01 = (t: number) => Math.max(0, Math.min(1, t))
+    const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
+
+    let ticking = false
+    function update() {
+      ticking = false
+      const vh = window.innerHeight
+      const total = Math.max(1, stage!.offsetHeight - vh)
+      const p = clamp01(-stage!.getBoundingClientRect().top / total)
+
+      // 1 — hero copy recedes and fades out
+      const pc = ease(clamp01(p / 0.38))
+      copy!.style.opacity = (1 - pc).toFixed(3)
+      copy!.style.transform =
+        'translateY(' + (-64 * pc).toFixed(1) + 'px) scale(' + (1 - 0.05 * pc).toFixed(4) + ')'
+      copy!.style.pointerEvents = pc > 0.5 ? 'none' : ''
+      if (hint) hint.style.opacity = Math.max(0, 1 - p / 0.06).toFixed(3)
+
+      // 2 — the MacBook takes the stage: rises to center, flattens, grows
+      const pm = ease(clamp01((p - 0.04) / 0.6))
+      const targetTop = (vh - wrap!.offsetHeight) / 2
+      const ty = (targetTop - wrap!.offsetTop) * pm
+      const sc = 0.94 + 0.2 * pm
+      wrap!.style.transform = 'translateY(' + ty.toFixed(1) + 'px) scale(' + sc.toFixed(4) + ')'
+      // 3 — keep scrolling: zoom in, docked to the MacBook's top edge
+      // (transform-origin 50% 0%, so the notch edge stays pinned)
+      const pz = ease(clamp01((p - 0.62) / 0.38))
+      mac!.style.transform =
+        'rotateX(' + (22 * (1 - pm)).toFixed(2) + 'deg) scale(' + (1 + 0.45 * pz).toFixed(4) + ')'
+      mac!.style.opacity = (0.55 + 0.45 * pm).toFixed(3)
+      // The 1px rim hairline aliases in/out under non-integer scale —
+      // kill it completely BEFORE the zoom starts so it can never flicker.
+      const pr = ease(clamp01((p - 0.48) / 0.14))
+      screen!.style.borderColor = 'oklch(1 0 0 / ' + (0.16 * (1 - pr)).toFixed(3) + ')'
+
+      // 4 — once the MacBook holds the stage, the demo whispers — opened
+      // directly from here so a fast scroll can never miss it.
+      ctl.docked = pm >= 0.95
+      if (ctl.docked && ctl.enabled && ctl.openTeaser) ctl.openTeaser()
+      // Scrolling back mid-message: retract the teaser fast.
+      if (!ctl.docked && mbn!.classList.contains('teaser')) {
+        if (ctl.closeTeaser) ctl.closeTeaser()
+        mbn!.style.transition = 'width 0.18s ease, height 0.18s ease, border-radius 0.18s ease'
+        mbn!.classList.remove('teaser')
+        mbn!.style.width = ''
+        mbn!.style.height = ''
+        mbn!.style.borderRadius = ''
+        mbn!.querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body').forEach((el) => {
+          el.style.transition = 'opacity 0.1s ease'
+          el.style.opacity = ''
+        })
+        setTimeout(() => {
+          if (mbn!.classList.contains('teaser')) return
+          // Frozen-timeline fallback: if the retract transition never ran,
+          // snap to the closed state with transitions off.
+          if (parseFloat(getComputedStyle(mbn!).width) > 200) {
+            mbn!.style.transition = 'none'
+            mbn!
+              .querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body')
+              .forEach((el) => {
+                el.style.transition = 'none'
+              })
+            void mbn!.offsetWidth
+            requestAnimationFrame(() => {
+              mbn!.style.transition = ''
+              mbn!
+                .querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body')
+                .forEach((el) => {
+                  el.style.transition = ''
+                })
+            })
+          } else {
+            mbn!.style.transition = ''
+            mbn!
+              .querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body')
+              .forEach((el) => {
+                el.style.transition = ''
+              })
+          }
+        }, 260)
+      }
+    }
+    function onScroll() {
+      if (!ticking) {
+        ticking = true
+        requestAnimationFrame(update)
+      }
+    }
+    window.addEventListener('scroll', onScroll, { passive: true })
+    window.addEventListener('resize', onScroll, { passive: true })
+    update()
+    return () => {
+      window.removeEventListener('scroll', onScroll)
+      window.removeEventListener('resize', onScroll)
+    }
+  }, [])
+
+  const copyMessage = () => {
+    const text = msgRef.current?.textContent ?? ''
+    if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {})
+    setMsgCopied(true)
+    setTimeout(() => setMsgCopied(false), 1400)
+  }
 
   return (
-    <div className="absolute left-1/2 top-0 z-20 -translate-x-1/2">
-      <div
-        className={`flex items-end justify-center overflow-hidden bg-black shadow-[0_18px_50px_rgba(0,0,0,0.55)] transition-all duration-500 ease-[cubic-bezier(0.32,0.72,0,1)] ${
-          open
-            ? 'h-[74px] w-[330px] rounded-b-3xl'
-            : 'h-[26px] w-[150px] rounded-b-xl'
-        }`}
-      >
-        <div
-          className={`flex w-[330px] items-center gap-3 px-5 pb-3.5 transition-opacity duration-300 ${
-            open ? 'opacity-100 delay-200' : 'opacity-0'
-          }`}
-        >
-          <div
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${whisper.hue} text-sm font-bold text-black/75`}
-          >
-            {whisper.name[0]}
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-white/40">
-              {whisper.name}
+    <header className="hero">
+      <div className="hero-stage" ref={stageRef}>
+        <div className="hero-sticky">
+          <div className="container hero-copy" ref={copyRef}>
+            <h1>
+              Psst, your <span className="notch-word">notch</span> has something to tell&nbsp;you.
+            </h1>
+            <p className="lead">
+              Encrypted messages, whispered from the MacBook notch. No history. The relay knows
+              nothing.
             </p>
-            <p className="truncate text-sm font-medium text-white">
-              {whisper.text}
-            </p>
+            <div className="hero-ctas">
+              <a className="btn btn-primary" href={DOWNLOAD_URL}>
+                <Download aria-hidden />
+                Download for macOS
+              </a>
+              <a className="btn btn-outline" href={GITHUB_URL}>
+                <GithubIcon />
+                View on GitHub
+              </a>
+            </div>
+            <div className="hero-meta">
+              Free &amp; open source · macOS 14+ · works without a notch, too
+            </div>
           </div>
-          <Copy className="h-4 w-4 shrink-0 text-white/35" aria-hidden />
+          <div className="mockup-wrap" ref={wrapRef}>
+            <div className="macbook" ref={macRef}>
+              <div className="mb-screen" ref={screenRef}>
+                <div className="mb-display">
+                  <div className="mb-wallpaper"></div>
+                  <div className="mb-menubar">
+                    <div className="mb-menu">
+                      <span className="mb-app">munkel</span>
+                      <span>Groups</span>
+                      <span>Identity</span>
+                      <span>Help</span>
+                    </div>
+                    <div className="mb-menu-right">
+                      <Wifi aria-hidden />
+                      <span>{clock}</span>
+                    </div>
+                  </div>
+                  <div className="mb-notch" ref={notchRef}>
+                    <span className="notch-cam"></span>
+                    <img className="mbn-avatar" ref={avatarRef} src="/avatars/01.png" alt="" />
+                    <button
+                      className={`mbn-copy${msgCopied ? ' copied' : ''}`}
+                      onClick={copyMessage}
+                      aria-label="Copy message"
+                    >
+                      <Copy className="ic-copy" strokeWidth={2} aria-hidden />
+                      <Check className="ic-check" strokeWidth={2.5} aria-hidden />
+                    </button>
+                    <div className="mbn-body">
+                      <div className="mbn-msg" ref={msgRef}>
+                        Kaffee, jemand?
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div className="scroll-hint" ref={hintRef} aria-hidden>
+            <ChevronDown aria-hidden />
+          </div>
         </div>
       </div>
-    </div>
+    </header>
   )
 }
 
-function MacScreen() {
-  return (
-    <div className="relative mx-auto mt-16 w-full max-w-3xl">
-      <div className="pointer-events-none absolute -inset-x-12 -top-16 h-64 bg-[radial-gradient(60%_100%_at_50%_0%,rgba(111,214,195,0.12),transparent_70%)]" />
-      <div className="relative overflow-hidden rounded-[20px] border border-white/10 shadow-[0_50px_140px_-30px_rgba(0,0,0,0.9)]">
-        <div className="relative aspect-[16/10] w-full bg-[radial-gradient(120%_90%_at_75%_115%,#16333a_0%,transparent_60%),radial-gradient(90%_70%_at_12%_-10%,#241f3a_0%,transparent_55%),linear-gradient(180deg,#0d1217,#0a0d11)]">
-          {/* menu bar */}
-          <div className="flex h-7 items-center justify-between px-4 text-[11px] font-medium text-white/50">
-            <div className="flex items-center gap-4">
-              <span className="font-semibold text-white/75">Munkel2</span>
-              <span className="hidden sm:inline">Group</span>
-              <span className="hidden sm:inline">Help</span>
-            </div>
-            <span>Wed 9:41</span>
-          </div>
+/* ---------- Terminal typing demo ---------- */
 
-          <NotchDemo />
+type TermStep = { type: 'cmd'; text: string } | { type: 'out'; html: string }
 
-          {/* faint terminal window hinting at the CLI */}
-          <div className="absolute bottom-6 left-6 hidden w-72 rounded-lg border border-white/10 bg-black/55 backdrop-blur-sm sm:block">
-            <div className="flex items-center gap-1.5 border-b border-white/5 px-3 py-2">
-              <span className="h-2 w-2 rounded-full bg-[#ff5f57]/80" />
-              <span className="h-2 w-2 rounded-full bg-[#febc2e]/80" />
-              <span className="h-2 w-2 rounded-full bg-[#28c840]/80" />
-            </div>
-            <p className="px-3 py-2.5 font-mono text-[11px] text-white/55">
-              <span className="text-accent/80">$</span> munkel yolbe all{' '}
-              <span className="text-white/75">&quot;Kaffee, jemand?&quot;</span>
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const FEATURES = [
-  {
-    icon: Ghost,
-    title: 'Ephemeral by design',
-    body: 'Messages exist only in the moment they arrive. The relay stores nothing — friends who are offline simply miss the whisper, like in real life.',
-  },
-  {
-    icon: Lock,
-    title: 'End-to-end encrypted',
-    body: 'AES-256-GCM with keys derived on your devices. The relay routes opaque blobs and cannot read a single word.',
-  },
-  {
-    icon: KeyRound,
-    title: 'No accounts',
-    body: 'A human-readable group code is the only credential. No sign-up, no phone number, no directory of who talks to whom.',
-  },
-  {
-    icon: EyeOff,
-    title: 'Invisible in screen sharing',
-    body: 'Every surface showing a message is excluded from screen capture. Your Zoom or Teams audience sees nothing — only the physical display does.',
-  },
-  {
-    icon: Sparkles,
-    title: 'Native to the notch',
-    body: 'Built in SwiftUI. Messages glide out of the MacBook notch with haptic hover and one-click copy. Macs without a notch get a floating panel.',
-  },
-  {
-    icon: Terminal,
-    title: 'Scriptable',
-    body: 'The munkel CLI sends whispers straight from your terminal — and an MCP server is on the way, so even your agent can munkel.',
-  },
+const TERM_SCRIPT: TermStep[] = [
+  { type: 'cmd', text: 'munkel groups' },
+  { type: 'out', html: '<span class="tdot-live">●</span> kino  <span class="tdim">·</span>  Anna, Ben, Mia' },
+  { type: 'out', html: '<span class="tdot-live">●</span> wg-42  <span class="tdim">·</span>  Jurij, Sam' },
+  { type: 'cmd', text: 'munkel kino all "Trailer läuft schon, wo seid ihr?"' },
+  { type: 'out', html: '<span class="tdim">sent → kino (3 members)</span>' },
+  { type: 'cmd', text: 'munkel wg-42 Sam "Paket für dich unten"' },
+  { type: 'out', html: '<span class="tdim">sent → Sam</span>' },
 ]
+
+function TerminalDemo() {
+  const termRef = useRef<HTMLDivElement>(null)
+  const bodyRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const term = termRef.current
+    const body = bodyRef.current
+    if (!term || !body) return
+
+    let started = false
+    let cancelled = false
+
+    async function run() {
+      body!.innerHTML = ''
+      for (const step of TERM_SCRIPT) {
+        if (cancelled) return
+        const line = document.createElement('div')
+        line.className = 'tline'
+        body!.appendChild(line)
+        if (step.type === 'cmd') {
+          line.innerHTML =
+            '<span class="tprompt">$ </span><span class="ttext"></span><span class="cursor"></span>'
+          const ttext = line.querySelector('.ttext')!
+          for (const ch of step.text) {
+            if (cancelled) return
+            ttext.textContent += ch
+            await sleep(28 + Math.random() * 40)
+          }
+          await sleep(350)
+          if (cancelled) return
+          line.querySelector('.cursor')?.remove()
+        } else {
+          line.innerHTML = step.html
+          await sleep(420)
+        }
+      }
+      if (cancelled) return
+      const done = document.createElement('div')
+      done.className = 'tline'
+      done.innerHTML = '<span class="tprompt">$ </span><span class="cursor"></span>'
+      body!.appendChild(done)
+    }
+
+    function start() {
+      if (!started) {
+        started = true
+        run()
+      }
+    }
+    function checkVisible() {
+      const rect = term!.getBoundingClientRect()
+      if (rect.top < window.innerHeight * 0.85 && rect.bottom > 0) start()
+    }
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) start()
+      },
+      { threshold: 0.4 },
+    )
+    observer.observe(term)
+    window.addEventListener('scroll', checkVisible, { passive: true })
+    checkVisible()
+    const fallback = setTimeout(start, 12000)
+
+    return () => {
+      cancelled = true
+      observer.disconnect()
+      window.removeEventListener('scroll', checkVisible)
+      clearTimeout(fallback)
+    }
+  }, [])
+
+  return (
+    <div className="terminal" ref={termRef}>
+      <div className="terminal-bar">
+        <span className="tdot"></span>
+        <span className="tdot"></span>
+        <span className="tdot"></span>
+        <span className="ttitle">zsh · munkel</span>
+      </div>
+      <div className="terminal-body" ref={bodyRef}>
+        <span className="cursor"></span>
+      </div>
+    </div>
+  )
+}
+
+/* ---------- Install command switcher (Agents) ---------- */
+
+const INSTALL_CMDS = {
+  npx: 'npx skills add limehq/munkel',
+  pnpm: 'pnpm dlx skills add limehq/munkel',
+  yarn: 'yarn dlx skills add limehq/munkel',
+  bun: 'bunx skills add limehq/munkel',
+} as const
+
+type Pm = keyof typeof INSTALL_CMDS
+
+function InstallCmd() {
+  const [pm, setPm] = useState<Pm>('npx')
+  const [copied, setCopied] = useState(false)
+
+  const copy = () => {
+    if (navigator.clipboard) navigator.clipboard.writeText(INSTALL_CMDS[pm]).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1400)
+  }
+
+  return (
+    <div className="install-cmd">
+      <div className="install-bar">
+        <div className="install-tabs" role="tablist">
+          {(Object.keys(INSTALL_CMDS) as Pm[]).map((key) => (
+            <button
+              key={key}
+              className={pm === key ? 'active' : undefined}
+              role="tab"
+              aria-selected={pm === key}
+              onClick={() => setPm(key)}
+            >
+              {key}
+            </button>
+          ))}
+        </div>
+        <button
+          className={`install-copy${copied ? ' copied' : ''}`}
+          onClick={copy}
+          aria-label="Copy command"
+        >
+          <Copy className="ic-copy" strokeWidth={2} aria-hidden />
+          <Check className="ic-check" strokeWidth={2.5} aria-hidden />
+        </button>
+      </div>
+      <div className="install-body">
+        <span className="prompt">$</span>
+        <span>{INSTALL_CMDS[pm]}</span>
+      </div>
+    </div>
+  )
+}
+
+/* ---------- Page ---------- */
 
 function LandingPage() {
   return (
-    <main className="relative overflow-hidden">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[600px] bg-[radial-gradient(70%_60%_at_50%_-10%,rgba(111,214,195,0.08),transparent_70%)]" />
+    <>
+      <Nav />
+      <Hero />
 
-      {/* header */}
-      <header className="relative mx-auto flex w-full max-w-5xl items-center justify-between px-6 py-6">
-        <div className="flex items-center gap-2.5">
-          <span className="flex h-5 w-10 items-end justify-center rounded-b-lg bg-white/90 pb-1">
-            <span className="h-1 w-1 rounded-full bg-night" />
-          </span>
-          <span className="text-lg font-semibold tracking-tight">Munkel</span>
-        </div>
-        <span className="rounded-full border border-white/10 bg-white/5 px-3.5 py-1.5 text-xs font-medium text-ink-dim">
-          macOS · 2026
-        </span>
-      </header>
-
-      {/* hero */}
-      <section className="relative mx-auto w-full max-w-5xl px-6 pt-14 text-center sm:pt-20">
-        <p className="mx-auto mb-6 w-fit rounded-full border border-accent/20 bg-accent/10 px-4 py-1.5 text-xs font-medium tracking-wide text-accent">
-          munkeln <span className="text-accent/60">(German, v.)</span> — to
-          whisper in secret
-        </p>
-        <h1 className="mx-auto max-w-3xl text-5xl font-bold leading-[1.04] tracking-tight sm:text-7xl">
-          Whispers from the&nbsp;notch.
-        </h1>
-        <p className="mx-auto mt-6 max-w-2xl text-base text-ink-dim sm:text-lg">
-          Munkel is ephemeral messaging for macOS: end-to-end encrypted notes
-          from your favorite people, sliding elegantly out of the MacBook notch
-          — and gone moments later. No accounts. No history. No trace.
-        </p>
-        <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-          <a
-            href="#how"
-            className="inline-flex items-center gap-2 rounded-full bg-accent px-6 py-3 text-sm font-semibold text-night transition hover:brightness-110"
-          >
-            See how it works
-            <ArrowRight className="h-4 w-4" aria-hidden />
-          </a>
-          <span className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-5 py-3 text-sm font-medium text-ink-dim">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent/60" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-accent" />
-            </span>
-            In development — coming to macOS
-          </span>
-        </div>
-
-        <MacScreen />
-      </section>
-
-      {/* how it works */}
-      <section id="how" className="relative mx-auto w-full max-w-5xl scroll-mt-16 px-6 pt-28 sm:pt-36">
-        <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
-          One code is everything.
-        </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-center text-ink-dim">
-          A group is born from a shared, human-readable code. The code is the
-          room <em>and</em> the key — it never touches a server.
-        </p>
-
-        <div className="mt-12 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-6">
-          <code className="rounded-xl border border-accent/30 bg-accent/10 px-5 py-3 font-mono text-base font-semibold text-accent">
-            kaffee-falke-42
-          </code>
-          <div className="flex flex-col items-center text-ink-dim">
-            <ArrowRight className="hidden h-5 w-5 sm:block" aria-hidden />
-            <span className="mt-1 font-mono text-[11px] tracking-wide">
-              HKDF-SHA256
-            </span>
+      <section id="how">
+        <div className="container">
+          <div className="section-head">
+            <div className="section-kicker">How it works</div>
+            <h2>A group is born from a code.</h2>
+            <p>
+              No invites, no server-side group state. Sign in with GitHub once, then three steps and
+              you're whispering.
+            </p>
           </div>
-          <div className="flex flex-col gap-2">
-            <code className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-xs text-ink-dim">
-              group id
-            </code>
-            <code className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 font-mono text-xs text-ink-dim">
-              AES-256-GCM key
-            </code>
-          </div>
-        </div>
-
-        <div className="mx-auto mt-14 grid max-w-3xl gap-8 text-center sm:grid-cols-3">
-          {[
-            ['Make up a code', 'Anything memorable. The sillier, the better.'],
-            ['Tell your friends', 'Over coffee, ideally — not over the internet.'],
-            ['Whisper away', 'Everyone who knows the code is in. Forget the code, and the group never existed.'],
-          ].map(([title, body], i) => (
-            <div key={title}>
-              <span className="mx-auto flex h-8 w-8 items-center justify-center rounded-full border border-white/10 bg-white/5 font-mono text-sm text-accent">
-                {i + 1}
-              </span>
-              <h3 className="mt-3 font-semibold">{title}</h3>
-              <p className="mt-1.5 text-sm text-ink-dim">{body}</p>
+          <div className="steps">
+            <div className="step">
+              <span className="step-num">01</span>
+              <h3>Create a group</h3>
+              <p>
+                The app mints a human-readable code. Say it across the table or paste it in a chat.
+                That's the whole onboarding.
+              </p>
+              <div className="step-visual">
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--brand)' }}>
+                  kaffee-falke-42
+                </span>
+              </div>
             </div>
-          ))}
-        </div>
-      </section>
-
-      {/* features */}
-      <section className="relative mx-auto w-full max-w-5xl px-6 pt-28 sm:pt-36">
-        <h2 className="text-center text-3xl font-bold tracking-tight sm:text-4xl">
-          Built to forget.
-        </h2>
-        <p className="mx-auto mt-4 max-w-2xl text-center text-ink-dim">
-          Every architectural decision serves the same goal: your conversations
-          exist only in the moment — and only on your screens.
-        </p>
-        <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {FEATURES.map(({ icon: Icon, title, body }) => (
-            <div
-              key={title}
-              className="rounded-2xl border border-white/8 bg-panel/70 p-6 transition hover:border-white/15"
-            >
-              <Icon className="h-5 w-5 text-accent" aria-hidden />
-              <h3 className="mt-4 font-semibold">{title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-ink-dim">{body}</p>
+            <div className="step">
+              <span className="step-num">02</span>
+              <h3>Friends join</h3>
+              <p>
+                Anyone with the code is in. The code doubles as the AES-256-GCM key, so the relay
+                only ever routes opaque blobs.
+              </p>
+              <div className="step-visual">
+                <div className="avatar-stack">
+                  <img src="/avatars/01.png" alt="Anna" />
+                  <img src="/avatars/02.png" alt="Ben" />
+                  <img src="/avatars/03.png" alt="Jurij" />
+                  <span className="joined">3 joined</span>
+                </div>
+              </div>
             </div>
-          ))}
+            <div className="step">
+              <span className="step-num">03</span>
+              <h3>Read the notch</h3>
+              <p>
+                Messages slide out, linger, disappear. Hover to keep one open, click to copy. No
+                reply UI, and that's deliberate.
+              </p>
+              <div className="step-visual">
+                <div className="mini-notch">
+                  <img src="/avatars/01.png" alt="" />
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span className="mn-name">Anna</span>
+                    <span>bin in 5 unten</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
-      {/* closing */}
-      <section className="relative mx-auto w-full max-w-3xl px-6 pb-10 pt-28 text-center sm:pt-36">
-        <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Rumor has it, it&apos;s almost ready.
-        </h2>
-        <p className="mx-auto mt-4 max-w-xl text-ink-dim">
-          Munkel is in active development and coming to macOS soon. Until then:
-          lean over, cover your mouth, and whisper the old-fashioned way.
-        </p>
+      <section id="features">
+        <div className="container">
+          <div className="section-head">
+            <div className="section-kicker">Features</div>
+            <h2>Small surface. Sharp edges.</h2>
+            <p>Everything Munkel does, and the things it refuses to do.</p>
+          </div>
+          <div className="features">
+            <div className="feature">
+              <div className="feature-icon">
+                <TimerOff aria-hidden />
+              </div>
+              <h3>Ephemeral by design</h3>
+              <p>
+                The relay holds zero state: no database, no logs of content. Messages exist only in
+                flight; offline means missed, like a real whisper.
+              </p>
+            </div>
+            <div className="feature">
+              <div className="feature-icon">
+                <Lock aria-hidden />
+              </div>
+              <h3>End-to-end encrypted</h3>
+              <p>
+                AES-256-GCM, key derived from the group code on-device. The relay routes ciphertext
+                it cannot open. By construction, not by promise.
+              </p>
+            </div>
+            <div className="feature">
+              <div className="feature-icon">
+                <UserRoundX aria-hidden />
+              </div>
+              <h3>No accounts of our own</h3>
+              <p>
+                No email, no phone number, no password. You sign in once with GitHub; Munkel runs no
+                identity service and keeps nothing server-side.
+              </p>
+            </div>
+            <div className="feature">
+              <div className="feature-icon">
+                <GithubIcon />
+              </div>
+              <h3>GitHub identity</h3>
+              <p>
+                Your display name and avatar come from GitHub via device flow, one login at setup.
+                The token is requested with empty scope, used once, then discarded.
+              </p>
+            </div>
+            <div className="feature">
+              <div className="feature-icon">
+                <Terminal aria-hidden />
+              </div>
+              <h3>munkel CLI</h3>
+              <p>
+                Send from your shell, script it, or wire it into agents over the app's control
+                socket. An MCP server is on the way.
+              </p>
+            </div>
+            <div className="feature">
+              <div className="feature-icon">
+                <Laptop aria-hidden />
+              </div>
+              <h3>Works without a notch</h3>
+              <p>
+                Older MacBook or external display? Messages fall back to an elegant floating panel.
+                Same whisper, different hardware.
+              </p>
+            </div>
+          </div>
+        </div>
       </section>
 
-      {/* footer */}
-      <footer className="relative border-t border-white/5">
-        <div className="mx-auto flex w-full max-w-5xl flex-col items-center justify-between gap-3 px-6 py-8 text-sm text-ink-dim sm:flex-row">
-          <div className="flex items-center gap-2">
-            <span className="flex h-3.5 w-7 items-end justify-center rounded-b-md bg-white/80 pb-0.5">
-              <span className="h-0.5 w-0.5 rounded-full bg-night" />
-            </span>
-            <span className="font-medium text-ink">Munkel</span>
-            <span>· ephemeral messages for macOS</span>
+      <section id="cli">
+        <div className="container">
+          <div className="cli-grid">
+            <div className="cli-copy">
+              <div className="section-kicker">CLI</div>
+              <h2>Whisper from the shell.</h2>
+              <p>
+                <span className="code">munkel</span> is a thin client over the app's Unix domain
+                socket. The app owns all crypto and relay connections, the CLI just talks.
+                Recipients by display name, groups by code prefix.
+              </p>
+              <p>
+                Newline-delimited JSON over <span className="code">control.sock</span> makes it an
+                ideal substrate for scripts and agents.
+              </p>
+            </div>
+            <TerminalDemo />
           </div>
-          <p>No analytics, no cookies — obviously.</p>
+        </div>
+      </section>
+
+      <section id="agents">
+        <div className="container">
+          <div className="section-head">
+            <div className="section-kicker">Agents</div>
+            <h2>LLM ready.</h2>
+            <p>
+              The CLI is plain text in, plain text out. Anything that can run a shell can whisper,
+              including the agent you already use.
+            </p>
+          </div>
+          <InstallCmd />
+          <div className="features cols-2">
+            <div className="feature">
+              <div className="feature-icon">
+                <Bot aria-hidden />
+              </div>
+              <h3>Agents can send for real</h3>
+              <p>
+                An LLM with shell access uses <span className="code">munkel</span> exactly like you
+                do: pick a person or a group, send the message. "Tell kino I'm running late" becomes
+                one command.
+              </p>
+            </div>
+            <div className="feature">
+              <div className="feature-icon">
+                <Package aria-hidden />
+              </div>
+              <h3>Skills, ready to install</h3>
+              <p>
+                Prepared skills teach your agent munkel's commands in one step. Install once and
+                your assistant knows how to whisper.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="privacy">
+        <div className="container">
+          <div className="section-head">
+            <div className="section-kicker">Privacy</div>
+            <h2>What the relay sees.</h2>
+            <p>
+              One Durable Object per group, WebSocket hibernation, no storage. Ephemerality is
+              enforced by architecture, not policy.
+            </p>
+          </div>
+          <div className="privacy-grid">
+            <div className="privacy-card sees">
+              <h3>The relay sees</h3>
+              <ul>
+                <li>
+                  <Info aria-hidden />
+                  <span className="li-text">
+                    Opaque encrypted blobs <span className="li-sub">· ciphertext it has no key for</span>
+                  </span>
+                </li>
+                <li>
+                  <Info aria-hidden />
+                  <span className="li-text">
+                    A group ID derived from your code <span className="li-sub">· not the code itself</span>
+                  </span>
+                </li>
+                <li>
+                  <Info aria-hidden />
+                  <span className="li-text">
+                    Connection timing <span className="li-sub">· that someone is online, not who</span>
+                  </span>
+                </li>
+              </ul>
+            </div>
+            <div className="privacy-card never">
+              <h3>The relay never sees</h3>
+              <ul>
+                <li>
+                  <Check strokeWidth={2} aria-hidden />
+                  <span className="li-text">
+                    Message contents <span className="li-sub">· encrypted end-to-end</span>
+                  </span>
+                </li>
+                <li>
+                  <Check strokeWidth={2} aria-hidden />
+                  <span className="li-text">
+                    Names &amp; avatars <span className="li-sub">· profiles travel inside encrypted payloads</span>
+                  </span>
+                </li>
+                <li>
+                  <Check strokeWidth={2} aria-hidden />
+                  <span className="li-text">
+                    Any history <span className="li-sub">· nothing is ever written to storage</span>
+                  </span>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div className="privacy-banner">
+            <div className="feature-icon">
+              <MonitorOff aria-hidden />
+            </div>
+            <div>
+              <h3>Invisible to screen sharing</h3>
+              <p>
+                Presenting in Zoom, Teams, or Meet? Munkel excludes its windows from screen capture.
+                Whispers stay on your screen, never on the shared one.
+              </p>
+            </div>
+          </div>
+          <p className="honest">
+            Honest limits: GitHub sees the device-flow login happen and lists Munkel under your
+            authorized apps. Profiles are display-only; peers get no cryptographic proof that a
+            member owns the GitHub name they show.
+          </p>
+        </div>
+      </section>
+
+      <section className="cta">
+        <div className="container">
+          <h2>Start whispering.</h2>
+          <p>Open source, MIT licensed, one binary in your menu bar.</p>
+          <div className="hero-ctas">
+            <a className="btn btn-primary" href={DOWNLOAD_URL}>
+              <Download aria-hidden />
+              Download for macOS
+            </a>
+            <a className="btn btn-outline" href={GITHUB_URL}>
+              View on GitHub
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <div className="container footer-inner">
+          <span className="muted">munkel · ephemeral messages between friends.</span>
+          <div className="footer-links">
+            <a href={GITHUB_URL}>GitHub</a>
+            <a href="#">Protocol v1</a>
+            <a href="#">munkel CLI</a>
+          </div>
         </div>
       </footer>
-    </main>
+    </>
   )
 }
