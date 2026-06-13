@@ -50,7 +50,7 @@ test("send delivers request and confirms", async () => {
   const result = await runMunkel(["blue-table-42", "Alex", "hey", "there"], app.socketPath)
 
   expect(result.exitCode).toBe(0)
-  expect(result.stdout).toContain("whispered ✓")
+  expect(result.stdout).toContain("munkeled ✓")
   expect(app.requests).toEqual([
     { action: "send", group: "blue-table-42", to: "Alex", text: "hey there" },
   ])
@@ -122,7 +122,7 @@ test("--help prints usage with exit 0", async () => {
   const result = await runMunkel(["--help"])
 
   expect(result.exitCode).toBe(0)
-  expect(result.stdout).toContain("whisper into your friends")
+  expect(result.stdout).toContain("munkel into your friends")
 })
 
 test("too few send arguments prints usage error", async () => {

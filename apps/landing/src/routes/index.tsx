@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createFileRoute } from '@tanstack/react-router'
 import {
+  ArrowRight,
   Bot,
   Check,
   ChevronDown,
@@ -10,6 +11,7 @@ import {
   Laptop,
   Lock,
   MonitorOff,
+  MonitorSmartphone,
   Moon,
   Package,
   Rocket,
@@ -44,6 +46,25 @@ function GithubIcon({ className = '' }: { className?: string }) {
       <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"></path>
       <path d="M9 18c-4.51 2-5-2-7-2"></path>
     </svg>
+  )
+}
+
+/* ---------- Announce bar: cross-platform / Windows soon ---------- */
+
+function AnnounceBar() {
+  return (
+    <a
+      className="announce"
+      href={GITHUB_URL}
+      aria-label="Munkel is going cross-platform — Windows support is coming soon"
+    >
+      <span className="announce-tag">Soon</span>
+      <span className="announce-text">
+        <MonitorSmartphone aria-hidden />
+        Going cross-platform — <strong>Windows support</strong> is on the way.
+      </span>
+      <ArrowRight className="announce-arrow" aria-hidden />
+    </a>
   )
 }
 
@@ -559,10 +580,10 @@ function Hero() {
             </div>
           </div>
           <div className="demo-caption" ref={demoHintRef} aria-hidden>
-            hover to hold a whisper open — just like the real thing
+            hover to hold a munkel open — just like the real thing
           </div>
           <div className="scroll-hint" ref={hintRef}>
-            <span>See it whisper</span>
+            <span>See it munkel</span>
             <ChevronDown aria-hidden />
           </div>
         </div>
@@ -576,15 +597,15 @@ function Hero() {
 type TermStep = { type: 'cmd'; text: string } | { type: 'out'; html: string }
 
 // Mirrors the real CLI output (apps/cli/src/munkel.ts): circles print as
-// `● code  —  members`, every successful send prints `whispered ✓`.
+// `● code  —  members`, every successful send prints `munkeled ✓`.
 const TERM_SCRIPT: TermStep[] = [
   { type: 'cmd', text: 'munkel circles' },
   { type: 'out', html: '<span class="tdot-live">●</span> blue-table-42  <span class="tdim">—</span>  Alex, Sam, Morgan' },
   { type: 'out', html: '<span class="tdot-live">●</span> project-7  <span class="tdim">—</span>  Sam, Alex' },
   { type: 'cmd', text: 'munkel blue-table-42 all "table\'s free, come down"' },
-  { type: 'out', html: '<span class="tdim">whispered ✓</span>' },
+  { type: 'out', html: '<span class="tdim">munkeled ✓</span>' },
   { type: 'cmd', text: 'munkel project-7 Sam "package for you downstairs"' },
-  { type: 'out', html: '<span class="tdim">whispered ✓</span>' },
+  { type: 'out', html: '<span class="tdim">munkeled ✓</span>' },
 ]
 
 function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
@@ -629,7 +650,7 @@ function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
           line.querySelector('.cursor')?.remove()
         } else {
           line.innerHTML = step.html
-          if (!sentFired && step.html.includes('whispered')) {
+          if (!sentFired && step.html.includes('munkeled')) {
             sentFired = true
             onFirstSendRef.current?.()
           }
@@ -889,6 +910,7 @@ function LaunchBadgeTrack({ liveOnly = false }: { liveOnly?: boolean }) {
 function LandingPage() {
   return (
     <>
+      <AnnounceBar />
       <Nav />
       <Hero />
 
@@ -903,7 +925,7 @@ function LandingPage() {
             </p>
             <p>
               No invites, no server-side circle state. Sign in with GitHub once, then three steps and
-              you're whispering.
+              you're Munkeling.
             </p>
           </div>
           <div className="steps">
@@ -972,7 +994,7 @@ function LandingPage() {
               <h3>Ephemeral by design</h3>
               <p>
                 The relay holds zero state: no database, no logs of content. Messages exist only in
-                flight; offline means missed, like a real whisper.
+                flight; offline means missed, like a real munkel.
               </p>
             </div>
             <div className="feature">
@@ -1022,7 +1044,7 @@ function LandingPage() {
               <h3>Works without a notch</h3>
               <p>
                 Older MacBook or external display? Messages fall back to an elegant floating panel.
-                Same whisper, different hardware.
+                Same munkel, different hardware.
               </p>
             </div>
           </div>
@@ -1034,7 +1056,7 @@ function LandingPage() {
           <div className="cli-grid">
             <div className="cli-copy">
               <div className="section-kicker">CLI</div>
-              <h2>Whisper from the shell.</h2>
+              <h2>Munkel from the shell.</h2>
               <p>
                 <span className="code">munkel</span> is a thin client over the app's Unix domain
                 socket. The app owns all crypto and relay connections, the CLI just talks.
@@ -1056,7 +1078,7 @@ function LandingPage() {
             <div className="section-kicker">Agents</div>
             <h2>LLM ready.</h2>
             <p>
-              The CLI is plain text in, plain text out. Anything that can run a shell can whisper,
+              The CLI is plain text in, plain text out. Anything that can run a shell can munkel,
               including the agent you already use.
             </p>
           </div>
@@ -1080,7 +1102,7 @@ function LandingPage() {
               <h3>Skills, ready to install</h3>
               <p>
                 Prepared skills teach your agent munkel's commands in one step. Install once and
-                your assistant knows how to whisper.
+                your assistant knows how to munkel.
               </p>
             </div>
           </div>
@@ -1106,7 +1128,7 @@ function LandingPage() {
                 <h3>Invisible to screen sharing</h3>
                 <p>
                   Presenting in Zoom, Teams, or Meet? Munkel excludes its windows from screen
-                  capture. Whispers stay on your screen, never on the shared one.
+                  capture. Munkels stay on your screen, never on the shared one.
                 </p>
               </div>
             </div>
@@ -1227,7 +1249,7 @@ function LandingPage() {
             <details>
               <summary>Can I reply from the notch?</summary>
               <p>
-                Yes — click a whisper and reply right there; the notch closes again after you
+                Yes — click a munkel and reply right there; the notch closes again after you
                 send. You can also reply from the menu-bar popover or the{' '}
                 <span className="code">munkel</span> CLI.
               </p>
@@ -1253,7 +1275,7 @@ function LandingPage() {
             </p>
             <span className="founder-sig">Built for lightweight, low-pressure messages.</span>
           </div>
-          <h2>Start whispering.</h2>
+          <h2>Start Munkeling.</h2>
           <p>
             Open source, MIT licensed. A native Swift app — no Electron — one signed &amp;
             notarized binary in your menu bar.

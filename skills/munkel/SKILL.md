@@ -6,7 +6,7 @@ description: Send ephemeral end-to-end-encrypted messages that appear in
   to a circle, or list Munkel circles and members.
 ---
 
-# munkel — whisper into your friends' notches
+# munkel — munkel into your friends' notches
 
 Munkel delivers ephemeral E2E-encrypted messages that slide out of the
 recipient's MacBook notch. The CLI is **send-only**: it cannot read,
@@ -47,7 +47,7 @@ names.
 
 ## Behavior and errors
 
-Success prints `whispered ✓` and exits 0.
+Success prints `munkeled ✓` and exits 0.
 
 - `Munkel app isn't running` — the app is not running; launch it with
   `open -a Munkel` (or ask the user to).

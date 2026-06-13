@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// munkel — whisper into your friends' notches.
+// munkel — munkel into your friends' notches.
 // Thin client: talks to the running menu-bar app over its Unix control
 // socket; the app owns the relay connections and the crypto.
 
@@ -41,7 +41,7 @@ function fail(message: string, code = 1): never {
 declare const MUNKEL_BUILD_VERSION: string
 const version = typeof MUNKEL_BUILD_VERSION === "string" ? MUNKEL_BUILD_VERSION : "0.0.0-dev"
 
-const usage = `munkel — whisper into your friends' notches
+const usage = `munkel — munkel into your friends' notches
 
   munkel <circle> <recipient|all> <message…>      Send a message
   munkel circles                                 Show your circles & members
@@ -137,6 +137,6 @@ if (response.groups) {
     console.log(`${status} ${group.code}  —  ${members}`)
   }
 } else {
-  console.log("whispered ✓")
+  console.log("munkeled ✓")
 }
 process.exit(0)

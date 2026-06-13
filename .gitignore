@@ -31,3 +31,4 @@ xcuserdata/
 
 # Turborepo
 .turbo/
+.gstack/

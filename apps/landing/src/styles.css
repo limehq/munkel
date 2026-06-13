@@ -131,6 +131,37 @@ button { font-family: inherit; cursor: pointer; }
 svg.lucide { width: 16px; height: 16px; stroke-width: 1.5; }
 
 /* ---------- Nav (doubles as the Mac menu bar) ---------- */
+/* Announce bar: thin strip at the very top, scrolls away under the nav */
+.announce {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0.625rem; flex-wrap: wrap;
+  padding: 0.5rem 1.25rem;
+  font-size: var(--text-sm); line-height: 1.3; color: var(--foreground);
+  text-align: center;
+  background: color-mix(in oklab, var(--brand) 12%, var(--background));
+  border-bottom: 1px solid color-mix(in oklab, var(--brand) 26%, transparent);
+  transition: background 0.2s ease;
+}
+.announce:hover { background: color-mix(in oklab, var(--brand) 18%, var(--background)); }
+.announce-tag {
+  font-family: var(--font-mono); font-size: var(--text-xs); font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--background); background: var(--brand);
+  padding: 0.125rem 0.5rem; border-radius: 999px;
+}
+.announce-text { display: inline-flex; align-items: center; gap: 0.5rem; }
+.announce-text strong { font-weight: 600; }
+.announce-text svg { width: 16px; height: 16px; color: var(--brand); flex-shrink: 0; }
+.announce-arrow {
+  width: 15px; height: 15px; color: var(--muted-foreground);
+  transition: transform 0.2s ease;
+}
+.announce:hover .announce-arrow { transform: translateX(3px); }
+@media (max-width: 560px) {
+  .announce { gap: 0.5rem; padding: 0.5rem 1rem; font-size: var(--text-xs); }
+  .announce-arrow { display: none; }
+}
+
 nav {
   position: sticky; top: 0; z-index: 100;
   height: var(--nav-h);
