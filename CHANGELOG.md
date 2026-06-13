@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/limehq/munkel/compare/v0.2.0...v0.3.0) (2026-06-13)
+
+
+### Features
+
+* landing announce bar, munkel terminology, and notch dev simulator ([#15](https://github.com/limehq/munkel/issues/15)) ([23f6d85](https://github.com/limehq/munkel/commit/23f6d85bbda2ba3de9fff7838a7a30be2c662444))
+
 ## [0.2.0](https://github.com/limehq/munkel/compare/v0.1.0...v0.2.0) (2026-06-13)
 
 
