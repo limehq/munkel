@@ -807,8 +807,9 @@ type LaunchPlatform = {
   alt?: string
 }
 
-// hrefs are platform homepages for now — swap each for our own listing URL as
-// we launch. Tiers mirror issue #8 (flagship → directories → long tail).
+// Source of truth + status tracking: docs/launch-platforms.md. This array
+// mirrors the "live" rows from there; hrefs are platform homepages until we
+// have our own listing URL for each.
 const LAUNCH_PLATFORMS: LaunchPlatform[] = [
   { name: 'Product Hunt', href: 'https://www.producthunt.com' },
   { name: 'Peerlist', href: 'https://peerlist.io' },
