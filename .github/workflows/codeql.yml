@@ -1,8 +1,10 @@
 name: CodeQL
 
+# Not run on pull_request: the CodeQL Swift extractor is CPU-bound and takes
+# several minutes per run (irreducible — no cross-run cache), which serializes
+# behind every PR on the single self-hosted runner. We scan on push to main
+# plus the weekly schedule instead; these are no longer required PR checks.
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main]
   schedule:
