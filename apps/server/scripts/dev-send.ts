@@ -60,21 +60,45 @@ async function open(payload: string): Promise<unknown> {
   return JSON.parse(new TextDecoder().decode(plaintext));
 }
 
+function relayEndpoint(raw: string, group: string, member: string): string {
+  const base = new URL(raw);
+  if (base.protocol !== 'ws:' && base.protocol !== 'wss:') {
+    throw new Error('RELAY_URL must use ws:// or wss://');
+  }
+  if (base.username || base.password) {
+    throw new Error('RELAY_URL must not include credentials');
+  }
+
+  const endpoint = new URL('/ws', base);
+  endpoint.searchParams.set('group', group);
+  endpoint.searchParams.set('member', member);
+  endpoint.hash = '';
+  return endpoint.toString();
+}
+
+function safeLog(value: unknown): string {
+  const rendered = typeof value === 'string' ? value : JSON.stringify(value);
+  return (rendered ?? String(value)).replace(
+    /[\u001b\u009b][[\]()#;?]*(?:\d{1,4}(?:;\d{0,4})*)?[\dA-PR-TZcf-nq-uy=><~]/g,
+    '',
+  );
+}
+
 const relayURL = process.env.RELAY_URL ?? 'ws://127.0.0.1:8787';
 const memberId = process.env.MEMBER_ID ?? 'dev-sender';
 
 process.stdout.write(`groupId: ${groupId}\n`);
 
-const ws = new WebSocket(`${relayURL}/ws?group=${groupId}&member=${memberId}`);
+const ws = new WebSocket(relayEndpoint(relayURL, groupId, memberId));
 
 ws.onmessage = async (event) => {
   const frame = JSON.parse(String(event.data));
   if (listenMode && frame.type === 'message') {
     const decrypted = await open(frame.payload);
-    process.stdout.write(`DECRYPTED from=${frame.from} to=${frame.to ?? 'all'}: ${JSON.stringify(decrypted)}\n`);
+    process.stdout.write(`DECRYPTED from=${safeLog(frame.from)} to=${safeLog(frame.to ?? 'all')}: ${safeLog(decrypted)}\n`);
     return;
   }
-  process.stdout.write(`<< ${event.data}\n`);
+  process.stdout.write(`<< ${safeLog(event.data)}\n`);
 };
 
 ws.onopen = async () => {

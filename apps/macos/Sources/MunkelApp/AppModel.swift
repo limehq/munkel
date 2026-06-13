@@ -168,7 +168,7 @@ final class AppModel: ObservableObject {
             githubLoginState = .failed(Self.message(for: error))
         } catch {
             guard generation == githubLoginGeneration else { return }
-            githubLoginState = .failed("Keine Verbindung zu GitHub.")
+            githubLoginState = .failed("No connection to GitHub.")
         }
     }
 
@@ -213,13 +213,13 @@ final class AppModel: ObservableObject {
     private static func message(for error: GitHubAuthError) -> String {
         switch error {
         case .deviceFlowDisabled:
-            "Device Flow ist für die OAuth-App nicht aktiviert (siehe README)."
+            "Device Flow isn't enabled for the OAuth app (see README)."
         case .expired:
-            "Code abgelaufen — bitte erneut versuchen."
+            "Code expired — please try again."
         case .accessDenied:
-            "Anmeldung auf github.com abgelehnt."
+            "Sign-in denied on github.com."
         case .http, .malformedResponse:
-            "GitHub hat unerwartet geantwortet — bitte erneut versuchen."
+            "GitHub responded unexpectedly — please try again."
         }
     }
 
@@ -239,22 +239,22 @@ final class AppModel: ObservableObject {
 
         case "send":
             guard let text = request.text, !text.isEmpty else {
-                return ControlResponse(ok: false, error: "Leere Nachricht")
+                return ControlResponse(ok: false, error: "Empty message")
             }
             guard let groupQuery = request.group else {
-                return ControlResponse(ok: false, error: "Kreis fehlt")
+                return ControlResponse(ok: false, error: "Missing circle")
             }
             guard let session = resolveGroup(groupQuery) else {
-                return ControlResponse(ok: false, error: "Unbekannter oder mehrdeutiger Kreis \"\(groupQuery)\" — munkel groups zeigt alle")
+                return ControlResponse(ok: false, error: "Unknown or ambiguous circle \"\(groupQuery)\" — munkel circles shows them all")
             }
 
             var recipientId: String?
-            if let to = request.to, !["all", "alle", "*"].contains(to.lowercased()) {
+            if let to = request.to, !["all", "*"].contains(to.lowercased()) {
                 let matches = session.members.filter {
                     $0.label.caseInsensitiveCompare(to) == .orderedSame || $0.id.hasPrefix(to.lowercased())
                 }
                 guard matches.count == 1 else {
-                    let problem = matches.isEmpty ? "ist nicht online" : "ist mehrdeutig"
+                    let problem = matches.isEmpty ? "isn't online" : "is ambiguous"
                     return ControlResponse(ok: false, error: "\"\(to)\" \(problem) in \(session.code)")
                 }
                 recipientId = matches[0].id
@@ -263,10 +263,10 @@ final class AppModel: ObservableObject {
             let sent = await session.sendChat(text, to: recipientId)
             return sent
                 ? ControlResponse(ok: true)
-                : ControlResponse(ok: false, error: "Senden fehlgeschlagen — keine Verbindung zum Relay?")
+                : ControlResponse(ok: false, error: "Send failed — no connection to the relay?")
 
         default:
-            return ControlResponse(ok: false, error: "Unbekannte Aktion \"\(request.action)\"")
+            return ControlResponse(ok: false, error: "Unknown action \"\(request.action)\"")
         }
     }
 

@@ -12,6 +12,8 @@ permissions: read-all
 
 jobs:
   scorecard:
+    # Stays GitHub-hosted: ossf/scorecard-action is a Docker container action,
+    # which only runs on Linux runners — not the self-hosted macOS runner.
     runs-on: ubuntu-latest
     permissions:
       actions: read

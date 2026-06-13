@@ -11,23 +11,24 @@ on:
 
 permissions:
   contents: read
-  security-events: write
-  actions: read
 
 jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
-    runs-on: ${{ matrix.os }}
+    runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 30
+    # Least privilege: writes live on the job, not the workflow top level.
+    permissions:
+      contents: read # checkout
+      security-events: write # upload CodeQL results
+      actions: read # CodeQL reads workflow run metadata
     strategy:
       fail-fast: false
       matrix:
         include:
           - language: javascript-typescript
-            os: ubuntu-latest
             build-mode: none
           - language: swift
-            os: macos-15
             build-mode: manual
 
     steps:
