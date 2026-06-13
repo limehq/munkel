@@ -15,7 +15,7 @@ permissions:
 jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
-    runs-on: ${{ matrix.os }}
+    runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 30
     # Least privilege: writes live on the job, not the workflow top level.
     permissions:
@@ -27,10 +27,8 @@ jobs:
       matrix:
         include:
           - language: javascript-typescript
-            os: ubuntu-latest
             build-mode: none
           - language: swift
-            os: macos-15
             build-mode: manual
 
     steps:
