@@ -19,9 +19,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # upload artifacts to the GitHub release
-  id-token: write # artifact attestations
-  attestations: write
+  contents: read
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -29,6 +27,11 @@ env:
 jobs:
   release:
     runs-on: macos-15
+    # Least privilege: writes live on the job, not the workflow top level.
+    permissions:
+      contents: write # upload artifacts to the GitHub release
+      id-token: write # OIDC for build provenance attestation
+      attestations: write # actions/attest-build-provenance
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
@@ -88,9 +91,16 @@ jobs:
         run: shasum -a 256 "dist/Munkel-$VERSION.zip" | tee "dist/Munkel-$VERSION.zip.sha256"
 
       - name: Attest release artifact
+        id: attest
         uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
         with:
           subject-path: dist/Munkel-${{ env.VERSION }}.zip
+
+      - name: Publish provenance bundle as a release asset
+        # The attestation also lands in GitHub's attestation store, but consumers
+        # (and OpenSSF Scorecard) only see release assets — ship the Sigstore
+        # bundle alongside the zip so the release is verifiably signed offline.
+        run: cp "${{ steps.attest.outputs.bundle-path }}" "dist/Munkel-$VERSION.zip.sigstore.json"
 
       - name: Upload artifact to GitHub release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
@@ -101,6 +111,7 @@ jobs:
           files: |
             dist/Munkel-${{ env.VERSION }}.zip
             dist/Munkel-${{ env.VERSION }}.zip.sha256
+            dist/Munkel-${{ env.VERSION }}.zip.sigstore.json
 
       - name: Bump cask in homebrew-tap
         env:
