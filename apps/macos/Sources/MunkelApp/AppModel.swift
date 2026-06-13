@@ -37,9 +37,20 @@ final class AppModel: ObservableObject {
     private static let relayURLKey = "relayURL"
     private static let defaultRelayURL = "wss://relay.munkel.app"
 
+    #if DEBUG
+    /// Dev-only: echo my own broadcasts into my notch (Settings toggle), so a
+    /// solo developer can see a sent message without a second member online —
+    /// the relay delivers a broadcast only to the *other* members. Default on.
+    static var devEchoBroadcasts: Bool {
+        get { (UserDefaults.standard.object(forKey: "devEchoBroadcasts") as? Bool) ?? true }
+        set { UserDefaults.standard.set(newValue, forKey: "devEchoBroadcasts") }
+    }
+    #endif
+
     private var sessions: [String: GroupSession] = [:]
     private let notch = NotchPresenter()
     private var controlServer: ControlServer?
+    private var palette: CommandPalettePresenter?
     private var githubLoginTask: Task<Void, Never>?
     private var githubLoginGeneration = 0
     private var profileBroadcastTask: Task<Void, Never>?
@@ -58,6 +69,9 @@ final class AppModel: ObservableObject {
         let server = ControlServer(model: self)
         server.start()
         self.controlServer = server
+        // Registers the global hotkey (default ⌃⌘M) and owns the palette
+        // window — long-lived like the notch, so it survives popover churn.
+        self.palette = CommandPalettePresenter(model: self)
     }
 
     func session(for code: String) -> GroupSession? {
@@ -83,6 +97,30 @@ final class AppModel: ObservableObject {
     func send(text: String, group code: String, to memberId: String? = nil) {
         guard let session = sessions[code] else { return }
         Task { await session.sendChat(text, to: memberId) }
+        #if DEBUG
+        // Dev aid: the relay delivers a broadcast only to the *other* members,
+        // so a solo developer never sees their own message. With the Settings
+        // toggle on, echo broadcasts (to: nil) into our own notch as if they
+        // had arrived — same path the live onChat handler uses.
+        if memberId == nil, Self.devEchoBroadcasts {
+            notch.show(
+                sender: displayName,
+                avatarData: Identity.avatarData,
+                text: text,
+                isDirect: false,
+                group: code,
+                groupColor: .groupColor(index: groupCodes.firstIndex(of: code) ?? 0),
+                inMultipleGroups: groupCodes.count > 1
+            ) { [weak self] reply, _ in
+                self?.send(text: reply, group: code, to: nil)
+            }
+        }
+        #endif
+    }
+
+    /// Opens the quick-send command palette (also bound to the global hotkey).
+    func openCommandPalette() {
+        palette?.show()
     }
 
     // MARK: - GitHub login (device flow)
