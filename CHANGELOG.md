@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/limehq/munkel/compare/v0.3.0...v0.4.0) (2026-06-13)
+
+
+### Features
+
+* **cli:** auto-start the Munkel app when its socket is down ([#17](https://github.com/limehq/munkel/issues/17)) ([d7b71f3](https://github.com/limehq/munkel/commit/d7b71f351bba5c96c99ac82a0130ce6c75fbec50))
+
 ## [0.3.0](https://github.com/limehq/munkel/compare/v0.2.0...v0.3.0) (2026-06-13)
 
 
