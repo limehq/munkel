@@ -30,7 +30,7 @@ jobs:
   release:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
@@ -88,12 +88,12 @@ jobs:
         run: shasum -a 256 "dist/Munkel-$VERSION.zip" | tee "dist/Munkel-$VERSION.zip.sha256"
 
       - name: Attest release artifact
-        uses: actions/attest-build-provenance@43d14bc2b83dec42d39ecae14e916627a18bb661 # v3
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
           subject-path: dist/Munkel-${{ env.VERSION }}.zip
 
       - name: Upload artifact to GitHub release
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
           # release-please already created the release with changelog notes;
           # this only attaches the zip (softprops upserts by tag).
