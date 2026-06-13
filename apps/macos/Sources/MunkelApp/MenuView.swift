@@ -1,3 +1,4 @@
+import KeyboardShortcuts
 import SwiftUI
 
 struct MenuView: View {
@@ -5,6 +6,9 @@ struct MenuView: View {
     @State private var joinCode = ""
     @State private var userCodeCopied = false
     @State private var groupListHeight: CGFloat = 0
+    #if DEBUG
+    @AppStorage("devEchoBroadcasts") private var devEchoBroadcasts = true
+    #endif
 
     /// Cap before the group list starts scrolling.
     private let maxGroupListHeight: CGFloat = 360
@@ -63,6 +67,10 @@ struct MenuView: View {
 
                 Divider()
 
+                paletteHotkeyRow
+
+                Divider()
+
                 githubArea
             }
         }
@@ -105,6 +113,15 @@ struct MenuView: View {
             } label: {
                 Label("Check for Updates…", systemImage: "arrow.triangle.2.circlepath")
             }
+            Button {
+                model.openCommandPalette()
+            } label: {
+                Label("Quick send…", systemImage: "paperplane")
+            }
+            #if DEBUG
+            Divider()
+            Toggle("Echo my broadcasts to me", isOn: $devEchoBroadcasts)
+            #endif
             Divider()
             Button {
                 NSApp.terminate(nil)
@@ -166,6 +183,18 @@ struct MenuView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Global hotkey that opens the quick-send palette from anywhere.
+    private var paletteHotkeyRow: some View {
+        HStack {
+            Image(systemName: "paperplane")
+                .foregroundStyle(.secondary)
+            Text("Quick send")
+                .font(.callout)
+            Spacer()
+            KeyboardShortcuts.Recorder(for: .togglePalette)
         }
     }
 
