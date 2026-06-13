@@ -264,7 +264,7 @@ html:not(.dark) .icon-btn .moon { display: none; }
   z-index: 5;
   transition: width 0.45s cubic-bezier(0.32, 1.4, 0.46, 1), height 0.45s cubic-bezier(0.32, 1.4, 0.46, 1), border-radius 0.3s ease, box-shadow 0.3s ease;
 }
-/* Fillet »ears« where the black shape meets the menu bar */
+/* Fillet "ears" where the black shape meets the menu bar */
 .mb-notch::before, .mb-notch::after {
   content: ""; position: absolute; top: 0; width: 10px; height: 10px;
 }

@@ -10,7 +10,7 @@
 Ephemeral messages between friends at the same café table — or across the
 world — that slide elegantly out of the MacBook notch.
 
-No accounts, no history, no message storage: a group is born from a shared
+No accounts, no history, no message storage: a circle is born from a shared
 human-readable code (`blue-table-42`). The app derives the relay group ID and
 message key on-device; the relay routes encrypted payloads and does not receive
 the plaintext code.
@@ -59,13 +59,13 @@ sharing.
 
 - The relay stores no messages and only sees derived group IDs, member IDs,
   message sizes, and timing.
-- Message payloads are AES-256-GCM encrypted with a key derived from the group
+- Message payloads are AES-256-GCM encrypted with a key derived from the circle
   code on-device.
-- Generated group codes are optimized for being spoken at a table. Treat them
+- Generated circle codes are optimized for being spoken at a table. Treat them
   as convenience-grade secrets until the invite format is hardened; for more
   sensitive use, join with a longer custom code instead of a generated one.
 - Direct messages are relay-targeted in v1, not pairwise encrypted. Any current
-  group member with the group code shares the same message key.
+  circle member with the circle code shares the same message key.
 - GitHub login is display identity only. It imports a name/avatar but does not
   prove to peers that a member controls a GitHub account.
 
@@ -103,7 +103,7 @@ bunx turbo deploy --filter=@munkel/landing   # munkel.app
 
 - **Server-first transport**: one WebSocket relay path for café and remote —
   no flaky local P2P, seamless everywhere.
-- **One Durable Object per group** (`idFromName(groupId)`), WebSocket
+- **One Durable Object per circle** (`idFromName(groupId)`), WebSocket
   Hibernation API, no DO storage → ephemerality is enforced by design.
 - **Notch-first interaction**: incoming messages appear in the notch, can be
   expanded, copied, and answered inline without opening a chat window.
@@ -117,7 +117,7 @@ bunx turbo deploy --filter=@munkel/landing   # munkel.app
 
 ## Relay server
 
-Cloudflare Worker (Hono router) + one Durable Object per group
+Cloudflare Worker (Hono router) + one Durable Object per circle
 ([partyserver](https://github.com/cloudflare/partyserver) with WebSocket
 hibernation). Modeled after the conventions in `wokkytokky/apps/server`.
 
@@ -142,11 +142,11 @@ automatically on every deploy — no manual DNS steps.
 
 ## macOS app
 
-Menu bar icon → sign in with GitHub, create or join a group, send to the
-group or a single member. Incoming messages appear in the notch
+Menu bar icon → sign in with GitHub, create or join a circle, send to the
+circle or a single member. Incoming messages appear in the notch
 ([DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit)): hovering
 keeps the message open (haptic feedback included), the copy button puts the
-text on the clipboard, inline reply can answer the sender or the group, and on
+text on the clipboard, inline reply can answer the sender or the circle, and on
 Macs without a notch a floating panel is used automatically.
 Settings live under the `dev.uq.munkel` defaults domain; the relay URL
 defaults to the deployed Worker (override with `ws://127.0.0.1:8787` for
@@ -154,7 +154,7 @@ local development against `wrangler dev`).
 
 ### Login with GitHub
 
-"Mit GitHub anmelden" in the menu imports your GitHub username and avatar as
+"Sign in with GitHub" in the menu imports your GitHub username and avatar as
 your identity — still no account: the app runs the [OAuth device
 flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow)
 (user code is auto-copied, browser opens), requests a token with **empty
@@ -178,16 +178,16 @@ app: create one, tick **Enable Device Flow**, then either edit
 ## munkel CLI
 
 ```sh
-munkel groups                       # ● blue-table-42  —  Alex, Sam
+munkel circles                      # ● blue-table-42  —  Alex, Sam
 munkel blue-table-42 Alex hey       # direct delivery by display name
-munkel blue-table-42 all "coffee?"  # group broadcast
+munkel blue-table-42 all "coffee?"  # circle broadcast
 ```
 
 The CLI is a thin client: it talks to the running app over
 `~/Library/Application Support/Munkel/control.sock` (newline-delimited
 JSON; see `ControlProtocol.swift`, mirrored in `apps/cli/src/munkel.ts`). The
 socket path can be overridden via `MUNKEL_SOCKET` (used by the tests). The
-app resolves group-code prefixes and recipient display names, and owns all
+app resolves circle-code prefixes and recipient display names, and owns all
 crypto and relay connections — ideal substrate for scripting and agent
 skills.
 
@@ -206,7 +206,7 @@ repo to be public.)
 
 ## Testing without a second Mac
 
-`apps/server/scripts/dev-send.ts` acts as a second group member — it
+`apps/server/scripts/dev-send.ts` acts as a second circle member — it
 implements the full protocol derivation + AES-GCM encryption in TypeScript
 independently of MunkelKit, so a message it sends arriving in the notch also
 proves Swift↔TS crypto interop (the derivation is additionally pinned in

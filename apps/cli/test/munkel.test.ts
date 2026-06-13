@@ -50,13 +50,13 @@ test("send delivers request and confirms", async () => {
   const result = await runMunkel(["blue-table-42", "Alex", "hey", "there"], app.socketPath)
 
   expect(result.exitCode).toBe(0)
-  expect(result.stdout).toContain("geflüstert ✓")
+  expect(result.stdout).toContain("whispered ✓")
   expect(app.requests).toEqual([
     { action: "send", group: "blue-table-42", to: "Alex", text: "hey there" },
   ])
 })
 
-test("groups lists members with connection status", async () => {
+test("circles lists members with connection status", async () => {
   const app = fakeApp(() => ({
     ok: true,
     groups: [
@@ -64,28 +64,36 @@ test("groups lists members with connection status", async () => {
       { code: "green-room-17", connected: false, members: [] },
     ],
   }))
-  const result = await runMunkel(["groups"], app.socketPath)
+  const result = await runMunkel(["circles"], app.socketPath)
 
   expect(result.exitCode).toBe(0)
   expect(result.stdout).toContain("● blue-table-42  —  Alex, Sam")
-  expect(result.stdout).toContain("○ green-room-17  —  niemand sonst online")
+  expect(result.stdout).toContain("○ green-room-17  —  no one else online")
   expect(app.requests).toEqual([{ action: "groups" }])
 })
 
-test("groups with no groups prints hint", async () => {
+test("circles with no circles prints hint", async () => {
+  const app = fakeApp(() => ({ ok: true, groups: [] }))
+  const result = await runMunkel(["circles"], app.socketPath)
+
+  expect(result.exitCode).toBe(0)
+  expect(result.stdout).toContain("No circles yet")
+})
+
+test("groups stays a back-compat alias for circles", async () => {
   const app = fakeApp(() => ({ ok: true, groups: [] }))
   const result = await runMunkel(["groups"], app.socketPath)
 
   expect(result.exitCode).toBe(0)
-  expect(result.stdout).toContain("Keine Gruppen")
+  expect(app.requests).toEqual([{ action: "groups" }])
 })
 
 test("app error is reported on stderr", async () => {
-  const app = fakeApp(() => ({ ok: false, error: "Unbekannte Gruppe: nope" }))
+  const app = fakeApp(() => ({ ok: false, error: "Unknown circle: nope" }))
   const result = await runMunkel(["nope", "all", "hi"], app.socketPath)
 
   expect(result.exitCode).toBe(1)
-  expect(result.stderr).toContain("Unbekannte Gruppe: nope")
+  expect(result.stderr).toContain("Unknown circle: nope")
 })
 
 test("invalid response is rejected", async () => {
@@ -93,28 +101,28 @@ test("invalid response is rejected", async () => {
   const result = await runMunkel(["blue-table-42", "all", "hi"], app.socketPath)
 
   expect(result.exitCode).toBe(1)
-  expect(result.stderr).toContain("Keine gültige Antwort")
+  expect(result.stderr).toContain("No valid response")
 })
 
 test("missing app yields a helpful error", async () => {
   const result = await runMunkel(["blue-table-42", "all", "hi"])
 
   expect(result.exitCode).toBe(1)
-  expect(result.stderr).toContain("Munkel-App läuft nicht")
+  expect(result.stderr).toContain("Munkel app isn't running")
 })
 
 test("no arguments prints usage with exit 64", async () => {
   const result = await runMunkel([])
 
   expect(result.exitCode).toBe(64)
-  expect(result.stdout).toContain("munkel <gruppe> <empfänger|all>")
+  expect(result.stdout).toContain("munkel <circle> <recipient|all>")
 })
 
 test("--help prints usage with exit 0", async () => {
   const result = await runMunkel(["--help"])
 
   expect(result.exitCode).toBe(0)
-  expect(result.stdout).toContain("flüstere deinen Freunden")
+  expect(result.stdout).toContain("whisper into your friends")
 })
 
 test("too few send arguments prints usage error", async () => {

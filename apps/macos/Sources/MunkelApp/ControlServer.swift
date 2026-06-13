@@ -70,7 +70,7 @@ final class ControlServer {
         if let model, let request = try? JSONDecoder().decode(ControlRequest.self, from: Data(requestData)) {
             response = await model.handleControl(request)
         } else {
-            response = ControlResponse(ok: false, error: "Ungültige Anfrage")
+            response = ControlResponse(ok: false, error: "Invalid request")
         }
         var payload = (try? JSONEncoder().encode(response)) ?? Data(#"{"ok":false}"#.utf8)
         payload.append(UInt8(ascii: "\n"))

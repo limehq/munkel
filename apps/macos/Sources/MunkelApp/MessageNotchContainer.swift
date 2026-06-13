@@ -216,8 +216,8 @@ struct MessageNotchContainer: View {
                 // for light backgrounds and vanishes on the black notch.
                 prompt: Text(
                     model.replyPrivately
-                        ? "Privat an \(message.sender)…"
-                        : "Antwort an alle…"
+                        ? "Private to \(message.sender)…"
+                        : "Reply to all…"
                 )
                 // 0.45 white washed out on the always-black notch when the
                 // system is in light mode — keep it readable in both.
@@ -257,10 +257,10 @@ struct MessageNotchContainer: View {
             // The circle name only matters when there is more than one.
             Text(
                 model.replyPrivately
-                    ? "Gesendet an \(message.sender)"
+                    ? "Sent to \(message.sender)"
                     : message.inMultipleGroups
-                        ? "Gesendet an alle in \(message.group)"
-                        : "Gesendet an alle"
+                        ? "Sent to all in \(message.group)"
+                        : "Sent to all"
             )
         }
         .font(.system(size: 12, weight: .medium))
