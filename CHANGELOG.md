@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/limehq/munkel/compare/v0.1.0...v0.2.0) (2026-06-13)
+
+
+### Features
+
+* add quick-send command palette (global hotkey) ([#10](https://github.com/limehq/munkel/issues/10)) ([e76b83b](https://github.com/limehq/munkel/commit/e76b83bd77d4628f682919f9b061ef46ea18ce2c))
+
 ## 0.1.0 (2026-06-13)
 
 
