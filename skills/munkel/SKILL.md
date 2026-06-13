@@ -15,8 +15,9 @@ Munkel.app, which owns circles, crypto, and the relay connection.
 
 ## Requirements
 
-- macOS with Munkel.app installed and **running**:
-  `brew install limehq/tap/munkel`, then `open -a Munkel`.
+- macOS with Munkel.app installed: `brew install limehq/tap/munkel`. If the
+  app isn't running, the CLI launches it automatically (in the background)
+  and waits for it before sending — no need to `open -a Munkel` first.
 - The user must already be in a circle — circles are created/joined in the
   app's menu-bar UI, not the CLI.
 
@@ -49,8 +50,11 @@ names.
 
 Success prints `munkeled ✓` and exits 0.
 
-- `Munkel app isn't running` — the app is not running; launch it with
-  `open -a Munkel` (or ask the user to).
+- The CLI auto-starts Munkel.app if it isn't running and waits for it. A
+  `couldn't start the Munkel app` error means the launch itself failed —
+  the app likely isn't installed (`brew install limehq/tap/munkel`).
+- `Munkel app isn't running` only appears when a custom `MUNKEL_SOCKET` is
+  set (auto-launch is skipped for custom sockets).
 - Unknown circle / recipient errors come from the app; re-check with
   `munkel circles`.
 - Exit 64 means a usage error (wrong arguments).
