@@ -1,0 +1,30 @@
+name: Release Please
+
+# Maintains a rolling release PR from Conventional Commits on main
+# (feat: → minor, fix: → patch, feat!: → breaking). Merging that PR
+# creates tag + GitHub release with changelog, then dispatches the
+# desktop build (release.yml) for the new tag — tags created with
+# GITHUB_TOKEN don't fire `on: push` workflows, so we dispatch explicitly.
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: rp
+
+      - name: Trigger desktop release build
+        if: ${{ steps.rp.outputs.release_created }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run release.yml --repo "$GITHUB_REPOSITORY" --ref "${{ steps.rp.outputs.tag_name }}"

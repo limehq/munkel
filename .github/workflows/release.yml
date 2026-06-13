@@ -1,0 +1,111 @@
+name: Release
+
+# Tag push (v0.2.0) → universal build → Developer ID signing → notarization
+# → stapling → GitHub release → cask bump in limehq/homebrew-tap.
+#
+# Required repository secrets (see RELEASING.md for how to create each):
+#   MACOS_CERTIFICATE_P12       base64 of the Developer ID Application .p12
+#   MACOS_CERTIFICATE_PASSWORD  password of that .p12
+#   APPLE_API_KEY_P8            base64 of the App Store Connect API key (.p8)
+#   APPLE_API_KEY_ID            10-char key ID
+#   APPLE_API_ISSUER_ID         issuer UUID
+#   TAP_GITHUB_TOKEN            PAT with push access to limehq/homebrew-tap
+
+on:
+  push:
+    tags: ["v*"]
+  # Dispatched by release-please.yml with --ref <tag>: tags created by the
+  # bot's GITHUB_TOKEN never fire `on: push` themselves.
+  workflow_dispatch:
+
+permissions:
+  contents: write # upload artifacts to the GitHub release
+
+jobs:
+  release:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # Pinned to the locally verified version (signing + notarization
+          # tested end-to-end). Do not bump casually: Bun 1.3.12 emits a
+          # malformed LC_CODE_SIGNATURE that breaks codesign entirely
+          # (oven-sh/bun#29361).
+          bun-version: "1.3.9"
+
+      - name: Import Developer ID certificate
+        env:
+          CERT_P12: ${{ secrets.MACOS_CERTIFICATE_P12 }}
+          CERT_PASSWORD: ${{ secrets.MACOS_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$CERT_P12" | base64 --decode > cert.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import cert.p12 -P "$CERT_PASSWORD" -A \
+            -t cert -f pkcs12 -k build.keychain
+          security set-key-partition-list -S apple-tool:,apple:,codesign: \
+            -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          security list-keychains -d user -s build.keychain login.keychain
+          rm cert.p12
+
+      - name: Build, sign, zip
+        env:
+          CODESIGN_IDENTITY: ${{ vars.CODESIGN_IDENTITY }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          scripts/build-release.sh "$VERSION"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Notarize and staple
+        env:
+          API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
+          API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
+        run: |
+          echo "$API_KEY_P8" | base64 --decode > AuthKey.p8
+          xcrun notarytool submit "dist/Munkel-$VERSION.zip" \
+            --key AuthKey.p8 --key-id "$API_KEY_ID" \
+            --issuer "$API_ISSUER_ID" --wait
+          rm AuthKey.p8
+          # A zip cannot be stapled — staple the .app, then re-zip. The bare
+          # CLI binary cannot be stapled either; Gatekeeper checks its
+          # notarization ticket online, which is normal for cask binaries.
+          xcrun stapler staple dist/stage/Munkel.app
+          spctl -a -vv dist/stage/Munkel.app
+          cd dist/stage
+          /usr/bin/ditto -c -k . "../Munkel-$VERSION.zip"
+
+      - name: Upload artifact to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          # release-please already created the release with changelog notes;
+          # this only attaches the zip (softprops upserts by tag).
+          tag_name: ${{ github.ref_name }}
+          files: dist/Munkel-${{ env.VERSION }}.zip
+
+      - name: Bump cask in homebrew-tap
+        env:
+          GH_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::warning::TAP_GITHUB_TOKEN not set — skipping cask bump (tap repo not wired up yet)"
+            exit 0
+          fi
+          SHA256="$(shasum -a 256 "dist/Munkel-$VERSION.zip" | awk '{print $1}')"
+          git clone "https://x-access-token:$GH_TOKEN@github.com/limehq/homebrew-tap.git" tap
+          mkdir -p tap/Casks
+          scripts/build-brew-cask.sh "$VERSION" "$SHA256" tap/Casks/munkel.rb
+          cd tap
+          git config user.name "munkel-release-bot"
+          git config user.email "noreply@munkel.app"
+          git add Casks/munkel.rb
+          # Idempotent re-runs: an identical cask means nothing to commit.
+          git diff --cached --quiet || { git commit -m "munkel $VERSION" && git push; }
+
+      - name: Clean up keychain
+        if: always()
+        run: security delete-keychain build.keychain || true
