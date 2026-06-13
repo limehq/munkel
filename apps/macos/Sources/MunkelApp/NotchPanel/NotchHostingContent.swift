@@ -70,8 +70,8 @@ struct NotchHostingContent<Content: View>: View {
             if owner.state == .expanded {
                 owner.content
                     .transition(
-                        .blur(intensity: 10)
-                            .combined(with: .scale(y: 0.6, anchor: .top))
+                        .contentBlur(10)
+                            .combined(with: .verticalSquash(0.6, anchor: .top))
                             .combined(with: .opacity)
                     )
             }
@@ -117,7 +117,7 @@ struct NotchHostingContent<Content: View>: View {
     private var floatingContent: some View {
         VStack(spacing: 0) {
             owner.content
-                .transition(.blur(intensity: 10).combined(with: .opacity))
+                .transition(.contentBlur(10).combined(with: .opacity))
                 .safeAreaInset(edge: .top, spacing: 0) { Color.clear.frame(height: safeAreaInset) }
                 .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: safeAreaInset) }
                 .safeAreaInset(edge: .leading, spacing: 0) { Color.clear.frame(width: safeAreaInset) }
