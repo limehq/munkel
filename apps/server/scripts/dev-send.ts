@@ -9,7 +9,7 @@
 
 const listenMode = process.argv[2] === '--listen';
 const positional = process.argv.slice(listenMode ? 3 : 2);
-const [code, sender = 'Anna', text = 'Hallo aus TypeScript!'] = positional;
+const [code, sender = 'Alex', text = 'Hello from TypeScript!'] = positional;
 if (!code) {
   process.stderr.write('usage: bun scripts/dev-send.ts [--listen] <group-code> <sender-name> [text]\n');
   process.exit(1);

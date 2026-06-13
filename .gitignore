@@ -1,6 +1,15 @@
 .DS_Store
 node_modules/
 dist/
+*.log
+
+# Local environment and Worker secrets
+.env
+.env.*
+!.env.example
+.dev.vars*
+!.dev.vars.example
+*.local
 
 # Xcode / Swift
 .build/
@@ -8,6 +17,14 @@ DerivedData/
 *.xcuserstate
 xcuserdata/
 .swiftpm/
+
+# Private release/signing material
+*.p8
+*.p12
+*.pem
+*.key
+*.mobileprovision
+*.provisionprofile
 
 # Wrangler local state
 .wrangler/

@@ -8,7 +8,8 @@ import appCss from '../styles.css?url'
 const SITE_URL = 'https://munkel.app'
 const TITLE = 'Munkel · ephemeral messages from the notch'
 const DESCRIPTION =
-  'Encrypted messages, whispered from the MacBook notch. No history. The relay knows nothing.'
+  'Quick pings between friends, end-to-end encrypted — they slide out of the MacBook notch, linger a moment, and vanish. Nothing is ever stored.'
+const OG_IMAGE = `${SITE_URL}/og.png`
 
 // Restore the stored theme before first paint to avoid a light-mode flash.
 // Dark is the default; only an explicit 'light' choice removes the class.
@@ -27,13 +28,20 @@ export const Route = createRootRoute({
       { property: 'og:type', content: 'website' },
       { property: 'og:url', content: SITE_URL },
       { property: 'og:site_name', content: 'Munkel' },
-      { name: 'twitter:card', content: 'summary' },
+      { property: 'og:image', content: OG_IMAGE },
+      { property: 'og:image:width', content: '1200' },
+      { property: 'og:image:height', content: '630' },
+      { property: 'og:image:alt', content: 'A message sliding out of the MacBook notch' },
+      { name: 'twitter:card', content: 'summary_large_image' },
       { name: 'twitter:title', content: TITLE },
       { name: 'twitter:description', content: DESCRIPTION },
+      { name: 'twitter:image', content: OG_IMAGE },
     ],
     links: [
       { rel: 'stylesheet', href: appCss },
       { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
+      { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png' },
+      { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
       { rel: 'canonical', href: SITE_URL },
     ],
   }),
@@ -49,6 +57,8 @@ function RootDocument({ children }: { children: ReactNode }) {
       </head>
       <body>
         {children}
+        {/* Stripped from production builds by @tanstack/devtools-vite — do not
+            wrap in a manual DEV gate; its AST transform chokes on that. */}
         <TanStackDevtools
           config={{
             position: 'bottom-right',

@@ -59,42 +59,28 @@ Pushing a tag `v<version>` runs `.github/workflows/release.yml`:
 
 ## One-time setup checklist
 
-### Apple (team K8T3LW283A, Unique (Deutschland) GmbH)
+Keep private key locations, certificate exports, Apple identifiers, and token
+inventory in a private operator note. This public file should describe the
+shape of the setup, not publish operational details.
 
-- [x] **Developer ID Application certificate** — created 2026-06-13 via
-      developer.apple.com (G2 Sub-CA), valid until 2031-06-13. Private key,
-      `.p12` and password live in `~/.munkel-signing/` on Jurij's Mac
-      (see `NOTES.md` there) — **back this up**; Apple cannot re-issue the
-      private key. On an organization team only the Account Holder (or a
-      member with Developer ID permission) can create such a certificate.
-- [x] `.p12` exported (OpenSSL `-legacy` mode — modern OpenSSL 3 PKCS#12
-      defaults are rejected by macOS `security import`).
-- [x] **App Store Connect API key** for notarization: Team Key
-      `munkel-notarytool`, Key ID `43FZV9YFL8`, role Developer, Issuer ID
-      `69a6de8e-b081-47e3-e053-5b8c7c11a4d1`. The `.p8` is a one-time
-      download and lives in `~/.munkel-signing/`.
+### Apple
+
+- Developer ID Application certificate exported as a password-protected `.p12`.
+- App Store Connect API key for `notarytool`; the `.p8` is a one-time download
+  and must be backed up outside the repository.
+- Repository variable `CODESIGN_IDENTITY` set to the exact Developer ID
+  Application identity used by `codesign`.
 
 ### GitHub
 
-- [x] Public tap repo `limehq/homebrew-tap` created 2026-06-13 (the
-      `homebrew-` prefix is required for `brew tap limehq/tap` to resolve).
-      Until `TAP_GITHUB_TOKEN` is set, `release.yml` skips the cask bump
-      with a warning instead of failing.
-- [x] Release assets publicly downloadable: `limehq/munkel` is **public**
-      since 2026-06-13 (history secret-scanned before the flip).
-- [x] LICENSE: MIT (Unique (Deutschland) GmbH).
-- [x] Repository **secrets** on `limehq/munkel`: `MACOS_CERTIFICATE_P12`,
-      `MACOS_CERTIFICATE_PASSWORD`, `APPLE_API_KEY_P8`, `APPLE_API_KEY_ID`,
-      `APPLE_API_ISSUER_ID` — set 2026-06-13.
-- [ ] `TAP_GITHUB_TOKEN` secret: fine-grained PAT —
-      github.com/settings/personal-access-tokens → Generate new token →
-      Resource owner **limehq** → Only select repositories →
-      **limehq/homebrew-tap** → Repository permissions → **Contents:
-      Read and write** (nothing else). Then from a terminal:
-      `gh secret set TAP_GITHUB_TOKEN --repo limehq/munkel`
-      (paste, Enter, Ctrl-D — keeps the token out of shell history).
-- [x] Repository **variable** `CODESIGN_IDENTITY` =
-      `Developer ID Application: Unique (Deutschland) GmbH (K8T3LW283A)`.
+- Public repository for `limehq/munkel`.
+- Public tap repository `limehq/homebrew-tap`; the `homebrew-` prefix is
+  required for `brew tap limehq/tap` to resolve.
+- Repository secrets for the macOS certificate, certificate password,
+  notarization API key, API key ID, issuer ID, and tap push token.
+- The tap token should be a fine-grained PAT scoped only to
+  `limehq/homebrew-tap` with **Contents: Read and write**. If it is absent,
+  `release.yml` skips the cask bump with a warning.
 
 ## Local smoke test (no signing)
 
