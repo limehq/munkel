@@ -12,13 +12,11 @@ import SwiftUI
 /// at the ROOT of the notch content — never inside a lazily-mounted branch
 /// (`if`, `.onAppear`, a delayed overlay) — message content is instantiated
 /// in the same SwiftUI update pass, so no transaction containing content is
-/// ever flushed to the WindowServer with sharing still enabled. The brief
-/// earlier window DynamicNotchKit orders front (alpha 0, content unmounted)
-/// only holds the empty black notch shape. Both panel-creation paths are
-/// covered: normal expand, and the in-place recreation DynamicNotchKit does
-/// on every screen-parameter change (there `viewDidMoveToWindow` fires even
-/// before the new panel is ordered front). NotchPresenter re-asserts the
-/// flag after `expand()` and on screen changes as redundancy only.
+/// ever flushed to the WindowServer with sharing still enabled. The panel
+/// itself is also born non-capturable — `NotchPanelWindow` sets `sharingType`
+/// in `init`, before it is ever ordered front — so even the empty black notch
+/// shape (alpha 0, content unmounted) never leaks. NotchPresenter re-asserts
+/// the flag once after `expand()` as cheap insurance only.
 ///
 /// Corollary: notch content must not use `.help()` — AppKit draws tooltips
 /// in their own window, which cannot inherit this exclusion and would float
