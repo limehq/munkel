@@ -169,7 +169,13 @@ final class NotchPresenter {
                 Task { @MainActor in
                     if hovering {
                         self.hideTask?.cancel()
-                        self.currentModel?.fullyExpanded = true
+                        // Animate the teaser→expanded morph explicitly: the
+                        // implicit `.animation(value:)` inside MessageNotchContainer
+                        // isn't honored through the NSHostingView host, so the
+                        // expand would otherwise snap open without a transition.
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            self.currentModel?.fullyExpanded = true
+                        }
                     } else if self.currentModel?.replying != true {
                         // While the reply field is open, leaving the notch
                         // must not tear it down mid-typing.
@@ -292,7 +298,12 @@ final class NotchPresenter {
     private func cancelReply() {
         guard let notch = currentNotch, let model = currentModel,
               model.replying, !model.replySent else { return }
-        model.replying = false
+        // Explicit for the same reason as the hover expand: the implicit
+        // animation doesn't fire through the NSHostingView host, so closing
+        // the reply field would otherwise snap shut.
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            model.replying = false
+        }
         scheduleHide(of: notch, after: afterReadDelay)
     }
 
