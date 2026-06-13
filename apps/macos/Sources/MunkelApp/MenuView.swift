@@ -1,3 +1,4 @@
+import KeyboardShortcuts
 import SwiftUI
 
 struct MenuView: View {
@@ -63,6 +64,10 @@ struct MenuView: View {
 
                 Divider()
 
+                paletteHotkeyRow
+
+                Divider()
+
                 githubArea
             }
         }
@@ -104,6 +109,11 @@ struct MenuView: View {
                 checkForUpdates()
             } label: {
                 Label("Check for Updates…", systemImage: "arrow.triangle.2.circlepath")
+            }
+            Button {
+                model.openCommandPalette()
+            } label: {
+                Label("Quick send…", systemImage: "paperplane")
             }
             Divider()
             Button {
@@ -166,6 +176,18 @@ struct MenuView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// Global hotkey that opens the quick-send palette from anywhere.
+    private var paletteHotkeyRow: some View {
+        HStack {
+            Image(systemName: "paperplane")
+                .foregroundStyle(.secondary)
+            Text("Quick send")
+                .font(.callout)
+            Spacer()
+            KeyboardShortcuts.Recorder(for: .togglePalette)
         }
     }
 

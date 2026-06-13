@@ -40,6 +40,7 @@ final class AppModel: ObservableObject {
     private var sessions: [String: GroupSession] = [:]
     private let notch = NotchPresenter()
     private var controlServer: ControlServer?
+    private var palette: CommandPalettePresenter?
     private var githubLoginTask: Task<Void, Never>?
     private var githubLoginGeneration = 0
     private var profileBroadcastTask: Task<Void, Never>?
@@ -58,6 +59,9 @@ final class AppModel: ObservableObject {
         let server = ControlServer(model: self)
         server.start()
         self.controlServer = server
+        // Registers the global hotkey (default ⌃⌘M) and owns the palette
+        // window — long-lived like the notch, so it survives popover churn.
+        self.palette = CommandPalettePresenter(model: self)
     }
 
     func session(for code: String) -> GroupSession? {
@@ -83,6 +87,11 @@ final class AppModel: ObservableObject {
     func send(text: String, group code: String, to memberId: String? = nil) {
         guard let session = sessions[code] else { return }
         Task { await session.sendChat(text, to: memberId) }
+    }
+
+    /// Opens the quick-send command palette (also bound to the global hotkey).
+    func openCommandPalette() {
+        palette?.show()
     }
 
     // MARK: - GitHub login (device flow)
