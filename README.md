@@ -224,6 +224,7 @@ bun scripts/dev-send.ts blue-table-42 Alex "coffee?"
 - [Security policy](SECURITY.md)
 - [Privacy notes](PRIVACY.md)
 - [Contributing guide](CONTRIBUTING.md)
+- [Code of conduct](CODE_OF_CONDUCT.md)
 - [Release process](RELEASING.md)
 
 ## Star history
