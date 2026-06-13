@@ -1,16 +1,13 @@
 import AppKit
 
-/// The borderless, non-activating panel that hosts the notch content — replaces
-/// DynamicNotchKit's `DynamicNotchPanel`.
+/// The borderless, non-activating panel that hosts the notch content.
 ///
-/// It carries the one fix that motivated the rewrite: `sharingType = .none` is
+/// It carries the invariant the whole feature rests on: `sharingType = .none` is
 /// set in `init`, before the panel is ever ordered front, and re-asserted by
 /// `applyCaptureExclusion()` on every re-host path — so no code path can put a
-/// capturable panel on screen. (The library left `sharingType` at its capturable
-/// default and silently rebuilt the panel on every screen-parameter change, which
-/// is what forced the app's delayed re-assert workaround.) This is the panel-level
-/// layer beneath the content-level ``CaptureExclusion``; see that file for the
-/// frame-exact invariant the two layers uphold together.
+/// capturable panel on screen, not even the empty black shape. This is the
+/// panel-level layer beneath the content-level ``CaptureExclusion``; see that file
+/// for the frame-exact invariant the two layers uphold together.
 ///
 /// `canBecomeKey` is overridden so the inline reply field can take keyboard focus
 /// without activating the app (the panel is `.nonactivatingPanel`).

@@ -4,9 +4,9 @@ import AppKit
 /// source of truth shared by the panel (where it sits) and the hosted content
 /// (how it lays out), so the two can never drift on a multi-display setup.
 ///
-/// Ported from DynamicNotchKit's `NSScreen` helpers, trimmed to exactly what
-/// Munkel needs. No window state — just `CGRect` math from an `NSScreen`.
-/// Subsumes the old `NotchPresenter.hardwareNotchSize()`.
+/// Reads hardware-notch geometry from `NSScreen`, trimmed to exactly what Munkel
+/// needs. No window state — just `CGRect` math from an `NSScreen`. Subsumes the
+/// old `NotchPresenter.hardwareNotchSize()`.
 enum NotchScreenMetrics {
     /// Hardware-notch cutout + menu-bar geometry for an explicit screen.
     ///
@@ -34,11 +34,11 @@ enum NotchScreenMetrics {
         return (cutout, true, menubarHeight)
     }
 
-    /// Top-centre panel frame: a half-screen region pinned to the top edge so the
-    /// content's top-anchored layout hangs from the notch. Matches the library's
-    /// placement (size `screen.frame / 2`, origin at top centre) so ported content
-    /// lands identically. Notched and notchless screens share this frame; only the
-    /// content chrome inside differs.
+    /// Top-centre panel frame: a generous half-screen canvas pinned to the top
+    /// edge (size `screen.frame / 2`, origin at top centre) so the content's
+    /// top-anchored layout hangs from the notch and the open/close morph animates
+    /// inside a fixed window without resizing it. Notched and notchless screens
+    /// share this frame; only the content chrome inside differs.
     @MainActor
     static func panelFrame(for screen: NSScreen) -> NSRect {
         let size = NSSize(width: screen.frame.width / 2, height: screen.frame.height / 2)
