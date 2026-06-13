@@ -1,16 +1,16 @@
 import AppKit
 import Combine
-import DynamicNotchKit
 import SwiftUI
 
 /// Presents incoming messages below the notch: a slim one-line teaser
 /// (avatar + text scrolling through once), expanding to the full message
 /// with the copy button on hover. Clicking the message opens an inline
-/// reply field addressed to the sender. DynamicNotchKit itself defers
-/// hiding while the pointer is over the notch.
+/// reply field addressed to the sender. The NotchPanel component hosts the
+/// panel; this type owns when it shows and hides (the component collapses
+/// the moment hide() is called, so all hide timing lives here).
 @MainActor
 final class NotchPresenter {
-    private typealias MessageNotch = DynamicNotch<MessageNotchContainer, EmptyView, EmptyView>
+    private typealias MessageNotch = NotchPanel<MessageNotchContainer>
 
     private var currentNotch: MessageNotch?
     private var currentModel: MessageDisplayModel?
@@ -19,27 +19,6 @@ final class NotchPresenter {
     private var hoverObservation: AnyCancellable?
     private var clickMonitor: Any?
     private var outsideClickMonitor: Any?
-    private var screenChangeObservation: AnyCancellable?
-
-    init() {
-        // DynamicNotchKit silently rebuilds its panel — with the default,
-        // capturable sharingType — on every screen-parameter change
-        // (display plug/unplug, resolution switch, AirPlay). The
-        // CaptureExclusion view inside the content re-attaches and is the
-        // frame-exact protection; this re-asserts the flag afterwards as
-        // redundancy. The library reacts in its own async handler with
-        // unspecified ordering, hence the repeated delayed passes.
-        screenChangeObservation = NotificationCenter.default
-            .publisher(for: NSApplication.didChangeScreenParametersNotification)
-            .sink { [weak self] _ in
-                Task { @MainActor [weak self] in
-                    for delay in [0, 50, 250, 1000] {
-                        try? await Task.sleep(for: .milliseconds(delay))
-                        self?.currentNotch?.windowController?.window?.sharingType = .none
-                    }
-                }
-            }
-    }
 
     /// RAM-only message history shown in the expanded notch: everything
     /// younger than this window, deleted afterwards (also live on screen).
@@ -109,11 +88,10 @@ final class NotchPresenter {
             return
         }
 
-        // Strictly serialized, collapsing display chain. Without it, two
-        // messages arriving while the notch is hovered run show()
-        // concurrently (DynamicNotchKit defers hide() until un-hover, so
-        // both block, then interleave) — and one of the two panels ends
-        // up orphaned with no one left to ever close it.
+        // Strictly serialized, collapsing display chain: messages display one
+        // after another, and a newer one supersedes an older still-pending one
+        // (it survives only as a history row). This keeps two near-simultaneous
+        // messages from racing on the single current panel.
         showGeneration += 1
         let generation = showGeneration
         let previous = pendingShow
@@ -141,8 +119,8 @@ final class NotchPresenter {
         hoverObservation = nil
         removeClickMonitors()
         if let previous = currentNotch {
-            // Deferred by DynamicNotchKit while the pointer stays on the
-            // notch; afterwards a newer message may have taken over.
+            // hide() collapses immediately; afterwards a newer message may
+            // already have taken over.
             await previous.hide()
             guard generation == showGeneration else { return }
         }
@@ -157,8 +135,11 @@ final class NotchPresenter {
         currentEntryID = entryID
         currentModel = model
 
-        let notchSize = Self.hardwareNotchSize()
-        let notch = DynamicNotch(hoverBehavior: .all) {
+        // Default to the main screen; a future setting (#7) supplies a different
+        // closure. One measurement drives both panel placement and content layout.
+        let targetScreen: @MainActor () -> NSScreen? = { NSScreen.main }
+        let notchSize = NotchScreenMetrics.metrics(for: targetScreen()).notchSize
+        let notch = NotchPanel(hoverBehavior: .all, targetScreen: targetScreen) {
             MessageNotchContainer(
                 model: model,
                 message: message,
@@ -188,7 +169,13 @@ final class NotchPresenter {
                 Task { @MainActor in
                     if hovering {
                         self.hideTask?.cancel()
-                        self.currentModel?.fullyExpanded = true
+                        // Animate the teaser→expanded morph explicitly: the
+                        // implicit `.animation(value:)` inside MessageNotchContainer
+                        // isn't honored through the NSHostingView host, so the
+                        // expand would otherwise snap open without a transition.
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+                            self.currentModel?.fullyExpanded = true
+                        }
                     } else if self.currentModel?.replying != true {
                         // While the reply field is open, leaving the notch
                         // must not tear it down mid-typing.
@@ -198,12 +185,11 @@ final class NotchPresenter {
             }
 
         await notch.expand()
-        // Redundancy only — the frame-exact protection is the
-        // CaptureExclusion view at the content root, which attaches before
-        // any message content is composited. This late re-assertion (and
-        // the screen-change observer in init) merely narrows the damage
-        // should the content hierarchy ever lose that view.
-        notch.windowController?.window?.sharingType = .none
+        // Belt-and-suspenders. The panel is already non-capturable from birth
+        // (NotchPanelWindow sets sharingType in init) and the frame-exact
+        // protection is the CaptureExclusion view at the content root; this
+        // cheap re-assertion stays purely as insurance for the core promise.
+        notch.panel?.sharingType = .none
         notchVisible = true
         installClickMonitors(for: notch, model: model)
         startHistoryPruning(model: model)
@@ -251,7 +237,7 @@ final class NotchPresenter {
     private func installClickMonitors(for notch: MessageNotch, model: MessageDisplayModel) {
         clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self, weak notch, weak model] event in
             MainActor.assumeIsolated {
-                guard let self, let model, let panel = notch?.windowController?.window else { return }
+                guard let self, let model, let panel = notch?.panel else { return }
                 if event.window === panel {
                     // hitTest is useless here (NSHostingView returns
                     // itself wherever SwiftUI content covers the marker),
@@ -304,7 +290,7 @@ final class NotchPresenter {
             model.fullyExpanded = true
             model.replying = true
         }
-        // The nonactivating panel can become key (DynamicNotchPanel
+        // The nonactivating panel can become key (NotchPanelWindow
         // overrides canBecomeKey) — required for typing into the field.
         panel.makeKeyAndOrderFront(nil)
     }
@@ -312,7 +298,12 @@ final class NotchPresenter {
     private func cancelReply() {
         guard let notch = currentNotch, let model = currentModel,
               model.replying, !model.replySent else { return }
-        model.replying = false
+        // Explicit for the same reason as the hover expand: the implicit
+        // animation doesn't fire through the NSHostingView host, so closing
+        // the reply field would otherwise snap shut.
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
+            model.replying = false
+        }
         scheduleHide(of: notch, after: afterReadDelay)
     }
 
@@ -328,23 +319,6 @@ final class NotchPresenter {
     private func teaserFinished() {
         guard let notch = currentNotch, currentModel?.fullyExpanded != true else { return }
         scheduleHide(of: notch, after: afterTeaserDelay)
-    }
-
-    /// Measures the hardware notch cutout of the screen the notch shows on
-    /// (DynamicNotchKit defaults to NSScreen.screens[0]). Zero without notch.
-    private static func hardwareNotchSize() -> CGSize {
-        guard
-            let screen = NSScreen.screens.first,
-            screen.safeAreaInsets.top > 0,
-            let topLeft = screen.auxiliaryTopLeftArea,
-            let topRight = screen.auxiliaryTopRightArea
-        else {
-            return .zero
-        }
-        return CGSize(
-            width: screen.frame.width - topLeft.width - topRight.width,
-            height: screen.safeAreaInsets.top
-        )
     }
 
     private func scheduleHide(of notch: MessageNotch, after delay: Duration) {
