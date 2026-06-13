@@ -7,9 +7,11 @@ release, fixes land on `main` and are included in the next release.
 
 ## Reporting a vulnerability
 
-Use GitHub private vulnerability reporting for this repository. If that is not
-available, open a public issue asking for a private contact path, but do not
-include exploit details in the public issue.
+Report privately through GitHub's security advisories:
+https://github.com/limehq/munkel/security/advisories/new
+
+If that is not available, open a public issue asking for a private contact
+path, but do not include exploit details in the public issue.
 
 Please include:
 
