@@ -91,6 +91,21 @@ Starting the individual apps:
 | macOS app | `cd apps/macos && ./make-bundle.sh && open .build/Munkel.app` |
 | CLI | `bunx turbo build --filter=@munkel/cli`, then `apps/cli/dist/munkel` |
 
+Watching the notch react without a second machine: with the relay and app
+running and the app joined to a circle, `scripts/simulate-whispers.sh` joins
+that circle as a second member and whispers you a message every 30 s — handy
+for demoing or iterating on the notch UI.
+
+```sh
+scripts/simulate-whispers.sh                    # blue-table-42, every 30 s
+INTERVAL=10 scripts/simulate-whispers.sh kaffee-12 Mara
+```
+
+It sends a direct whisper to your installation `memberId` (read from the app's
+UserDefaults), falling back to a circle broadcast. Override via
+`RELAY_URL` / `CIRCLE` / `SENDER` / `INTERVAL` / `TO`. Under the hood it loops
+`apps/server/scripts/dev-send.ts`, the protocol reference sender.
+
 Deploys (need a `wrangler login` with access to the `limehq` account; CI
 deploys the landing automatically on pushes to `main` that touch it):
 
