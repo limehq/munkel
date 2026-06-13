@@ -11,6 +11,9 @@
 		"deploy": "turbo deploy",
 		"build:release": "scripts/build-release.sh"
 	},
+	"overrides": {
+		"esbuild": "0.28.1"
+	},
 	"devDependencies": {
 		"turbo": "^2.5.0"
 	}

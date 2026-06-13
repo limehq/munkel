@@ -22,7 +22,11 @@ import {
 export const Route = createFileRoute('/')({ component: LandingPage })
 
 const GITHUB_URL = 'https://github.com/limehq/munkel'
-const DOWNLOAD_URL = '#'
+const DOWNLOAD_URL = `${GITHUB_URL}/releases/latest`
+const PROTOCOL_URL = `${GITHUB_URL}/blob/main/apps/server/src/protocol.ts`
+const CLI_URL = `${GITHUB_URL}/tree/main/apps/cli`
+const LICENSE_URL = `${GITHUB_URL}/blob/main/LICENSE`
+const BREW_CMD = 'brew install limehq/tap/munkel'
 
 function GithubIcon({ className = '' }: { className?: string }) {
   return (
@@ -109,7 +113,7 @@ function Nav() {
     <nav className={floating ? 'floating' : undefined}>
       <div className="nav-inner">
         <div className="nav-left">
-          <a href="#" className="wordmark">
+          <a href="/" className="wordmark">
             <span className="dot"></span>munkel
           </a>
           <div className="nav-links" ref={linksRef}>
@@ -130,6 +134,10 @@ function Nav() {
           </div>
         </div>
         <div className="nav-actions">
+          <a className="btn btn-outline nav-cta" href={DOWNLOAD_URL}>
+            <Download aria-hidden />
+            <span>Download</span>
+          </a>
           <a className="icon-btn" href={GITHUB_URL} aria-label="GitHub" title="GitHub">
             <GithubIcon />
           </a>
@@ -146,16 +154,18 @@ function Nav() {
 /* ---------- Hero: pinned scroll stage + notch whisper demo ---------- */
 
 const MESSAGES = [
-  { name: 'Anna', avatar: '/avatars/01.png', text: 'Kaffee, jemand?' },
-  { name: 'Ben', avatar: '/avatars/02.png', text: 'on my way' },
-  { name: 'Jurij', avatar: '/avatars/03.png', text: 'deploy is live, go look' },
-  { name: 'Mia', avatar: '/avatars/05.png', text: 'same table as last time' },
+  { name: 'Alex', avatar: '/avatars/01.png', text: 'coffee?' },
+  { name: 'Sam', avatar: '/avatars/02.png', text: 'on my way' },
+  { name: 'Taylor', avatar: '/avatars/03.png', text: 'deploy is live, go look' },
+  { name: 'Morgan', avatar: '/avatars/05.png', text: 'same table as last time' },
 ]
 
 type NotchCtl = {
   enabled: boolean
   dwell: number
   docked: boolean
+  /** The load-time whisper is showing — keeps the director's retract branch away at p ≈ 0. */
+  early: boolean
   openTeaser?: () => void
   closeTeaser?: () => void
 }
@@ -169,10 +179,11 @@ function Hero() {
   const macRef = useRef<HTMLDivElement>(null)
   const screenRef = useRef<HTMLDivElement>(null)
   const hintRef = useRef<HTMLDivElement>(null)
+  const demoHintRef = useRef<HTMLDivElement>(null)
   const notchRef = useRef<HTMLDivElement>(null)
   const msgRef = useRef<HTMLDivElement>(null)
   const avatarRef = useRef<HTMLImageElement>(null)
-  const notchCtl = useRef<NotchCtl>({ enabled: true, dwell: 3400, docked: false })
+  const notchCtl = useRef<NotchCtl>({ enabled: true, dwell: 3400, docked: false, early: false })
   const [clock, setClock] = useState('Thu 9:41')
   const [msgCopied, setMsgCopied] = useState(false)
 
@@ -201,14 +212,22 @@ function Hero() {
     let session = 0
     let i = 0
 
+    // Hover only exists on fine pointers — on touch, a tap emulates
+    // mouseenter with no matching mouseleave and would freeze the
+    // rotation forever. Touch gets a longer dwell instead.
+    const canHover = window.matchMedia('(hover: hover)').matches
+    if (!canHover) notchCtl.current.dwell = 5000
     const onEnter = () => {
       hovered = true
+      demoHintRef.current?.classList.add('off')
     }
     const onLeave = () => {
       hovered = false
     }
-    root.addEventListener('mouseenter', onEnter)
-    root.addEventListener('mouseleave', onLeave)
+    if (canHover) {
+      root.addEventListener('mouseenter', onEnter)
+      root.addEventListener('mouseleave', onLeave)
+    }
 
     const ctl = notchCtl.current
     ctl.openTeaser = async () => {
@@ -294,11 +313,60 @@ function Hero() {
     const hint = hintRef.current
     const mbn = notchRef.current
     if (!stage || !copy || !wrap || !mac || !screen || !mbn) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      // No scrubbed timeline — but the demo must still exist: show the
+      // first whisper statically (the JSX already carries the message).
+      mbn.classList.add('teaser')
+      return
+    }
 
     const ctl = notchCtl.current
     const clamp01 = (t: number) => Math.max(0, Math.min(1, t))
     const ease = (t: number) => (t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2)
+
+    // Fast visual retract — shared by the scroll-back branch and the
+    // early-whisper timer below.
+    const retract = () => {
+      if (ctl.closeTeaser) ctl.closeTeaser()
+      mbn!.style.transition = 'width 0.18s ease, height 0.18s ease, border-radius 0.18s ease'
+      mbn!.classList.remove('teaser')
+      mbn!.style.width = ''
+      mbn!.style.height = ''
+      mbn!.style.borderRadius = ''
+      mbn!.querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body').forEach((el) => {
+        el.style.transition = 'opacity 0.1s ease'
+        el.style.opacity = ''
+      })
+      setTimeout(() => {
+        if (mbn!.classList.contains('teaser')) return
+        // Frozen-timeline fallback: if the retract transition never ran,
+        // snap to the closed state with transitions off.
+        if (parseFloat(getComputedStyle(mbn!).width) > 200) {
+          mbn!.style.transition = 'none'
+          mbn!
+            .querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body')
+            .forEach((el) => {
+              el.style.transition = 'none'
+            })
+          void mbn!.offsetWidth
+          requestAnimationFrame(() => {
+            mbn!.style.transition = ''
+            mbn!
+              .querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body')
+              .forEach((el) => {
+                el.style.transition = ''
+              })
+          })
+        } else {
+          mbn!.style.transition = ''
+          mbn!
+            .querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body')
+            .forEach((el) => {
+              el.style.transition = ''
+            })
+        }
+      }, 260)
+    }
 
     let ticking = false
     function update() {
@@ -335,48 +403,16 @@ function Hero() {
       // 4 — once the MacBook holds the stage, the demo whispers — opened
       // directly from here so a fast scroll can never miss it.
       ctl.docked = pm >= 0.95
-      if (ctl.docked && ctl.enabled && ctl.openTeaser) ctl.openTeaser()
-      // Scrolling back mid-message: retract the teaser fast.
-      if (!ctl.docked && mbn!.classList.contains('teaser')) {
-        if (ctl.closeTeaser) ctl.closeTeaser()
-        mbn!.style.transition = 'width 0.18s ease, height 0.18s ease, border-radius 0.18s ease'
-        mbn!.classList.remove('teaser')
-        mbn!.style.width = ''
-        mbn!.style.height = ''
-        mbn!.style.borderRadius = ''
-        mbn!.querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body').forEach((el) => {
-          el.style.transition = 'opacity 0.1s ease'
-          el.style.opacity = ''
-        })
-        setTimeout(() => {
-          if (mbn!.classList.contains('teaser')) return
-          // Frozen-timeline fallback: if the retract transition never ran,
-          // snap to the closed state with transitions off.
-          if (parseFloat(getComputedStyle(mbn!).width) > 200) {
-            mbn!.style.transition = 'none'
-            mbn!
-              .querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body')
-              .forEach((el) => {
-                el.style.transition = 'none'
-              })
-            void mbn!.offsetWidth
-            requestAnimationFrame(() => {
-              mbn!.style.transition = ''
-              mbn!
-                .querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body')
-                .forEach((el) => {
-                  el.style.transition = ''
-                })
-            })
-          } else {
-            mbn!.style.transition = ''
-            mbn!
-              .querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body')
-              .forEach((el) => {
-                el.style.transition = ''
-              })
-          }
-        }, 260)
+      if (ctl.docked) {
+        // Docking takes over from the early whisper.
+        ctl.early = false
+        mac!.classList.remove('early')
+        if (ctl.enabled && ctl.openTeaser) ctl.openTeaser()
+        demoHintRef.current?.classList.add('show')
+      } else {
+        demoHintRef.current?.classList.remove('show')
+        // Scrolling back mid-message: retract the teaser fast.
+        if (!ctl.early && mbn!.classList.contains('teaser')) retract()
       }
     }
     function onScroll() {
@@ -388,9 +424,29 @@ function Hero() {
     window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', onScroll, { passive: true })
     update()
+
+    // A literal »Psst«: one whisper above the fold shortly after load, so
+    // the demo exists before anyone scrolls. ctl.early keeps the director's
+    // retract branch from snapping it shut at p ≈ 0; .early lifts the
+    // dimmed, tilted MacBook so the message is legible.
+    const tOpen = window.setTimeout(() => {
+      if (ctl.docked) return
+      ctl.early = true
+      mac!.classList.add('early')
+      if (ctl.enabled && ctl.openTeaser) ctl.openTeaser()
+    }, 1400)
+    const tClose = window.setTimeout(() => {
+      mac!.classList.remove('early')
+      if (!ctl.early) return
+      ctl.early = false
+      if (!ctl.docked) retract()
+    }, 4600)
+
     return () => {
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onScroll)
+      clearTimeout(tOpen)
+      clearTimeout(tClose)
     }
   }, [])
 
@@ -406,12 +462,13 @@ function Hero() {
       <div className="hero-stage" ref={stageRef}>
         <div className="hero-sticky">
           <div className="container hero-copy" ref={copyRef}>
+            <div className="hero-kicker">Ephemeral group messages for macOS</div>
             <h1>
               Psst, your <span className="notch-word">notch</span> has something to tell&nbsp;you.
             </h1>
             <p className="lead">
-              Encrypted messages, whispered from the MacBook notch. No history. The relay knows
-              nothing.
+              Quick pings between friends, end-to-end encrypted — they slide out of the notch,
+              linger a moment, and vanish. Nothing is ever stored.
             </p>
             <div className="hero-ctas">
               <a className="btn btn-primary" href={DOWNLOAD_URL}>
@@ -424,7 +481,8 @@ function Hero() {
               </a>
             </div>
             <div className="hero-meta">
-              Free &amp; open source · macOS 14+ · works without a notch, too
+              Free &amp; open source · macOS 14+ · Apple Silicon &amp; Intel · Signed &amp;
+              notarized · works without a notch, too
             </div>
           </div>
           <div className="mockup-wrap" ref={wrapRef}>
@@ -444,7 +502,14 @@ function Hero() {
                       <span>{clock}</span>
                     </div>
                   </div>
-                  <div className="mb-notch" ref={notchRef}>
+                  <div
+                    className="mb-notch"
+                    ref={notchRef}
+                    onClick={() => {
+                      // Click anywhere copies — same behavior as the real notch.
+                      if (notchRef.current?.classList.contains('teaser')) copyMessage()
+                    }}
+                  >
                     <span className="notch-cam"></span>
                     <img className="mbn-avatar" ref={avatarRef} src="/avatars/01.png" alt="" />
                     <button
@@ -457,7 +522,7 @@ function Hero() {
                     </button>
                     <div className="mbn-body">
                       <div className="mbn-msg" ref={msgRef}>
-                        Kaffee, jemand?
+                        coffee?
                       </div>
                     </div>
                   </div>
@@ -465,7 +530,11 @@ function Hero() {
               </div>
             </div>
           </div>
-          <div className="scroll-hint" ref={hintRef} aria-hidden>
+          <div className="demo-caption" ref={demoHintRef} aria-hidden>
+            hover to hold a whisper open — just like the real thing
+          </div>
+          <div className="scroll-hint" ref={hintRef}>
+            <span>See it whisper</span>
             <ChevronDown aria-hidden />
           </div>
         </div>
@@ -480,17 +549,19 @@ type TermStep = { type: 'cmd'; text: string } | { type: 'out'; html: string }
 
 const TERM_SCRIPT: TermStep[] = [
   { type: 'cmd', text: 'munkel groups' },
-  { type: 'out', html: '<span class="tdot-live">●</span> kino  <span class="tdim">·</span>  Anna, Ben, Mia' },
-  { type: 'out', html: '<span class="tdot-live">●</span> wg-42  <span class="tdim">·</span>  Jurij, Sam' },
-  { type: 'cmd', text: 'munkel kino all "Trailer läuft schon, wo seid ihr?"' },
-  { type: 'out', html: '<span class="tdim">sent → kino (3 members)</span>' },
-  { type: 'cmd', text: 'munkel wg-42 Sam "Paket für dich unten"' },
+  { type: 'out', html: '<span class="tdot-live">●</span> blue-table-42  <span class="tdim">·</span>  Alex, Sam, Morgan' },
+  { type: 'out', html: '<span class="tdot-live">●</span> project-7  <span class="tdim">·</span>  Sam, Alex' },
+  { type: 'cmd', text: 'munkel blue-table-42 all "table\'s free, come down"' },
+  { type: 'out', html: '<span class="tdim">sent → blue-table-42 (3 members)</span>' },
+  { type: 'cmd', text: 'munkel project-7 Sam "package for you downstairs"' },
   { type: 'out', html: '<span class="tdim">sent → Sam</span>' },
 ]
 
-function TerminalDemo() {
+function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
   const termRef = useRef<HTMLDivElement>(null)
   const bodyRef = useRef<HTMLDivElement>(null)
+  const onFirstSendRef = useRef(onFirstSend)
+  onFirstSendRef.current = onFirstSend
 
   useEffect(() => {
     const term = termRef.current
@@ -499,6 +570,9 @@ function TerminalDemo() {
 
     let started = false
     let cancelled = false
+    let sentFired = false
+    // Under reduced motion the script renders instantly instead of typing.
+    const instant = window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
     async function run() {
       body!.innerHTML = ''
@@ -511,17 +585,25 @@ function TerminalDemo() {
           line.innerHTML =
             '<span class="tprompt">$ </span><span class="ttext"></span><span class="cursor"></span>'
           const ttext = line.querySelector('.ttext')!
-          for (const ch of step.text) {
-            if (cancelled) return
-            ttext.textContent += ch
-            await sleep(28 + Math.random() * 40)
+          if (instant) {
+            ttext.textContent = step.text
+          } else {
+            for (const ch of step.text) {
+              if (cancelled) return
+              ttext.textContent += ch
+              await sleep(28 + Math.random() * 40)
+            }
+            await sleep(350)
           }
-          await sleep(350)
           if (cancelled) return
           line.querySelector('.cursor')?.remove()
         } else {
           line.innerHTML = step.html
-          await sleep(420)
+          if (!sentFired && step.html.includes('sent →')) {
+            sentFired = true
+            onFirstSendRef.current?.()
+          }
+          if (!instant) await sleep(420)
         }
       }
       if (cancelled) return
@@ -570,6 +652,27 @@ function TerminalDemo() {
       </div>
       <div className="terminal-body" ref={bodyRef}>
         <span className="cursor"></span>
+      </div>
+    </div>
+  )
+}
+
+/* ---------- CLI demo + the receiving notch ---------- */
+
+function CliShowcase() {
+  const [sent, setSent] = useState(false)
+  return (
+    <div className="cli-stage">
+      <TerminalDemo onFirstSend={() => setSent(true)} />
+      <div className={`meanwhile${sent ? ' show' : ''}`} aria-hidden={!sent}>
+        <div className="meanwhile-caption">meanwhile, on Alex's Mac</div>
+        <div className="mini-notch">
+          <img src="/avatars/03.png" alt="" />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <span className="mn-name">Taylor</span>
+            <span>table's free, come down</span>
+          </div>
+        </div>
       </div>
     </div>
   )
@@ -629,6 +732,35 @@ function InstallCmd() {
   )
 }
 
+/* ---------- Brew one-liner (final CTA) ---------- */
+
+function BrewCmd() {
+  const [copied, setCopied] = useState(false)
+
+  const copy = () => {
+    if (navigator.clipboard) navigator.clipboard.writeText(BREW_CMD).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1400)
+  }
+
+  return (
+    <div className="install-cmd brew-cmd">
+      <div className="install-body">
+        <span className="prompt">$</span>
+        <span>{BREW_CMD}</span>
+        <button
+          className={`install-copy${copied ? ' copied' : ''}`}
+          onClick={copy}
+          aria-label="Copy install command"
+        >
+          <Copy className="ic-copy" strokeWidth={2} aria-hidden />
+          <Check className="ic-check" strokeWidth={2.5} aria-hidden />
+        </button>
+      </div>
+    </div>
+  )
+}
+
 /* ---------- Page ---------- */
 
 function LandingPage() {
@@ -642,6 +774,10 @@ function LandingPage() {
           <div className="section-head">
             <div className="section-kicker">How it works</div>
             <h2>A group is born from a code.</h2>
+            <p>
+              Group chats want your attention — badges to clear, threads to catch up on. Munkel
+              doesn't: a message glances past in the notch and is gone.
+            </p>
             <p>
               No invites, no server-side group state. Sign in with GitHub once, then three steps and
               you're whispering.
@@ -657,7 +793,7 @@ function LandingPage() {
               </p>
               <div className="step-visual">
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--brand)' }}>
-                  kaffee-falke-42
+                  blue-table-42
                 </span>
               </div>
             </div>
@@ -670,9 +806,9 @@ function LandingPage() {
               </p>
               <div className="step-visual">
                 <div className="avatar-stack">
-                  <img src="/avatars/01.png" alt="Anna" />
-                  <img src="/avatars/02.png" alt="Ben" />
-                  <img src="/avatars/03.png" alt="Jurij" />
+                  <img src="/avatars/01.png" alt="Alex" />
+                  <img src="/avatars/02.png" alt="Sam" />
+                  <img src="/avatars/03.png" alt="Taylor" />
                   <span className="joined">3 joined</span>
                 </div>
               </div>
@@ -688,8 +824,8 @@ function LandingPage() {
                 <div className="mini-notch">
                   <img src="/avatars/01.png" alt="" />
                   <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span className="mn-name">Anna</span>
-                    <span>bin in 5 unten</span>
+                    <span className="mn-name">Alex</span>
+                    <span>down in 5</span>
                   </div>
                 </div>
               </div>
@@ -786,7 +922,7 @@ function LandingPage() {
                 ideal substrate for scripts and agents.
               </p>
             </div>
-            <TerminalDemo />
+            <CliShowcase />
           </div>
         </div>
       </section>
@@ -810,8 +946,8 @@ function LandingPage() {
               <h3>Agents can send for real</h3>
               <p>
                 An LLM with shell access uses <span className="code">munkel</span> exactly like you
-                do: pick a person or a group, send the message. "Tell kino I'm running late" becomes
-                one command.
+                do: pick a person or a group, send the message. "Tell blue-table-42 I'm running
+                late" becomes one command.
               </p>
             </div>
             <div className="feature">
@@ -835,8 +971,41 @@ function LandingPage() {
             <h2>What the relay sees.</h2>
             <p>
               One Durable Object per group, WebSocket hibernation, no storage. Ephemerality is
-              enforced by architecture, not policy.
+              enforced by architecture, not policy. The relay knows nothing.
             </p>
+          </div>
+          <div className="privacy-banner">
+            <div className="privacy-banner-head">
+              <div className="feature-icon">
+                <MonitorOff aria-hidden />
+              </div>
+              <div>
+                <h3>Invisible to screen sharing</h3>
+                <p>
+                  Presenting in Zoom, Teams, or Meet? Munkel excludes its windows from screen
+                  capture. Whispers stay on your screen, never on the shared one.
+                </p>
+              </div>
+            </div>
+            <div className="share-compare" aria-hidden>
+              <figure className="share-panel">
+                <div className="share-screen">
+                  <div className="share-menubar"></div>
+                  <div className="share-notch open">
+                    <img src="/avatars/01.png" alt="" />
+                    <span>down in 5</span>
+                  </div>
+                </div>
+                <figcaption>Your screen</figcaption>
+              </figure>
+              <figure className="share-panel">
+                <div className="share-screen">
+                  <div className="share-menubar"></div>
+                  <div className="share-notch"></div>
+                </div>
+                <figcaption>What Zoom sees</figcaption>
+              </figure>
+            </div>
           </div>
           <div className="privacy-grid">
             <div className="privacy-card sees">
@@ -886,30 +1055,85 @@ function LandingPage() {
               </ul>
             </div>
           </div>
-          <div className="privacy-banner">
-            <div className="feature-icon">
-              <MonitorOff aria-hidden />
-            </div>
-            <div>
-              <h3>Invisible to screen sharing</h3>
-              <p>
-                Presenting in Zoom, Teams, or Meet? Munkel excludes its windows from screen capture.
-                Whispers stay on your screen, never on the shared one.
-              </p>
-            </div>
+          <div className="honest">
+            <p>
+              Munkel phones home to no one. The app opens exactly two kinds of connections: the
+              relay — which sees only what's listed above — and GitHub, once, at login. No
+              telemetry, no analytics, no crash reporting.
+            </p>
+            <p>
+              On your Mac, group codes and your profile live in the app's local settings — a code
+              is never transmitted, to the relay or anyone else. The GitHub token exists only in
+              memory for one profile fetch and is never written to disk.
+            </p>
+            <p>
+              Honest limits: GitHub sees the device-flow login happen and lists Munkel under your
+              authorized apps. Profiles are display-only; peers get no cryptographic proof that a
+              member owns the GitHub name they show.
+            </p>
+            <p>
+              The wire protocol is specified where it is enforced:{' '}
+              <a href={PROTOCOL_URL}>protocol.ts</a>.
+            </p>
           </div>
-          <p className="honest">
-            Honest limits: GitHub sees the device-flow login happen and lists Munkel under your
-            authorized apps. Profiles are display-only; peers get no cryptographic proof that a
-            member owns the GitHub name they show.
-          </p>
+        </div>
+      </section>
+
+      <section id="faq">
+        <div className="container">
+          <div className="section-head">
+            <div className="section-kicker">FAQ</div>
+            <h2>Quick answers.</h2>
+          </div>
+          <div className="faq">
+            <details>
+              <summary>Apple Silicon or Intel?</summary>
+              <p>Both. The app and the CLI ship as one universal binary — arm64 and x86_64.</p>
+            </details>
+            <details>
+              <summary>Signed and notarized?</summary>
+              <p>
+                Yes. Every release is Developer ID-signed and notarized by Apple, so Gatekeeper
+                opens it without warnings.
+              </p>
+            </details>
+            <details>
+              <summary>Electron or native?</summary>
+              <p>Native Swift and SwiftUI. One small menu-bar binary, no embedded browser.</p>
+            </details>
+            <details>
+              <summary>Can I reply from the notch?</summary>
+              <p>
+                No — the notch stays read-only, so a whisper never turns into a chat window
+                demanding attention. Reply from the menu-bar popover or the{' '}
+                <span className="code">munkel</span> CLI.
+              </p>
+            </details>
+            <details>
+              <summary>How do I update?</summary>
+              <p>
+                <span className="code">brew upgrade munkel</span> — Homebrew is the release
+                channel. There is no auto-updater.
+              </p>
+            </details>
+          </div>
         </div>
       </section>
 
       <section className="cta">
         <div className="container">
+          <div className="founder-note">
+            <p>
+              "Munkel exists because group chats kept turning into obligations. It is meant for the
+              kind of note you would say across a table: brief, visible, and easy to let go."
+            </p>
+            <span className="founder-sig">Built for lightweight, low-pressure messages.</span>
+          </div>
           <h2>Start whispering.</h2>
-          <p>Open source, MIT licensed, one binary in your menu bar.</p>
+          <p>
+            Open source, MIT licensed. A native Swift app — no Electron — one signed &amp;
+            notarized binary in your menu bar.
+          </p>
           <div className="hero-ctas">
             <a className="btn btn-primary" href={DOWNLOAD_URL}>
               <Download aria-hidden />
@@ -919,6 +1143,8 @@ function LandingPage() {
               View on GitHub
             </a>
           </div>
+          <BrewCmd />
+          <div className="hero-meta">Signed &amp; notarized · no telemetry · macOS 14+</div>
         </div>
       </section>
 
@@ -927,8 +1153,9 @@ function LandingPage() {
           <span className="muted">munkel · ephemeral messages between friends.</span>
           <div className="footer-links">
             <a href={GITHUB_URL}>GitHub</a>
-            <a href="#">Protocol v1</a>
-            <a href="#">munkel CLI</a>
+            <a href={PROTOCOL_URL}>Protocol v1</a>
+            <a href={CLI_URL}>munkel CLI</a>
+            <a href={LICENSE_URL}>MIT License</a>
           </div>
         </div>
       </footer>

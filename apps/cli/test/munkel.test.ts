@@ -47,12 +47,12 @@ async function runMunkel(args: string[], socketPath = "/nonexistent/control.sock
 
 test("send delivers request and confirms", async () => {
   const app = fakeApp(() => ({ ok: true }))
-  const result = await runMunkel(["yolbe", "Jurij", "hey", "du"], app.socketPath)
+  const result = await runMunkel(["blue-table-42", "Alex", "hey", "there"], app.socketPath)
 
   expect(result.exitCode).toBe(0)
   expect(result.stdout).toContain("geflüstert ✓")
   expect(app.requests).toEqual([
-    { action: "send", group: "yolbe", to: "Jurij", text: "hey du" },
+    { action: "send", group: "blue-table-42", to: "Alex", text: "hey there" },
   ])
 })
 
@@ -60,15 +60,15 @@ test("groups lists members with connection status", async () => {
   const app = fakeApp(() => ({
     ok: true,
     groups: [
-      { code: "yolbe", connected: true, members: ["Anna", "Ben"] },
-      { code: "kaffee-falke-42", connected: false, members: [] },
+      { code: "blue-table-42", connected: true, members: ["Alex", "Sam"] },
+      { code: "green-room-17", connected: false, members: [] },
     ],
   }))
   const result = await runMunkel(["groups"], app.socketPath)
 
   expect(result.exitCode).toBe(0)
-  expect(result.stdout).toContain("● yolbe  —  Anna, Ben")
-  expect(result.stdout).toContain("○ kaffee-falke-42  —  niemand sonst online")
+  expect(result.stdout).toContain("● blue-table-42  —  Alex, Sam")
+  expect(result.stdout).toContain("○ green-room-17  —  niemand sonst online")
   expect(app.requests).toEqual([{ action: "groups" }])
 })
 
@@ -90,14 +90,14 @@ test("app error is reported on stderr", async () => {
 
 test("invalid response is rejected", async () => {
   const app = fakeApp(() => undefined) // serializes to "undefined\n" — not JSON
-  const result = await runMunkel(["yolbe", "all", "hi"], app.socketPath)
+  const result = await runMunkel(["blue-table-42", "all", "hi"], app.socketPath)
 
   expect(result.exitCode).toBe(1)
   expect(result.stderr).toContain("Keine gültige Antwort")
 })
 
 test("missing app yields a helpful error", async () => {
-  const result = await runMunkel(["yolbe", "all", "hi"])
+  const result = await runMunkel(["blue-table-42", "all", "hi"])
 
   expect(result.exitCode).toBe(1)
   expect(result.stderr).toContain("Munkel-App läuft nicht")
@@ -118,7 +118,7 @@ test("--help prints usage with exit 0", async () => {
 })
 
 test("too few send arguments prints usage error", async () => {
-  const result = await runMunkel(["yolbe", "Jurij"])
+  const result = await runMunkel(["blue-table-42", "Alex"])
 
   expect(result.exitCode).toBe(64)
   expect(result.stderr).toContain("usage: munkel")

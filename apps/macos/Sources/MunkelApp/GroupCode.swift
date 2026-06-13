@@ -1,6 +1,6 @@
 import Foundation
 
-/// Generates human-readable group codes like `kaffee-falke-42`.
+/// Generates human-readable group codes like `nebel-quarz-42`.
 /// ~21 bits of spoken-word entropy is fine: the unguessable part is the
 /// derived 128-bit groupId; the code only needs to be easy to say out loud.
 enum GroupCode {

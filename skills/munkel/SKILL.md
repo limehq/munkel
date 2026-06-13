@@ -28,8 +28,8 @@ munkel <group> <recipient> <text…>   # direct message (recipient = display nam
 munkel <group> all <text…>           # broadcast to the whole group
 ```
 
-- `<group>` is a group code like `kaffee-falke-42`; any unambiguous
-  prefix works (`kaffee` suffices if only one group starts with it).
+- `<group>` is a group code like `blue-table-42`; any unambiguous
+  prefix works (`blue-table` suffices if only one group starts with it).
 - `<recipient>` is a member's display name exactly as shown by
   `munkel groups`; `all` broadcasts.
 - Everything after the recipient is joined with spaces, so quoting is
@@ -39,7 +39,7 @@ munkel <group> all <text…>           # broadcast to the whole group
 are the ones currently online):
 
 ```
-● kaffee-falke-42  —  Anna, Ben
+● blue-table-42  —  Alex, Sam
 ```
 
 Run `munkel groups` first to discover valid group codes and recipient

@@ -1,13 +1,39 @@
 # Munkel
 
+[![CI](https://github.com/limehq/munkel/actions/workflows/ci.yml/badge.svg)](https://github.com/limehq/munkel/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/limehq/munkel/actions/workflows/codeql.yml/badge.svg)](https://github.com/limehq/munkel/actions/workflows/codeql.yml)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/limehq/munkel/badge)](https://scorecard.dev/viewer/?uri=github.com/limehq/munkel)
+[![Latest release](https://img.shields.io/github/v/release/limehq/munkel?display_name=tag&sort=semver)](https://github.com/limehq/munkel/releases)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Website](https://img.shields.io/badge/website-munkel.app-black)](https://munkel.app)
+
 Ephemeral messages between friends at the same café table — or across the
 world — that slide elegantly out of the MacBook notch.
 
-No accounts, no history, no server-side knowledge: a group is born from a
-shared human-readable code (`kaffee-falke-42`), which doubles as the
-end-to-end encryption key. The relay only routes opaque blobs.
+No accounts, no history, no message storage: a group is born from a shared
+human-readable code (`blue-table-42`). The app derives the relay group ID and
+message key on-device; the relay routes encrypted payloads and does not receive
+the plaintext code.
 
 Website: **[munkel.app](https://munkel.app)**
+
+## Install
+
+After the first public release is published:
+
+```sh
+brew install limehq/tap/munkel
+open -a Munkel
+```
+
+The cask installs `Munkel.app` and the `munkel` CLI. Until a release artifact is
+available, build locally from source:
+
+```sh
+bun install
+bun run build
+open apps/macos/.build/Munkel.app
+```
 
 ## Components
 
@@ -25,6 +51,25 @@ The wire protocol v1 (WebSocket + JSON, E2E AES-256-GCM) is specified where
 it is enforced: `apps/server/src/protocol.ts`.
 
 Production relay: **wss://relay.munkel.app** (the app's default).
+
+## Security model
+
+Munkel is designed for lightweight, ephemeral messages, not high-risk secret
+sharing.
+
+- The relay stores no messages and only sees derived group IDs, member IDs,
+  message sizes, and timing.
+- Message payloads are AES-256-GCM encrypted with a key derived from the group
+  code on-device.
+- Generated group codes are optimized for being spoken at a table. Treat them
+  as convenience-grade secrets until the invite format is hardened; for more
+  sensitive use, join with a longer custom code instead of a generated one.
+- Direct messages are relay-targeted in v1, not pairwise encrypted. Any current
+  group member with the group code shares the same message key.
+- GitHub login is display identity only. It imports a name/avatar but does not
+  prove to peers that a member controls a GitHub account.
+
+Please report vulnerabilities through [SECURITY.md](SECURITY.md).
 
 ## Development
 
@@ -60,8 +105,8 @@ bunx turbo deploy --filter=@munkel/landing   # munkel.app
   no flaky local P2P, seamless everywhere.
 - **One Durable Object per group** (`idFromName(groupId)`), WebSocket
   Hibernation API, no DO storage → ephemerality is enforced by design.
-- **Notch is read-only**: show sender avatar + message, allow copy. No reply
-  UI — that's deliberate product scope, not a TODO.
+- **Notch-first interaction**: incoming messages appear in the notch, can be
+  expanded, copied, and answered inline without opening a chat window.
 - **UI/UX first**: the notch presentation is the product. PoC before plumbing.
 - **Capture-proof surfaces**: every window showing message content or circle
   codes (notch panel, menu popover) is excluded from screen capture
@@ -97,12 +142,12 @@ automatically on every deploy — no manual DNS steps.
 
 ## macOS app
 
-Menu bar icon → create or join a group, set your display name, send to the
+Menu bar icon → sign in with GitHub, create or join a group, send to the
 group or a single member. Incoming messages appear in the notch
 ([DynamicNotchKit](https://github.com/MrKai77/DynamicNotchKit)): hovering
 keeps the message open (haptic feedback included), the copy button puts the
-text on the clipboard, and on Macs without a notch a floating panel is used
-automatically.
+text on the clipboard, inline reply can answer the sender or the group, and on
+Macs without a notch a floating panel is used automatically.
 Settings live under the `dev.uq.munkel` defaults domain; the relay URL
 defaults to the deployed Worker (override with `ws://127.0.0.1:8787` for
 local development against `wrangler dev`).
@@ -133,9 +178,9 @@ app: create one, tick **Enable Device Flow**, then either edit
 ## munkel CLI
 
 ```sh
-munkel groups                       # ● yolbe  —  Anna, Ben
-munkel yolbe Jurij hey              # direct message, recipient by display name
-munkel yolbe all "Kaffee, jemand?"  # group broadcast
+munkel groups                       # ● blue-table-42  —  Alex, Sam
+munkel blue-table-42 Alex hey       # direct delivery by display name
+munkel blue-table-42 all "coffee?"  # group broadcast
 ```
 
 The CLI is a thin client: it talks to the running app over
@@ -159,7 +204,7 @@ npx skills add limehq/munkel
 The skill is send-only by design, like the CLI. (Installing requires the
 repo to be public.)
 
-### Testing without a second Mac
+## Testing without a second Mac
 
 `apps/server/scripts/dev-send.ts` acts as a second group member — it
 implements the full protocol derivation + AES-GCM encryption in TypeScript
@@ -170,5 +215,17 @@ proves Swift↔TS crypto interop (the derivation is additionally pinned in
 ```sh
 bunx turbo dev --filter=@munkel/server             # relay
 cd apps/server
-bun scripts/dev-send.ts kaffee-falke-42 Anna "Kaffee?"
+bun scripts/dev-send.ts blue-table-42 Alex "coffee?"
 ```
+
+## Project health
+
+- [Changelog](CHANGELOG.md)
+- [Security policy](SECURITY.md)
+- [Privacy notes](PRIVACY.md)
+- [Contributing guide](CONTRIBUTING.md)
+- [Release process](RELEASING.md)
+
+## Star history
+
+[![Star History Chart](https://api.star-history.com/svg?repos=limehq/munkel&type=Date)](https://www.star-history.com/#limehq/munkel&Date)

@@ -200,6 +200,14 @@ nav.floating .nav-inner {
 .icon-btn .sun { display: none; }
 html:not(.dark) .icon-btn .sun { display: block; }
 html:not(.dark) .icon-btn .moon { display: none; }
+/* Quiet download pill — sits with the icon buttons, not above them */
+.nav-cta {
+  height: 28px; padding: 0 0.75rem; border-radius: 999px;
+  font-size: var(--text-xs); font-weight: 500; gap: 0.375rem;
+  color: var(--muted-foreground); box-shadow: none;
+}
+.nav-cta:hover { color: var(--foreground); }
+.nav-cta svg.lucide { width: 13px; height: 13px; }
 
 /* ---------- The notch camera ---------- */
 .notch-cam {
@@ -220,6 +228,8 @@ html:not(.dark) .icon-btn .moon { display: none; }
   mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
 }
 .macbook { transform-origin: 50% 0%; max-width: 1000px; margin: 0 auto; }
+/* Load-time whisper: lift the dimmed, tilted mock so the message reads */
+.macbook.early { opacity: 0.82 !important; }
 .mb-screen {
   position: relative; aspect-ratio: 16 / 10;
   background: #000; border-radius: 22px;
@@ -262,6 +272,7 @@ html:not(.dark) .icon-btn .moon { display: none; }
 .mb-notch.teaser {
   width: 260px; height: 56px; border-radius: 0 0 18px 18px;
   box-shadow: 0 14px 40px -12px oklch(0 0 0 / 0.6), 0 4px calc(var(--glow) * 40px) color-mix(in oklab, var(--brand) 25%, transparent);
+  cursor: pointer;
 }
 .mb-notch .notch-cam { top: 8px; width: 8px; height: 8px; }
 .mbn-avatar {
@@ -324,12 +335,23 @@ html:not(.dark) .icon-btn .moon { display: none; }
 .hero-sticky { position: sticky; top: 0; height: 100vh; overflow: hidden; }
 .hero-copy { position: relative; padding-top: 12vh; will-change: transform, opacity; z-index: 2; }
 .scroll-hint {
-  position: absolute; bottom: 22px; left: 50%;
+  position: absolute; bottom: 22px; left: 50%; transform: translateX(-50%);
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
   color: var(--muted-foreground);
-  animation: hint-bob 2s ease-in-out infinite;
 }
-.scroll-hint svg.lucide { width: 20px; height: 20px; }
-@keyframes hint-bob { 0%, 100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 7px); } }
+.scroll-hint span { font-size: var(--text-xs); }
+.scroll-hint svg.lucide { width: 20px; height: 20px; animation: hint-bob 2s ease-in-out infinite; }
+@keyframes hint-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
+/* One-time interactivity nudge, shown while the notch demo is docked */
+.demo-caption {
+  position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%);
+  font-size: var(--text-xs); color: var(--muted-foreground);
+  opacity: 0; transition: opacity 0.45s ease;
+  pointer-events: none; white-space: nowrap;
+}
+.demo-caption.show { opacity: 1; }
+.demo-caption.off { opacity: 0 !important; }
+@media (hover: none) { .demo-caption { display: none; } }
 .hero > .container { position: relative; }
 .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 calc(var(--glow) * 12px) 1px var(--brand); animation: pulse 2s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
@@ -372,6 +394,11 @@ h1 .notch-word {
 }
 .hero-ctas { margin-top: 2.5rem; display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap; }
 .hero-meta { margin-top: 1.25rem; font-size: var(--text-xs); color: var(--muted-foreground); }
+.hero-kicker {
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--brand);
+  letter-spacing: 0.06em; text-transform: uppercase;
+  margin-bottom: 1.25rem;
+}
 
 /* ---------- Sections ---------- */
 section { padding: 5.5rem 0; border-top: 1px solid var(--border); }
@@ -505,16 +532,56 @@ html:not(.dark) .terminal { background: oklch(0.205 0 0); }
 .cli-copy h2 { font-size: var(--text-3xl); font-weight: 600; letter-spacing: var(--tracking-tight); margin-top: 0.75rem; }
 .cli-copy p { margin-top: 1rem; color: var(--muted-foreground); line-height: var(--leading-relaxed); font-size: var(--text-sm); text-wrap: pretty; }
 .cli-copy .code { font-size: 0.8125rem; }
+/* The send → receive loop: the just-sent message lands in a notch */
+.cli-stage { min-width: 0; }
+.meanwhile {
+  display: flex; flex-direction: column; align-items: center; gap: 0.625rem;
+  margin-top: 1.5rem;
+  opacity: 0; transform: translateY(6px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+.meanwhile.show { opacity: 1; transform: none; }
+.meanwhile-caption { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted-foreground); }
 
 /* ---------- Privacy ---------- */
 .privacy-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
 .privacy-banner {
-  margin-top: 1rem;
+  margin-bottom: 1rem;
   border: 1px solid var(--border); border-radius: var(--radius-xl);
   background: var(--card); padding: 1.5rem;
-  display: flex; align-items: flex-start; gap: 1.25rem;
+  display: flex; flex-direction: column; gap: 1.25rem;
 }
+.privacy-banner-head { display: flex; align-items: flex-start; gap: 1.25rem; }
 .privacy-banner .feature-icon { margin-bottom: 0; flex-shrink: 0; }
+/* Two-panel proof: the same moment, with and without capture exclusion */
+.share-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+.share-panel { margin: 0; }
+.share-screen {
+  position: relative; aspect-ratio: 16 / 5;
+  border-radius: 10px; overflow: hidden;
+  border: 1px solid oklch(1 0 0 / 0.1);
+  background:
+    radial-gradient(80% 90% at 50% 0%, color-mix(in oklab, var(--brand) 26%, oklch(0.15 0.01 250)), transparent 85%),
+    linear-gradient(180deg, oklch(0.14 0.008 250), oklch(0.1 0.005 260));
+}
+.share-menubar { position: absolute; top: 0; left: 0; right: 0; height: 16px; background: oklch(0 0 0 / 0.26); }
+.share-notch {
+  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  width: 64px; height: 13px;
+  background: #000; border-radius: 0 0 6px 6px;
+}
+.share-notch.open {
+  width: auto; min-width: 170px; height: 34px;
+  border-radius: 0 0 12px 12px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 0 16px;
+}
+.share-notch.open img { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; }
+.share-notch.open span { font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }
+.share-panel figcaption {
+  margin-top: 0.625rem; text-align: center;
+  font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted-foreground);
+}
 .privacy-banner h3 { font-size: var(--text-base); font-weight: 600; }
 .privacy-banner p { margin-top: 0.375rem; font-size: var(--text-sm); color: var(--muted-foreground); line-height: var(--leading-relaxed); max-width: 70ch; text-wrap: pretty; }
 .privacy-card {
@@ -539,13 +606,49 @@ html:not(.dark) .terminal { background: oklch(0.205 0 0); }
   padding: 0.25rem 0 0.25rem 1.25rem;
   font-size: var(--text-sm); color: var(--muted-foreground); line-height: var(--leading-relaxed);
   max-width: 72ch; text-wrap: pretty;
+  display: flex; flex-direction: column; gap: 0.875rem;
 }
+.honest a {
+  color: var(--foreground);
+  text-decoration: underline; text-underline-offset: 3px; text-decoration-color: var(--border);
+}
+.honest a:hover { text-decoration-color: var(--foreground); }
+
+/* ---------- FAQ ---------- */
+.faq { max-width: 720px; display: flex; flex-direction: column; }
+.faq details { border-top: 1px solid var(--border); }
+.faq details:last-child { border-bottom: 1px solid var(--border); }
+.faq summary {
+  list-style: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+  padding: 1rem 0.25rem;
+  font-size: var(--text-base); font-weight: 500;
+}
+.faq summary::-webkit-details-marker { display: none; }
+.faq summary::after {
+  content: '+'; font-family: var(--font-mono); font-size: var(--text-base);
+  color: var(--muted-foreground);
+  transition: transform 0.2s ease;
+}
+.faq details[open] summary::after { transform: rotate(45deg); }
+.faq details p {
+  padding: 0 0.25rem 1.125rem;
+  font-size: var(--text-sm); color: var(--muted-foreground); line-height: var(--leading-relaxed);
+  max-width: 60ch; text-wrap: pretty;
+}
+.faq .code { font-size: 0.8125rem; }
 
 /* ---------- Footer CTA ---------- */
 .cta { text-align: center; }
 .cta h2 { font-size: clamp(2rem, 4.5vw, 3rem); font-weight: 700; letter-spacing: -0.03em; }
 .cta p { margin-top: 1rem; color: var(--muted-foreground); }
 .cta .hero-ctas { margin-top: 2rem; }
+.founder-note { max-width: 56ch; margin: 0 auto 3.5rem; }
+.founder-note p { color: var(--muted-foreground); line-height: var(--leading-relaxed); text-wrap: pretty; }
+.founder-sig { display: block; margin-top: 0.875rem; font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted-foreground); }
+.brew-cmd { margin: 1.75rem auto 0; max-width: fit-content; }
+.brew-cmd .install-body { display: flex; align-items: center; padding: 0.5rem 0.5rem 0.5rem 1rem; }
+.brew-cmd .install-body > span + span { margin-right: 0.75rem; }
 footer { border-top: 1px solid var(--border); padding: 2rem 0; }
 .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .footer-inner .muted { font-size: var(--text-xs); }
@@ -556,6 +659,10 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
 /* ---------- Responsive ---------- */
 @media (max-width: 1080px) {
   .nav-links { display: none; }
+}
+@media (max-width: 480px) {
+  .nav-cta span { display: none; }
+  .nav-cta { width: 28px; padding: 0; justify-content: center; }
 }
 @media (max-width: 900px) {
   .steps, .features { grid-template-columns: 1fr; }
@@ -573,13 +680,20 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
   .mbn-msg { font-size: 12px; }
   .mb-menubar { height: 20px; font-size: 10px; }
   .mb-menu span:not(.mb-app) { display: none; }
+  .share-compare { grid-template-columns: 1fr; }
   section { padding: 3.5rem 0; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pulse, .cursor { animation: none; }
   .mb-notch { transition: none; }
+  /* Static teaser (set by the director's reduced-motion branch): children
+     appear instantly, no fade-in. */
+  .mb-notch.teaser .mbn-avatar,
+  .mb-notch.teaser .mbn-copy,
+  .mb-notch.teaser .mbn-body { transition: none; }
   .macbook { transform: none !important; opacity: 1 !important; }
   .hero-stage { height: auto; }
   .hero-sticky { position: static; height: auto; overflow: visible; padding: 6rem 0; }
   .scroll-hint { display: none; }
+  .demo-caption { display: none; }
 }

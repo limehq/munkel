@@ -79,13 +79,13 @@ struct WireMessageTests {
 struct AppPayloadTests {
     @Test func chatRoundtrip() throws {
         let sentAt = Date(timeIntervalSince1970: 1_750_000_000)
-        let payload = AppPayload.chat(text: "Kaffee?", sentAt: sentAt)
+        let payload = AppPayload.chat(text: "coffee?", sentAt: sentAt)
         let decoded = try AppPayload.decoded(from: payload.encoded())
         #expect(decoded == payload)
     }
 
     @Test func profileRoundtrip() throws {
-        let payload = AppPayload.profile(displayName: "Anna", avatar: Data([1, 2, 3]))
+        let payload = AppPayload.profile(displayName: "Alex", avatar: Data([1, 2, 3]))
         let decoded = try AppPayload.decoded(from: payload.encoded())
         #expect(decoded == payload)
     }
@@ -109,21 +109,21 @@ struct AppPayloadTests {
     }
 
     @Test func profileWithoutAvatarOmitsKey() throws {
-        let data = try AppPayload.profile(displayName: "Anna", avatar: nil).encoded()
+        let data = try AppPayload.profile(displayName: "Alex", avatar: nil).encoded()
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         #expect(json["avatar"] == nil)
     }
 
     @Test func profileDecodesMissingAvatarAsNil() throws {
         let decoded = try AppPayload.decoded(
-            from: Data(#"{"kind":"profile","displayName":"Anna"}"#.utf8)
+            from: Data(#"{"kind":"profile","displayName":"Alex"}"#.utf8)
         )
-        #expect(decoded == .profile(displayName: "Anna", avatar: nil))
+        #expect(decoded == .profile(displayName: "Alex", avatar: nil))
     }
 
     @Test func profileAvatarEncodesAsBase64String() throws {
         let bytes = Data([0xFF, 0xD8, 0xFF, 0xE0])
-        let data = try AppPayload.profile(displayName: "Anna", avatar: bytes).encoded()
+        let data = try AppPayload.profile(displayName: "Alex", avatar: bytes).encoded()
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         let base64 = try #require(json["avatar"] as? String)
         #expect(Data(base64Encoded: base64) == bytes)

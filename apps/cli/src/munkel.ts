@@ -47,8 +47,8 @@ const usage = `munkel — flüstere deinen Freunden in die Notch
   munkel groups                                  Gruppen & Mitglieder zeigen
 
 Beispiele:
-  munkel yolbe Jurij hey
-  munkel yolbe all "Kaffee? Ich geh zum Tresen"`
+  munkel blue-table-42 Alex hey
+  munkel blue-table-42 all "coffee?"`
 
 const args = process.argv.slice(2)
 
