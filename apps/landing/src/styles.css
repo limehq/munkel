@@ -200,14 +200,15 @@ nav.floating .nav-inner {
 .icon-btn .sun { display: none; }
 html:not(.dark) .icon-btn .sun { display: block; }
 html:not(.dark) .icon-btn .moon { display: none; }
-/* Quiet download pill — sits with the icon buttons, not above them */
+/* Download as a plain nav link — present, never loud */
 .nav-cta {
-  height: 28px; padding: 0 0.75rem; border-radius: 999px;
-  font-size: var(--text-xs); font-weight: 500; gap: 0.375rem;
-  color: var(--muted-foreground); box-shadow: none;
+  display: inline-flex; align-items: center; gap: 0.375rem;
+  padding: 0.375rem 0.5rem; border-radius: 999px;
+  font-size: var(--text-sm); color: var(--muted-foreground);
+  transition: color 0.2s; white-space: nowrap;
 }
 .nav-cta:hover { color: var(--foreground); }
-.nav-cta svg.lucide { width: 13px; height: 13px; }
+.nav-cta svg.lucide { width: 14px; height: 14px; }
 
 /* ---------- The notch camera ---------- */
 .notch-cam {
@@ -278,7 +279,8 @@ html:not(.dark) .icon-btn .moon { display: none; }
 .mbn-avatar {
   position: absolute; top: 3px; left: 13px;
   width: 19px; height: 19px; border-radius: 50%; object-fit: cover; background: #222;
-  opacity: 0; transition: opacity 0.2s ease;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0s linear 0.2s;
 }
 .mbn-copy {
   position: absolute; top: 3px; right: 13px;
@@ -286,7 +288,8 @@ html:not(.dark) .icon-btn .moon { display: none; }
   display: inline-flex; align-items: center; justify-content: center;
   border: none; padding: 0;
   background: oklch(1 0 0 / 0.14); color: oklch(0.88 0 0);
-  opacity: 0; transition: opacity 0.2s ease, background 0.15s;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0s linear 0.2s, background 0.15s;
 }
 .mbn-copy:hover { background: oklch(1 0 0 / 0.22); }
 .mbn-copy svg.lucide { width: 10px; height: 10px; }
@@ -296,12 +299,16 @@ html:not(.dark) .icon-btn .moon { display: none; }
 .mbn-body {
   position: absolute; top: 25px; left: 13px; right: 13px;
   text-align: left;
-  opacity: 0; transition: opacity 0.2s ease;
+  opacity: 0; visibility: hidden;
+  transition: opacity 0.2s ease, visibility 0s linear 0.2s;
   overflow: hidden;
 }
 .mb-notch.teaser .mbn-avatar,
 .mb-notch.teaser .mbn-copy,
-.mb-notch.teaser .mbn-body { opacity: 1; transition: opacity 0.25s ease 0.15s; }
+.mb-notch.teaser .mbn-body {
+  opacity: 1; visibility: visible;
+  transition: opacity 0.25s ease 0.15s, visibility 0s;
+}
 .mbn-msg {
   font-size: 13px; font-weight: 600; color: #fff;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -626,7 +633,7 @@ html:not(.dark) .terminal { background: oklch(0.205 0 0); }
 }
 .faq summary::-webkit-details-marker { display: none; }
 .faq summary::after {
-  content: '+'; font-family: var(--font-mono); font-size: var(--text-base);
+  content: '+' / ''; font-family: var(--font-mono); font-size: var(--text-base);
   color: var(--muted-foreground);
   transition: transform 0.2s ease;
 }
@@ -662,7 +669,7 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
 }
 @media (max-width: 480px) {
   .nav-cta span { display: none; }
-  .nav-cta { width: 28px; padding: 0; justify-content: center; }
+  .nav-cta { padding: 0.375rem; }
 }
 @media (max-width: 900px) {
   .steps, .features { grid-template-columns: 1fr; }
@@ -696,4 +703,6 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
   .hero-sticky { position: static; height: auto; overflow: visible; padding: 6rem 0; }
   .scroll-hint { display: none; }
   .demo-caption { display: none; }
+  .meanwhile { transition: none; transform: none; }
+  .faq summary::after { transition: none; }
 }

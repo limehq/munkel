@@ -134,7 +134,7 @@ function Nav() {
           </div>
         </div>
         <div className="nav-actions">
-          <a className="btn btn-outline nav-cta" href={DOWNLOAD_URL}>
+          <a className="nav-cta" href={DOWNLOAD_URL} aria-label="Download">
             <Download aria-hidden />
             <span>Download</span>
           </a>
@@ -166,6 +166,8 @@ type NotchCtl = {
   docked: boolean
   /** The load-time whisper is showing — keeps the director's retract branch away at p ≈ 0. */
   early: boolean
+  /** Pointer is over the notch — pauses rotation and defers the early-whisper close. */
+  hovered: boolean
   openTeaser?: () => void
   closeTeaser?: () => void
 }
@@ -183,7 +185,13 @@ function Hero() {
   const notchRef = useRef<HTMLDivElement>(null)
   const msgRef = useRef<HTMLDivElement>(null)
   const avatarRef = useRef<HTMLImageElement>(null)
-  const notchCtl = useRef<NotchCtl>({ enabled: true, dwell: 3400, docked: false, early: false })
+  const notchCtl = useRef<NotchCtl>({
+    enabled: true,
+    dwell: 3400,
+    docked: false,
+    early: false,
+    hovered: false,
+  })
   const [clock, setClock] = useState('Thu 9:41')
   const [msgCopied, setMsgCopied] = useState(false)
 
@@ -207,7 +215,6 @@ function Hero() {
     const elAvatar = avatarRef.current
     if (!root || !elMsg || !elAvatar) return
 
-    let hovered = false
     let open = false
     let session = 0
     let i = 0
@@ -218,11 +225,14 @@ function Hero() {
     const canHover = window.matchMedia('(hover: hover)').matches
     if (!canHover) notchCtl.current.dwell = 5000
     const onEnter = () => {
-      hovered = true
-      demoHintRef.current?.classList.add('off')
+      notchCtl.current.hovered = true
+      // Dismiss the hint only once it has actually been seen — a hover on
+      // the early whisper must not eat the caption before dock ever shows it.
+      const cap = demoHintRef.current
+      if (cap?.classList.contains('show')) cap.classList.add('off')
     }
     const onLeave = () => {
-      hovered = false
+      notchCtl.current.hovered = false
     }
     if (canHover) {
       root.addEventListener('mouseenter', onEnter)
@@ -239,6 +249,12 @@ function Hero() {
       i++
       elMsg.textContent = m.text
       elAvatar.src = m.avatar
+      // A reopen inside retract()'s 260ms fallback window must not inherit
+      // its fast inline transitions — reset to the CSS spring first.
+      root.style.transition = ''
+      root.querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body').forEach((e) => {
+        e.style.transition = ''
+      })
       root.classList.add('teaser')
       // Robustness: if the CSS transition is throttled/frozen (background
       // tab, energy saver), snap to the final teaser state inline.
@@ -257,7 +273,7 @@ function Hero() {
       }
       while (live()) {
         await sleep(ctl.dwell)
-        while (hovered && live()) {
+        while (ctl.hovered && live()) {
           await sleep(300)
         }
         if (!live()) break
@@ -334,7 +350,7 @@ function Hero() {
       mbn!.style.height = ''
       mbn!.style.borderRadius = ''
       mbn!.querySelectorAll<HTMLElement>('.mbn-avatar, .mbn-copy, .mbn-body').forEach((el) => {
-        el.style.transition = 'opacity 0.1s ease'
+        el.style.transition = 'opacity 0.1s ease, visibility 0s linear 0.1s'
         el.style.opacity = ''
       })
       setTimeout(() => {
@@ -435,12 +451,22 @@ function Hero() {
       mac!.classList.add('early')
       if (ctl.enabled && ctl.openTeaser) ctl.openTeaser()
     }, 1400)
-    const tClose = window.setTimeout(() => {
+    let tClose = 0
+    const closeEarly = () => {
+      if (!ctl.early) {
+        mac!.classList.remove('early')
+        return
+      }
+      // Hovering holds the whisper open — just like the real notch.
+      if (ctl.hovered) {
+        tClose = window.setTimeout(closeEarly, 900)
+        return
+      }
       mac!.classList.remove('early')
-      if (!ctl.early) return
       ctl.early = false
       if (!ctl.docked) retract()
-    }, 4600)
+    }
+    tClose = window.setTimeout(closeEarly, 4600)
 
     return () => {
       window.removeEventListener('scroll', onScroll)
@@ -506,7 +532,8 @@ function Hero() {
                     className="mb-notch"
                     ref={notchRef}
                     onClick={() => {
-                      // Click anywhere copies — same behavior as the real notch.
+                      // In the page demo a click copies the message (the real
+                      // notch opens an inline reply on click).
                       if (notchRef.current?.classList.contains('teaser')) copyMessage()
                     }}
                   >
@@ -547,14 +574,16 @@ function Hero() {
 
 type TermStep = { type: 'cmd'; text: string } | { type: 'out'; html: string }
 
+// Mirrors the real CLI output (apps/cli/src/munkel.ts): groups print as
+// `● code  —  members`, every successful send prints `geflüstert ✓`.
 const TERM_SCRIPT: TermStep[] = [
   { type: 'cmd', text: 'munkel groups' },
-  { type: 'out', html: '<span class="tdot-live">●</span> blue-table-42  <span class="tdim">·</span>  Alex, Sam, Morgan' },
-  { type: 'out', html: '<span class="tdot-live">●</span> project-7  <span class="tdim">·</span>  Sam, Alex' },
+  { type: 'out', html: '<span class="tdot-live">●</span> blue-table-42  <span class="tdim">—</span>  Alex, Sam, Morgan' },
+  { type: 'out', html: '<span class="tdot-live">●</span> project-7  <span class="tdim">—</span>  Sam, Alex' },
   { type: 'cmd', text: 'munkel blue-table-42 all "table\'s free, come down"' },
-  { type: 'out', html: '<span class="tdim">sent → blue-table-42 (3 members)</span>' },
+  { type: 'out', html: '<span class="tdim">geflüstert ✓</span>' },
   { type: 'cmd', text: 'munkel project-7 Sam "package for you downstairs"' },
-  { type: 'out', html: '<span class="tdim">sent → Sam</span>' },
+  { type: 'out', html: '<span class="tdim">geflüstert ✓</span>' },
 ]
 
 function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
@@ -599,7 +628,7 @@ function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
           line.querySelector('.cursor')?.remove()
         } else {
           line.innerHTML = step.html
-          if (!sentFired && step.html.includes('sent →')) {
+          if (!sentFired && step.html.includes('geflüstert')) {
             sentFired = true
             onFirstSendRef.current?.()
           }
@@ -808,7 +837,7 @@ function LandingPage() {
                 <div className="avatar-stack">
                   <img src="/avatars/01.png" alt="Alex" />
                   <img src="/avatars/02.png" alt="Sam" />
-                  <img src="/avatars/03.png" alt="Taylor" />
+                  <img src="/avatars/05.png" alt="Morgan" />
                   <span className="joined">3 joined</span>
                 </div>
               </div>
@@ -817,8 +846,8 @@ function LandingPage() {
               <span className="step-num">03</span>
               <h3>Read the notch</h3>
               <p>
-                Messages slide out, linger, disappear. Hover to keep one open, click to copy. No
-                reply UI, and that's deliberate.
+                Messages slide out, linger, disappear. Hover to hold one open, click to reply
+                right in the notch — it closes again after you send.
               </p>
               <div className="step-visual">
                 <div className="mini-notch">
@@ -1104,16 +1133,17 @@ function LandingPage() {
             <details>
               <summary>Can I reply from the notch?</summary>
               <p>
-                No — the notch stays read-only, so a whisper never turns into a chat window
-                demanding attention. Reply from the menu-bar popover or the{' '}
+                Yes — click a whisper and reply right there; the notch closes again after you
+                send. You can also reply from the menu-bar popover or the{' '}
                 <span className="code">munkel</span> CLI.
               </p>
             </details>
             <details>
               <summary>How do I update?</summary>
               <p>
-                <span className="code">brew upgrade munkel</span> — Homebrew is the release
-                channel. There is no auto-updater.
+                Installed with Homebrew: <span className="code">brew upgrade munkel</span>.
+                Grabbed the zip: download the latest release and swap the app. There is no
+                auto-updater.
               </p>
             </details>
           </div>
