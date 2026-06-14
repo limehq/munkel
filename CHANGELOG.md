@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.2](https://github.com/limehq/munkel/compare/v0.4.1...v0.4.2) (2026-06-14)
+
+
+### Bug Fixes
+
+* **macos:** bundle SwiftPM resources into the .app ([#22](https://github.com/limehq/munkel/issues/22)) ([af1ccd9](https://github.com/limehq/munkel/commit/af1ccd96ebebd21a991e98e237bbf7cef61db265))
+
 ## [0.4.1](https://github.com/limehq/munkel/compare/v0.4.0...v0.4.1) (2026-06-14)
 
 
