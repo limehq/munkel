@@ -1,0 +1,8 @@
+dist/
+release/
+node_modules/
+*.log
+.vite/
+coverage/
+.DS_Store
+Thumbs.db
