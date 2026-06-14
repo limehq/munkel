@@ -43,7 +43,8 @@ Pushing a tag `v<version>` runs `.github/workflows/release.yml`:
 
 1. `scripts/build-release.sh <version>` — orchestration only. Each app
    builds itself via its `build:release` workspace script:
-   `@munkel/macos` (universal SPM build via `--arch` flags, wrapped by
+   `@munkel/macos` (universal build via [Swift Bundler](https://github.com/moreSwift/swift-bundler),
+   pinned and built on demand by `scripts/ensure-swift-bundler.sh`, wrapped by
    `make-bundle.sh`) and `@munkel/cli` (two `bun build --compile` targets
    + `lipo`, version stamped via `--define`). The root script stages
    `Munkel.app` + `bin/munkel`, signs with Developer ID + hardened runtime
