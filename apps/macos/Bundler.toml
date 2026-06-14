@@ -1,0 +1,16 @@
+# Swift Bundler config for the Munkel menu-bar app. make-bundle.sh injects the
+# real CFBundleShortVersionString at build time (from MUNKEL_VERSION) through a
+# throwaway copy of this file, so the version below is only a placeholder.
+format_version = 2
+
+[apps.Munkel]
+product = "munkel"
+version = "0.0.0"
+identifier = "dev.uq.munkel"
+
+# Accessory (menu-bar) app: no Dock icon. Swift Bundler generates the base
+# Info.plist; these entries are merged on top.
+[apps.Munkel.plist]
+LSUIElement = true
+LSMinimumSystemVersion = "14.0"
+NSHighResolutionCapable = true
