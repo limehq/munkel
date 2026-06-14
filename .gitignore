@@ -34,11 +34,11 @@ xcuserdata/
 .gstack/
 
 # Agent / GSD working files (private to user-agent collaboration)
-AGENTS.md
-Roadmap.md
-State.md
-handoff.js
-debug.md
+/AGENTS.md
+/Roadmap.md
+/State.md
+/handoff.js
+/debug.md
 
 # graphify build artifacts (keep only clean deliverables)
 graphify-out/*
