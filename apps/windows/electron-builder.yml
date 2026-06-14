@@ -1,0 +1,11 @@
+appId: app.munkel.windows
+productName: Munkel
+directories:
+  output: release
+files:
+  - dist/**/*
+  - assets/**/*
+  - package.json
+win:
+  target:
+    - dir
