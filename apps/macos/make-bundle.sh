@@ -32,6 +32,18 @@ mkdir -p "$BUNDLE/Contents/MacOS"
 
 cp "$BIN_PATH/munkel" "$BUNDLE/Contents/MacOS/Munkel"
 
+# SwiftPM emits each package's resources as a *.bundle next to the binary.
+# They have to ride inside the .app: KeyboardShortcuts (and any other resourced
+# dependency) loads them at runtime through Bundle.module, which resolves
+# relative to Bundle.main.resourceURL = Contents/Resources. Without them the
+# first render of KeyboardShortcuts.Recorder trips Bundle.module's fatalError
+# and the whole app traps (EXC_BREAKPOINT). Copy before codesign so the outer
+# signature seals them. (N) = zsh null-glob so an empty match can't abort set -e.
+mkdir -p "$BUNDLE/Contents/Resources"
+for res in "$BIN_PATH"/*.bundle(N); do
+  cp -R "$res" "$BUNDLE/Contents/Resources/"
+done
+
 cat > "$BUNDLE/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
