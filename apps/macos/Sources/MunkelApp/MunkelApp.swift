@@ -48,6 +48,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if popover.isShown {
             popover.performClose(sender)
         } else if Date().timeIntervalSince(lastClose) > 0.2 {
+            // A status-item click does not activate an accessory (LSUIElement)
+            // app, and a transient popover shown by an inactive app dismisses
+            // itself on the very next event — so it flickers open and shut.
+            // Activating first makes the popover's window key for real and
+            // keeps it open until the user clicks away.
+            NSApp.activate(ignoringOtherApps: true)
             popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
             let window = popover.contentViewController?.view.window
             window?.makeKey()
