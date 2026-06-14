@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/limehq/munkel/compare/v0.4.0...v0.4.1) (2026-06-14)
+
+
+### Bug Fixes
+
+* **macos:** activate app before showing the menu-bar popover ([#20](https://github.com/limehq/munkel/issues/20)) ([b667674](https://github.com/limehq/munkel/commit/b66767427224988c31f4dc512046efd6449cb703))
+
 ## [0.4.0](https://github.com/limehq/munkel/compare/v0.3.0...v0.4.0) (2026-06-13)
 
 
