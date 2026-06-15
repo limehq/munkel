@@ -17,9 +17,10 @@ enum NotchPanelState: Equatable {
 /// or clicks. The app (`NotchPresenter`) owns all of that.
 ///
 /// Three properties matter for correctness:
-/// - `sharingType = .none` is guaranteed at panel birth (see ``NotchPanelWindow``),
+/// - the capture sharing type is guaranteed at panel birth (see ``NotchPanelWindow``),
 ///   so no capturable panel ever reaches the screen — the panel never leaks into
-///   a screen share.
+///   a screen share. It resolves to `.none` in release; a DEBUG-only toggle can
+///   relax it to `.readOnly` for screenshots (see ``CaptureExclusion``).
 /// - ``hide()`` collapses when called; it does NOT defer while the pointer hovers.
 ///   The app owns hide timing.
 /// - on a screen-parameter change the existing panel is repositioned, never

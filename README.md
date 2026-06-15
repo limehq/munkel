@@ -33,7 +33,10 @@ The cask installs `Munkel.app` and symlinks the bundled `munkel` CLI onto your
 [latest release](https://github.com/limehq/munkel/releases/latest) and drag
 `Munkel.app` into Applications. The `munkel` CLI ships inside the app; to put it
 on your `PATH`, open Munkel and choose **Install Command Line Tool…** from the
-menu-bar gear menu. (The CLI talks to the running app, so it needs the app
+menu-bar gear menu — it links into the first writable directory on your `PATH`
+(e.g. Homebrew's `bin`), so it needs no administrator password. Without Homebrew
+it falls back to `~/.local/bin` and adds that to your `PATH` in `~/.zshrc` (open a
+new terminal afterwards). (The CLI talks to the running app, so it needs the app
 either way.)
 
 Or build locally from source:
@@ -97,8 +100,42 @@ Starting the individual apps:
 |---|---|
 | Relay | `bunx turbo dev --filter=@munkel/server` → `ws://127.0.0.1:8787` |
 | Landing | `bunx turbo dev --filter=@munkel/landing` → `http://localhost:3000` |
-| macOS app | `cd apps/macos && ./make-bundle.sh && open .build/Munkel.app` |
+| macOS app | `cd apps/macos && bun run dev` (builds & runs **Munkel Dev**, see below) |
 | CLI | `bunx turbo build --filter=@munkel/cli`, then `apps/cli/dist/munkel` |
+
+`bun run dev` builds and runs the **Munkel Dev** variant: a separate identity
+(bundle id `dev.uq.munkel.debug`, its own settings, control socket, and menu-bar
+icon) so it runs side by side with an installed release without colliding. It
+launches the freshly built binary directly (not via `open`), so it always loads
+the new build and shell environment variables flow through; it kills only the
+previous Munkel Dev instance, never your release. The root `bun dev` deliberately
+excludes the macOS app (it needs the Swift toolchain); run the per-app command
+above for it.
+
+To drive the Munkel Dev app from the CLI, run it from source with `MUNKEL_DEV=1`
+— that points it at the dev app's socket and bundle id:
+
+```sh
+MUNKEL_DEV=1 bun apps/cli/src/munkel.ts circles
+```
+
+The dev build deliberately does **not** embed the CLI (so it stays lean), so the
+"Install Command Line Tool…" menu item is release-only. The released app embeds
+`munkel` and installs it without admin (it links into the first writable PATH
+directory, e.g. Homebrew's `bin`).
+
+The app talks to the production relay `wss://relay.munkel.app` by default. To
+point a dev build at the local relay, set `MUNKEL_RELAY_URL` for that run:
+
+```sh
+MUNKEL_RELAY_URL=ws://127.0.0.1:8787 bun run dev
+```
+
+`MUNKEL_RELAY_URL` is read once at launch and never persisted, so a plain `bun
+run dev` falls straight back to the default. (For an installed app launched from
+Finder — where env vars don't propagate — set it persistently instead with
+`defaults write dev.uq.munkel relayURL ws://127.0.0.1:8787`, and `defaults
+delete dev.uq.munkel relayURL` to restore the default.)
 
 Watching the notch react without a second machine: with the relay and app
 running and the app joined to a circle, `scripts/simulate-whispers.sh` joins
