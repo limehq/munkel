@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/limehq/munkel/compare/v0.4.2...v0.5.0) (2026-06-15)
+
+
+### Features
+
+* **release:** embed CLI in app bundle, ship a DMG download ([#25](https://github.com/limehq/munkel/issues/25)) ([c08940e](https://github.com/limehq/munkel/commit/c08940e938e7fe5fc368527588683db0e7fb82bb))
+
 ## [0.4.2](https://github.com/limehq/munkel/compare/v0.4.1...v0.4.2) (2026-06-14)
 
 
