@@ -21,7 +21,9 @@ struct CommandPaletteView: View {
             composer
         }
         .frame(width: width)
-        .background(.regularMaterial)
+        // Behind-window vibrancy like Spotlight (and the menu-bar popover),
+        // instead of SwiftUI's flatter, grayer within-window .regularMaterial.
+        .background(VisualEffectView(material: .popover, blendingMode: .behindWindow))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
@@ -156,13 +158,18 @@ struct CommandPaletteView: View {
                 .focused($focused)
                 .onSubmit(send)
                 .onExitCommand(perform: onClose)
+                .onChange(of: state.message) { _, new in
+                    if new.count > MessageLimits.maxCharacters {
+                        state.message = String(new.prefix(MessageLimits.maxCharacters))
+                    }
+                }
 
             Button(action: send) {
                 Image(systemName: "paperplane.fill")
                     .font(.system(size: 15))
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.tint)
+            .foregroundStyle(.primary)
             .focusable(false)
             .disabled(isEmpty || state.selectedRecipient == nil)
         }
