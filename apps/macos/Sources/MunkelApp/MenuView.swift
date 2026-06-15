@@ -11,7 +11,8 @@ struct MenuView: View {
     #endif
 
     /// Cap before the group list starts scrolling.
-    private let maxGroupListHeight: CGFloat = 360
+    // A fourth circle card peeks in cut off, hinting the list scrolls.
+    private let maxGroupListHeight: CGFloat = 400
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
