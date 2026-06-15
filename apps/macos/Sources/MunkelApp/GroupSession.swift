@@ -57,7 +57,7 @@ final class GroupSession {
 
     @discardableResult
     func sendChat(_ text: String, to memberId: String? = nil) async -> Bool {
-        let payload = AppPayload.chat(text: text, sentAt: Date())
+        let payload = AppPayload.chat(text: MessageLimits.clamp(text), sentAt: Date())
         return await send(payload, to: memberId)
     }
 
@@ -163,7 +163,7 @@ final class GroupSession {
         case let .chat(text, _):
             let sender = members.first { $0.id == memberId }
                 ?? Member(id: memberId)
-            onChat?(sender, text, to != nil)
+            onChat?(sender, MessageLimits.clamp(text), to != nil)
         }
     }
 }

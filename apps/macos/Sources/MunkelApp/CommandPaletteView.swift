@@ -158,6 +158,11 @@ struct CommandPaletteView: View {
                 .focused($focused)
                 .onSubmit(send)
                 .onExitCommand(perform: onClose)
+                .onChange(of: state.message) { _, new in
+                    if new.count > MessageLimits.maxCharacters {
+                        state.message = String(new.prefix(MessageLimits.maxCharacters))
+                    }
+                }
 
             Button(action: send) {
                 Image(systemName: "paperplane.fill")

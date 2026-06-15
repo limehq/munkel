@@ -557,6 +557,11 @@ struct GroupSectionView: View {
                 .frostedField()
                 .focused($fieldFocused)
                 .onSubmit(sendTapped)
+                .onChange(of: draft) { _, new in
+                    if new.count > MessageLimits.maxCharacters {
+                        draft = String(new.prefix(MessageLimits.maxCharacters))
+                    }
+                }
 
             Button(action: sendTapped) {
                 // Confirmation lives in the button itself — a brief checkmark

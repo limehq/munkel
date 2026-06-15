@@ -260,6 +260,11 @@ struct MessageNotchContainer: View {
                 .padding(.vertical, 5)
                 .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
                 .focused($replyFocused)
+                .onChange(of: draft) { _, new in
+                    if new.count > MessageLimits.maxCharacters {
+                        draft = String(new.prefix(MessageLimits.maxCharacters))
+                    }
+                }
                 .onSubmit {
                     let text = draft.trimmingCharacters(in: .whitespaces)
                     guard !text.isEmpty else { return }
