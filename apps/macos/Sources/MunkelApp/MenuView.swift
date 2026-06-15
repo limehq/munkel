@@ -11,7 +11,8 @@ struct MenuView: View {
     #endif
 
     /// Cap before the group list starts scrolling.
-    private let maxGroupListHeight: CGFloat = 360
+    // A fourth circle card peeks in cut off, hinting the list scrolls.
+    private let maxGroupListHeight: CGFloat = 400
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -362,80 +363,169 @@ struct GroupSectionView: View {
     let code: String
 
     @State private var draft = ""
+    /// Selected send target; nil = everyone (the globe). Default everyone.
     @State private var recipient: String?
+    /// Briefly turns the send button into a checkmark after a send.
+    @State private var justSent = false
+    @State private var sentNoticeToken = 0
+    @FocusState private var fieldFocused: Bool
+
+    private let targetSize: CGFloat = 26
 
     var body: some View {
         // Re-renders on presenceVersion bumps via the EnvironmentObject.
         let session = model.session(for: code)
         let members = session?.members ?? []
 
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Circle()
-                    .fill(session?.isConnected == true ? Color.green : Color.orange)
-                    .frame(width: 8, height: 8)
-                Text(code)
-                    .font(.system(.subheadline, design: .monospaced).weight(.semibold))
-                Button {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(code, forType: .string)
-                } label: {
-                    Image(systemName: "doc.on.doc")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("Copy code")
-                Spacer()
-                Button {
-                    model.leave(code: code)
-                } label: {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("Leave circle")
-            }
-
-            if members.isEmpty {
-                Text("No one else online")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                HStack(spacing: 6) {
-                    HStack(spacing: -5) {
-                        ForEach(members.prefix(8)) { member in
-                            AvatarView(name: member.label, imageData: member.avatar, size: 16)
-                        }
-                    }
-                    Text(members.map(\.label).joined(separator: ", "))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
-
-            HStack(spacing: 6) {
-                Picker("", selection: $recipient) {
-                    Text("All").tag(String?.none)
-                    ForEach(members) { member in
-                        Text(member.label).tag(String?.some(member.id))
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 90)
-
-                TextField("Message…", text: $draft)
-                    .frostedField()
-                    .onSubmit(sendTapped)
-
-                Button(action: sendTapped) {
-                    Image(systemName: "paperplane.fill")
-                }
-                .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
+        VStack(alignment: .leading, spacing: 8) {
+            header(connected: session?.isConnected == true)
+            recipientRow(members: members)
+            messageRow(members: members)
         }
         .padding(10)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+        // A selected member going offline silently falls back to everyone,
+        // so the highlight always points at a real, sendable target.
+        .onChange(of: members) {
+            if let r = recipient, !members.contains(where: { $0.id == r }) {
+                recipient = nil
+            }
+        }
+    }
+
+    // MARK: - Header
+
+    private func header(connected: Bool) -> some View {
+        HStack {
+            Circle()
+                .fill(connected ? Color.green : Color.orange)
+                .frame(width: 8, height: 8)
+                .help(connected ? "Connected" : "Connecting…")
+            Text(code)
+                .font(.system(.subheadline, design: .monospaced).weight(.semibold))
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(code, forType: .string)
+            } label: {
+                Image(systemName: "doc.on.doc")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Copy code")
+            Spacer()
+            Button {
+                model.leave(code: code)
+            } label: {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Leave circle")
+        }
+    }
+
+    // MARK: - Recipient picker (globe = everyone, then one avatar per member)
+
+    private func recipientRow(members: [GroupSession.Member]) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                targetButton(
+                    selected: recipient == nil,
+                    help: "Everyone"
+                ) {
+                    recipient = nil
+                } label: {
+                    Image(systemName: "globe")
+                        .font(.system(size: 13))
+                        .frame(width: targetSize, height: targetSize)
+                        .background(.quaternary, in: Circle())
+                }
+
+                ForEach(members) { member in
+                    targetButton(
+                        selected: recipient == member.id,
+                        help: member.label
+                    ) {
+                        recipient = member.id
+                        fieldFocused = true
+                    } label: {
+                        AvatarView(name: member.label, imageData: member.avatar, size: targetSize)
+                    }
+                }
+
+                if members.isEmpty {
+                    Text("No one else online")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 4)
+                }
+            }
+            .padding(2)
+        }
+    }
+
+    /// A selectable round target with an accent ring when chosen.
+    private func targetButton(
+        selected: Bool,
+        help: String,
+        action: @escaping () -> Void,
+        @ViewBuilder label: () -> some View
+    ) -> some View {
+        Button(action: action) {
+            label()
+                .overlay(
+                    Circle()
+                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                        .opacity(selected ? 1 : 0)
+                )
+                .overlay(
+                    Circle()
+                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                        .padding(-2)
+                        .opacity(selected ? 0.35 : 0)
+                )
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .animation(.spring(duration: 0.25), value: selected)
+    }
+
+    // MARK: - Message field + send
+
+    private func messageRow(members: [GroupSession.Member]) -> some View {
+        HStack(spacing: 6) {
+            TextField(placeholder(members: members), text: $draft)
+                .frostedField()
+                .focused($fieldFocused)
+                .onSubmit(sendTapped)
+
+            Button(action: sendTapped) {
+                // Confirmation lives in the button itself — a brief checkmark
+                // instead of a chip that overlapped the field's placeholder.
+                // Neutral color, and a fixed-size frame so swapping the glyph
+                // never changes the button's width.
+                Image(systemName: justSent ? "checkmark" : "paperplane.fill")
+                    .foregroundStyle(.primary)
+                    .frame(width: 16, height: 16)
+                    .animation(.spring(duration: 0.25), value: justSent)
+            }
+            .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty && !justSent)
+            .help(sendHelp(members: members))
+        }
+    }
+
+    private func placeholder(members: [GroupSession.Member]) -> String {
+        if let id = recipient, let m = members.first(where: { $0.id == id }) {
+            return "Message \(m.label)…"
+        }
+        return "Message everyone…"
+    }
+
+    private func sendHelp(members: [GroupSession.Member]) -> String {
+        if let id = recipient, let m = members.first(where: { $0.id == id }) {
+            return "Send to \(m.label) (↩)"
+        }
+        return "Send to everyone (↩)"
     }
 
     private func sendTapped() {
@@ -443,5 +533,17 @@ struct GroupSectionView: View {
         guard !text.isEmpty else { return }
         model.send(text: text, group: code, to: recipient)
         draft = ""
+        flashSent()
+    }
+
+    private func flashSent() {
+        sentNoticeToken += 1
+        let token = sentNoticeToken
+        withAnimation(.spring(duration: 0.25)) { justSent = true }
+        Task {
+            try? await Task.sleep(for: .seconds(1.4))
+            guard token == sentNoticeToken else { return }
+            withAnimation(.spring(duration: 0.25)) { justSent = false }
+        }
     }
 }
