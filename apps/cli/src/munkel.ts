@@ -4,7 +4,7 @@
 // socket; the app owns the relay connections and the crypto.
 
 import { homedir } from "node:os"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 
 // Mirrors MunkelKit/ControlProtocol.swift: newline-delimited JSON,
 // one request/response per connection.
@@ -27,9 +27,17 @@ interface ControlResponse {
   groups?: ControlGroupInfo[]
 }
 
+// `MUNKEL_DEV=1` (or a binary named `munkel-dev`) targets the parallel "Munkel
+// Dev" app instead of the installed release — its own control socket and bundle
+// id. Mirrors apps/macos (make-bundle.sh / ControlProtocol). The dev build does
+// not embed the CLI, so in development run it from source:
+//   MUNKEL_DEV=1 bun apps/cli/src/munkel.ts <args>
+const devMode =
+  process.env.MUNKEL_DEV === "1" || basename(process.execPath).startsWith("munkel-dev")
+
 const socketPath =
   process.env.MUNKEL_SOCKET ??
-  join(homedir(), "Library", "Application Support", "Munkel", "control.sock")
+  join(homedir(), "Library", "Application Support", devMode ? "Munkel Dev" : "Munkel", "control.sock")
 
 function fail(message: string, code = 1): never {
   console.error(`munkel: ${message}`)
@@ -121,7 +129,8 @@ function connectOnce() {
 // by the tests to stand up a fake app).
 async function launchApp(): Promise<void> {
   const override = process.env.MUNKEL_LAUNCH_CMD
-  const command = override ? ["sh", "-c", override] : ["open", "-g", "-b", "dev.uq.munkel"]
+  const bundleId = devMode ? "dev.uq.munkel.debug" : "dev.uq.munkel"
+  const command = override ? ["sh", "-c", override] : ["open", "-g", "-b", bundleId]
   const proc = Bun.spawn(command, { stdout: "ignore", stderr: "pipe" })
   if ((await proc.exited) !== 0) {
     const detail = (await new Response(proc.stderr).text()).trim()
