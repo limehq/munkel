@@ -3,6 +3,7 @@
 [![CI](https://github.com/limehq/munkel/actions/workflows/ci.yml/badge.svg)](https://github.com/limehq/munkel/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/limehq/munkel/actions/workflows/codeql.yml/badge.svg)](https://github.com/limehq/munkel/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/limehq/munkel/badge)](https://scorecard.dev/viewer/?uri=github.com/limehq/munkel)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13278/badge)](https://www.bestpractices.dev/projects/13278)
 [![Latest release](https://img.shields.io/github/v/release/limehq/munkel?display_name=tag&sort=semver)](https://github.com/limehq/munkel/releases)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Website](https://img.shields.io/badge/website-munkel.app-black)](https://munkel.app)
