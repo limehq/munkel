@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/limehq/munkel/compare/v0.5.0...v0.6.0) (2026-06-15)
+
+
+### Features
+
+* **macos:** rework recipient picking + UI polish ([#29](https://github.com/limehq/munkel/issues/29)) ([ab2472c](https://github.com/limehq/munkel/commit/ab2472c22ef3761a0703d844ee24f51255b4309f))
+
 ## [0.5.0](https://github.com/limehq/munkel/compare/v0.4.2...v0.5.0) (2026-06-15)
 
 
