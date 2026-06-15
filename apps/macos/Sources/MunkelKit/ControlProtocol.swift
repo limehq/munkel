@@ -3,11 +3,15 @@ import Foundation
 /// Contract between the menu-bar app (Unix-domain-socket server) and the
 /// `munkel` CLI: newline-delimited JSON, one request/response per connection.
 public enum MunkelControl {
-    /// `~/Library/Application Support/Munkel/control.sock`
+    /// `~/Library/Application Support/Munkel/control.sock` — or `Munkel Dev` for
+    /// the debug build (bundle id `….debug`), so a dev build and an installed
+    /// release don't fight over one socket. Mirrored by apps/cli (`munkel-dev`).
     public static var socketURL: URL {
+        let appName = (Bundle.main.bundleIdentifier?.hasSuffix(".debug") ?? false)
+            ? "Munkel Dev" : "Munkel"
         let directory = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Munkel", isDirectory: true)
+            .appendingPathComponent(appName, isDirectory: true)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         return directory.appendingPathComponent("control.sock")
     }

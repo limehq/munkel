@@ -31,10 +31,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.delegate = self
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        #if DEBUG
+        // The debug build runs as "Munkel Dev" next to an installed release; a
+        // distinct icon tells the two menu-bar items apart at a glance.
+        item.button?.image = NSImage(
+            systemSymbolName: "ladybug.fill",
+            accessibilityDescription: "Munkel Dev"
+        )
+        #else
         item.button?.image = NSImage(
             systemSymbolName: "bubble.left.and.bubble.right.fill",
             accessibilityDescription: "Munkel"
         )
+        #endif
         item.button?.target = self
         item.button?.action = #selector(togglePopover(_:))
         statusItem = item
