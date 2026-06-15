@@ -71,11 +71,17 @@ if (args[0] === "circles" || args[0] === "groups") {
   if (args.length < 3) {
     fail("usage: munkel <circle> <recipient|all> <message…>", 64)
   }
+  const text = args.slice(2).join(" ")
+  // Mirrors MessageLimits.maxCharacters in the macOS app.
+  const MAX_MESSAGE_CHARS = 2048
+  if (text.length > MAX_MESSAGE_CHARS) {
+    fail(`message too long (${text.length} > ${MAX_MESSAGE_CHARS} characters)`, 64)
+  }
   request = {
     action: "send",
     group: args[0],
     to: args[1],
-    text: args.slice(2).join(" "),
+    text,
   }
 }
 
