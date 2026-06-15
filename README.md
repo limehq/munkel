@@ -19,15 +19,24 @@ Website: **[munkel.app](https://munkel.app)**
 
 ## Install
 
-After the first public release is published:
+**Homebrew** — app plus the `munkel` CLI:
 
 ```sh
 brew install limehq/tap/munkel
 open -a Munkel
 ```
 
-The cask installs `Munkel.app` and the `munkel` CLI. Until a release artifact is
-available, build locally from source:
+The cask installs `Munkel.app` and symlinks the bundled `munkel` CLI onto your
+`PATH`.
+
+**Direct download** — app only: grab `Munkel-<version>.dmg` from the
+[latest release](https://github.com/limehq/munkel/releases/latest) and drag
+`Munkel.app` into Applications. The `munkel` CLI ships inside the app; to put it
+on your `PATH`, open Munkel and choose **Install Command Line Tool…** from the
+menu-bar gear menu. (The CLI talks to the running app, so it needs the app
+either way.)
+
+Or build locally from source:
 
 ```sh
 bun install
