@@ -1,44 +1,59 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useIpc } from '../hooks/useIpc';
-import { circles } from '../mock-data';
+import { useAppStore } from '../store/app-store';
 import { Avatar } from './Avatar';
-
-type GitHubState =
-	| { kind: 'idle' }
-	| { kind: 'requesting' }
-	| { kind: 'awaiting'; userCode: string }
-	| { kind: 'fetching' }
-	| { kind: 'failed'; message: string };
+import { getCircleColor } from '../../shared/group-color';
+import type { CircleState } from '../../shared/types';
 
 export default function MenuWindow() {
 	const ipc = useIpc();
-	const [githubState, setGitHubState] = useState<GitHubState>({ kind: 'idle' });
+	const { state, joinCircle, leaveCircle, sendChat, updateProfile } = useAppStore();
+
 	const [joinCode, setJoinCode] = useState('');
-	const [copied, setCopied] = useState(false);
+	const [joinRelay, setJoinRelay] = useState('');
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [displayName, setDisplayName] = useState(state.identity?.displayName ?? '');
+	const [messages, setMessages] = useState<Record<string, string>>({});
+	const [recipients, setRecipients] = useState<Record<string, string>>({});
 
-	function startGitHubLogin() {
-		setGitHubState({ kind: 'requesting' });
-		setTimeout(() => {
-			setGitHubState({ kind: 'awaiting', userCode: 'ABCD-1234' });
-		}, 800);
-	}
-
-	function cancelGitHubLogin() {
-		setGitHubState({ kind: 'idle' });
-	}
-
-	function copyCode(code: string) {
-		navigator.clipboard.writeText(code);
-		setCopied(true);
-		setTimeout(() => setCopied(false), 1500);
-	}
+	useEffect(() => {
+		if (state.identity) {
+			setDisplayName(state.identity.displayName);
+		}
+	}, [state.identity?.displayName]);
 
 	function rollCode() {
 		const parts = Array.from({ length: 2 }, () =>
-			Math.random().toString(36).slice(2, 6).toLowerCase()
+			Math.random().toString(36).slice(2, 6).toLowerCase(),
 		);
 		setJoinCode(parts.join('-'));
+	}
+
+	async function handleJoin(e?: React.FormEvent) {
+		e?.preventDefault();
+		const code = joinCode.trim();
+		if (!code) return;
+		await joinCircle(code, joinRelay.trim() || undefined);
+		setJoinCode('');
+		setJoinRelay('');
+	}
+
+	async function handleLeave(code: string) {
+		await leaveCircle(code);
+	}
+
+	async function handleSend(code: string) {
+		const text = messages[code]?.trim();
+		if (!text) return;
+		const to = recipients[code] || undefined;
+		await sendChat(code, text, to);
+		setMessages((prev) => ({ ...prev, [code]: '' }));
+	}
+
+	function updateName() {
+		const name = displayName.trim();
+		if (!name) return;
+		void updateProfile(name);
 	}
 
 	return (
@@ -69,9 +84,21 @@ export default function MenuWindow() {
 						⚙
 					</button>
 					{settingsOpen && (
-						<div className="settings-popover glass">
-							<button>About Munkel</button>
-							<button>Check for Updates…</button>
+						<div className="settings-popover glass" onClick={(e) => e.stopPropagation()}>
+							<label className="caption" style={{ display: 'block', marginBottom: 4 }}>
+								Display name
+							</label>
+							<input
+								className="frosted-field"
+								value={displayName}
+								onChange={(e) => setDisplayName(e.target.value)}
+								onBlur={updateName}
+								onKeyDown={(e) => {
+									if (e.key === 'Enter') updateName();
+								}}
+								placeholder="Your name"
+							/>
+							<div className="popover-divider" />
 							<button onClick={() => ipc.showPalette()}>Quick send…</button>
 							<div className="popover-divider" />
 							<button onClick={() => ipc.quitApp()}>Quit</button>
@@ -80,60 +107,32 @@ export default function MenuWindow() {
 				</div>
 			</div>
 
-			{circles.length === 0 && (
+			{state.circles.length === 0 && (
 				<p className="hint">No circles yet. Create one or join with a code.</p>
 			)}
 
 			<div className="circle-list">
-				{circles.map((circle) => (
-					<div key={circle.code} className="circle-section">
-						<div className="circle-header">
-							<span
-								className="status-dot"
-								style={{ background: circle.isConnected ? '#34c759' : '#ff9f0a' }}
-							/>
-							<span className="circle-code">{circle.code}</span>
-							<button className="icon-button" title="Copy code">
-								📋
-							</button>
-							<div style={{ flex: 1 }} />
-							<button className="icon-button" title="Leave circle">
-								➡️
-							</button>
-						</div>
-
-						{circle.members.length === 0 ? (
-							<p className="caption">No one else online</p>
-						) : (
-							<div className="member-row">
-								<div className="avatar-stack">
-									{circle.members.slice(0, 8).map((m) => (
-										<Avatar key={m.id} name={m.label} size={16} />
-									))}
-								</div>
-								<span className="member-names">
-									{circle.members.map((m) => m.label).join(', ')}
-								</span>
-							</div>
-						)}
-
-						<div className="send-row">
-							<select className="frosted-field recipient-select">
-								<option key="all">All</option>
-								{circle.members.map((m) => (
-									<option key={m.id}>{m.label}</option>
-								))}
-							</select>
-							<input className="frosted-field" placeholder="Message…" />
-							<button className="icon-button">➤</button>
-						</div>
-					</div>
+				{state.circles.map((circle) => (
+					<CircleSection
+						key={circle.code}
+						circle={circle}
+						message={messages[circle.code] ?? ''}
+						recipient={recipients[circle.code] ?? ''}
+						onMessageChange={(text) =>
+							setMessages((prev) => ({ ...prev, [circle.code]: text }))
+						}
+						onRecipientChange={(to) =>
+							setRecipients((prev) => ({ ...prev, [circle.code]: to }))
+						}
+						onSend={() => handleSend(circle.code)}
+						onLeave={() => handleLeave(circle.code)}
+					/>
 				))}
 			</div>
 
 			<div className="divider" />
 
-			<div className="join-area">
+			<form className="join-area" onSubmit={handleJoin}>
 				<div className="join-row">
 					<input
 						className="frosted-field"
@@ -141,15 +140,27 @@ export default function MenuWindow() {
 						value={joinCode}
 						onChange={(e) => setJoinCode(e.target.value)}
 					/>
-					<button className="icon-button" title="Roll a random code" onClick={rollCode}>
+					<button
+						type="button"
+						className="icon-button"
+						title="Roll a random code"
+						onClick={rollCode}
+					>
 						🎲
 					</button>
-					<button className="button-primary" disabled={!joinCode.trim()}>
+					<button type="submit" className="button-primary" disabled={!joinCode.trim()}>
 						Join
 					</button>
 				</div>
-				<p className="caption">If the circle doesn't exist yet, it's created.</p>
-			</div>
+				<input
+					className="frosted-field"
+					style={{ marginTop: 8, width: '100%' }}
+					placeholder="Relay URL (optional, defaults to dev relay)"
+					value={joinRelay}
+					onChange={(e) => setJoinRelay(e.target.value)}
+				/>
+				<p className="caption">If the circle doesn&apos;t exist yet, it&apos;s created.</p>
+			</form>
 
 			<div className="divider" />
 
@@ -166,79 +177,91 @@ export default function MenuWindow() {
 					Test notch
 				</button>
 			</div>
-
-			<div className="divider" />
-
-			<GitHubArea
-				state={githubState}
-				onStart={startGitHubLogin}
-				onCancel={cancelGitHubLogin}
-				onCopy={copyCode}
-				copied={copied}
-			/>
 		</div>
 	);
 }
 
-interface GitHubAreaProps {
-	state: GitHubState;
-	onStart: () => void;
-	onCancel: () => void;
-	onCopy: (code: string) => void;
-	copied: boolean;
+interface CircleSectionProps {
+	circle: CircleState;
+	message: string;
+	recipient: string;
+	onMessageChange: (text: string) => void;
+	onRecipientChange: (to: string) => void;
+	onSend: () => void;
+	onLeave: () => void;
 }
 
-function GitHubArea({ state, onStart, onCancel, onCopy, copied }: GitHubAreaProps) {
-	switch (state.kind) {
-		case 'idle':
-			return (
-				<div className="github-row">
-					<button className="button-primary" onClick={onStart}>
-						Sign in with GitHub
-					</button>
-				</div>
-			);
-		case 'requesting':
-			return (
-				<div className="github-row">
-					<span className="spinner" />
-					<span className="caption">Connecting to GitHub…</span>
-				</div>
-			);
-		case 'awaiting':
-			return (
-				<div className="github-column">
-					<div className="code-row">
-						<span className="user-code">{state.userCode}</span>
-						<button className="icon-button" onClick={() => onCopy(state.userCode)}>
-							{copied ? '✓' : '📋'}
-						</button>
-						<button className="button-small" onClick={onCancel}>
-							Cancel
-						</button>
+function CircleSection({
+	circle,
+	message,
+	recipient,
+	onMessageChange,
+	onRecipientChange,
+	onSend,
+	onLeave,
+}: CircleSectionProps) {
+	const color = useMemo(() => getCircleColor(circle.code), [circle.code]);
+
+	return (
+		<div className="circle-section">
+			<div className="circle-header">
+				<span className="status-dot" style={{ background: circle.isConnected ? '#34c759' : '#ff9f0a' }} />
+				<span className="circle-code">{circle.code}</span>
+				<span
+					className="circle-dot"
+					style={{ background: color, width: 8, height: 8, borderRadius: '50%', marginLeft: 4 }}
+				/>
+				<div style={{ flex: 1 }} />
+				<button className="icon-button" title="Leave circle" onClick={onLeave}>
+					➡️
+				</button>
+			</div>
+
+			{circle.members.length === 0 ? (
+				<p className="caption">No one else online</p>
+			) : (
+				<div className="member-row">
+					<div className="avatar-stack">
+						{circle.members.slice(0, 8).map((m) => (
+							<Avatar
+								key={m.memberId}
+								name={m.displayName ?? m.memberId.slice(0, 8)}
+								size={16}
+							/>
+						))}
 					</div>
-					<p className="caption">
-						{copied ? 'Code copied — paste it on github.com.' : 'Paste this code on github.com.'}
-					</p>
-				</div>
-			);
-		case 'fetching':
-			return (
-				<div className="github-row">
-					<span className="spinner" />
-					<span className="caption">Loading GitHub profile…</span>
-				</div>
-			);
-		case 'failed':
-			return (
-				<div className="github-row">
-					<span className="caption" style={{ color: '#ff453a' }}>
-						{state.message}
+					<span className="member-names">
+						{circle.members.map((m) => m.displayName ?? m.memberId.slice(0, 8)).join(', ')}
 					</span>
-					<button className="button-small" onClick={onStart}>
-						Retry
-					</button>
 				</div>
-			);
-	}
+			)}
+
+			<div className="send-row">
+				<select
+					className="frosted-field recipient-select"
+					value={recipient}
+					onChange={(e) => onRecipientChange(e.target.value)}
+				>
+					<option value="">All</option>
+					{circle.members.map((m) => (
+						<option key={m.memberId} value={m.memberId}>
+							{m.displayName ?? m.memberId.slice(0, 8)}
+						</option>
+					))}
+				</select>
+				<input
+					className="frosted-field"
+					placeholder="Message…"
+					value={message}
+					onChange={(e) => onMessageChange(e.target.value)}
+					onKeyDown={(e) => {
+						if (e.key === 'Enter') onSend();
+					}}
+				/>
+				<button className="icon-button" onClick={onSend} disabled={!message.trim()}>
+					➤
+				</button>
+			</div>
+		</div>
+	);
 }

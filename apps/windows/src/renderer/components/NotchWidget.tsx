@@ -18,10 +18,16 @@ export default function NotchWidget() {
 			setMessage(data);
 			setReplyPrivate(data.isDirect);
 		});
+		const removeMessage = window.electronAPI.onNotchMessage((data) => {
+			setMessage(data);
+			setReplyPrivate(data.isDirect);
+			setVisible(true);
+		});
 		return () => {
 			removeShow();
 			removeHide();
 			removeUpdate();
+			removeMessage();
 		};
 	}, []);
 
@@ -48,10 +54,7 @@ export default function NotchWidget() {
 							<span className="sender">{message.sender}</span>
 							<span>{message.isDirect ? '🔒' : '🌐'}</span>
 							<span>·</span>
-							<span
-								className="circle-dot"
-								style={{ background: message.groupColor }}
-							/>
+							<span className="circle-dot" style={{ background: message.groupColor }} />
 							<span className="circle-name">{message.group}</span>
 						</div>
 						<p className="message-text">{message.text}</p>
