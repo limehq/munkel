@@ -364,8 +364,8 @@ struct GroupSectionView: View {
     @State private var draft = ""
     /// Selected send target; nil = everyone (the globe). Default everyone.
     @State private var recipient: String?
-    /// Transient "Sent to …" confirmation, cleared after a short delay.
-    @State private var sentNotice: String?
+    /// Briefly turns the send button into a checkmark after a send.
+    @State private var justSent = false
     @State private var sentNoticeToken = 0
     @FocusState private var fieldFocused: Bool
 
@@ -499,20 +499,17 @@ struct GroupSectionView: View {
                 .onSubmit(sendTapped)
 
             Button(action: sendTapped) {
-                Image(systemName: "paperplane.fill")
+                // Confirmation lives in the button itself — a brief checkmark
+                // instead of a chip that overlapped the field's placeholder.
+                // Neutral color, and a fixed-size frame so swapping the glyph
+                // never changes the button's width.
+                Image(systemName: justSent ? "checkmark" : "paperplane.fill")
+                    .foregroundStyle(.primary)
+                    .frame(width: 16, height: 16)
+                    .animation(.spring(duration: 0.25), value: justSent)
             }
-            .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
+            .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty && !justSent)
             .help(sendHelp(members: members))
-        }
-        .overlay(alignment: .leading) {
-            if let sentNotice {
-                Label(sentNotice, systemImage: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal, 8)
-                    .background(.quaternary.opacity(0.9), in: Capsule())
-                    .transition(.opacity)
-            }
         }
     }
 
@@ -533,23 +530,19 @@ struct GroupSectionView: View {
     private func sendTapped() {
         let text = draft.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else { return }
-        let members = model.session(for: code)?.members ?? []
-        let targetName = recipient.flatMap { id in members.first { $0.id == id }?.label }
         model.send(text: text, group: code, to: recipient)
         draft = ""
-        flashSent(to: targetName)
+        flashSent()
     }
 
-    private func flashSent(to name: String?) {
+    private func flashSent() {
         sentNoticeToken += 1
         let token = sentNoticeToken
-        withAnimation(.spring(duration: 0.25)) {
-            sentNotice = name.map { "Sent to \($0)" } ?? "Sent to everyone"
-        }
+        withAnimation(.spring(duration: 0.25)) { justSent = true }
         Task {
-            try? await Task.sleep(for: .seconds(1.6))
+            try? await Task.sleep(for: .seconds(1.4))
             guard token == sentNoticeToken else { return }
-            withAnimation(.spring(duration: 0.25)) { sentNotice = nil }
+            withAnimation(.spring(duration: 0.25)) { justSent = false }
         }
     }
 }
