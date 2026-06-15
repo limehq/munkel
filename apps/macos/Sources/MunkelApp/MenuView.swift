@@ -92,7 +92,7 @@ struct MenuView: View {
     private var header: some View {
         HStack {
             Image(systemName: "bubble.left.and.bubble.right.fill")
-                .foregroundStyle(.tint)
+                .foregroundStyle(.primary)
             Text("Munkel")
                 .font(.headline)
             Spacer()
