@@ -1,81 +1,120 @@
-export interface Member {
-	memberId: string;
-	displayName: string;
-	avatar?: string;
-	joinedAt: string;
-}
+import { normalizeCircleCode } from '@munkel/core';
+import { IdentityStore } from './identity-store';
+import { GroupSession } from './group-session';
+import { ProfileBroadcaster } from './profile-broadcaster';
+import type { CircleState, IdentityState, NotchMessage, StateUpdate } from '../shared/types';
 
-export interface CircleState {
-	code: string;
-	groupId: string;
-	relayUrl: string;
-	isConnected: boolean;
-	members: Member[];
-	joinedAt: string;
-}
+const DEFAULT_RELAY_URL =
+	process.env.NODE_ENV === 'development' ? 'ws://127.0.0.1:8787' : 'wss://relay.munkel.app';
 
-export interface IdentityState {
-	memberId: string;
-	displayName: string;
-	avatar?: string;
-}
+export type { StateUpdate, CircleState } from '../shared/types';
 
-interface AppState {
-	identity: IdentityState | null;
-	circles: Map<string, CircleState>;
-}
+export class AppState {
+	private readonly sessions = new Map<string, GroupSession>();
+	private identity: IdentityState;
+	private readonly broadcaster: ProfileBroadcaster;
 
-const state: AppState = {
-	identity: null,
-	circles: new Map(),
-};
-
-export function setIdentity(identity: IdentityState): void {
-	state.identity = identity;
-}
-
-export function getIdentity(): IdentityState | null {
-	return state.identity;
-}
-
-export function joinCircle(circle: CircleState): void {
-	state.circles.set(circle.code, circle);
-}
-
-export function leaveCircle(code: string): boolean {
-	return state.circles.delete(code);
-}
-
-export function getCircle(code: string): CircleState | undefined {
-	return state.circles.get(code);
-}
-
-export function getState(): { identity: IdentityState | null; circles: CircleState[] } {
-	return {
-		identity: state.identity,
-		circles: Array.from(state.circles.values()),
-	};
-}
-
-export function updateCircleConnection(code: string, isConnected: boolean): void {
-	const circle = state.circles.get(code);
-	if (circle) {
-		circle.isConnected = isConnected;
+	constructor(
+		private readonly identityStore: IdentityStore,
+		private readonly onBroadcast: (update: StateUpdate) => void,
+		private readonly onNotch: (message: NotchMessage) => void,
+		private readonly onRelayError?: (message: string) => void,
+	) {
+		const persisted = identityStore.load();
+		this.identity = {
+			memberId: persisted.memberId,
+			displayName: persisted.displayName,
+			avatar: persisted.avatar,
+		};
+		this.broadcaster = new ProfileBroadcaster(() => this.broadcastProfiles());
 	}
-}
 
-export function addMember(code: string, member: Member): void {
-	const circle = state.circles.get(code);
-	if (!circle) return;
-	const exists = circle.members.find((m) => m.memberId === member.memberId);
-	if (!exists) {
-		circle.members.push(member);
+	async joinCircle(code: string, relayUrl?: string): Promise<void> {
+		const normalized = normalizeCircleCode(code);
+		if (this.sessions.has(normalized)) {
+			return;
+		}
+
+		const persisted = this.identityStore.load().circles.find((c) => c.code === normalized);
+		const url = relayUrl ?? persisted?.relayUrl ?? DEFAULT_RELAY_URL;
+
+		const session = await GroupSession.create(normalized, url, this.identity.memberId, this.identity, {
+			onStateChange: () => this.broadcast(),
+			onChat: () => {
+				// Intentionally empty: chat log UI is not implemented yet.
+			},
+			onNotch: (message) => this.onNotch(message),
+			onError: (message) => this.onRelayError?.(message),
+		});
+
+		this.sessions.set(normalized, session);
+		this.identityStore.addCircle(normalized, url);
+		session.connect();
+		this.broadcast();
 	}
-}
 
-export function removeMember(code: string, memberId: string): void {
-	const circle = state.circles.get(code);
-	if (circle) {
-		circle.members = circle.members.filter((m) => m.memberId !== memberId);
+	leaveCircle(code: string): void {
+		const normalized = normalizeCircleCode(code);
+		const session = this.sessions.get(normalized);
+		if (session) {
+			session.disconnect();
+			this.sessions.delete(normalized);
+		}
+		this.identityStore.removeCircle(normalized);
+		this.broadcast();
+	}
+
+	async sendChat(code: string, text: string, to?: string): Promise<boolean> {
+		const normalized = normalizeCircleCode(code);
+		const session = this.sessions.get(normalized);
+		if (!session) {
+			return false;
+		}
+		return session.sendChat(text, to);
+	}
+
+	updateIdentity(displayName: string, avatar?: string): void {
+		this.identity = { ...this.identity, displayName, avatar };
+		this.identityStore.patch({ displayName, avatar });
+		for (const session of this.sessions.values()) {
+			session.updateIdentity(this.identity);
+		}
+		this.broadcast();
+		this.broadcaster.trigger();
+	}
+
+	async setRelayUrl(code: string, relayUrl: string): Promise<void> {
+		const normalized = normalizeCircleCode(code);
+		const hadSession = this.sessions.get(normalized);
+		if (hadSession) {
+			hadSession.disconnect();
+			this.sessions.delete(normalized);
+		}
+		this.identityStore.addCircle(normalized, relayUrl);
+		await this.joinCircle(normalized, relayUrl);
+	}
+
+	getState(): StateUpdate {
+		return {
+			identity: this.identity,
+			circles: Array.from(this.sessions.values()).map((session) => session.toState()),
+		};
+	}
+
+	async restoreCircles(): Promise<void> {
+		const circles = this.identityStore.load().circles;
+		for (const circle of circles) {
+			await this.joinCircle(circle.code, circle.relayUrl);
+		}
+	}
+
+	broadcast(): void {
+		this.onBroadcast(this.getState());
+	}
+
+	private broadcastProfiles(): void {
+		for (const session of this.sessions.values()) {
+			void session.sendProfile();
+		}
 	}
 }

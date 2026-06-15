@@ -1,39 +1,32 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import type { NotchMessage } from '../../shared/types';
-
-interface CircleView {
-	code: string;
-	groupId: string;
-	relayUrl: string;
-	isConnected: boolean;
-	members: { memberId: string; displayName: string; avatar?: string }[];
-}
-
-interface IdentityView {
-	memberId: string;
-	displayName: string;
-	avatar?: string;
-}
+import {
+	createContext,
+	useContext,
+	useState,
+	useCallback,
+	useEffect,
+	useMemo,
+	type ReactNode,
+} from 'react';
+import type { NotchMessage, StateUpdate, CircleState, Member, IdentityState } from '../../shared/types';
 
 interface AppState {
-	identity: IdentityView | null;
-	circles: CircleView[];
+	identity: IdentityState | null;
+	circles: CircleState[];
 	notchMessages: NotchMessage[];
 }
 
 interface AppStore {
 	state: AppState;
-	setIdentity: (identity: IdentityView | null) => void;
-	setCircles: (circles: CircleView[]) => void;
-	addCircle: (circle: CircleView) => void;
+	setIdentity: (identity: IdentityState | null) => void;
+	setCircles: (circles: CircleState[]) => void;
+	addCircle: (circle: CircleState) => void;
 	removeCircle: (code: string) => void;
 	pushNotchMessage: (message: NotchMessage) => void;
 	clearNotchMessages: () => void;
 
-	// Async actions that call the main process.
 	joinCircle: (code: string, relayUrl?: string) => Promise<void>;
 	leaveCircle: (code: string) => Promise<void>;
-	sendChat: (code: string, text: string) => Promise<void>;
+	sendChat: (code: string, text: string, to?: string) => Promise<void>;
 	updateProfile: (displayName: string, avatar?: string) => Promise<void>;
 	setRelayUrl: (code: string, relayUrl: string) => Promise<void>;
 }
@@ -47,15 +40,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		notchMessages: [],
 	});
 
-	const setIdentity = useCallback((identity: IdentityView | null) => {
+	const setIdentity = useCallback((identity: IdentityState | null) => {
 		setState((s) => ({ ...s, identity }));
 	}, []);
 
-	const setCircles = useCallback((circles: CircleView[]) => {
+	const setCircles = useCallback((circles: CircleState[]) => {
 		setState((s) => ({ ...s, circles }));
 	}, []);
 
-	const addCircle = useCallback((circle: CircleView) => {
+	const addCircle = useCallback((circle: CircleState) => {
 		setState((s) => ({ ...s, circles: [...s.circles, circle] }));
 	}, []);
 
@@ -71,45 +64,89 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		setState((s) => ({ ...s, notchMessages: [] }));
 	}, []);
 
-	const joinCircle = useCallback(async (_code: string, _relayUrl?: string) => {
-		// TODO: wire to main-process session store and RelayClient in Phase 4.
-		throw new Error('joinCircle is not implemented yet');
+	const applyUpdate = useCallback((update: StateUpdate) => {
+		setState((s) => ({
+			...s,
+			identity: update.identity,
+			circles: update.circles,
+		}));
 	}, []);
 
-	const leaveCircle = useCallback(async (_code: string) => {
-		// TODO: wire to main-process session store and RelayClient in Phase 4.
-		throw new Error('leaveCircle is not implemented yet');
+	useEffect(() => {
+		let mounted = true;
+
+		window.electronAPI
+			.getState()
+			.then((update) => {
+				if (mounted) applyUpdate(update);
+			})
+			.catch((err) => console.error('[app-store] failed to load state', err));
+
+		const removeStateUpdate = window.electronAPI.onStateUpdate((update) => {
+			applyUpdate(update);
+		});
+
+		const removeNotchMessage = window.electronAPI.onNotchMessage((message) => {
+			pushNotchMessage(message);
+		});
+
+		return () => {
+			mounted = false;
+			removeStateUpdate();
+			removeNotchMessage();
+		};
+	}, [applyUpdate, pushNotchMessage]);
+
+	const joinCircle = useCallback(async (code: string, relayUrl?: string) => {
+		await window.electronAPI.joinCircle(code, relayUrl);
 	}, []);
 
-	const sendChat = useCallback(async (_code: string, _text: string) => {
-		// TODO: wire to main-process crypto + relay in Phase 4.
-		throw new Error('sendChat is not implemented yet');
+	const leaveCircle = useCallback(async (code: string) => {
+		await window.electronAPI.leaveCircle(code);
 	}, []);
 
-	const updateProfile = useCallback(async (_displayName: string, _avatar?: string) => {
-		// TODO: wire to main-process identity store in Phase 4.
-		throw new Error('updateProfile is not implemented yet');
+	const sendChat = useCallback(async (code: string, text: string, to?: string) => {
+		await window.electronAPI.sendChat(code, text, to);
 	}, []);
 
-	const setRelayUrl = useCallback(async (_code: string, _relayUrl: string) => {
-		// TODO: wire to main-process session store in Phase 4.
-		throw new Error('setRelayUrl is not implemented yet');
+	const updateProfile = useCallback(async (displayName: string, avatar?: string) => {
+		await window.electronAPI.updateProfile(displayName, avatar);
 	}, []);
 
-	const store: AppStore = {
-		state,
-		setIdentity,
-		setCircles,
-		addCircle,
-		removeCircle,
-		pushNotchMessage,
-		clearNotchMessages,
-		joinCircle,
-		leaveCircle,
-		sendChat,
-		updateProfile,
-		setRelayUrl,
-	};
+	const setRelayUrl = useCallback(async (code: string, relayUrl: string) => {
+		await window.electronAPI.setRelayUrl(code, relayUrl);
+	}, []);
+
+	const store = useMemo<AppStore>(
+		() => ({
+			state,
+			setIdentity,
+			setCircles,
+			addCircle,
+			removeCircle,
+			pushNotchMessage,
+			clearNotchMessages,
+			joinCircle,
+			leaveCircle,
+			sendChat,
+			updateProfile,
+			setRelayUrl,
+		}),
+		[
+			state,
+			setIdentity,
+			setCircles,
+			addCircle,
+			removeCircle,
+			pushNotchMessage,
+			clearNotchMessages,
+			joinCircle,
+			leaveCircle,
+			sendChat,
+			updateProfile,
+			setRelayUrl,
+		],
+	);
 
 	return <AppContext.Provider value={store}>{children}</AppContext.Provider>;
 }
@@ -121,3 +158,5 @@ export function useAppStore(): AppStore {
 	}
 	return ctx;
 }
+
+export type { CircleState, Member, IdentityState };

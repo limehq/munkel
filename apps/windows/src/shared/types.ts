@@ -1,5 +1,39 @@
 export type WindowType = 'menu' | 'notch' | 'palette';
 
+export interface Member {
+	memberId: string;
+	displayName?: string;
+	avatar?: string;
+	joinedAt: string;
+}
+
+export interface CircleState {
+	code: string;
+	groupId: string;
+	isConnected: boolean;
+	members: Member[];
+	relayUrl: string;
+}
+
+export interface IdentityState {
+	memberId: string;
+	displayName: string;
+	avatar?: string;
+}
+
+export interface StateUpdate {
+	identity: IdentityState;
+	circles: CircleState[];
+}
+
+export interface NotchMessage {
+	sender: string;
+	text: string;
+	isDirect: boolean;
+	group: string;
+	groupColor: string;
+}
+
 export interface IpcApi {
 	getWindowType: () => Promise<WindowType>;
 	hideWindow: () => Promise<void>;
@@ -7,6 +41,14 @@ export interface IpcApi {
 	toggleMenu: () => Promise<void>;
 	quitApp: () => Promise<void>;
 	onGlobalShortcut: (callback: () => void) => () => void;
+
+	// Circle / session management.
+	joinCircle: (code: string, relayUrl?: string) => Promise<void>;
+	leaveCircle: (code: string) => Promise<void>;
+	sendChat: (code: string, text: string, to?: string) => Promise<boolean>;
+	updateProfile: (displayName: string, avatar?: string) => Promise<void>;
+	setRelayUrl: (code: string, relayUrl: string) => Promise<void>;
+	getState: () => Promise<StateUpdate>;
 
 	// Crypto (main-process only; raw keys never cross the bridge).
 	deriveGroupId: (code: string) => Promise<string>;
@@ -17,17 +59,12 @@ export interface IpcApi {
 	testNotch: () => Promise<void>;
 
 	// Main → renderer push channels.
+	onStateUpdate: (callback: (update: StateUpdate) => void) => () => void;
+	onNotchMessage: (callback: (message: NotchMessage) => void) => () => void;
+	onRelayError: (callback: (message: string) => void) => () => void;
 	onNotchShow: (callback: () => void) => () => void;
 	onNotchHide: (callback: () => void) => () => void;
 	onNotchUpdate: (callback: (data: NotchMessage) => void) => () => void;
-}
-
-export interface NotchMessage {
-	sender: string;
-	text: string;
-	isDirect: boolean;
-	group: string;
-	groupColor: string;
 }
 
 declare global {

@@ -6,6 +6,9 @@ import { createPaletteWindow, showPalette, hidePalette } from './palette-window'
 import { createTray } from './tray';
 import { registerTogglePalette, unregisterShortcuts } from './shortcuts';
 import { registerCryptoHandlers, deriveGroupId } from './crypto-channel';
+import { IdentityStore } from './identity-store';
+import { AppState } from './session-store';
+import { registerSessionHandlers } from './session-handlers';
 import type { WindowType } from '../shared/types';
 
 const gotTheLock = app.requestSingleInstanceLock();
@@ -47,6 +50,22 @@ function runNotchDemo() {
 	setTimeout(() => hideNotch(notchWindow), 5000);
 }
 
+function broadcastState(update: ReturnType<AppState['getState']>): void {
+	menuWindow?.webContents.send('state-update', update);
+	paletteWindow?.webContents.send('state-update', update);
+}
+
+function showNotchMessage(message: import('../shared/types').NotchMessage): void {
+	updateNotch(notchWindow, message);
+	showNotch(notchWindow);
+	notchWindow?.webContents.send('notch-message', message);
+}
+
+function relayError(message: string): void {
+	menuWindow?.webContents.send('relay-error', message);
+	paletteWindow?.webContents.send('relay-error', message);
+}
+
 app.whenReady().then(async () => {
 	menuWindow = createMenuWindow();
 	notchWindow = createNotchWindow();
@@ -61,6 +80,10 @@ app.whenReady().then(async () => {
 	registerTogglePalette(togglePalette);
 	registerCryptoHandlers();
 
+	const identityStore = new IdentityStore(app.getPath('userData'));
+	const appState = new AppState(identityStore, broadcastState, showNotchMessage, relayError);
+	registerSessionHandlers(appState);
+
 	ipcMain.handle('get-window-type', (event: IpcMainInvokeEvent) => getWindowType(event.sender));
 	ipcMain.handle('hide-window', (event: IpcMainInvokeEvent) => {
 		BrowserWindow.fromWebContents(event.sender)?.hide();
@@ -69,6 +92,9 @@ app.whenReady().then(async () => {
 	ipcMain.handle('toggle-menu', () => toggleMenuWindow(menuWindow));
 	ipcMain.handle('quit-app', () => app.quit());
 	ipcMain.handle('test-notch', () => runNotchDemo());
+
+	await appState.restoreCircles();
+	appState.broadcast();
 
 	if (process.env.NODE_ENV === 'development') {
 		const groupId = await deriveGroupId('blue-table-42');
