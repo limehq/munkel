@@ -21,7 +21,9 @@ struct CommandPaletteView: View {
             composer
         }
         .frame(width: width)
-        .background(.regularMaterial)
+        // Behind-window vibrancy like Spotlight (and the menu-bar popover),
+        // instead of SwiftUI's flatter, grayer within-window .regularMaterial.
+        .background(VisualEffectView(material: .popover, blendingMode: .behindWindow))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
