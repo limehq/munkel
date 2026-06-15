@@ -8,6 +8,7 @@ struct MenuView: View {
     @State private var groupListHeight: CGFloat = 0
     #if DEBUG
     @AppStorage("devEchoBroadcasts") private var devEchoBroadcasts = true
+    @AppStorage(CaptureScreenshotPreference.defaultsKey) private var allowInScreenshots = false
     #endif
 
     /// Cap before the group list starts scrolling.
@@ -87,6 +88,12 @@ struct MenuView: View {
         // reads one can join), the outgoing draft and the GitHub device
         // code, so it stays out of screen shares like the notch does.
         .excludedFromScreenCapture()
+        #if DEBUG
+        // Re-apply the sharing type to every on-screen surface the moment the
+        // "Allow in screenshots" toggle flips, so it takes effect without a
+        // relaunch (and this popover itself becomes capturable live).
+        .onChange(of: allowInScreenshots) { CaptureScreenshotPreference.notifyChanged() }
+        #endif
     }
 
     private var header: some View {
@@ -119,14 +126,19 @@ struct MenuView: View {
             } label: {
                 Label("Quick send…", systemImage: "paperplane")
             }
+            // Release only: the dev build doesn't embed the CLI (run it from
+            // source with `MUNKEL_DEV=1 bun apps/cli/src/munkel.ts`).
+            #if !DEBUG
             Button {
                 CLIInstaller.installFromMenu()
             } label: {
                 Label("Install Command Line Tool…", systemImage: "terminal")
             }
+            #endif
             #if DEBUG
             Divider()
             Toggle("Echo my broadcasts to me", isOn: $devEchoBroadcasts)
+            Toggle("Allow in screenshots", isOn: $allowInScreenshots)
             #endif
             Divider()
             Button {

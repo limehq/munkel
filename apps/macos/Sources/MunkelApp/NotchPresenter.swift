@@ -189,7 +189,7 @@ final class NotchPresenter {
         // (NotchPanelWindow sets sharingType in init) and the frame-exact
         // protection is the CaptureExclusion view at the content root; this
         // cheap re-assertion stays purely as insurance for the core promise.
-        notch.panel?.sharingType = .none
+        notch.panel?.sharingType = NSWindow.munkelCaptureSharingType
         notchVisible = true
         installClickMonitors(for: notch, model: model)
         startHistoryPruning(model: model)
