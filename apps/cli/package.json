@@ -4,6 +4,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"dev": "MUNKEL_DEV=1 bun src/munkel.ts",
 		"build": "bun build src/munkel.ts --compile --outfile dist/munkel",
 		"build:release": "./build-release.sh",
 		"test": "bun test",
