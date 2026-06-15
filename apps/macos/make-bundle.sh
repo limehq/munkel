@@ -12,14 +12,22 @@
 #   MUNKEL_VERSION     CFBundleShortVersionString (default 0.1.0)
 #   MUNKEL_ARCHS       space-separated archs, e.g. "arm64 x86_64" (default: host)
 #   CODESIGN_IDENTITY  signing identity ("-" = ad-hoc, the default)
-# Output: .build/Munkel.app
+# Output: .build/Munkel.app (release) or .build/MunkelDev.app (debug)
 set -euo pipefail
 
 cd "$(dirname "$0")"
 REPO_ROOT="$(cd ../.. && pwd)"
 
 CONFIG="${1:-debug}"
-BUNDLE=".build/Munkel.app"
+# Debug builds carry a separate identity (name, bundle id, executable) so a dev
+# build runs side by side with an installed release without colliding on the
+# bundle id, UserDefaults domain, TCC permissions, or control socket.
+if [[ "$CONFIG" == "debug" ]]; then
+  APP_NAME="MunkelDev"
+else
+  APP_NAME="Munkel"
+fi
+BUNDLE=".build/$APP_NAME.app"
 VERSION="${MUNKEL_VERSION:-0.1.0}"
 IDENTITY="${CODESIGN_IDENTITY:--}"
 
@@ -48,6 +56,21 @@ done
 # path the rest of the pipeline (build-release.sh, README) expects.
 rm -rf "$BUNDLE"
 /usr/bin/ditto ".build/bundler/apps/Munkel/Munkel.app" "$BUNDLE"
+
+# Re-stamp the debug bundle with its own identity. Done before signing so the
+# ad-hoc signature seals the renamed executable and rewritten Info.plist.
+# Mirrored at runtime: MunkelKit/ControlProtocol.swift (socket) and apps/cli
+# (munkel-dev) key off the ".debug" bundle id.
+if [[ "$CONFIG" == "debug" ]]; then
+  mv "$BUNDLE/Contents/MacOS/Munkel" "$BUNDLE/Contents/MacOS/$APP_NAME"
+  plist="$BUNDLE/Contents/Info.plist"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleExecutable $APP_NAME" "$plist"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier dev.uq.munkel.debug" "$plist"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleName Munkel Dev" "$plist" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Add :CFBundleName string Munkel Dev" "$plist"
+  /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Munkel Dev" "$plist" 2>/dev/null \
+    || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Munkel Dev" "$plist"
+fi
 
 # Swift Bundler ad-hoc signs; re-sign with our identity (hardened runtime +
 # secure timestamp are notarization prerequisites) or a clean ad-hoc signature.

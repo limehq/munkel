@@ -30,12 +30,25 @@ final class AppModel: ObservableObject {
             UserDefaults.standard.set(relayURLString, forKey: Self.relayURLKey)
         }
     }
+    /// The relay every session actually connects to: the `MUNKEL_RELAY_URL` dev
+    /// override if set, otherwise the persisted/default `relayURLString`.
+    var effectiveRelayURLString: String { Self.relayURLOverride ?? relayURLString }
     /// Bumped whenever any session's presence changes, so views refresh.
     @Published private(set) var presenceVersion = 0
 
     private static let groupsKey = "groupCodes"
     private static let relayURLKey = "relayURL"
     private static let defaultRelayURL = "wss://relay.munkel.app"
+
+    /// Development override: when `MUNKEL_RELAY_URL` is set (and non-empty) in
+    /// the environment, every session connects there instead of the saved or
+    /// default relay. Read once at launch and never written to UserDefaults, so
+    /// it can't clobber the persisted `relayURL` — relaunch without it to fall
+    /// back. Point a dev build at `wrangler dev` with
+    /// `MUNKEL_RELAY_URL=ws://127.0.0.1:8787 bun run dev`, which launches the
+    /// binary directly (`open` does not forward the shell environment).
+    private static let relayURLOverride: String? = ProcessInfo.processInfo
+        .environment["MUNKEL_RELAY_URL"].flatMap { $0.isEmpty ? nil : $0 }
 
     #if DEBUG
     /// Dev-only: echo my own broadcasts into my notch (Settings toggle), so a
@@ -320,7 +333,7 @@ final class AppModel: ObservableObject {
     }
 
     private func openSession(code: String) {
-        guard let relayURL = URL(string: relayURLString) else { return }
+        guard let relayURL = URL(string: effectiveRelayURLString) else { return }
         let session = GroupSession(code: code, relayURL: relayURL)
         session.onStateChange = { [weak self] in
             self?.presenceVersion += 1

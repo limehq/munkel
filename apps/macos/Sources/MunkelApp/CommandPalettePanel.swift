@@ -31,7 +31,8 @@ final class CommandPalettePanel: NSPanel {
         // codes and message drafts, which must never leak into a screen
         // share. Set on the panel directly so it holds before any content is
         // composited (the SwiftUI `.excludedFromScreenCapture()` is backup).
-        sharingType = .none
+        // Resolves to `.none` in release; a DEBUG toggle can relax it.
+        sharingType = NSWindow.munkelCaptureSharingType
     }
 
     override var canBecomeKey: Bool { true }
