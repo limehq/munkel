@@ -15,7 +15,7 @@ export default defineConfig({
 		outDir: 'dist',
 		emptyOutDir: true,
 		rollupOptions: {
-			external: ['electron', /^node:/],
+			external: ['electron', 'ws', /^node:/],
 		},
 		sourcemap: true,
 	},
