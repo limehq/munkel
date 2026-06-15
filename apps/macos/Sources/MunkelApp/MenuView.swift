@@ -118,6 +118,11 @@ struct MenuView: View {
             } label: {
                 Label("Quick send…", systemImage: "paperplane")
             }
+            Button {
+                CLIInstaller.installFromMenu()
+            } label: {
+                Label("Install Command Line Tool…", systemImage: "terminal")
+            }
             #if DEBUG
             Divider()
             Toggle("Echo my broadcasts to me", isOn: $devEchoBroadcasts)

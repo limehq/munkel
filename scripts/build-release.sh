@@ -1,28 +1,43 @@
 #!/bin/bash
-# Assembles the universal release artifact for Homebrew distribution.
-# Each app builds itself (`build:release` workspace scripts); this script
-# only orchestrates: stage layout, Developer ID signing, ditto zip.
+# Assembles the signed, notarization-ready Munkel.app for distribution.
 #
-#   dist/stage/Munkel.app    universal menu-bar app   (apps/macos)
-#   dist/stage/bin/munkel    universal Bun CLI        (apps/cli)
-#   dist/Munkel-<ver>.zip    cask layout: `app "Munkel.app"` + `binary "bin/munkel"`
+# The munkel CLI is embedded INSIDE the app bundle (Contents/Resources/munkel)
+# rather than shipped as a loose sibling binary, so one artifact serves every
+# install path:
+#
+#   * Homebrew exposes the CLI automatically — the cask symlinks the embedded
+#     binary onto PATH (see scripts/build-brew-cask.sh).
+#   * Direct DMG users get the app only; they opt into the CLI from the app's
+#     own "Install Command Line Tool" menu (Sources/MunkelApp/CLIInstaller.swift).
+#
+# The CLI is a companion to the app (it talks to the running app over a Unix
+# socket and is useless on its own), so it has no standalone distribution.
+#
+# Layout produced:
+#   dist/stage/Munkel.app                              universal app, signed
+#   dist/stage/Munkel.app/Contents/Resources/munkel    universal Bun CLI
+#   dist/Munkel-<ver>.zip                              app zipped for notarytool
+#                                                      submission only — the
+#                                                      published asset is the DMG
+#                                                      (scripts/build-dmg.sh)
 #
 # Usage: scripts/build-release.sh <version>
 #
 # Env:
-#   CODESIGN_IDENTITY  "Developer ID Application: ..." — when set, both
-#                      binaries are signed with hardened runtime; unset
-#                      builds stay ad-hoc signed (local smoke testing).
+#   CODESIGN_IDENTITY  "Developer ID Application: ..." — when set, the embedded
+#                      CLI and the app are signed inside-out with hardened
+#                      runtime; unset stays ad-hoc signed (local smoke testing).
 set -euo pipefail
 
 VERSION="${1:?usage: build-release.sh <version>}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$ROOT/dist"
 STAGE="$DIST/stage"
+APP="$STAGE/Munkel.app"
 IDENTITY="${CODESIGN_IDENTITY:-}"
 
 rm -rf "$DIST"
-mkdir -p "$STAGE/bin"
+mkdir -p "$STAGE"
 
 cd "$ROOT"
 bun install --frozen-lockfile
@@ -32,25 +47,36 @@ bun install --frozen-lockfile
 (cd apps/macos && MUNKEL_VERSION="$VERSION" CODESIGN_IDENTITY="${IDENTITY:--}" bun run build:release)
 (cd apps/cli && MUNKEL_VERSION="$VERSION" bun run build:release)
 
-cp -R "$ROOT/apps/macos/.build/Munkel.app" "$STAGE/Munkel.app"
-cp "$ROOT/apps/cli/dist/release/munkel" "$STAGE/bin/munkel"
+cp -R "$ROOT/apps/macos/.build/Munkel.app" "$APP"
+
+# Embed the CLI as a bundle resource. It must be signed and sealed as part of
+# the app, so copy it in BEFORE signing.
+mkdir -p "$APP/Contents/Resources"
+cp "$ROOT/apps/cli/dist/release/munkel" "$APP/Contents/Resources/munkel"
+chmod +x "$APP/Contents/Resources/munkel"
 
 if [[ -n "$IDENTITY" ]]; then
+  # Inside-out signing: the nested CLI first (with its own JIT entitlements),
+  # then the outer bundle WITHOUT --deep — so the app seal records the CLI's
+  # signature instead of clobbering its entitlements with the app's.
   codesign --force --options runtime --timestamp \
     --entitlements "$ROOT/apps/cli/entitlements.plist" \
-    --sign "$IDENTITY" "$STAGE/bin/munkel"
-  codesign --verify --deep --strict "$STAGE/Munkel.app"
-  codesign --verify --strict "$STAGE/bin/munkel"
+    --sign "$IDENTITY" "$APP/Contents/Resources/munkel"
+  codesign --force --options runtime --timestamp \
+    --sign "$IDENTITY" "$APP"
+  codesign --verify --deep --strict "$APP"
+  codesign --verify --strict "$APP/Contents/Resources/munkel"
 fi
 
 # Smoke test: broken lipo/codesign/--define combinations fail right here.
-STAMPED="$("$STAGE/bin/munkel" --version)"
+STAMPED="$("$APP/Contents/Resources/munkel" --version)"
 [[ "$STAMPED" == "$VERSION" ]] \
   || { echo "version stamp mismatch: binary says '$STAMPED', expected '$VERSION'" >&2; exit 1; }
 
-# ditto, not zip: preserves bundle structure and symlinks, which the
-# notary scan requires. Zip root = Munkel.app + bin/ (the cask layout).
+# ditto, not zip: preserves the bundle structure and symlinks the notary scan
+# requires. This zip is only the notarytool submission container; the published
+# artifact is the DMG (scripts/build-dmg.sh).
 cd "$STAGE"
-/usr/bin/ditto -c -k . "$DIST/Munkel-$VERSION.zip"
+/usr/bin/ditto -c -k --keepParent "Munkel.app" "$DIST/Munkel-$VERSION.zip"
 
-echo "built $DIST/Munkel-$VERSION.zip"
+echo "built $APP and $DIST/Munkel-$VERSION.zip"
