@@ -92,7 +92,7 @@ struct MenuView: View {
     private var header: some View {
         HStack {
             Image(systemName: "bubble.left.and.bubble.right.fill")
-                .foregroundStyle(.tint)
+                .foregroundStyle(.primary)
             Text("Munkel")
                 .font(.headline)
             Spacer()
@@ -309,6 +309,59 @@ struct MenuView: View {
     }
 }
 
+/// A selectable round recipient target with an accent ring when chosen and a
+/// fast custom tooltip on hover (the system `.help()` delay felt laggy). On
+/// hover it reports its name + frame up to the card, which floats the bubble
+/// outside the recipient row's clipping ScrollView.
+private struct TargetChip<Label: View>: View {
+    let selected: Bool
+    let tooltip: String
+    let cardSpace: String
+    @Binding var hoverTip: GroupSectionView.HoverTip?
+    let action: () -> Void
+    @ViewBuilder let label: Label
+
+    @State private var hoverTask: Task<Void, Never>?
+
+    var body: some View {
+        Button(action: action) {
+            label
+                .overlay(
+                    Circle()
+                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                        .opacity(selected ? 1 : 0)
+                )
+                .overlay(
+                    Circle()
+                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                        .padding(-2)
+                        .opacity(selected ? 0.35 : 0)
+                )
+        }
+        .buttonStyle(.plain)
+        .animation(.spring(duration: 0.25), value: selected)
+        .background(
+            GeometryReader { geo in
+                Color.clear.onHover { hovering in
+                    hoverTask?.cancel()
+                    if hovering {
+                        let frame = geo.frame(in: .named(cardSpace))
+                        hoverTask = Task {
+                            try? await Task.sleep(for: .milliseconds(120))
+                            guard !Task.isCancelled else { return }
+                            withAnimation(.easeOut(duration: 0.1)) {
+                                hoverTip = .init(text: tooltip, midX: frame.midX, topY: frame.minY)
+                            }
+                        }
+                    } else if hoverTip?.text == tooltip {
+                        withAnimation(.easeOut(duration: 0.1)) { hoverTip = nil }
+                    }
+                }
+            }
+        )
+    }
+}
+
 private struct GroupListHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -368,9 +421,19 @@ struct GroupSectionView: View {
     /// Briefly turns the send button into a checkmark after a send.
     @State private var justSent = false
     @State private var sentNoticeToken = 0
+    /// Active member tooltip (custom, fast) — replaces the slow `.help()`.
+    @State private var hoverTip: HoverTip?
     @FocusState private var fieldFocused: Bool
 
     private let targetSize: CGFloat = 26
+    private let cardSpace = "circleCard"
+
+    /// A target chip's tooltip text plus where to float it (card coordinates).
+    struct HoverTip: Equatable {
+        let text: String
+        let midX: CGFloat
+        let topY: CGFloat
+    }
 
     var body: some View {
         // Re-renders on presenceVersion bumps via the EnvironmentObject.
@@ -384,6 +447,24 @@ struct GroupSectionView: View {
         }
         .padding(10)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+        .coordinateSpace(name: cardSpace)
+        // Floating member tooltip, drawn at card level so the recipient row's
+        // horizontal ScrollView can't clip it.
+        .overlay(alignment: .topLeading) {
+            if let tip = hoverTip {
+                Text(tip.text)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 5))
+                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(.quaternary, lineWidth: 1))
+                    .fixedSize()
+                    .position(x: tip.midX, y: max(tip.topY - 14, 6))
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+        }
         // A selected member going offline silently falls back to everyone,
         // so the highlight always points at a real, sendable target.
         .onChange(of: members) {
@@ -429,9 +510,11 @@ struct GroupSectionView: View {
     private func recipientRow(members: [GroupSession.Member]) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
-                targetButton(
+                TargetChip(
                     selected: recipient == nil,
-                    help: "Everyone"
+                    tooltip: "Everyone",
+                    cardSpace: cardSpace,
+                    hoverTip: $hoverTip
                 ) {
                     recipient = nil
                 } label: {
@@ -442,9 +525,11 @@ struct GroupSectionView: View {
                 }
 
                 ForEach(members) { member in
-                    targetButton(
+                    TargetChip(
                         selected: recipient == member.id,
-                        help: member.label
+                        tooltip: member.label,
+                        cardSpace: cardSpace,
+                        hoverTip: $hoverTip
                     ) {
                         recipient = member.id
                         fieldFocused = true
@@ -464,32 +549,6 @@ struct GroupSectionView: View {
         }
     }
 
-    /// A selectable round target with an accent ring when chosen.
-    private func targetButton(
-        selected: Bool,
-        help: String,
-        action: @escaping () -> Void,
-        @ViewBuilder label: () -> some View
-    ) -> some View {
-        Button(action: action) {
-            label()
-                .overlay(
-                    Circle()
-                        .strokeBorder(Color.accentColor, lineWidth: 2)
-                        .opacity(selected ? 1 : 0)
-                )
-                .overlay(
-                    Circle()
-                        .strokeBorder(Color.accentColor, lineWidth: 2)
-                        .padding(-2)
-                        .opacity(selected ? 0.35 : 0)
-                )
-        }
-        .buttonStyle(.plain)
-        .help(help)
-        .animation(.spring(duration: 0.25), value: selected)
-    }
-
     // MARK: - Message field + send
 
     private func messageRow(members: [GroupSession.Member]) -> some View {
@@ -498,6 +557,11 @@ struct GroupSectionView: View {
                 .frostedField()
                 .focused($fieldFocused)
                 .onSubmit(sendTapped)
+                .onChange(of: draft) { _, new in
+                    if new.count > MessageLimits.maxCharacters {
+                        draft = String(new.prefix(MessageLimits.maxCharacters))
+                    }
+                }
 
             Button(action: sendTapped) {
                 // Confirmation lives in the button itself — a brief checkmark
