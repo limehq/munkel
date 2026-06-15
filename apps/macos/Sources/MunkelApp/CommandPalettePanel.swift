@@ -20,8 +20,10 @@ final class CommandPalettePanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
-        // No background drag: clicks in the list select rows.
-        isMovableByWindowBackground = false
+        // Draggable like Spotlight: dragging empty background moves the
+        // panel, while clicks on the chips/field still register (AppKit only
+        // starts a window drag past the drag threshold, not on a click).
+        isMovableByWindowBackground = true
         isReleasedWhenClosed = false
         hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
