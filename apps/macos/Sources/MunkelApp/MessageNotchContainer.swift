@@ -122,6 +122,11 @@ struct MessageNotchContainer: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.fullyExpanded)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.replying)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.replySent)
+        // Animate the container's own height when history expands/changes, so
+        // it grows downward in step with the rows instead of the fixedSize
+        // height jumping while the rows animate.
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.historyExpanded)
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.history)
         // The notch is always black — pin the content to dark so the
         // system light mode can't restyle field, caret and chip.
         .colorScheme(.dark)
