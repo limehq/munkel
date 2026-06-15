@@ -11,7 +11,8 @@ struct MenuView: View {
     #endif
 
     /// Cap before the group list starts scrolling.
-    private let maxGroupListHeight: CGFloat = 360
+    // A fourth circle card peeks in cut off, hinting the list scrolls.
+    private let maxGroupListHeight: CGFloat = 400
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -91,7 +92,7 @@ struct MenuView: View {
     private var header: some View {
         HStack {
             Image(systemName: "bubble.left.and.bubble.right.fill")
-                .foregroundStyle(.tint)
+                .foregroundStyle(.primary)
             Text("Munkel")
                 .font(.headline)
             Spacer()
@@ -308,6 +309,59 @@ struct MenuView: View {
     }
 }
 
+/// A selectable round recipient target with an accent ring when chosen and a
+/// fast custom tooltip on hover (the system `.help()` delay felt laggy). On
+/// hover it reports its name + frame up to the card, which floats the bubble
+/// outside the recipient row's clipping ScrollView.
+private struct TargetChip<Label: View>: View {
+    let selected: Bool
+    let tooltip: String
+    let cardSpace: String
+    @Binding var hoverTip: GroupSectionView.HoverTip?
+    let action: () -> Void
+    @ViewBuilder let label: Label
+
+    @State private var hoverTask: Task<Void, Never>?
+
+    var body: some View {
+        Button(action: action) {
+            label
+                .overlay(
+                    Circle()
+                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                        .opacity(selected ? 1 : 0)
+                )
+                .overlay(
+                    Circle()
+                        .strokeBorder(Color.accentColor, lineWidth: 2)
+                        .padding(-2)
+                        .opacity(selected ? 0.35 : 0)
+                )
+        }
+        .buttonStyle(.plain)
+        .animation(.spring(duration: 0.25), value: selected)
+        .background(
+            GeometryReader { geo in
+                Color.clear.onHover { hovering in
+                    hoverTask?.cancel()
+                    if hovering {
+                        let frame = geo.frame(in: .named(cardSpace))
+                        hoverTask = Task {
+                            try? await Task.sleep(for: .milliseconds(120))
+                            guard !Task.isCancelled else { return }
+                            withAnimation(.easeOut(duration: 0.1)) {
+                                hoverTip = .init(text: tooltip, midX: frame.midX, topY: frame.minY)
+                            }
+                        }
+                    } else if hoverTip?.text == tooltip {
+                        withAnimation(.easeOut(duration: 0.1)) { hoverTip = nil }
+                    }
+                }
+            }
+        )
+    }
+}
+
 private struct GroupListHeightKey: PreferenceKey {
     static let defaultValue: CGFloat = 0
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
@@ -362,80 +416,180 @@ struct GroupSectionView: View {
     let code: String
 
     @State private var draft = ""
+    /// Selected send target; nil = everyone (the globe). Default everyone.
     @State private var recipient: String?
+    /// Briefly turns the send button into a checkmark after a send.
+    @State private var justSent = false
+    @State private var sentNoticeToken = 0
+    /// Active member tooltip (custom, fast) — replaces the slow `.help()`.
+    @State private var hoverTip: HoverTip?
+    @FocusState private var fieldFocused: Bool
+
+    private let targetSize: CGFloat = 26
+    private let cardSpace = "circleCard"
+
+    /// A target chip's tooltip text plus where to float it (card coordinates).
+    struct HoverTip: Equatable {
+        let text: String
+        let midX: CGFloat
+        let topY: CGFloat
+    }
 
     var body: some View {
         // Re-renders on presenceVersion bumps via the EnvironmentObject.
         let session = model.session(for: code)
         let members = session?.members ?? []
 
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Circle()
-                    .fill(session?.isConnected == true ? Color.green : Color.orange)
-                    .frame(width: 8, height: 8)
-                Text(code)
-                    .font(.system(.subheadline, design: .monospaced).weight(.semibold))
-                Button {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(code, forType: .string)
-                } label: {
-                    Image(systemName: "doc.on.doc")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("Copy code")
-                Spacer()
-                Button {
-                    model.leave(code: code)
-                } label: {
-                    Image(systemName: "rectangle.portrait.and.arrow.right")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .help("Leave circle")
-            }
-
-            if members.isEmpty {
-                Text("No one else online")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                HStack(spacing: 6) {
-                    HStack(spacing: -5) {
-                        ForEach(members.prefix(8)) { member in
-                            AvatarView(name: member.label, imageData: member.avatar, size: 16)
-                        }
-                    }
-                    Text(members.map(\.label).joined(separator: ", "))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(2)
-                }
-            }
-
-            HStack(spacing: 6) {
-                Picker("", selection: $recipient) {
-                    Text("All").tag(String?.none)
-                    ForEach(members) { member in
-                        Text(member.label).tag(String?.some(member.id))
-                    }
-                }
-                .labelsHidden()
-                .frame(width: 90)
-
-                TextField("Message…", text: $draft)
-                    .frostedField()
-                    .onSubmit(sendTapped)
-
-                Button(action: sendTapped) {
-                    Image(systemName: "paperplane.fill")
-                }
-                .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty)
-            }
+        VStack(alignment: .leading, spacing: 8) {
+            header(connected: session?.isConnected == true)
+            recipientRow(members: members)
+            messageRow(members: members)
         }
         .padding(10)
         .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 8))
+        .coordinateSpace(name: cardSpace)
+        // Floating member tooltip, drawn at card level so the recipient row's
+        // horizontal ScrollView can't clip it.
+        .overlay(alignment: .topLeading) {
+            if let tip = hoverTip {
+                Text(tip.text)
+                    .font(.caption2)
+                    .lineLimit(1)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 5))
+                    .overlay(RoundedRectangle(cornerRadius: 5).strokeBorder(.quaternary, lineWidth: 1))
+                    .fixedSize()
+                    .position(x: tip.midX, y: max(tip.topY - 14, 6))
+                    .allowsHitTesting(false)
+                    .transition(.opacity)
+            }
+        }
+        // A selected member going offline silently falls back to everyone,
+        // so the highlight always points at a real, sendable target.
+        .onChange(of: members) {
+            if let r = recipient, !members.contains(where: { $0.id == r }) {
+                recipient = nil
+            }
+        }
+    }
+
+    // MARK: - Header
+
+    private func header(connected: Bool) -> some View {
+        HStack {
+            Circle()
+                .fill(connected ? Color.green : Color.orange)
+                .frame(width: 8, height: 8)
+                .help(connected ? "Connected" : "Connecting…")
+            Text(code)
+                .font(.system(.subheadline, design: .monospaced).weight(.semibold))
+            Button {
+                NSPasteboard.general.clearContents()
+                NSPasteboard.general.setString(code, forType: .string)
+            } label: {
+                Image(systemName: "doc.on.doc")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Copy code")
+            Spacer()
+            Button {
+                model.leave(code: code)
+            } label: {
+                Image(systemName: "rectangle.portrait.and.arrow.right")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .help("Leave circle")
+        }
+    }
+
+    // MARK: - Recipient picker (globe = everyone, then one avatar per member)
+
+    private func recipientRow(members: [GroupSession.Member]) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                TargetChip(
+                    selected: recipient == nil,
+                    tooltip: "Everyone",
+                    cardSpace: cardSpace,
+                    hoverTip: $hoverTip
+                ) {
+                    recipient = nil
+                } label: {
+                    Image(systemName: "globe")
+                        .font(.system(size: 13))
+                        .frame(width: targetSize, height: targetSize)
+                        .background(.quaternary, in: Circle())
+                }
+
+                ForEach(members) { member in
+                    TargetChip(
+                        selected: recipient == member.id,
+                        tooltip: member.label,
+                        cardSpace: cardSpace,
+                        hoverTip: $hoverTip
+                    ) {
+                        recipient = member.id
+                        fieldFocused = true
+                    } label: {
+                        AvatarView(name: member.label, imageData: member.avatar, size: targetSize)
+                    }
+                }
+
+                if members.isEmpty {
+                    Text("No one else online")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.leading, 4)
+                }
+            }
+            .padding(2)
+        }
+    }
+
+    // MARK: - Message field + send
+
+    private func messageRow(members: [GroupSession.Member]) -> some View {
+        HStack(spacing: 6) {
+            TextField(placeholder(members: members), text: $draft)
+                .frostedField()
+                .focused($fieldFocused)
+                .onSubmit(sendTapped)
+                .onChange(of: draft) { _, new in
+                    if new.count > MessageLimits.maxCharacters {
+                        draft = String(new.prefix(MessageLimits.maxCharacters))
+                    }
+                }
+
+            Button(action: sendTapped) {
+                // Confirmation lives in the button itself — a brief checkmark
+                // instead of a chip that overlapped the field's placeholder.
+                // Neutral color, and a fixed-size frame so swapping the glyph
+                // never changes the button's width.
+                Image(systemName: justSent ? "checkmark" : "paperplane.fill")
+                    .foregroundStyle(.primary)
+                    .frame(width: 16, height: 16)
+                    .animation(.spring(duration: 0.25), value: justSent)
+            }
+            .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty && !justSent)
+            .help(sendHelp(members: members))
+        }
+    }
+
+    private func placeholder(members: [GroupSession.Member]) -> String {
+        if let id = recipient, let m = members.first(where: { $0.id == id }) {
+            return "Message \(m.label)…"
+        }
+        return "Message everyone…"
+    }
+
+    private func sendHelp(members: [GroupSession.Member]) -> String {
+        if let id = recipient, let m = members.first(where: { $0.id == id }) {
+            return "Send to \(m.label) (↩)"
+        }
+        return "Send to everyone (↩)"
     }
 
     private func sendTapped() {
@@ -443,5 +597,17 @@ struct GroupSectionView: View {
         guard !text.isEmpty else { return }
         model.send(text: text, group: code, to: recipient)
         draft = ""
+        flashSent()
+    }
+
+    private func flashSent() {
+        sentNoticeToken += 1
+        let token = sentNoticeToken
+        withAnimation(.spring(duration: 0.25)) { justSent = true }
+        Task {
+            try? await Task.sleep(for: .seconds(1.4))
+            guard token == sentNoticeToken else { return }
+            withAnimation(.spring(duration: 0.25)) { justSent = false }
+        }
     }
 }

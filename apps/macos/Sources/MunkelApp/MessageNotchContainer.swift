@@ -60,6 +60,8 @@ struct MessageNotchContainer: View {
     var onTeaserFinished: () -> Void
 
     @State private var draft = ""
+    /// Measured height of the expanded history, to bound its scroll region.
+    @State private var historyHeight: CGFloat = 0
     @FocusState private var replyFocused: Bool
 
     private let avatarSize: CGFloat = 20
@@ -122,6 +124,11 @@ struct MessageNotchContainer: View {
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.fullyExpanded)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.replying)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.replySent)
+        // Animate the container's own height when history expands/changes, so
+        // it grows downward in step with the rows instead of the fixedSize
+        // height jumping while the rows animate.
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.historyExpanded)
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.history)
         // The notch is always black — pin the content to dark so the
         // system light mode can't restyle field, caret and chip.
         .colorScheme(.dark)
@@ -144,18 +151,10 @@ struct MessageNotchContainer: View {
                 .fill(.white.opacity(0.15))
                 .frame(height: 1)
                 .padding(.bottom, 3)
-            ForEach(model.history.reversed()) { entry in
-                if model.historyExpanded {
-                    // Expanded: full text on its own line below the name.
-                    VStack(alignment: .leading, spacing: 1) {
-                        historyHeader(for: entry)
-                        Text(entry.text)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.55))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(.bottom, 2)
-                } else {
+            if model.historyExpanded {
+                expandedHistory
+            } else {
+                ForEach(model.history.reversed()) { entry in
                     HStack(alignment: .firstTextBaseline, spacing: 4) {
                         historyHeader(for: entry)
                         Text(entry.text)
@@ -175,6 +174,36 @@ struct MessageNotchContainer: View {
         .background(AreaMarker { [weak model] in model?.historyMarker = $0 })
         .animation(.spring(duration: 0.3), value: model.history)
         .animation(.spring(duration: 0.3), value: model.historyExpanded)
+    }
+
+    /// Expanded history: full text per row, bounded to ~⅓ of the screen and
+    /// scrollable beyond that so a long backlog can't run down the display.
+    /// Explicit (measured) height — a bare ScrollView collapses inside the
+    /// notch's fixedSize layout.
+    private var expandedHistory: some View {
+        let cap = (NSScreen.main?.frame.height ?? 900) / 3
+        return ScrollView {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(model.history.reversed()) { entry in
+                    VStack(alignment: .leading, spacing: 1) {
+                        historyHeader(for: entry)
+                        Text(entry.text)
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.55))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.bottom, 2)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(
+                GeometryReader { geo in
+                    Color.clear.preference(key: HistoryHeightKey.self, value: geo.size.height)
+                }
+            )
+        }
+        .frame(height: historyHeight == 0 ? nil : min(historyHeight, cap))
+        .onPreferenceChange(HistoryHeightKey.self) { historyHeight = $0 }
     }
 
     /// Dot, sender and channel icon of one history row.
@@ -231,6 +260,11 @@ struct MessageNotchContainer: View {
                 .padding(.vertical, 5)
                 .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
                 .focused($replyFocused)
+                .onChange(of: draft) { _, new in
+                    if new.count > MessageLimits.maxCharacters {
+                        draft = String(new.prefix(MessageLimits.maxCharacters))
+                    }
+                }
                 .onSubmit {
                     let text = draft.trimmingCharacters(in: .whitespaces)
                     guard !text.isEmpty else { return }
@@ -317,4 +351,11 @@ private struct AreaMarker: NSViewRepresentable {
     // view, and re-registering during transition animations would let a
     // disappearing branch clobber the registration of the live one.
     func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+private struct HistoryHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
 }
