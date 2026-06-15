@@ -1,15 +1,24 @@
 name: CodeQL
 
-# Not run on pull_request: the CodeQL Swift extractor is CPU-bound and takes
-# several minutes per run (irreducible — no cross-run cache), which serializes
-# behind every PR on the single self-hosted runner. We scan on push to main
-# plus the weekly schedule instead; these are no longer required PR checks.
+# Scans on pull requests (fork PRs are excluded via the job `if:` guard, so
+# untrusted code never runs on the self-hosted runner), on push to main, and on
+# the weekly schedule. The Swift extractor is CPU-bound with no cross-run cache
+# and runs on the single self-hosted runner, so `concurrency` cancels superseded
+# runs to limit queueing.
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
   schedule:
     - cron: "12 5 * * 2"
   workflow_dispatch:
+
+# One in-flight analysis per ref: a newer commit cancels the previous run so PRs
+# don't queue behind stale analyses on the single self-hosted runner.
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -17,6 +26,9 @@ permissions:
 jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
+    # Fork PRs must never execute on the self-hosted runner; push, schedule, and
+    # manual dispatch always run.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 30
     # Least privilege: writes live on the job, not the workflow top level.
