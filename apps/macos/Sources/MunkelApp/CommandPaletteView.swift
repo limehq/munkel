@@ -162,7 +162,7 @@ struct CommandPaletteView: View {
                     .font(.system(size: 15))
             }
             .buttonStyle(.plain)
-            .foregroundStyle(.tint)
+            .foregroundStyle(.primary)
             .focusable(false)
             .disabled(isEmpty || state.selectedRecipient == nil)
         }
