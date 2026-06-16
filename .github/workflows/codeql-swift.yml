@@ -1,23 +1,30 @@
-name: CodeQL
+name: CodeQL (Swift)
 
-# JavaScript/TypeScript analysis. The JS/TS extractor needs no build and finishes
-# in well under a minute, so it scans every pull request, every push to main, and
-# the weekly schedule. Swift lives in codeql-swift.yml instead: its extractor is
-# CPU-bound (~6 min, no cross-run cache) on the single self-hosted runner, so it is
-# path-filtered on PRs rather than run on every one.
+# Swift is split out of codeql.yml because its extractor is CPU-bound (~6 min, with
+# no cross-run cache and no buildless mode) on the single self-hosted runner. The
+# actual `swift build` is ~20s; the rest is irreducible extraction tracing, so the
+# only lever is how often it runs.
+#
+# - pull_request: only when macOS sources (or this workflow) change, so the ~90% of
+#   PRs that touch apps/server, apps/landing, apps/cli never pay the Swift cost.
+# - push to main + weekly schedule: always, so main and the scheduled scan keep full
+#   Swift coverage regardless of which files a given merge touched.
 on:
   pull_request:
     branches: [main]
+    paths:
+      - "apps/macos/**"
+      - ".github/workflows/codeql-swift.yml"
   push:
     branches: [main]
   schedule:
     - cron: "12 5 * * 2"
   workflow_dispatch:
 
-# One in-flight JS/TS analysis per ref: a newer commit cancels the previous run.
-# Swift uses a separate group so the two languages never cancel each other.
+# One in-flight Swift analysis per ref: a newer commit cancels the previous run so
+# PRs don't queue behind stale analyses on the single self-hosted runner.
 concurrency:
-  group: codeql-js-${{ github.ref }}
+  group: codeql-swift-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -25,7 +32,7 @@ permissions:
 
 jobs:
   analyze:
-    name: Analyze javascript-typescript
+    name: Analyze swift
     # Fork PRs must never execute on the self-hosted runner; push, schedule, and
     # manual dispatch always run.
     if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
@@ -44,11 +51,15 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
         with:
-          languages: javascript-typescript
-          build-mode: none
+          languages: swift
+          build-mode: manual
           queries: +security-extended
+
+      - name: Build Swift package
+        working-directory: apps/macos
+        run: swift build
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
         with:
-          category: "/language:javascript-typescript"
+          category: "/language:swift"
