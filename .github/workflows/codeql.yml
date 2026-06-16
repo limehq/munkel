@@ -3,8 +3,8 @@ name: CodeQL
 # JavaScript/TypeScript analysis. The JS/TS extractor needs no build and finishes
 # in well under a minute, so it scans every pull request, every push to main, and
 # the weekly schedule. Swift lives in codeql-swift.yml instead: its extractor is
-# CPU-bound (~6 min, no cross-run cache) on the single self-hosted runner, so it is
-# path-filtered on PRs rather than run on every one.
+# CPU-bound (~6 min, no cross-run cache) on the single self-hosted runner, so it
+# runs on push + schedule only, off the PR path entirely.
 on:
   pull_request:
     branches: [main]

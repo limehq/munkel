@@ -1,28 +1,21 @@
 name: CodeQL (Swift)
 
-# Swift is split out of codeql.yml because its extractor is CPU-bound (~6 min, with
-# no cross-run cache and no buildless mode) on the single self-hosted runner. The
-# actual `swift build` is ~20s; the rest is irreducible extraction tracing, so the
-# only lever is how often it runs.
-#
-# - pull_request: only when macOS sources (or this workflow) change, so the ~90% of
-#   PRs that touch apps/server, apps/landing, apps/cli never pay the Swift cost.
-# - push to main + weekly schedule: always, so main and the scheduled scan keep full
-#   Swift coverage regardless of which files a given merge touched.
+# Swift is split out of codeql.yml and runs on push to main + the weekly schedule
+# only — deliberately NOT on pull_request. Its extractor is CPU-bound (~6 min, no
+# cross-run cache, no buildless mode) on the single self-hosted runner, so running
+# it per-PR is slow. It also can't run *conditionally* on PRs without tripping code
+# scanning's "configuration not found" diff warning (every PR that doesn't re-run
+# Swift fails to reproduce main's Swift config). Push + schedule keep main and the
+# weekly scan fully covered, and Swift alerts still surface on PRs as they merge.
 on:
-  pull_request:
-    branches: [main]
-    paths:
-      - "apps/macos/**"
-      - ".github/workflows/codeql-swift.yml"
   push:
     branches: [main]
   schedule:
     - cron: "12 5 * * 2"
   workflow_dispatch:
 
-# One in-flight Swift analysis per ref: a newer commit cancels the previous run so
-# PRs don't queue behind stale analyses on the single self-hosted runner.
+# One in-flight Swift analysis per ref: a newer push cancels the previous run so
+# they don't queue on the single self-hosted runner.
 concurrency:
   group: codeql-swift-${{ github.ref }}
   cancel-in-progress: true
@@ -33,9 +26,6 @@ permissions:
 jobs:
   analyze:
     name: Analyze swift
-    # Fork PRs must never execute on the self-hosted runner; push, schedule, and
-    # manual dispatch always run.
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
     runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 30
     # Least privilege: writes live on the job, not the workflow top level.
