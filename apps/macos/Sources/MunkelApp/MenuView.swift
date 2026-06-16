@@ -116,10 +116,8 @@ struct MenuView: View {
             } label: {
                 Label("About Munkel", systemImage: "info.circle")
             }
-            Button {
-                checkForUpdates()
-            } label: {
-                Label("Check for Updates…", systemImage: "arrow.triangle.2.circlepath")
+            if let updater = model.updater {
+                UpdaterMenuItems(updater: updater)
             }
             Button {
                 model.openCommandPalette()
@@ -163,19 +161,6 @@ struct MenuView: View {
     private func showAbout() {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.orderFrontStandardAboutPanel(nil)
-    }
-
-    /// Placeholder until a real update channel exists (e.g. Sparkle or a
-    /// GitHub-Releases check) — shows the running version so the item is
-    /// already useful.
-    private func checkForUpdates() {
-        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "?"
-        NSApp.activate(ignoringOtherApps: true)
-        let alert = NSAlert()
-        alert.messageText = "Check for Updates"
-        alert.informativeText = "You're running Munkel \(version). Automatic update checks aren't available yet."
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
     }
 
     /// One field for both flows: join and create are the same operation in
@@ -318,6 +303,31 @@ struct MenuView: View {
     private func joinTapped() {
         model.join(code: joinCode)
         joinCode = ""
+    }
+}
+
+/// The update section of the settings menu: a prominent "Update to <version>…"
+/// item once Sparkle has found a newer release (its menu-bar "gentle reminder"),
+/// the manual check, and a toggle for background checks. Its own
+/// `@ObservedObject` view so the menu re-renders as the updater's state changes.
+private struct UpdaterMenuItems: View {
+    @ObservedObject var updater: UpdaterController
+
+    var body: some View {
+        if let version = updater.availableUpdateVersion {
+            Button {
+                updater.checkForUpdates()
+            } label: {
+                Label("Update to \(version)…", systemImage: "arrow.down.circle.fill")
+            }
+        }
+        Button {
+            updater.checkForUpdates()
+        } label: {
+            Label("Check for Updates…", systemImage: "arrow.triangle.2.circlepath")
+        }
+        .disabled(!updater.canCheckForUpdates)
+        Toggle("Check Automatically", isOn: $updater.automaticallyChecksForUpdates)
     }
 }
 

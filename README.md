@@ -40,6 +40,12 @@ and adds it to `~/.zshrc` when Homebrew is absent (reopen your terminal
 afterward). Either way the CLI needs the running app, which it talks to over a
 socket.
 
+Munkel keeps itself up to date via [Sparkle](https://sparkle-project.org): it
+checks in the background and installs notarized updates in place. Trigger a
+check or turn automatic checks on/off anytime from the menu-bar gear menu
+(**Check for Updates…**); the Homebrew cask is `auto_updates true`, so `brew
+upgrade` defers to Sparkle.
+
 Or build locally from source:
 
 ```sh

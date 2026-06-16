@@ -9,6 +9,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private var model: AppModel?
+    /// Sparkle auto-updater, retained for the process lifetime. Release-only —
+    /// nil in the dev build, which must not update the installed release.
+    private var updater: UpdaterController?
     /// Guards against the transient-popover flicker: clicking the status
     /// button while open first closes the popover (outside click on
     /// mouseDown), then fires the action (mouseUp) — which would reopen it.
@@ -20,6 +23,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         let model = AppModel()
         self.model = model
+
+        // Sparkle auto-updates. Release-only: the dev build runs as "Munkel Dev"
+        // with its own bundle id and must not update the installed release.
+        #if !DEBUG
+        let updater = UpdaterController()
+        self.updater = updater
+        model.updater = updater
+        #endif
 
         let hosting = NSHostingController(rootView: MenuView().environmentObject(model))
         hosting.sizingOptions = .preferredContentSize

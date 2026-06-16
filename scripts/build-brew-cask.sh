@@ -26,6 +26,10 @@ cask "munkel" do
     strategy :github_latest
   end
 
+  # Munkel self-updates via Sparkle; tell Homebrew so `brew upgrade` doesn't
+  # fight the in-place update (or flag the app as outdated after Sparkle ran).
+  auto_updates true
+
   depends_on macos: :sonoma
 
   app "Munkel.app"

@@ -73,9 +73,13 @@ Pushing a tag `v<version>` runs `.github/workflows/release.yml`:
    drag-to-Applications `Munkel-<version>.dmg` (plain `hdiutil`: app +
    `/Applications` symlink, so it runs headless on CI). The DMG is then
    notarized and stapled too, so it opens without a warning.
-4. GitHub release with `Munkel-<version>.dmg` (+ `.sha256` + Sigstore bundle).
-5. `scripts/build-brew-cask.sh` renders `Casks/munkel.rb` with the new
-   version + DMG sha256 and pushes it to `limehq/homebrew-tap`.
+4. `scripts/build-appcast.sh` EdDSA-signs the notarized DMG and renders the
+   Sparkle auto-update feed `appcast.xml` (see **Auto-updates** below).
+5. GitHub release with `Munkel-<version>.dmg` (+ `.sha256` + Sigstore bundle
+   + `appcast.xml`).
+6. `scripts/build-brew-cask.sh` renders `Casks/munkel.rb` (with `auto_updates
+   true`) with the new version + DMG sha256 and pushes it to
+   `limehq/homebrew-tap`.
 
 ## One-time setup checklist
 
@@ -97,7 +101,8 @@ shape of the setup, not publish operational details.
 - Public tap repository `limehq/homebrew-tap`; the `homebrew-` prefix is
   required for `brew tap limehq/tap` to resolve.
 - Repository secrets for the macOS certificate, certificate password,
-  notarization API key, API key ID, issuer ID, and tap push token.
+  notarization API key, API key ID, issuer ID, the Sparkle appcast signing key
+  (`SPARKLE_ED_PRIVATE_KEY`, see **Auto-updates**), and tap push token.
 - The tap token should be a fine-grained PAT scoped only to
   `limehq/homebrew-tap` with **Contents: Read and write**. If it is absent,
   `release.yml` skips the cask bump with a warning.
@@ -118,6 +123,37 @@ Validate a rendered cask:
 scripts/build-brew-cask.sh 1.0.0 <sha256> /tmp/munkel.rb
 brew style --cask /tmp/munkel.rb
 ```
+
+## Auto-updates (Sparkle)
+
+Munkel updates itself via [Sparkle](https://sparkle-project.org): the app reads
+a signed appcast and installs notarized updates in place, so direct-download
+users get updates without re-downloading the DMG. The Homebrew cask is marked
+`auto_updates true`, so `brew upgrade` defers to Sparkle instead of fighting the
+in-place update.
+
+- **Feed URL**: the app ships `SUFeedURL = https://munkel.app/appcast.xml`
+  (`apps/macos/Bundler.toml`). That route
+  (`apps/landing/src/routes/appcast[.]xml.ts`) 302-redirects to the latest
+  release's `appcast.xml` asset; Sparkle follows the redirect. Owning the URL
+  lets the backing store change later (e.g. an R2-backed accumulating feed)
+  without reshipping the URL baked into already-installed builds.
+- **Signing key**: every update is verified with an EdDSA key independent of the
+  Developer ID signature. The public half is committed as `SUPublicEDKey` in
+  `Bundler.toml`; the private half signs the appcast in CI and lives only in the
+  `SPARKLE_ED_PRIVATE_KEY` repository secret. Generate the pair once with
+  Sparkle's `generate_keys` (private key → your login Keychain; `generate_keys
+  -p` prints the public key; `generate_keys -x <file>` exports the private key
+  for the secret). Back the private key up outside the repo: it is
+  unrecoverable, and losing it breaks updates for everyone not yet updated.
+- **Appcast**: `scripts/build-appcast.sh` downloads the pinned Sparkle tools,
+  EdDSA-signs the notarized DMG, and renders a single-entry `appcast.xml` that
+  the release workflow uploads as a release asset. Keep its `SPARKLE_VERSION` in
+  sync with the Sparkle SPM version in `apps/macos/Package.swift`.
+
+First-release note: the release that introduces Sparkle produces the first
+appcast, but existing users run a build without an updater: they update once
+manually, and auto-updates take over from the next release onward.
 
 ## Why notarization is non-negotiable
 
