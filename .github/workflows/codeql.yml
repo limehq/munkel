@@ -1,9 +1,10 @@
 name: CodeQL
 
 # Not run on pull_request: the CodeQL Swift extractor is CPU-bound and takes
-# several minutes per run (irreducible — no cross-run cache), which serializes
-# behind every PR on the single self-hosted runner. We scan on push to main
-# plus the weekly schedule instead; these are no longer required PR checks.
+# several minutes per run (irreducible — no cross-run cache), and the Swift
+# matrix leg runs on GitHub-hosted macOS (billed at 10x). Scanning every PR
+# would be slow and costly, so we scan on push to main plus the weekly
+# schedule instead; these are no longer required PR checks.
 on:
   push:
     branches: [main]
@@ -17,7 +18,7 @@ permissions:
 jobs:
   analyze:
     name: Analyze ${{ matrix.language }}
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     # Least privilege: writes live on the job, not the workflow top level.
     permissions:
@@ -30,8 +31,10 @@ jobs:
         include:
           - language: javascript-typescript
             build-mode: none
+            os: ubuntu-latest
           - language: swift
             build-mode: manual
+            os: macos-latest
 
     steps:
       - name: Checkout

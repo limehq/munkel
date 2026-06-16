@@ -27,7 +27,7 @@ env:
 
 jobs:
   release:
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: macos-latest
     # Least privilege: writes live on the job, not the workflow top level.
     permissions:
       contents: write # upload artifacts to the GitHub release
