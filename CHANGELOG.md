@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.1](https://github.com/limehq/munkel/compare/v0.8.0...v0.8.1) (2026-06-16)
+
+
+### Bug Fixes
+
+* make build-appcast.sh executable ([#53](https://github.com/limehq/munkel/issues/53)) ([4212913](https://github.com/limehq/munkel/commit/4212913be10ca36219990b7e686b486e8c850bc6))
+
 ## [0.8.0](https://github.com/limehq/munkel/compare/v0.7.0...v0.8.0) (2026-06-16)
 
 
