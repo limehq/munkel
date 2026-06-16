@@ -13,7 +13,7 @@ env:
 
 jobs:
   checks:
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -29,7 +29,9 @@ jobs:
         run: bunx turbo run test typecheck --filter="!@munkel/macos"
 
   macos:
-    runs-on: [self-hosted, macOS, ARM64]
+    # macos-26 (not macos-latest): KeyboardShortcuts 3.x needs swift-tools 6.2,
+    # which ships with Xcode 26. macos-latest is still macOS 15 / Xcode 16.
+    runs-on: macos-26
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
