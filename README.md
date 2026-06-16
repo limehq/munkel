@@ -7,8 +7,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Website](https://img.shields.io/badge/website-munkel.app-black)](https://munkel.app)
 
-Ephemeral messages between friends at the same café table — or across the
-world — that slide elegantly out of the MacBook notch.
+Ephemeral messages between friends at the same café table, or across the
+world, that slide out of the MacBook notch.
 
 No accounts, no history, no message storage: a circle is born from a shared
 human-readable code (`blue-table-42`). The app derives the relay group ID and
@@ -19,7 +19,7 @@ Website: **[munkel.app](https://munkel.app)**
 
 ## Install
 
-**Homebrew** — app plus the `munkel` CLI:
+**Homebrew** (app plus the `munkel` CLI):
 
 ```sh
 brew install limehq/tap/munkel
@@ -29,15 +29,15 @@ open -a Munkel
 The cask installs `Munkel.app` and symlinks the bundled `munkel` CLI onto your
 `PATH`.
 
-**Direct download** — app only: grab `Munkel-<version>.dmg` from the
+**Direct download** (app only): grab `Munkel-<version>.dmg` from the
 [latest release](https://github.com/limehq/munkel/releases/latest) and drag
-`Munkel.app` into Applications. The `munkel` CLI ships inside the app; to put it
+`Munkel.app` into Applications. The `munkel` CLI ships inside the app. To put it
 on your `PATH`, open Munkel and choose **Install Command Line Tool…** from the
-menu-bar gear menu — it links into the first writable directory on your `PATH`
-(e.g. Homebrew's `bin`), so it needs no administrator password. Without Homebrew
-it falls back to `~/.local/bin` and adds that to your `PATH` in `~/.zshrc` (open a
-new terminal afterwards). (The CLI talks to the running app, so it needs the app
-either way.)
+menu-bar gear menu: it links into the first writable directory on your `PATH`
+(e.g. Homebrew's `bin`) with no admin password, or falls back to `~/.local/bin`
+and adds it to `~/.zshrc` when Homebrew is absent (reopen your terminal
+afterward). Either way the CLI needs the running app, which it talks to over a
+socket.
 
 Or build locally from source:
 
@@ -104,25 +104,23 @@ Starting the individual apps:
 | CLI | `bunx turbo build --filter=@munkel/cli`, then `apps/cli/dist/munkel` |
 
 `bun run dev` builds and runs the **Munkel Dev** variant: a separate identity
-(bundle id `dev.uq.munkel.debug`, its own settings, control socket, and menu-bar
-icon) so it runs side by side with an installed release without colliding. It
-launches the freshly built binary directly (not via `open`), so it always loads
-the new build and shell environment variables flow through; it kills only the
-previous Munkel Dev instance, never your release. The root `bun dev` deliberately
-excludes the macOS app (it needs the Swift toolchain); run the per-app command
-above for it.
+(bundle id `dev.uq.munkel.debug`, with its own settings, control socket, and
+menu-bar icon) that runs side by side with an installed release without
+colliding. It launches the freshly built binary directly rather than via `open`,
+so it always loads the new build and inherits your shell environment, and it
+kills only the previous Munkel Dev instance, never your release. The root `bun
+dev` excludes the macOS app, which needs the Swift toolchain; run the per-app
+command above for it.
 
-To drive the Munkel Dev app from the CLI, run it from source with `MUNKEL_DEV=1`
-— that points it at the dev app's socket and bundle id:
+To drive the Munkel Dev app from the CLI, run it from source with `MUNKEL_DEV=1`,
+which points it at the dev app's socket and bundle id:
 
 ```sh
 MUNKEL_DEV=1 bun apps/cli/src/munkel.ts circles
 ```
 
 The dev build deliberately does **not** embed the CLI (so it stays lean), so the
-"Install Command Line Tool…" menu item is release-only. The released app embeds
-`munkel` and installs it without admin (it links into the first writable PATH
-directory, e.g. Homebrew's `bin`).
+"Install Command Line Tool…" menu item is release-only.
 
 The app talks to the production relay `wss://relay.munkel.app` by default. To
 point a dev build at the local relay, set `MUNKEL_RELAY_URL` for that run:
@@ -133,13 +131,13 @@ MUNKEL_RELAY_URL=ws://127.0.0.1:8787 bun run dev
 
 `MUNKEL_RELAY_URL` is read once at launch and never persisted, so a plain `bun
 run dev` falls straight back to the default. (For an installed app launched from
-Finder — where env vars don't propagate — set it persistently instead with
+Finder, where env vars don't propagate, set it persistently instead with
 `defaults write dev.uq.munkel relayURL ws://127.0.0.1:8787`, and `defaults
 delete dev.uq.munkel relayURL` to restore the default.)
 
 Watching the notch react without a second machine: with the relay and app
 running and the app joined to a circle, `scripts/simulate-whispers.sh` joins
-that circle as a second member and whispers you a message every 30 s — handy
+that circle as a second member and whispers you a message every 30 s. Handy
 for demoing or iterating on the notch UI.
 
 ```sh
@@ -162,8 +160,8 @@ bunx turbo deploy --filter=@munkel/landing   # munkel.app
 
 ## Architecture decisions
 
-- **Server-first transport**: one WebSocket relay path for café and remote —
-  no flaky local P2P, seamless everywhere.
+- **Server-first transport**: one WebSocket relay path for both café and
+  remote, with no flaky local P2P to break.
 - **One Durable Object per circle** (`idFromName(groupId)`), WebSocket
   Hibernation API, no DO storage → ephemerality is enforced by design.
 - **Notch-first interaction**: incoming messages appear in the notch, can be
@@ -172,7 +170,7 @@ bunx turbo deploy --filter=@munkel/landing   # munkel.app
 - **Capture-proof surfaces**: every window showing message content or circle
   codes (notch panel, menu popover) is excluded from screen capture
   (`NSWindow.sharingType = .none`, applied frame-exactly by the
-  `CaptureExclusion` view) — invisible in Teams/Zoom shares and screenshots,
+  `CaptureExclusion` view): invisible in Teams/Zoom shares and screenshots,
   visible on the physical display. Corollary: no `.help()` tooltips in notch
   content, since tooltips get their own capturable window.
 
@@ -187,7 +185,7 @@ The Worker is named `munkel-relay` and is reachable both as
 **relay.munkel.app** (attached automatically on deploy through the
 `routes` entry in `wrangler.toml`).
 
-Connect with `GET /ws?group=<32-hex>&member=<uuid>` — see
+Connect with `GET /ws?group=<32-hex>&member=<uuid>`; see
 `apps/server/src/protocol.ts`.
 
 ## Landing page
@@ -199,7 +197,7 @@ Deployment is plain `wrangler deploy`: the Worker is named `munkel` and the
 custom domains **munkel.app** and **www.munkel.app** are declared as
 `routes` with `custom_domain: true` in `apps/landing/wrangler.jsonc`, so
 Cloudflare creates/updates the DNS records of the `munkel.app` zone
-automatically on every deploy — no manual DNS steps.
+automatically on every deploy, with no manual DNS steps.
 
 ## macOS app
 
@@ -215,22 +213,22 @@ local development against `wrangler dev`).
 ### Login with GitHub
 
 "Sign in with GitHub" in the menu imports your GitHub username and avatar as
-your identity — still no account: the app runs the [OAuth device
+your identity, still no account: the app runs the [OAuth device
 flow](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps#device-flow)
 (user code is auto-copied, browser opens), requests a token with **empty
 scope**, fetches `GET /user` once, downloads the avatar, and **discards the
 token**. Stored locally: login name + a ≤20 KiB JPEG. The avatar travels to
-peers only inside the E2E-encrypted `profile` payload — receivers never
+peers only inside the E2E-encrypted `profile` payload; receivers never
 contact GitHub, and the relay sees nothing.
 
 Honest limits: GitHub itself sees the login happen and keeps the
 authorization listed under Settings → Applications; and the imported profile
-is *display-only* — peers get no cryptographic proof that a member really
+is *display-only*: peers get no cryptographic proof that a member really
 owns the GitHub name they show (profiles are self-asserted, same as typed
 names).
 
 The OAuth app lives in the `limehq` org ("Munkel", device flow enabled,
-no client secret — none is needed). To point a build at a different OAuth
+no client secret, since none is needed). To point a build at a different OAuth
 app: create one, tick **Enable Device Flow**, then either edit
 `GitHubConfig.defaultClientID` or run
 `defaults write dev.uq.munkel githubClientID <CLIENT_ID>`.
@@ -250,7 +248,7 @@ the app isn't running, the CLI launches it in the background (`open -g -b
 dev.uq.munkel`) and waits for the socket before sending. The
 socket path can be overridden via `MUNKEL_SOCKET` (used by the tests). The
 app resolves circle-code prefixes and recipient display names, and owns all
-crypto and relay connections — ideal substrate for scripting and agent
+crypto and relay connections, an ideal substrate for scripting and agent
 skills.
 
 ### Agent skill
@@ -268,7 +266,7 @@ repo to be public.)
 
 ## Testing without a second Mac
 
-`apps/server/scripts/dev-send.ts` acts as a second circle member — it
+`apps/server/scripts/dev-send.ts` acts as a second circle member: it
 implements the full protocol derivation + AES-GCM encryption in TypeScript
 independently of MunkelKit, so a message it sends arriving in the notch also
 proves Swift↔TS crypto interop (the derivation is additionally pinned in
