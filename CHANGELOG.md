@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.8.0](https://github.com/limehq/munkel/compare/v0.7.0...v0.8.0) (2026-06-16)
+
+
+### Features
+
+* **macos:** enable Sparkle auto-updates ([#52](https://github.com/limehq/munkel/issues/52)) ([6cff5d9](https://github.com/limehq/munkel/commit/6cff5d914b699ccd3ba33df93b0fdc1d758bf5d5)), closes [#36](https://github.com/limehq/munkel/issues/36)
+
+
+### Bug Fixes
+
+* **macos:** force -Onone for release builds to dodge swift[#88173](https://github.com/limehq/munkel/issues/88173) ([946c7a3](https://github.com/limehq/munkel/commit/946c7a39772976f57001a09dffc4a26a9c64c265))
+* **macos:** unblock release build — work around swift[#88173](https://github.com/limehq/munkel/issues/88173) inliner crash ([e742817](https://github.com/limehq/munkel/commit/e742817371e60495fa8ea7a0b1ae951aaed43182))
+
 ## [0.7.0](https://github.com/limehq/munkel/compare/v0.6.0...v0.7.0) (2026-06-15)
 
 
