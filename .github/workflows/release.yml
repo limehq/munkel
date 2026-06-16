@@ -27,7 +27,9 @@ env:
 
 jobs:
   release:
-    runs-on: [self-hosted, macOS, ARM64]
+    # macos-26 for Swift 6.2 (the app build compiles the Swift package, which
+    # depends on KeyboardShortcuts 3.x — needs swift-tools 6.2 / Xcode 26).
+    runs-on: macos-26
     # Least privilege: writes live on the job, not the workflow top level.
     permissions:
       contents: write # upload artifacts to the GitHub release

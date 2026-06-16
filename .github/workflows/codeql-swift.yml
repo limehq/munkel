@@ -2,11 +2,12 @@ name: CodeQL (Swift)
 
 # Swift is split out of codeql.yml and runs on push to main + the weekly schedule
 # only — deliberately NOT on pull_request. Its extractor is CPU-bound (~6 min, no
-# cross-run cache, no buildless mode) on the single self-hosted runner, so running
-# it per-PR is slow. It also can't run *conditionally* on PRs without tripping code
-# scanning's "configuration not found" diff warning (every PR that doesn't re-run
-# Swift fails to reproduce main's Swift config). Push + schedule keep main and the
-# weekly scan fully covered, and Swift alerts still surface on PRs as they merge.
+# cross-run cache, no buildless mode) and runs on GitHub-hosted macOS (billed at
+# 10x), so running it per-PR is slow and costly. It also can't run *conditionally*
+# on PRs without tripping code scanning's "configuration not found" diff warning
+# (every PR that doesn't re-run Swift fails to reproduce main's Swift config).
+# Push + schedule keep main and the weekly scan fully covered, and Swift alerts
+# still surface on PRs as they merge.
 on:
   push:
     branches: [main]
@@ -14,8 +15,7 @@ on:
     - cron: "12 5 * * 2"
   workflow_dispatch:
 
-# One in-flight Swift analysis per ref: a newer push cancels the previous run so
-# they don't queue on the single self-hosted runner.
+# One in-flight Swift analysis per ref: a newer push cancels the previous run.
 concurrency:
   group: codeql-swift-${{ github.ref }}
   cancel-in-progress: true
@@ -26,7 +26,9 @@ permissions:
 jobs:
   analyze:
     name: Analyze swift
-    runs-on: [self-hosted, macOS, ARM64]
+    # macos-26 for Swift 6.2 (KeyboardShortcuts 3.x manifest needs swift-tools 6.2,
+    # shipped with Xcode 26; macos-latest is still macOS 15 / Xcode 16).
+    runs-on: macos-26
     timeout-minutes: 30
     # Least privilege: writes live on the job, not the workflow top level.
     permissions:
