@@ -36,6 +36,10 @@ final class AppModel: ObservableObject {
     /// Bumped whenever any session's presence changes, so views refresh.
     @Published private(set) var presenceVersion = 0
 
+    /// Sparkle bridge, injected by `AppDelegate` at launch (release build only;
+    /// nil in the dev build, which doesn't auto-update).
+    var updater: UpdaterController?
+
     private static let groupsKey = "groupCodes"
     private static let relayURLKey = "relayURL"
     private static let defaultRelayURL = "wss://relay.munkel.app"

@@ -55,10 +55,43 @@ mkdir -p "$APP/Contents/Resources"
 cp "$ROOT/apps/cli/dist/release/munkel" "$APP/Contents/Resources/munkel"
 chmod +x "$APP/Contents/Resources/munkel"
 
+# Sparkle.framework: Swift Bundler embeds it in Contents/Frameworks/ when the
+# executable links it. Self-heal if a future bundler change ever drops it (copy
+# from the SwiftPM artifacts and add the bundle rpath), then fail loudly rather
+# than ship an app that dyld-crashes the moment it launches.
+FW_DIR="$APP/Contents/Frameworks"
+SPARKLE_FW="$FW_DIR/Sparkle.framework"
+if [[ ! -d "$SPARKLE_FW" ]]; then
+  echo "Sparkle.framework not embedded by Swift Bundler — copying from .build" >&2
+  mkdir -p "$FW_DIR"
+  SRC="$(/usr/bin/find "$ROOT/apps/macos/.build" -type d -name 'Sparkle.framework' 2>/dev/null | head -n1)"
+  [[ -n "$SRC" ]] || { echo "could not locate Sparkle.framework under apps/macos/.build" >&2; exit 1; }
+  /usr/bin/ditto "$SRC" "$SPARKLE_FW"
+  # Sparkle's install name is @rpath/../Frameworks/Sparkle.framework/…, so the
+  # resolving rpath is @executable_path (Swift Bundler normally adds it).
+  /usr/bin/otool -l "$APP/Contents/MacOS/Munkel" | grep -q 'path @executable_path ' \
+    || /usr/bin/install_name_tool -add_rpath "@executable_path" "$APP/Contents/MacOS/Munkel"
+fi
+[[ -d "$SPARKLE_FW" ]] || { echo "Sparkle.framework missing after embed step" >&2; exit 1; }
+
 if [[ -n "$IDENTITY" ]]; then
-  # Inside-out signing: the nested CLI first (with its own JIT entitlements),
-  # then the outer bundle WITHOUT --deep — so the app seal records the CLI's
-  # signature instead of clobbering its entitlements with the app's.
+  # Not sandboxed → Sparkle's XPC services are unused; drop them so there is
+  # nothing extra to sign and notarize (Sparkle supports this for non-sandboxed
+  # apps). Done only on the signed path so a plain ad-hoc build keeps Swift
+  # Bundler's framework seal intact.
+  rm -rf "$SPARKLE_FW/Versions/B/XPCServices"
+
+  # Inside-out signing: every nested code item is signed first, then the outer
+  # bundle WITHOUT --deep — so the app seal records those signatures instead of
+  # clobbering them. Sparkle's helpers and the CLI's JIT entitlements both rely
+  # on this; --deep would re-sign (and break) the framework's nested helpers.
+  codesign --force --options runtime --timestamp \
+    --sign "$IDENTITY" "$SPARKLE_FW/Versions/B/Autoupdate"
+  codesign --force --options runtime --timestamp \
+    --sign "$IDENTITY" "$SPARKLE_FW/Versions/B/Updater.app"
+  codesign --force --options runtime --timestamp \
+    --sign "$IDENTITY" "$SPARKLE_FW"
+  # The embedded munkel CLI (its own JIT entitlements), then the outer bundle.
   codesign --force --options runtime --timestamp \
     --entitlements "$ROOT/apps/cli/entitlements.plist" \
     --sign "$IDENTITY" "$APP/Contents/Resources/munkel"
@@ -66,6 +99,7 @@ if [[ -n "$IDENTITY" ]]; then
     --sign "$IDENTITY" "$APP"
   codesign --verify --deep --strict "$APP"
   codesign --verify --strict "$APP/Contents/Resources/munkel"
+  codesign --verify --strict "$SPARKLE_FW"
 fi
 
 # Smoke test: broken lipo/codesign/--define combinations fail right here.

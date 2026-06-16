@@ -14,3 +14,13 @@ identifier = "dev.uq.munkel"
 LSUIElement = true
 LSMinimumSystemVersion = "14.0"
 NSHighResolutionCapable = true
+# Sparkle auto-updates. The feed lives at a stable URL on our own domain
+# (munkel.app/appcast.xml → 302 to the latest GitHub release asset), so the
+# backing store can change without reshipping the app. The EdDSA public key
+# verifies every update; its private half signs the appcast in CI
+# (SPARKLE_ED_PRIVATE_KEY — see RELEASING.md). Automatic checks default on and
+# are user-toggleable in the menu (Sparkle persists the choice in UserDefaults).
+SUFeedURL = "https://munkel.app/appcast.xml"
+SUPublicEDKey = "hNXNZe99QfQWaJTBeYJyQZNTx+86sbHFjfj193jpfzA="
+SUEnableAutomaticChecks = true
+SUScheduledCheckInterval = 86400
