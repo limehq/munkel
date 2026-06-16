@@ -7,6 +7,6 @@ extension KeyboardShortcuts.Name {
     /// via the Recorder in the menu.
     static let togglePalette = Self(
         "togglePalette",
-        default: .init(.m, modifiers: [.control, .command])
+        initial: .init(.m, modifiers: [.control, .command])
     )
 }
