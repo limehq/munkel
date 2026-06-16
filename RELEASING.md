@@ -1,6 +1,6 @@
 # Releasing Munkel
 
-Two install paths, **one artifact** — the `munkel` CLI is embedded inside the
+Two install paths, **one artifact**: the `munkel` CLI is embedded inside the
 app bundle (`Munkel.app/Contents/Resources/munkel`), so there is nothing
 separate to download or version:
 
@@ -13,16 +13,16 @@ The cask puts `Munkel.app` into `/Applications` and symlinks the embedded
 binary inside the bundle).
 
 Direct download: the `Munkel-<version>.dmg` release asset is a classic
-drag-to-Applications image. It carries the CLI too, but inert — DMG users put
+drag-to-Applications image. It carries the CLI too, but inert: DMG users put
 `munkel` on their PATH from the app's **Install Command Line Tool…** menu
 (`Sources/MunkelApp/CLIInstaller.swift`), which symlinks the embedded binary
 into `/usr/local/bin` after one admin prompt. The CLI talks to the running app
-over a Unix socket, so it is useless without the app either way — hence no
+over a Unix socket, so it is useless without the app either way, hence no
 standalone CLI distribution.
 
 ## Versioning
 
-One **SemVer product version** for the whole artifact — app and embedded CLI
+One **SemVer product version** for the whole artifact: app and embedded CLI
 ship together in one bundle and are version-locked by design (the CLI talks to
 the app's control socket), so they never get separate numbers. The
 **git tag is the single source of truth**; nothing is hardcoded:
@@ -37,10 +37,10 @@ the app's control socket), so they never get separate numbers. The
 **Releases are cut by release-please** (`.github/workflows/release-please.yml`):
 Conventional Commits on `main` (`feat:` → minor, `fix:` → patch, `feat!:`
 → breaking) feed a rolling release PR that maintains `CHANGELOG.md` and
-computes the next version. **Merging that PR is the release** — it creates
+computes the next version. **Merging that PR is the release**: it creates
 tag + GitHub release and dispatches the desktop build. Note the scope:
 release-please watches the whole repo, so server/landing commits also land
-in the product changelog — that's intentional (one product, one version).
+in the product changelog, which is intentional (one product, one version).
 
 Escape hatch: a manually pushed `v*` tag still triggers `release.yml`
 directly, bypassing release-please.
@@ -52,14 +52,14 @@ The `version` fields in the workspace `package.json`s are irrelevant
 
 Pushing a tag `v<version>` runs `.github/workflows/release.yml`:
 
-1. `scripts/build-release.sh <version>` — orchestration only. Each app
+1. `scripts/build-release.sh <version>`: orchestration only. Each app
    builds itself via its `build:release` workspace script:
    `@munkel/macos` (universal build via [Swift Bundler](https://github.com/moreSwift/swift-bundler),
    pinned and built on demand by `scripts/ensure-swift-bundler.sh`, wrapped by
    `make-bundle.sh`) and `@munkel/cli` (two `bun build --compile` targets
    + `lipo`, version stamped via `--define`). The root script copies the CLI
    into `Munkel.app/Contents/Resources/munkel`, then signs **inside-out** with
-   Developer ID + hardened runtime — the CLI first (with
+   Developer ID + hardened runtime: the CLI first (with
    `apps/cli/entitlements.plist`; Bun executables crash under the hardened
    runtime without the JIT entitlements), then the outer bundle **without**
    `--deep` so the app seal records the CLI's signature instead of clobbering
@@ -67,7 +67,7 @@ Pushing a tag `v<version>` runs `.github/workflows/release.yml`:
    binary, then ditto-zips the app for notarytool. Deliberately **not** routed
    through turbo: release artifacts must never come out of a cache.
 2. `notarytool submit --wait` on the app zip, `stapler staple` on the `.app`
-   (the embedded CLI is covered by the same notarization + staple — no online
+   (the embedded CLI is covered by the same notarization + staple, with no online
    Gatekeeper check, unlike a bare binary).
 3. `scripts/build-dmg.sh <version>` packages the stapled app into the
    drag-to-Applications `Munkel-<version>.dmg` (plain `hdiutil`: app +

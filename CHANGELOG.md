@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.7.0](https://github.com/limehq/munkel/compare/v0.6.0...v0.7.0) (2026-06-15)
+
+
+### Features
+
+* **cli:** target the parallel "Munkel Dev" app ([0e3233d](https://github.com/limehq/munkel/commit/0e3233d47cca125d8ab9b492320e3a7132be15db))
+* **cli:** target the parallel "Munkel Dev" app ([8507f01](https://github.com/limehq/munkel/commit/8507f01278ffdf40ec955298fbbf5c0067636ab8))
+* **landing:** redesign sections, shadcn refactor, Framer Motion scroll ([8ff67e8](https://github.com/limehq/munkel/commit/8ff67e8e59200704451de4e8d63ac400924b4482))
+* **landing:** redesign sections, shadcn refactor, Framer Motion scroll ([26dcd4d](https://github.com/limehq/munkel/commit/26dcd4df320393f5992967ef740f0be79d54ecab))
+* **macos:** Munkel Dev build variant, no-admin CLI install, capture exclusion ([0f795a8](https://github.com/limehq/munkel/commit/0f795a8109c7658016a7e632d9495d554f90febf))
+* **macos:** Munkel Dev variant, no-admin CLI install, capture exclusion ([37d13bf](https://github.com/limehq/munkel/commit/37d13bfb8c54e456b3585cb2e70cea43fd425dc3))
+* **macos:** UI polish + message cap (issues [#31](https://github.com/limehq/munkel/issues/31),33,34,35,37,38) ([#40](https://github.com/limehq/munkel/issues/40)) ([6fac32c](https://github.com/limehq/munkel/commit/6fac32cd81c9f0be2f7d41ce2fbedd06faa0bdb1))
+
 ## [0.6.0](https://github.com/limehq/munkel/compare/v0.5.0...v0.6.0) (2026-06-15)
 
 

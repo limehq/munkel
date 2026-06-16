@@ -1,40 +1,38 @@
 name: CodeQL
 
-# Not run on pull_request: the CodeQL Swift extractor is CPU-bound and takes
-# several minutes per run (irreducible — no cross-run cache), and the Swift
-# matrix leg runs on GitHub-hosted macOS (billed at 10x). Scanning every PR
-# would be slow and costly, so we scan on push to main plus the weekly
-# schedule instead; these are no longer required PR checks.
+# JavaScript/TypeScript analysis. The JS/TS extractor needs no build and finishes
+# in well under a minute, so it scans every pull request, every push to main, and
+# the weekly schedule. Swift lives in codeql-swift.yml instead: its extractor is
+# CPU-bound (~6 min, no cross-run cache), so it runs on push + schedule only, off
+# the PR path entirely.
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
   schedule:
     - cron: "12 5 * * 2"
   workflow_dispatch:
 
+# One in-flight JS/TS analysis per ref: a newer commit cancels the previous run.
+# Swift uses a separate group so the two languages never cancel each other.
+concurrency:
+  group: codeql-js-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
 jobs:
   analyze:
-    name: Analyze ${{ matrix.language }}
-    runs-on: ${{ matrix.os }}
+    name: Analyze javascript-typescript
+    runs-on: ubuntu-latest
     timeout-minutes: 30
     # Least privilege: writes live on the job, not the workflow top level.
     permissions:
       contents: read # checkout
       security-events: write # upload CodeQL results
       actions: read # CodeQL reads workflow run metadata
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - language: javascript-typescript
-            build-mode: none
-            os: ubuntu-latest
-          - language: swift
-            build-mode: manual
-            os: macos-latest
 
     steps:
       - name: Checkout
@@ -43,16 +41,11 @@ jobs:
       - name: Initialize CodeQL
         uses: github/codeql-action/init@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
         with:
-          languages: ${{ matrix.language }}
-          build-mode: ${{ matrix.build-mode }}
+          languages: javascript-typescript
+          build-mode: none
           queries: +security-extended
-
-      - name: Build Swift package
-        if: matrix.build-mode == 'manual'
-        working-directory: apps/macos
-        run: swift build
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4
         with:
-          category: "/language:${{ matrix.language }}"
+          category: "/language:javascript-typescript"
