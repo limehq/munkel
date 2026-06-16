@@ -46,11 +46,24 @@ for arch in ${=MUNKEL_ARCHS:-}; do
   arch_flags+=(--arch "$arch")
 done
 
+# Workaround for swiftlang/swift#88173: the SIL performance inliner segfaults
+# under -O when compiling a module that opts into approachable concurrency via
+# `-default-isolation MainActor`. KeyboardShortcuts 3.0 declares that in its own
+# manifest, so an optimized (release) build of the dependency crashes
+# swift-frontend on ObjectAssociation.deinit. Force -Onone for release until the
+# toolchain ships a fix — debug is already -Onone and so is unaffected.
+# swift-bundler forwards each --Xswiftpm value straight through to `swift build`.
+opt_workaround=()
+if [[ "$CONFIG" == "release" ]]; then
+  opt_workaround=(--Xswiftpm -Xswiftc --Xswiftpm -Onone)
+fi
+
 "$SWIFT_BUNDLER" bundle \
   --config-file "$CONFIG_DIR/Bundler.toml" \
   --configuration "$CONFIG" \
   --scratch-path .build \
-  "${arch_flags[@]}"
+  "${arch_flags[@]}" \
+  "${opt_workaround[@]}"
 
 # Swift Bundler writes to .build/bundler/apps/Munkel/Munkel.app; move it to the
 # path the rest of the pipeline (build-release.sh, README) expects.
