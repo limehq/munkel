@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.3](https://github.com/limehq/munkel/compare/v0.8.2...v0.8.3) (2026-06-17)
+
+
+### Bug Fixes
+
+* **release:** show the changelog inline in the Sparkle update dialog ([#57](https://github.com/limehq/munkel/issues/57)) ([d043c31](https://github.com/limehq/munkel/commit/d043c314ab3cf866696579f150eaa8653c9f19dd))
+
 ## [0.8.2](https://github.com/limehq/munkel/compare/v0.8.1...v0.8.2) (2026-06-17)
 
 
