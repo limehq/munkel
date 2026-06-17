@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.0](https://github.com/limehq/munkel/compare/v0.8.4...v0.9.0) (2026-06-17)
+
+
+### Features
+
+* one-call `munkel dm` for agents, app residency, reply timeout ([#61](https://github.com/limehq/munkel/issues/61)) ([6fd2fb2](https://github.com/limehq/munkel/commit/6fd2fb2bda4f650d02faa2a71c40462c26ec4a69))
+
 ## [0.8.4](https://github.com/limehq/munkel/compare/v0.8.3...v0.8.4) (2026-06-17)
 
 
