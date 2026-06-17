@@ -45,6 +45,11 @@ in the product changelog, which is intentional (one product, one version).
 Escape hatch: a manually pushed `v*` tag still triggers `release.yml`
 directly, bypassing release-please.
 
+Forcing a specific version: add a `Release-As: <x.y.z>` footer to any commit on
+`main` (e.g. a quick patch to exercise the in-app Sparkle updater). release-please
+then opens a release PR for exactly that version, updating the manifest and
+changelog, regardless of the commit's conventional type.
+
 The `version` fields in the workspace `package.json`s are irrelevant
 (`private: true`, never published to npm) and stay untouched.
 
