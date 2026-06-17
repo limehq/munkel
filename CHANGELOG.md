@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.4](https://github.com/limehq/munkel/compare/v0.8.3...v0.8.4) (2026-06-17)
+
+
+### Bug Fixes
+
+* **release:** stop build-brew-cask.sh executing backticks in the cask template ([#59](https://github.com/limehq/munkel/issues/59)) ([86410d6](https://github.com/limehq/munkel/commit/86410d6fe7a3a293e4a3787be950af0b7e019e8a))
+
 ## [0.8.3](https://github.com/limehq/munkel/compare/v0.8.2...v0.8.3) (2026-06-17)
 
 
