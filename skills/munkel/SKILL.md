@@ -34,7 +34,9 @@ munkel <circle> all <message…>       # broadcast to the whole circle
 ```
 
 `<circle>` is a code like `blue-table-42`; any unambiguous prefix works.
-Broadcast (`all`) always needs an explicit circle.
+Broadcast (`all`) always needs an explicit circle. If you can't tell which
+circle is the right one, ask — don't send to every candidate, or you'll notify
+the wrong people too.
 
 ## List circles (only when a send fails)
 
