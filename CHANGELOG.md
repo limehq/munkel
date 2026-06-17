@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.2](https://github.com/limehq/munkel/compare/v0.8.1...v0.8.2) (2026-06-17)
+
+
+### Documentation
+
+* **releasing:** document Release-As for forcing a version ([#55](https://github.com/limehq/munkel/issues/55)) ([d631913](https://github.com/limehq/munkel/commit/d6319131bcd6c9299357f485e3ee0f0cd792aed1))
+
 ## [0.8.1](https://github.com/limehq/munkel/compare/v0.8.0...v0.8.1) (2026-06-16)
 
 
