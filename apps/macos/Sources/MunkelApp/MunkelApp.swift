@@ -32,6 +32,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         model.updater = updater
         #endif
 
+        // Keep the app resident across logins so the `munkel` CLI's first send
+        // never pays app cold-start. Release-only and once: the dev build runs
+        // as "Munkel Dev" (own bundle id) and must not self-install, and a user
+        // who later opts out isn't re-enabled on the next launch.
+        #if !DEBUG
+        LoginItem.registerOnFirstLaunchIfNeeded()
+        #endif
+
         let hosting = NSHostingController(rootView: MenuView().environmentObject(model))
         hosting.sizingOptions = .preferredContentSize
         popover.contentViewController = hosting
