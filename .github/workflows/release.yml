@@ -103,6 +103,7 @@ jobs:
       - name: Generate Sparkle appcast
         env:
           SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }} # build-appcast.sh reads the release body + renders it via the markdown API
         run: |
           if [ -z "$SPARKLE_ED_PRIVATE_KEY" ]; then
             echo "::warning::SPARKLE_ED_PRIVATE_KEY not set — skipping appcast (auto-update feed not generated)"

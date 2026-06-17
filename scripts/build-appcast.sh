@@ -9,9 +9,16 @@
 # prebuilt tool from a pinned Sparkle release tarball, so there is no `swift run`
 # and no Keychain dependency in CI.
 #
+# Release notes are embedded inline as the item <description> (release-please's
+# changelog, rendered to HTML), so Sparkle's update dialog shows just the
+# changelog instead of loading the whole GitHub release page. Needs `gh` +
+# GH_TOKEN; falls back to a <sparkle:releaseNotesLink> if unavailable.
+#
 # Usage: scripts/build-appcast.sh <version> <dmg-path> [outfile]
 # Env:
 #   SPARKLE_ED_PRIVATE_KEY  base64 EdDSA private key (required)
+#   GH_TOKEN                token for `gh` (release body + markdown render) — set
+#                           to ${{ github.token }} in CI; optional locally
 #   SPARKLE_VERSION         Sparkle tools version (default below) — keep in sync
 #                           with the Sparkle SPM version in apps/macos/Package.swift
 set -euo pipefail
@@ -22,10 +29,11 @@ OUT="${3:-/dev/stdout}"
 : "${SPARKLE_ED_PRIVATE_KEY:?SPARKLE_ED_PRIVATE_KEY not set}"
 [[ -f "$DMG" ]] || { echo "dmg not found: $DMG" >&2; exit 1; }
 
+REPO="limehq/munkel"
 SPARKLE_VERSION="${SPARKLE_VERSION:-2.9.3}"
 MIN_OS="14.0"
-DMG_URL="https://github.com/limehq/munkel/releases/download/v${VERSION}/Munkel-${VERSION}.dmg"
-NOTES_URL="https://github.com/limehq/munkel/releases/tag/v${VERSION}"
+DMG_URL="https://github.com/${REPO}/releases/download/v${VERSION}/Munkel-${VERSION}.dmg"
+NOTES_URL="https://github.com/${REPO}/releases/tag/v${VERSION}"
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -48,6 +56,23 @@ rm -f "$KEYFILE"
 
 PUBDATE="$(LC_ALL=C date -u '+%a, %d %b %Y %H:%M:%S +0000')"
 
+# Release notes → inline <description>. Render the GitHub release body (the
+# release-please changelog) through GitHub's markdown API, wrap it in a small
+# dark-mode-aware HTML document, and embed it as CDATA. Anything missing (no
+# token, release object not created yet for a manual-tag build) degrades to the
+# release-page link rather than failing the build.
+notes_element="<sparkle:releaseNotesLink>${NOTES_URL}</sparkle:releaseNotesLink>"
+notes_md="$(gh release view "v${VERSION}" --repo "$REPO" --json body -q .body 2>/dev/null || true)"
+if [[ -n "$notes_md" ]]; then
+  notes_rendered="$(printf '%s' "$notes_md" \
+    | gh api --method POST /markdown -F text=@- -f mode=gfm -f context="$REPO" 2>/dev/null || true)"
+  if [[ -n "$notes_rendered" ]]; then
+    style='body{font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",sans-serif;font-size:13px;line-height:1.55;margin:0;padding:12px 16px}h1,h2,h3{font-weight:600;line-height:1.3;margin:.9em 0 .35em}h2{font-size:1.15em}h3{font-size:1em;opacity:.85}h2:first-child,h3:first-child{margin-top:0}ul{padding-left:1.25em;margin:.3em 0}li{margin:.2em 0}a{color:#2f81f7;text-decoration:none}code{font-family:ui-monospace,SFMono-Regular,monospace;font-size:.9em}'
+    notes_html="<!DOCTYPE html><html><head><meta charset=\"utf-8\"><meta name=\"color-scheme\" content=\"light dark\"><style>${style}</style></head><body>${notes_rendered}</body></html>"
+    notes_element="<description><![CDATA[${notes_html}]]></description>"
+  fi
+fi
+
 # sparkle:version and sparkle:shortVersionString are both the SemVer: the build
 # stamps CFBundleVersion == CFBundleShortVersionString == <version>, so Sparkle's
 # default comparator compares clean SemVers. Keep them aligned if that ever
@@ -66,7 +91,7 @@ cat > "$OUT" <<XML
       <sparkle:version>${VERSION}</sparkle:version>
       <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>${MIN_OS}</sparkle:minimumSystemVersion>
-      <sparkle:releaseNotesLink>${NOTES_URL}</sparkle:releaseNotesLink>
+      ${notes_element}
       <enclosure url="${DMG_URL}" type="application/octet-stream" ${SIG_ATTRS} />
     </item>
   </channel>
