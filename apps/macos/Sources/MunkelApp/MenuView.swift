@@ -133,6 +133,15 @@ struct MenuView: View {
                 Label("Install Command Line Tool…", systemImage: "terminal")
             }
             #endif
+            Divider()
+            // Bound to live SMAppService status, not @AppStorage: it reads back
+            // the real system state (incl. changes from System Settings › Login
+            // Items) and never crashes — `try?` snaps the toggle back to its
+            // true state if a register/unregister fails.
+            Toggle("Launch at Login", isOn: Binding(
+                get: { LoginItem.isEnabled },
+                set: { try? LoginItem.setEnabled($0) }
+            ))
             #if DEBUG
             Divider()
             Toggle("Echo my broadcasts to me", isOn: $devEchoBroadcasts)

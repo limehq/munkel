@@ -243,16 +243,24 @@ app: create one, tick **Enable Device Flow**, then either edit
 ## munkel CLI
 
 ```sh
+munkel dm sebil "deploy is green"   # notify one person — resolves the name across circles
 munkel circles                      # ● blue-table-42  —  Alex, Sam
-munkel blue-table-42 Alex hey       # direct delivery by display name
+munkel blue-table-42 Alex hey       # circle-scoped direct delivery (disambiguates a name)
 munkel blue-table-42 all "coffee?"  # circle broadcast
 ```
+
+`munkel dm <name> …` is the one-call path: the app resolves `<name>` (display
+name or key-id prefix) across every circle, so no `munkel circles` lookup is
+needed first. If the name is unknown or matches more than one circle the send
+fails with a message naming the candidates, so a single call self-corrects.
 
 The CLI is a thin client: it talks to the running app over
 `~/Library/Application Support/Munkel/control.sock` (newline-delimited
 JSON; see `ControlProtocol.swift`, mirrored in `apps/cli/src/munkel.ts`). If
 the app isn't running, the CLI launches it in the background (`open -g -b
-dev.uq.munkel`) and waits for the socket before sending. The
+dev.uq.munkel`) and waits for the socket before sending. The release app also
+registers itself as a login item on first launch (toggle under the menu's
+gear) so it stays resident and the first send skips cold-start. The
 socket path can be overridden via `MUNKEL_SOCKET` (used by the tests). The
 app resolves circle-code prefixes and recipient display names, and owns all
 crypto and relay connections, an ideal substrate for scripting and agent
