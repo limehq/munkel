@@ -9,4 +9,13 @@ extension KeyboardShortcuts.Name {
         "togglePalette",
         initial: .init(.m, modifiers: [.control, .command])
     )
+
+    /// Copy the hovered history row. A bare "C", no modifiers — only safe
+    /// because NotchPresenter keeps it disabled and enables it ONLY while a
+    /// history row is hovered and no reply is open, so it never swallows a "C"
+    /// typed elsewhere. Not user-rebindable: it's a contextual hover affordance.
+    static let copyHoveredHistory = Self(
+        "copyHoveredHistory",
+        initial: .init(.c)
+    )
 }

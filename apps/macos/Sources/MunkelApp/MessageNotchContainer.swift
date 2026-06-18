@@ -20,6 +20,20 @@ final class MessageDisplayModel: ObservableObject {
     @Published var history: [HistoryEntry] = []
     /// Click on the history area lifts the one-line truncation.
     @Published var historyExpanded = false
+    /// Which history row just had its text copied — drives the per-row
+    /// checkmark, independent of `copied` (the current message's button).
+    @Published var copiedHistoryID: UUID?
+    /// Which history row the pointer is over (nil = none). Lets NotchPresenter
+    /// enable the bare-"C" copy hotkey only while a row is hovered, and tells it
+    /// which row to copy when "C" is pressed.
+    @Published var hoveredHistoryID: UUID?
+    /// Hover-revealed per-row copy hit targets. The glyph itself is a plain
+    /// visual (CopyGlyph); the AppKit click monitor in NotchPresenter matches
+    /// clicks against these frames — just like historyMarker/replyMarker —
+    /// so the right row copies without a SwiftUI Button stealing the click.
+    /// A row registers its target only while hovered, so a non-hovered row's
+    /// trailing area still falls through to the expand toggle.
+    var historyCopyTargets: [HistoryCopyTarget] = []
     /// Marker views registered by the container so NotchPresenter's click
     /// monitor can match clicks against their frames. NSHostingView's
     /// hitTest doesn't surface embedded NSViews, so frames it is.
@@ -31,15 +45,65 @@ final class MessageDisplayModel: ObservableObject {
     weak var teaserMarker: NSView?
 
     func copy(_ text: String) {
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.setString(text, forType: .string)
-
+        writePasteboard(text)
         withAnimation(.spring(duration: 0.3)) { copied = true }
         Task {
             try? await Task.sleep(for: .seconds(1.5))
             withAnimation(.spring(duration: 0.3)) { copied = false }
         }
+    }
+
+    /// Copy one history row, flashing the checkmark on that row alone.
+    func copyHistory(id: UUID, text: String) {
+        writePasteboard(text)
+        withAnimation(.spring(duration: 0.3)) { copiedHistoryID = id }
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            // Only clear if this row is still the one showing the checkmark,
+            // so a fresh copy on another row isn't cut short.
+            if copiedHistoryID == id {
+                withAnimation(.spring(duration: 0.3)) { copiedHistoryID = nil }
+            }
+        }
+    }
+
+    /// Register a row's copy hit target (called from the hover-revealed glyph).
+    /// Replaces any prior target for the same row and drops dead ones, so the
+    /// list never grows past the handful of rows hovered in one panel's life.
+    func registerHistoryCopy(id: UUID, text: String, view: NSView) {
+        historyCopyTargets.removeAll { $0.view == nil || $0.id == id }
+        historyCopyTargets.append(HistoryCopyTarget(id: id, text: text, view: view))
+    }
+
+    /// Copy whichever history row the pointer is over — the target of the
+    /// hover-only "C" shortcut. No-op if nothing is hovered.
+    func copyHoveredHistory() {
+        guard let id = hoveredHistoryID,
+              let entry = history.first(where: { $0.id == id }) else { return }
+        copyHistory(id: id, text: entry.text)
+    }
+
+    private func writePasteboard(_ text: String) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.setString(text, forType: .string)
+    }
+}
+
+/// A hover-revealed copy affordance on a history row. Holds the row's id and
+/// text plus a weak reference to the marker NSView laid out under the glyph;
+/// NotchPresenter's click monitor copies the row whose view contains the
+/// click. Weak view: once the row un-hovers the marker leaves the hierarchy
+/// and this target goes stale (matched against nothing, pruned on next use).
+final class HistoryCopyTarget {
+    let id: UUID
+    let text: String
+    weak var view: NSView?
+
+    init(id: UUID, text: String, view: NSView) {
+        self.id = id
+        self.text = text
+        self.view = view
     }
 }
 
@@ -146,7 +210,10 @@ struct MessageNotchContainer: View {
     /// right under the main view. Rows vanish live once they expire
     /// (pruned by NotchPresenter).
     private var historyRows: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        // Zero spacing so the rows' hover zones (each glyph-tall, taller than
+        // the text — see HistoryRow) meet edge to edge: no dead gap between rows
+        // where the copy glyph would flicker off, and the list stays compact.
+        VStack(alignment: .leading, spacing: 0) {
             Rectangle()
                 .fill(.white.opacity(0.15))
                 .frame(height: 1)
@@ -155,13 +222,7 @@ struct MessageNotchContainer: View {
                 expandedHistory
             } else {
                 ForEach(model.history.reversed()) { entry in
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        historyHeader(for: entry)
-                        Text(entry.text)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.55))
-                            .lineLimit(1)
-                    }
+                    HistoryRow(model: model, entry: entry, expanded: false)
                 }
             }
         }
@@ -170,7 +231,9 @@ struct MessageNotchContainer: View {
         .contentShape(Rectangle())
         // The click itself is handled by NotchPresenter's AppKit monitor,
         // which matches click coordinates against this marker's frame to
-        // tell "expand history" apart from "start a reply".
+        // tell "expand history" apart from "start a reply" — and, when a row
+        // is hovered, against that row's copy target (checked first) to copy
+        // it instead of toggling.
         .background(AreaMarker { [weak model] in model?.historyMarker = $0 })
         .animation(.spring(duration: 0.3), value: model.history)
         .animation(.spring(duration: 0.3), value: model.historyExpanded)
@@ -183,16 +246,12 @@ struct MessageNotchContainer: View {
     private var expandedHistory: some View {
         let cap = (NSScreen.main?.frame.height ?? 900) / 3
         return ScrollView {
-            VStack(alignment: .leading, spacing: 3) {
+            // Zero spacing for the same reason as the collapsed list: contiguous,
+            // glyph-tall hover zones with no dead gap (each expanded row adds its
+            // own in-zone bottom inset for readability — see HistoryRow).
+            VStack(alignment: .leading, spacing: 0) {
                 ForEach(model.history.reversed()) { entry in
-                    VStack(alignment: .leading, spacing: 1) {
-                        historyHeader(for: entry)
-                        Text(entry.text)
-                            .font(.system(size: 11))
-                            .foregroundStyle(.white.opacity(0.55))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .padding(.bottom, 2)
+                    HistoryRow(model: model, entry: entry, expanded: true)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -204,21 +263,6 @@ struct MessageNotchContainer: View {
         }
         .frame(height: historyHeight == 0 ? nil : min(historyHeight, cap))
         .onPreferenceChange(HistoryHeightKey.self) { historyHeight = $0 }
-    }
-
-    /// Dot, sender and channel icon of one history row.
-    private func historyHeader(for entry: HistoryEntry) -> some View {
-        HStack(spacing: 4) {
-            Circle()
-                .fill(entry.groupColor)
-                .frame(width: 5, height: 5)
-            Text(entry.sender)
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.4))
-            Image(systemName: entry.isDirect ? "lock.fill" : "globe")
-                .font(.system(size: 8))
-                .foregroundStyle(.white.opacity(0.3))
-        }
     }
 
     /// Inline reply. Return sends, Escape dismisses; focus lands here as
@@ -332,6 +376,128 @@ struct MessageNotchContainer: View {
     private var avatarOffsetY: CGFloat {
         -(notchSize.height + avatarSize) / 2
     }
+}
+
+/// One history row: sender header plus the message text (one line collapsed,
+/// full when expanded), with a copy glyph that fades in on hover. The glyph is
+/// purely visual — clicking it is caught by NotchPresenter's event monitor,
+/// which matches the hover-registered hit target laid out beneath the glyph.
+private struct HistoryRow: View {
+    @ObservedObject var model: MessageDisplayModel
+    let entry: HistoryEntry
+    /// Expanded shows the full (wrapping) text; collapsed clamps to one line.
+    let expanded: Bool
+
+    @State private var hovering = false
+
+    /// Matches the current message's own copy button. The slot is always
+    /// reserved (opacity, not layout, hides it), so this also sets the
+    /// collapsed one-line row height — a deliberate trade for a comfortably
+    /// sized, easy-to-hit target over maximum density.
+    private let glyphDiameter: CGFloat = 20
+
+    var body: some View {
+        Group {
+            if expanded {
+                HStack(alignment: .top, spacing: 4) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        header
+                        text.fixedSize(horizontal: false, vertical: true)
+                    }
+                    Spacer(minLength: 4)
+                    glyph
+                }
+                // A little air between full-text rows, kept inside the hover
+                // zone so it adds no dead gap. Collapsed rows skip it to stay tight.
+                .padding(.bottom, 4)
+            } else {
+                HStack(spacing: 4) {
+                    HStack(alignment: .firstTextBaseline, spacing: 4) {
+                        header
+                        text.lineLimit(1)
+                    }
+                    Spacer(minLength: 4)
+                    glyph
+                }
+            }
+        }
+        // No outer padding — the row is already glyph-tall (≥20pt), so its hover
+        // zone sits a few points above and below the text. With zero spacing
+        // between rows (see historyRows) the zones meet edge to edge, so the
+        // glyph appears as soon as the pointer is in the history block — no need
+        // to land exactly on the text — while collapsed rows stay compact.
+        .contentShape(Rectangle())
+        // Hover gates the glyph, its click target, AND the bare-"C" copy
+        // shortcut (NotchPresenter watches hoveredHistoryID). An un-hovered
+        // row's trailing area still toggles the history via the monitor.
+        .onHover { inside in
+            hovering = inside
+            if inside {
+                model.hoveredHistoryID = entry.id
+            } else if model.hoveredHistoryID == entry.id {
+                // Only clear if we're still the hovered row: moving to an
+                // adjacent row, its enter can land before this leave.
+                model.hoveredHistoryID = nil
+            }
+        }
+    }
+
+    /// Dot, sender and channel icon of the row.
+    private var header: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(entry.groupColor)
+                .frame(width: 5, height: 5)
+            Text(entry.sender)
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(.white.opacity(0.4))
+            Image(systemName: entry.isDirect ? "lock.fill" : "globe")
+                .font(.system(size: 8))
+                .foregroundStyle(.white.opacity(0.3))
+        }
+    }
+
+    private var text: some View {
+        Text(entry.text)
+            .font(.system(size: 11))
+            .foregroundStyle(.white.opacity(0.55))
+    }
+
+    /// Copy affordance: hidden until hover (or while its checkmark lingers),
+    /// always reserving its slot so the text doesn't reflow on reveal. The
+    /// hit target only exists while hovered — NotchPresenter copies the row
+    /// whose target the click lands in.
+    private var glyph: some View {
+        let isCopied = model.copiedHistoryID == entry.id
+        let show = hovering || isCopied
+        return CopyGlyph(copied: isCopied, diameter: glyphDiameter)
+            .opacity(show ? 1 : 0)
+            .background {
+                if hovering {
+                    HistoryCopyHitTarget(id: entry.id, text: entry.text) { [weak model] id, text, view in
+                        model?.registerHistoryCopy(id: id, text: text, view: view)
+                    }
+                }
+            }
+            .animation(.easeInOut(duration: 0.12), value: show)
+    }
+}
+
+/// Invisible NSView laid out under a history row's copy glyph. Like AreaMarker
+/// but carries the row id and text, registered into the model so the click
+/// monitor can copy the matching row (NSHostingView's hitTest can't surface it).
+private struct HistoryCopyHitTarget: NSViewRepresentable {
+    let id: UUID
+    let text: String
+    let register: (UUID, String, NSView) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        register(id, text, view)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
 /// Invisible real NSView laid out behind an area of the notch. It only
