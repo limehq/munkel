@@ -119,6 +119,19 @@ final class CommandPaletteState: ObservableObject {
             }
         }
     }
+
+    /// Tab navigation: cycle forward/backward through recipients, skipping within-circle
+    /// navigation for a streamlined flow. Forward wraps globally; backward does likewise.
+    func moveTab(backward: Bool) {
+        let r = recipients
+        guard !r.isEmpty else { return }
+
+        if backward {
+            selectedIndex = selectedIndex == 0 ? r.count - 1 : selectedIndex - 1
+        } else {
+            selectedIndex = selectedIndex == r.count - 1 ? 0 : selectedIndex + 1
+        }
+    }
 }
 
 extension Collection {

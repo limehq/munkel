@@ -80,7 +80,8 @@ final class CommandPalettePresenter {
     /// Arrow keys are a full D-pad over the target chips while the message
     /// field keeps focus: left/right within a circle, up/down between
     /// circles. All four are consumed (return nil) so they don't move the
-    /// text cursor. Return (onSubmit) sends and Esc (onExitCommand) closes.
+    /// text cursor. Tab/Shift+Tab cycle through all recipients. Return (onSubmit)
+    /// sends and Esc (onExitCommand) closes.
     private func installKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
@@ -96,6 +97,10 @@ final class CommandPalettePresenter {
                 }
                 if let dir {
                     self.state.move(dir)
+                    consumed = true
+                } else if event.keyCode == 48 { // Tab key
+                    let backward = event.modifierFlags.contains(.shift)
+                    self.state.moveTab(backward: backward)
                     consumed = true
                 }
             }
