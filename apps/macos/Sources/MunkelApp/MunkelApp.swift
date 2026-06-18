@@ -9,6 +9,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private var model: AppModel?
+    /// Sparkle auto-updater, retained for the process lifetime. Release-only —
+    /// nil in the dev build, which must not update the installed release.
+    private var updater: UpdaterController?
     /// Guards against the transient-popover flicker: clicking the status
     /// button while open first closes the popover (outside click on
     /// mouseDown), then fires the action (mouseUp) — which would reopen it.
@@ -21,6 +24,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         let model = AppModel()
         self.model = model
 
+        // Sparkle auto-updates. Release-only: the dev build runs as "Munkel Dev"
+        // with its own bundle id and must not update the installed release.
+        #if !DEBUG
+        let updater = UpdaterController()
+        self.updater = updater
+        model.updater = updater
+        #endif
+
+        // Keep the app resident across logins so the `munkel` CLI's first send
+        // never pays app cold-start. Release-only and once: the dev build runs
+        // as "Munkel Dev" (own bundle id) and must not self-install, and a user
+        // who later opts out isn't re-enabled on the next launch.
+        #if !DEBUG
+        LoginItem.registerOnFirstLaunchIfNeeded()
+        #endif
+
         let hosting = NSHostingController(rootView: MenuView().environmentObject(model))
         hosting.sizingOptions = .preferredContentSize
         popover.contentViewController = hosting
@@ -31,10 +50,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.delegate = self
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        #if DEBUG
+        // The debug build runs as "Munkel Dev" next to an installed release; a
+        // distinct icon tells the two menu-bar items apart at a glance.
+        item.button?.image = NSImage(
+            systemSymbolName: "ladybug.fill",
+            accessibilityDescription: "Munkel Dev"
+        )
+        #else
         item.button?.image = NSImage(
             systemSymbolName: "bubble.left.and.bubble.right.fill",
             accessibilityDescription: "Munkel"
         )
+        #endif
         item.button?.target = self
         item.button?.action = #selector(togglePopover(_:))
         statusItem = item
@@ -48,6 +76,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         if popover.isShown {
             popover.performClose(sender)
         } else if Date().timeIntervalSince(lastClose) > 0.2 {
+            // A status-item click does not activate an accessory (LSUIElement)
+            // app, and a transient popover shown by an inactive app dismisses
+            // itself on the very next event — so it flickers open and shut.
+            // Activating first makes the popover's window key for real and
+            // keeps it open until the user clicks away.
+            NSApp.activate(ignoringOtherApps: true)
             popover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .minY)
             let window = popover.contentViewController?.view.window
             window?.makeKey()

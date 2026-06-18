@@ -1,7 +1,9 @@
 name: Release
 
-# Tag push (v0.2.0) → universal build → Developer ID signing → notarization
-# → stapling → GitHub release → cask bump in limehq/homebrew-tap.
+# Tag push (v0.2.0) → universal build (app with the munkel CLI embedded) →
+# Developer ID signing → notarization → staple app → drag-to-Applications DMG →
+# notarize + staple DMG → EdDSA-signed Sparkle appcast → GitHub release →
+# cask bump in limehq/homebrew-tap.
 #
 # Required repository secrets (see RELEASING.md for how to create each):
 #   MACOS_CERTIFICATE_P12       base64 of the Developer ID Application .p12
@@ -9,6 +11,7 @@ name: Release
 #   APPLE_API_KEY_P8            base64 of the App Store Connect API key (.p8)
 #   APPLE_API_KEY_ID            10-char key ID
 #   APPLE_API_ISSUER_ID         issuer UUID
+#   SPARKLE_ED_PRIVATE_KEY      base64 EdDSA private key that signs the appcast
 #   TAP_GITHUB_TOKEN            PAT with push access to limehq/homebrew-tap
 
 on:
@@ -26,7 +29,9 @@ env:
 
 jobs:
   release:
-    runs-on: [self-hosted, macOS, ARM64]
+    # macos-26 for Swift 6.2 (the app build compiles the Swift package, which
+    # depends on KeyboardShortcuts 3.x — needs swift-tools 6.2 / Xcode 26).
+    runs-on: macos-26
     # Least privilege: writes live on the job, not the workflow top level.
     permissions:
       contents: write # upload artifacts to the GitHub release
@@ -61,7 +66,7 @@ jobs:
           security list-keychains -d user -s build.keychain login.keychain
           rm cert.p12
 
-      - name: Build, sign, zip
+      - name: Build & sign app
         env:
           CODESIGN_IDENTITY: ${{ vars.CODESIGN_IDENTITY }}
         run: |
@@ -69,50 +74,71 @@ jobs:
           scripts/build-release.sh "$VERSION"
           echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
-      - name: Notarize and staple
+      - name: Notarize, staple, and build DMG
         env:
           API_KEY_P8: ${{ secrets.APPLE_API_KEY_P8 }}
           API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           API_ISSUER_ID: ${{ secrets.APPLE_API_ISSUER_ID }}
         run: |
           echo "$API_KEY_P8" | base64 --decode > AuthKey.p8
-          xcrun notarytool submit "dist/Munkel-$VERSION.zip" \
-            --key AuthKey.p8 --key-id "$API_KEY_ID" \
-            --issuer "$API_ISSUER_ID" --wait
-          rm AuthKey.p8
-          # A zip cannot be stapled — staple the .app, then re-zip. The bare
-          # CLI binary cannot be stapled either; Gatekeeper checks its
-          # notarization ticket online, which is normal for cask binaries.
+          notarize() {
+            xcrun notarytool submit "$1" \
+              --key AuthKey.p8 --key-id "$API_KEY_ID" \
+              --issuer "$API_ISSUER_ID" --wait
+          }
+          # Notarize the app (submitted as a zip — notarytool needs a container),
+          # then staple the ticket onto the .app so it launches offline once
+          # dragged out of the DMG. The embedded munkel CLI is covered by the
+          # same notarization and staple — no online check, unlike a bare binary.
+          notarize "dist/Munkel-$VERSION.zip"
           xcrun stapler staple dist/stage/Munkel.app
           spctl -a -vv dist/stage/Munkel.app
-          cd dist/stage
-          /usr/bin/ditto -c -k . "../Munkel-$VERSION.zip"
+          # Build the drag-to-Applications DMG from the stapled app, then
+          # notarize and staple the DMG itself so it opens without a warning.
+          scripts/build-dmg.sh "$VERSION"
+          notarize "dist/Munkel-$VERSION.dmg"
+          xcrun stapler staple "dist/Munkel-$VERSION.dmg"
+          rm AuthKey.p8
+
+      - name: Generate Sparkle appcast
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
+          GH_TOKEN: ${{ github.token }} # build-appcast.sh reads the release body + renders it via the markdown API
+        run: |
+          if [ -z "$SPARKLE_ED_PRIVATE_KEY" ]; then
+            echo "::warning::SPARKLE_ED_PRIVATE_KEY not set — skipping appcast (auto-update feed not generated)"
+            exit 0
+          fi
+          # EdDSA-sign the notarized + stapled DMG and render appcast.xml. Uploaded
+          # below and served via munkel.app/appcast.xml (the app's SUFeedURL).
+          scripts/build-appcast.sh "$VERSION" "dist/Munkel-$VERSION.dmg" "dist/appcast.xml"
 
       - name: Checksum release artifact
-        run: shasum -a 256 "dist/Munkel-$VERSION.zip" | tee "dist/Munkel-$VERSION.zip.sha256"
+        run: shasum -a 256 "dist/Munkel-$VERSION.dmg" | tee "dist/Munkel-$VERSION.dmg.sha256"
 
       - name: Attest release artifact
         id: attest
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
-          subject-path: dist/Munkel-${{ env.VERSION }}.zip
+          subject-path: dist/Munkel-${{ env.VERSION }}.dmg
 
       - name: Publish provenance bundle as a release asset
         # The attestation also lands in GitHub's attestation store, but consumers
         # (and OpenSSF Scorecard) only see release assets — ship the Sigstore
-        # bundle alongside the zip so the release is verifiably signed offline.
-        run: cp "${{ steps.attest.outputs.bundle-path }}" "dist/Munkel-$VERSION.zip.sigstore.json"
+        # bundle alongside the DMG so the release is verifiably signed offline.
+        run: cp "${{ steps.attest.outputs.bundle-path }}" "dist/Munkel-$VERSION.dmg.sigstore.json"
 
       - name: Upload artifact to GitHub release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
           # release-please already created the release with changelog notes;
-          # this only attaches the zip (softprops upserts by tag).
+          # this only attaches the DMG (softprops upserts by tag).
           tag_name: ${{ github.ref_name }}
           files: |
-            dist/Munkel-${{ env.VERSION }}.zip
-            dist/Munkel-${{ env.VERSION }}.zip.sha256
-            dist/Munkel-${{ env.VERSION }}.zip.sigstore.json
+            dist/Munkel-${{ env.VERSION }}.dmg
+            dist/Munkel-${{ env.VERSION }}.dmg.sha256
+            dist/Munkel-${{ env.VERSION }}.dmg.sigstore.json
+            dist/appcast.xml
 
       - name: Bump cask in homebrew-tap
         env:
@@ -122,7 +148,7 @@ jobs:
             echo "::warning::TAP_GITHUB_TOKEN not set — skipping cask bump (tap repo not wired up yet)"
             exit 0
           fi
-          SHA256="$(shasum -a 256 "dist/Munkel-$VERSION.zip" | awk '{print $1}')"
+          SHA256="$(shasum -a 256 "dist/Munkel-$VERSION.dmg" | awk '{print $1}')"
           git clone "https://x-access-token:$GH_TOKEN@github.com/limehq/homebrew-tap.git" tap
           mkdir -p tap/Casks
           scripts/build-brew-cask.sh "$VERSION" "$SHA256" tap/Casks/munkel.rb

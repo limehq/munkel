@@ -3,6 +3,7 @@
 	"version": "0.0.1",
 	"private": true,
 	"scripts": {
+		"dev": "./make-bundle.sh && (pkill -x MunkelDev 2>/dev/null || true) && (nohup .build/MunkelDev.app/Contents/MacOS/MunkelDev >/dev/null 2>&1 &)",
 		"build": "./make-bundle.sh",
 		"build:release": "MUNKEL_ARCHS='arm64 x86_64' ./make-bundle.sh release",
 		"test": "swift test"

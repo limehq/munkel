@@ -4,7 +4,7 @@
 // socket; the app owns the relay connections and the crypto.
 
 import { homedir } from "node:os"
-import { join } from "node:path"
+import { basename, join } from "node:path"
 
 // Mirrors MunkelKit/ControlProtocol.swift: newline-delimited JSON,
 // one request/response per connection.
@@ -27,13 +27,40 @@ interface ControlResponse {
   groups?: ControlGroupInfo[]
 }
 
+// `MUNKEL_DEV=1` (or a binary named `munkel-dev`) targets the parallel "Munkel
+// Dev" app instead of the installed release — its own control socket and bundle
+// id. Mirrors apps/macos (make-bundle.sh / ControlProtocol). The dev build does
+// not embed the CLI, so in development run it from source:
+//   MUNKEL_DEV=1 bun apps/cli/src/munkel.ts <args>
+const devMode =
+  process.env.MUNKEL_DEV === "1" || basename(process.execPath).startsWith("munkel-dev")
+
 const socketPath =
   process.env.MUNKEL_SOCKET ??
-  join(homedir(), "Library", "Application Support", "Munkel", "control.sock")
+  join(homedir(), "Library", "Application Support", devMode ? "Munkel Dev" : "Munkel", "control.sock")
 
 function fail(message: string, code = 1): never {
   console.error(`munkel: ${message}`)
   process.exit(code)
+}
+
+// Mirrors MessageLimits.maxCharacters in the macOS app.
+const MAX_MESSAGE_CHARS = 2048
+
+// Everything after the recipient is one message joined with spaces; quoting is
+// only needed for shell metacharacters.
+function joinMessage(parts: string[]): string {
+  const text = parts.join(" ")
+  if (text.length > MAX_MESSAGE_CHARS) {
+    fail(`message too long (${text.length} > ${MAX_MESSAGE_CHARS} characters)`, 64)
+  }
+  return text
+}
+
+function formatGroup(group: ControlGroupInfo): string {
+  const status = group.connected ? "●" : "○"
+  const members = group.members.length === 0 ? "no one else online" : group.members.join(", ")
+  return `${status} ${group.code}  —  ${members}`
 }
 
 // Stamped at compile time by build-release.sh via `bun build --define`;
@@ -43,12 +70,17 @@ const version = typeof MUNKEL_BUILD_VERSION === "string" ? MUNKEL_BUILD_VERSION 
 
 const usage = `munkel — munkel into your friends' notches
 
-  munkel <circle> <recipient|all> <message…>      Send a message
-  munkel circles                                 Show your circles & members
+  munkel dm <recipient> <message…>                Notify one person (resolved across circles)
+  munkel <circle> <recipient|all> <message…>      Send within a circle, or broadcast with 'all'
+  munkel circles [--json]                         Show your circles & members
 
 Examples:
+  munkel dm sebil "deploy is green"
   munkel blue-table-42 Alex hey
-  munkel blue-table-42 all "coffee?"`
+  munkel blue-table-42 all "coffee?"
+
+Exit codes: 0 ok · 64 usage · 75 app didn't reply · 1 other failure
+MUNKEL_SOCKET overrides the control socket; MUNKEL_DEV=1 targets the dev app.`
 
 const args = process.argv.slice(2)
 
@@ -63,11 +95,23 @@ if (["-v", "--version", "version"].includes(args[0])) {
 }
 
 let request: ControlRequest
+let jsonOutput = false
 // `circles` is the documented command; `groups` stays as a back-compat
 // alias. The wire action remains "groups" (see ControlProtocol.swift).
 if (args[0] === "circles" || args[0] === "groups") {
   request = { action: "groups" }
+  jsonOutput = args.includes("--json")
+} else if (args[0] === "dm") {
+  // `munkel dm <recipient> <message…>` — recipient-only send. The app
+  // resolves the name across every circle, so an agent can notify someone in
+  // a single call without first listing circles.
+  if (args.length < 3) {
+    fail("usage: munkel dm <recipient> <message…>", 64)
+  }
+  request = { action: "send", to: args[1], text: joinMessage(args.slice(2)) }
 } else {
+  // `munkel <circle> <recipient|all> <message…>` — circle-scoped send;
+  // required for broadcasts and to disambiguate a name across circles.
   if (args.length < 3) {
     fail("usage: munkel <circle> <recipient|all> <message…>", 64)
   }
@@ -75,7 +119,7 @@ if (args[0] === "circles" || args[0] === "groups") {
     action: "send",
     group: args[0],
     to: args[1],
-    text: args.slice(2).join(" "),
+    text: joinMessage(args.slice(2)),
   }
 }
 
@@ -115,7 +159,8 @@ function connectOnce() {
 // by the tests to stand up a fake app).
 async function launchApp(): Promise<void> {
   const override = process.env.MUNKEL_LAUNCH_CMD
-  const command = override ? ["sh", "-c", override] : ["open", "-g", "-b", "dev.uq.munkel"]
+  const bundleId = devMode ? "dev.uq.munkel.debug" : "dev.uq.munkel"
+  const command = override ? ["sh", "-c", override] : ["open", "-g", "-b", bundleId]
   const proc = Bun.spawn(command, { stdout: "ignore", stderr: "pipe" })
   if ((await proc.exited) !== 0) {
     const detail = (await new Response(proc.stderr).text()).trim()
@@ -158,16 +203,44 @@ if (!socket) {
 
 socket.write(JSON.stringify(request) + "\n")
 
+// Bound the wait for a reply. `firstLine` only settles on a newline, EOF or
+// socket error, so an app that accepts the connection but never answers would
+// otherwise hang the caller — and any agent turn driving it — indefinitely.
+// MUNKEL_RESPONSE_TIMEOUT_MS lets the tests shrink the bound.
+const parsedTimeout = Number(process.env.MUNKEL_RESPONSE_TIMEOUT_MS)
+const responseTimeoutMs = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 4000
+let responseTimer: ReturnType<typeof setTimeout> | undefined
+const responseTimeout = new Promise<never>((_, reject) => {
+  responseTimer = setTimeout(() => reject(new Error("timeout")), responseTimeoutMs)
+})
+
 let response: ControlResponse
 try {
-  response = JSON.parse(await firstLine)
-} catch {
+  response = JSON.parse(await Promise.race([firstLine, responseTimeout]))
+} catch (error) {
+  socket.end()
+  if (error instanceof Error && error.message === "timeout") {
+    // EX_TEMPFAIL (75): app is up but didn't answer in time; a retry may work.
+    fail("the Munkel app accepted the connection but never replied — it may be busy; try again", 75)
+  }
   fail("No valid response from the app")
+} finally {
+  clearTimeout(responseTimer)
 }
 socket.end()
 
 if (!response.ok) {
+  // An error can carry the candidate circles (e.g. an ambiguous `dm`
+  // recipient) so a single failed call is self-correcting — surface them.
+  for (const group of response.groups ?? []) {
+    console.error(`  ${formatGroup(group)}`)
+  }
   fail(response.error ?? "Unknown error")
+}
+
+if (jsonOutput) {
+  console.log(JSON.stringify(response.groups ?? []))
+  process.exit(0)
 }
 
 if (response.groups) {
@@ -175,10 +248,7 @@ if (response.groups) {
     console.log("No circles yet — create one in the Munkel app")
   }
   for (const group of response.groups) {
-    const status = group.connected ? "●" : "○"
-    const members =
-      group.members.length === 0 ? "no one else online" : group.members.join(", ")
-    console.log(`${status} ${group.code}  —  ${members}`)
+    console.log(formatGroup(group))
   }
 } else {
   console.log("munkeled ✓")

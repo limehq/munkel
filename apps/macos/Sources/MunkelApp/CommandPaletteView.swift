@@ -1,78 +1,37 @@
 import SwiftUI
 
-/// The command palette: phase 1 picks a recipient across all circles, phase
-/// 2 composes the message. Return advances/sends, Esc steps back or closes.
+/// Compact, app-like quick-send palette: circle sections with globe/avatar
+/// target chips, a message field pinned at the bottom. ↑↓ or click picks the
+/// target, typing composes, Return sends, Esc closes.
 struct CommandPaletteView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var state: CommandPaletteState
     let onClose: () -> Void
 
+    @FocusState private var focused: Bool
+    @State private var listHeight: CGFloat = 0
+
+    private let width: CGFloat = 380
+    private let maxListHeight: CGFloat = 360
+
     var body: some View {
         VStack(spacing: 0) {
-            if let target = state.target {
-                ComposeView(target: target, state: state, send: send)
-            } else {
-                PickerView(model: model, state: state, onClose: onClose, commit: commit)
-            }
+            content
+            Divider()
+            composer
         }
-        .frame(width: 640, height: 440)
-        .background(.regularMaterial)
+        .frame(width: width)
+        // Behind-window vibrancy like Spotlight (and the menu-bar popover),
+        // instead of SwiftUI's flatter, grayer within-window .regularMaterial.
+        .background(VisualEffectView(material: .popover, blendingMode: .behindWindow))
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .strokeBorder(.white.opacity(0.08), lineWidth: 1)
         )
         // Capture-proof root (backup to the panel's sharingType): the palette
-        // shows circle codes, names and the draft. Stays at the root, never
-        // inside the if/else branch, or a frame could flush before exclusion.
+        // shows circle codes, names and the draft.
         .excludedFromScreenCapture()
-    }
-
-    private func commit() {
-        guard let recipient = state.selectedRecipient else { return }
-        state.target = recipient
-        state.query = ""
-        state.selectedIndex = 0
-    }
-
-    private func send() {
-        let text = state.message.trimmingCharacters(in: .whitespaces)
-        guard !text.isEmpty, let target = state.target else { return }
-        model.send(text: text, group: target.circle, to: target.memberId)
-        onClose()
-    }
-}
-
-// MARK: - Phase 1: pick a recipient
-
-private struct PickerView: View {
-    @ObservedObject var model: AppModel
-    @ObservedObject var state: CommandPaletteState
-    let onClose: () -> Void
-    let commit: () -> Void
-    @FocusState private var focused: Bool
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                Image(systemName: "paperplane")
-                    .font(.title2)
-                    .foregroundStyle(.secondary)
-                TextField("Send to… (name or circle)", text: $state.query)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 22, weight: .regular))
-                    .focused($focused)
-                    .onSubmit(commit)
-                    .onExitCommand(perform: onClose)
-                    .onChange(of: state.query) { state.selectedIndex = 0 }
-            }
-            .padding(.horizontal, 20)
-            .frame(height: 60)
-
-            Divider()
-
-            recipientList
-        }
         .onAppear {
             // The panel is mid makeKey on first show; a synchronous focus
             // write is lost. Defer one tick — same trick as the notch reply.
@@ -81,151 +40,236 @@ private struct PickerView: View {
                 focused = true
             }
         }
-        // Keep the selection in range when the list shrinks under it — a peer
-        // leaving or a logout mutates filteredRecipients with no query change,
-        // which would otherwise strand the highlight past the end.
-        .onChange(of: state.filteredRecipients.count) { _, count in
+        // Keep the selection in range when the list shrinks under it (a peer
+        // leaving or logout mutates recipients with no user action).
+        .onChange(of: state.recipients.count) { _, count in
             state.selectedIndex = min(state.selectedIndex, max(0, count - 1))
         }
+    }
+
+    // MARK: - Target chips, grouped by circle
+
+    @ViewBuilder
+    private var content: some View {
+        if state.recipients.isEmpty {
+            Text(emptyMessage)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 28)
+                .padding(.horizontal, 16)
+        } else {
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 12) {
+                        ForEach(sections, id: \.circle) { section in
+                            circleSection(section)
+                        }
+                    }
+                    // Without full-width leading, the VStack shrinks to its
+                    // widest row and the ScrollView centers it — which reads
+                    // as a big left gap no padding can fix.
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 12)
+                    .background(
+                        GeometryReader { geo in
+                            Color.clear.preference(key: ListHeightKey.self, value: geo.size.height)
+                        }
+                    )
+                }
+                // Height nil until measured: a 0 would collapse the list to
+                // an invisible strip inside the preferredContentSize panel
+                // (same trick as the in-app menu's circle list).
+                .frame(height: listHeight == 0 ? nil : min(listHeight, maxListHeight))
+                .onPreferenceChange(ListHeightKey.self) { listHeight = $0 }
+                .onChange(of: state.selectedIndex) {
+                    withAnimation(.easeOut(duration: 0.15)) {
+                        proxy.scrollTo(state.selectedIndex, anchor: .center)
+                    }
+                }
+            }
+        }
+    }
+
+    private func circleSection(_ section: Section) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 6) {
+                Circle()
+                    .fill(model.session(for: section.circle)?.isConnected == true ? Color.green : Color.orange)
+                    .frame(width: 7, height: 7)
+                Text(section.circle)
+                    .font(.system(.caption, design: .monospaced).weight(.semibold))
+                    .foregroundStyle(.secondary)
+            }
+
+            FlowLayout(spacing: 6) {
+                ForEach(section.items, id: \.index) { item in
+                    chip(item.recipient, index: item.index)
+                        .id(item.index)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private func chip(_ recipient: Recipient, index: Int) -> some View {
+        let selected = index == state.selectedIndex
+        return Button {
+            state.selectedIndex = index
+            focused = true
+        } label: {
+            HStack(spacing: 5) {
+                if recipient.isEveryone {
+                    Image(systemName: "globe")
+                        .font(.system(size: 12))
+                        .frame(width: 18, height: 18)
+                } else {
+                    AvatarView(name: recipient.label, imageData: recipient.avatar, size: 18)
+                }
+                Text(recipient.isEveryone ? "Everyone" : recipient.label)
+                    .font(.system(size: 12, weight: .medium))
+                    .lineLimit(1)
+            }
+            .padding(.leading, 4)
+            .padding(.trailing, 9)
+            .padding(.vertical, 4)
+            .background(
+                Capsule().fill(selected ? Color.accentColor.opacity(0.25) : Color.primary.opacity(0.06))
+            )
+            .overlay(
+                Capsule().strokeBorder(Color.accentColor, lineWidth: selected ? 1.5 : 0)
+            )
+        }
+        .buttonStyle(.plain)
+        // Tab stays on the message field — chips are reached with arrows.
+        .focusable(false)
+        .animation(.spring(duration: 0.2), value: selected)
+    }
+
+    // MARK: - Composer
+
+    private var composer: some View {
+        HStack(spacing: 10) {
+            TextField(placeholder, text: $state.message)
+                .textFieldStyle(.plain)
+                .font(.system(size: 15))
+                .focused($focused)
+                .onSubmit(send)
+                .onExitCommand(perform: onClose)
+                .onChange(of: state.message) { _, new in
+                    if new.count > MessageLimits.maxCharacters {
+                        state.message = String(new.prefix(MessageLimits.maxCharacters))
+                    }
+                }
+
+            Button(action: send) {
+                Image(systemName: "paperplane.fill")
+                    .font(.system(size: 15))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.primary)
+            .focusable(false)
+            .disabled(isEmpty || state.selectedRecipient == nil)
+        }
+        .padding(.horizontal, 12)
+        .frame(height: 48)
+    }
+
+    // MARK: - Derived
+
+    private var isEmpty: Bool {
+        state.message.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    private var placeholder: String {
+        guard let r = state.selectedRecipient else { return "Message…" }
+        return r.isEveryone ? "Message everyone in \(r.circle)…" : "Message \(r.label)…"
     }
 
     private var emptyMessage: String {
         if model.githubUserLogin == nil {
             return "Sign in with GitHub to use Munkel."
         }
-        return state.query.isEmpty ? "Join a circle to send." : "No matches."
+        return "Join a circle to send."
     }
 
-    @ViewBuilder
-    private var recipientList: some View {
-        let recipients = state.filteredRecipients
-        if recipients.isEmpty {
-            VStack {
-                Spacer()
-                Text(emptyMessage)
-                    .foregroundStyle(.secondary)
-                Spacer()
-            }
-            .frame(maxWidth: .infinity)
-        } else {
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVStack(spacing: 2) {
-                        ForEach(Array(recipients.enumerated()), id: \.element.id) { index, recipient in
-                            RecipientRow(recipient: recipient, selected: index == state.selectedIndex)
-                                .id(index)
-                                .contentShape(Rectangle())
-                                .onTapGesture {
-                                    state.selectedIndex = index
-                                    commit()
-                                }
-                        }
-                    }
-                    .padding(8)
-                }
-                .onChange(of: state.selectedIndex) {
-                    proxy.scrollTo(state.selectedIndex, anchor: .center)
-                }
-            }
-        }
-    }
-}
+    /// Recipients chunked back into per-circle sections, each item carrying
+    /// its flat index (so chips stay in sync with ↑↓ / selectedIndex).
+    private struct Section { let circle: String; var items: [(index: Int, recipient: Recipient)] }
 
-private struct RecipientRow: View {
-    let recipient: Recipient
-    let selected: Bool
-
-    var body: some View {
-        HStack(spacing: 10) {
-            if recipient.isEveryone {
-                Image(systemName: "person.2.fill")
-                    .frame(width: 24, height: 24)
-                    .foregroundStyle(.secondary)
+    private var sections: [Section] {
+        var result: [Section] = []
+        for (index, recipient) in state.recipients.enumerated() {
+            if result.last?.circle == recipient.circle {
+                result[result.count - 1].items.append((index, recipient))
             } else {
-                AvatarView(name: recipient.label, imageData: recipient.avatar, size: 24)
+                result.append(Section(circle: recipient.circle, items: [(index, recipient)]))
             }
-            Text(recipient.label)
-                .font(.body)
-            Spacer()
-            Text(recipient.circle)
-                .font(.system(.callout, design: .monospaced))
-                .foregroundStyle(.secondary)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(
-            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                .fill(selected ? Color.accentColor.opacity(0.25) : Color.clear)
-        )
+        return result
+    }
+
+    private func send() {
+        let text = state.message.trimmingCharacters(in: .whitespaces)
+        guard !text.isEmpty, let r = state.selectedRecipient else { return }
+        model.send(text: text, group: r.circle, to: r.memberId)
+        onClose()
     }
 }
 
-// MARK: - Phase 2: compose the message
+private struct ListHeightKey: PreferenceKey {
+    static let defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
 
-private struct ComposeView: View {
-    let target: Recipient
-    @ObservedObject var state: CommandPaletteState
-    let send: () -> Void
-    @FocusState private var focused: Bool
+/// Minimal wrapping layout for the target chips — flows left-to-right and
+/// wraps to the next line when a row is full.
+private struct FlowLayout: Layout {
+    var spacing: CGFloat = 6
 
-    private var isEmpty: Bool {
-        state.message.trimmingCharacters(in: .whitespaces).isEmpty
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) -> CGSize {
+        let maxWidth = proposal.width ?? .infinity
+        var rowWidth: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var totalHeight: CGFloat = 0
+        var totalWidth: CGFloat = 0
+
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if rowWidth > 0, rowWidth + spacing + size.width > maxWidth {
+                totalHeight += rowHeight + spacing
+                totalWidth = max(totalWidth, rowWidth)
+                rowWidth = size.width
+                rowHeight = size.height
+            } else {
+                rowWidth += (rowWidth > 0 ? spacing : 0) + size.width
+                rowHeight = max(rowHeight, size.height)
+            }
+        }
+        totalHeight += rowHeight
+        totalWidth = max(totalWidth, rowWidth)
+        return CGSize(width: totalWidth, height: totalHeight)
     }
 
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 10) {
-                Button {
-                    state.target = nil // back to the picker
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.title3)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Void) {
+        var x = bounds.minX
+        var y = bounds.minY
+        var rowHeight: CGFloat = 0
 
-                if target.isEveryone {
-                    Image(systemName: "person.2.fill").foregroundStyle(.secondary)
-                } else {
-                    AvatarView(name: target.label, imageData: target.avatar, size: 22)
-                }
-                Text(target.label).font(.headline)
-                Text(target.circle)
-                    .font(.system(.callout, design: .monospaced))
-                    .foregroundStyle(.secondary)
-                Spacer()
+        for view in subviews {
+            let size = view.sizeThatFits(.unspecified)
+            if x > bounds.minX, x + size.width > bounds.maxX {
+                x = bounds.minX
+                y += rowHeight + spacing
+                rowHeight = 0
             }
-            .padding(.horizontal, 16)
-            .frame(height: 52)
-
-            Divider()
-
-            HStack(spacing: 10) {
-                TextField("Message \(target.label)…", text: $state.message)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 20))
-                    .focused($focused)
-                    .onSubmit(send)
-                    .onExitCommand { state.target = nil } // Esc → back to picker
-
-                Button(action: send) {
-                    Image(systemName: "paperplane.fill")
-                        .font(.title3)
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.tint)
-                .disabled(isEmpty)
-            }
-            .padding(.horizontal, 20)
-            .frame(height: 60)
-
-            Spacer()
-        }
-        .onAppear {
-            Task {
-                try? await Task.sleep(for: .milliseconds(80))
-                focused = true
-            }
+            view.place(at: CGPoint(x: x, y: y), anchor: .topLeading, proposal: ProposedViewSize(size))
+            x += size.width + spacing
+            rowHeight = max(rowHeight, size.height)
         }
     }
 }

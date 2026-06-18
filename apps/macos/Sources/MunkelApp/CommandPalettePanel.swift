@@ -20,8 +20,10 @@ final class CommandPalettePanel: NSPanel {
         isOpaque = false
         backgroundColor = .clear
         hasShadow = true
-        // No background drag: clicks in the list select rows.
-        isMovableByWindowBackground = false
+        // Draggable like Spotlight: dragging empty background moves the
+        // panel, while clicks on the chips/field still register (AppKit only
+        // starts a window drag past the drag threshold, not on a click).
+        isMovableByWindowBackground = true
         isReleasedWhenClosed = false
         hidesOnDeactivate = false
         collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient]
@@ -29,7 +31,8 @@ final class CommandPalettePanel: NSPanel {
         // codes and message drafts, which must never leak into a screen
         // share. Set on the panel directly so it holds before any content is
         // composited (the SwiftUI `.excludedFromScreenCapture()` is backup).
-        sharingType = .none
+        // Resolves to `.none` in release; a DEBUG toggle can relax it.
+        sharingType = NSWindow.munkelCaptureSharingType
     }
 
     override var canBecomeKey: Bool { true }
