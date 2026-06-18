@@ -306,16 +306,22 @@ struct MessageNotchContainer: View {
     /// Text below the notch; avatar lifted into the strip left of the cutout,
     /// flush with the text's leading edge so the line starts right under it.
     private var notchedTeaser: some View {
-        TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
-            .padding(.top, 2)
-            .padding(.bottom, -6)
-            .overlay(alignment: .topLeading) {
-                CompactAvatarView(name: message.sender, avatarData: message.avatarData)
-                    .offset(y: avatarOffsetY)
-            }
-            // In the teaser the message IS the whole content — clicking
-            // it starts the reply (and expands).
-            .background(AreaMarker { [weak model] in model?.teaserMarker = $0 })
+        HStack(alignment: .top, spacing: 6) {
+            TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
+            Image(systemName: message.isDirect ? "lock.fill" : "globe")
+                .font(.system(size: 9))
+                .foregroundStyle(.white.opacity(0.55))
+                .padding(.top, 2)
+        }
+        .padding(.top, 2)
+        .padding(.bottom, -6)
+        .overlay(alignment: .topLeading) {
+            CompactAvatarView(name: message.sender, avatarData: message.avatarData)
+                .offset(y: avatarOffsetY)
+        }
+        // In the teaser the message IS the whole content — clicking
+        // it starts the reply (and expands).
+        .background(AreaMarker { [weak model] in model?.teaserMarker = $0 })
     }
 
     /// Macs without a notch: keep the avatar in-row, nothing to tuck beside.
@@ -323,6 +329,9 @@ struct MessageNotchContainer: View {
         HStack(spacing: 10) {
             CompactAvatarView(name: message.sender, avatarData: message.avatarData)
             TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
+            Image(systemName: message.isDirect ? "lock.fill" : "globe")
+                .font(.system(size: 9))
+                .foregroundStyle(.white.opacity(0.55))
         }
         .padding(.vertical, 4)
         .background(AreaMarker { [weak model] in model?.teaserMarker = $0 })
