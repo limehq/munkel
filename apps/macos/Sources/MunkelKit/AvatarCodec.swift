@@ -18,7 +18,8 @@ public enum AvatarCodec {
 
     /// JPEG ≤ `maxBytes`, longest side ≤ `maxPixels`. Steps down quality,
     /// then size, until it fits. nil when the input is undecodable or
-    /// uncompressible within budget.
+    /// uncompressible within budget. Shares the ImageIO primitives with
+    /// `ImageCodec`.
     public static func makeAvatar(
         from data: Data,
         maxBytes: Int = maxEncodedBytes,
@@ -26,9 +27,9 @@ public enum AvatarCodec {
     ) -> Data? {
         let sizes = [maxPixels, maxPixels * 3 / 4, maxPixels / 2].filter { $0 > 0 }
         for pixels in sizes {
-            guard let image = downsampled(data, maxPixels: pixels) else { return nil }
+            guard let image = ImageCodec.downsample(data, maxPixels: pixels) else { return nil }
             for quality in [0.8, 0.6, 0.4] {
-                if let jpeg = encodeJPEG(image, quality: quality), jpeg.count <= maxBytes {
+                if let jpeg = ImageCodec.encodeJPEG(image, quality: quality), jpeg.count <= maxBytes {
                     return jpeg
                 }
             }
@@ -38,35 +39,6 @@ public enum AvatarCodec {
 
     /// Safe decode for display: never materializes more than `maxPixels`.
     public static func decodeImage(_ data: Data, maxPixels: Int = 256) -> CGImage? {
-        downsampled(data, maxPixels: maxPixels)
-    }
-
-    private static func downsampled(_ data: Data, maxPixels: Int) -> CGImage? {
-        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
-        guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions) else {
-            return nil
-        }
-        let thumbnailOptions = [
-            kCGImageSourceCreateThumbnailFromImageAlways: true,
-            kCGImageSourceCreateThumbnailWithTransform: true,
-            kCGImageSourceShouldCacheImmediately: true,
-            kCGImageSourceThumbnailMaxPixelSize: maxPixels,
-        ] as [CFString: Any] as CFDictionary
-        return CGImageSourceCreateThumbnailAtIndex(source, 0, thumbnailOptions)
-    }
-
-    private static func encodeJPEG(_ image: CGImage, quality: Double) -> Data? {
-        let output = NSMutableData()
-        guard
-            let destination = CGImageDestinationCreateWithData(
-                output, UTType.jpeg.identifier as CFString, 1, nil
-            )
-        else {
-            return nil
-        }
-        let properties = [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary
-        CGImageDestinationAddImage(destination, image, properties)
-        guard CGImageDestinationFinalize(destination) else { return nil }
-        return output as Data
+        ImageCodec.downsample(data, maxPixels: maxPixels)
     }
 }

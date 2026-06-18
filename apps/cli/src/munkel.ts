@@ -4,7 +4,7 @@
 // socket; the app owns the relay connections and the crypto.
 
 import { homedir } from "node:os"
-import { basename, join } from "node:path"
+import { basename, join, resolve as resolvePath } from "node:path"
 
 // Mirrors MunkelKit/ControlProtocol.swift: newline-delimited JSON,
 // one request/response per connection.
@@ -13,6 +13,9 @@ interface ControlRequest {
   group?: string
   to?: string
   text?: string
+  // Absolute paths to image files (an album); the app reads, seals and uploads
+  // them, so the bytes never cross this socket.
+  imagePaths?: string[]
 }
 
 interface ControlGroupInfo {
@@ -71,15 +74,17 @@ const version = typeof MUNKEL_BUILD_VERSION === "string" ? MUNKEL_BUILD_VERSION 
 const usage = `munkel — munkel into your friends' notches
 
   munkel dm <recipient> <message…>                Notify one person (resolved across circles)
+  munkel image <recipient> <path…> [--caption <t>] Send image(s) (optional shared caption)
   munkel <circle> <recipient|all> <message…>      Send within a circle, or broadcast with 'all'
   munkel circles [--json]                         Show your circles & members
 
 Examples:
   munkel dm sebil "deploy is green"
+  munkel image sebil ~/Desktop/a.png ~/Desktop/b.png --caption "two shots"
   munkel blue-table-42 Alex hey
   munkel blue-table-42 all "coffee?"
 
-Exit codes: 0 ok · 64 usage · 75 app didn't reply · 1 other failure
+Exit codes: 0 ok · 64 usage · 66 no such file · 75 app didn't reply · 1 other failure
 MUNKEL_SOCKET overrides the control socket; MUNKEL_DEV=1 targets the dev app.`
 
 const args = process.argv.slice(2)
@@ -109,6 +114,38 @@ if (args[0] === "circles" || args[0] === "groups") {
     fail("usage: munkel dm <recipient> <message…>", 64)
   }
   request = { action: "send", to: args[1], text: joinMessage(args.slice(2)) }
+} else if (args[0] === "image") {
+  // `munkel image <recipient> <path…> [--caption <text>]` — recipient-only
+  // image send (dm-style). One or more paths (quote any with spaces) form an
+  // album; an optional `--caption` adds a shared message. Paths are resolved to
+  // absolute because the app reads them from a different working directory;
+  // only the paths + caption travel the socket, never the bytes.
+  const usageImage = "usage: munkel image <recipient> <path…> [--caption <text>]"
+  if (args.length < 3) {
+    fail(usageImage, 64)
+  }
+  const rest = args.slice(2)
+  let caption: string | undefined
+  const rawPaths: string[] = []
+  for (let i = 0; i < rest.length; i++) {
+    if (rest[i] === "--caption" || rest[i] === "-c") {
+      caption = rest.slice(i + 1).join(" ")
+      break
+    }
+    rawPaths.push(rest[i])
+  }
+  if (rawPaths.length === 0) {
+    fail(usageImage, 64)
+  }
+  const imagePaths: string[] = []
+  for (const raw of rawPaths) {
+    const abs = resolvePath(raw)
+    if (!(await Bun.file(abs).exists())) {
+      fail(`no such image file: ${abs}`, 66) // EX_NOINPUT
+    }
+    imagePaths.push(abs)
+  }
+  request = { action: "send", to: args[1], imagePaths, ...(caption ? { text: caption } : {}) }
 } else {
   // `munkel <circle> <recipient|all> <message…>` — circle-scoped send;
   // required for broadcasts and to disambiguate a name across circles.

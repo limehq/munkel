@@ -21,6 +21,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // Accessory: no Dock icon — menu bar item and notch are the only UI.
         NSApp.setActivationPolicy(.accessory)
 
+        // An accessory app gets no main menu, so the standard editing shortcuts
+        // (⌘X/⌘C/⌘V/⌘A) are never routed to the focused text field's responder.
+        // A minimal, never-displayed Edit menu wires them back up app-wide.
+        installEditMenu()
+
         let model = AppModel()
         self.model = model
 
@@ -66,6 +71,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         item.button?.target = self
         item.button?.action = #selector(togglePopover(_:))
         statusItem = item
+    }
+
+    /// A minimal Edit menu so Cut/Copy/Paste/Select All reach the first
+    /// responder (the focused text field). Never shown — an accessory app has
+    /// no menu bar — but its ⌘-key equivalents are still dispatched.
+    private func installEditMenu() {
+        let mainMenu = NSMenu()
+        let editItem = NSMenuItem()
+        mainMenu.addItem(editItem)
+        let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editItem.submenu = editMenu
+        NSApp.mainMenu = mainMenu
     }
 
     func popoverDidClose(_ notification: Notification) {

@@ -68,11 +68,13 @@ final class NotchPresenter {
     func show(
         sender: String,
         avatarData: Data?,
-        text: String,
+        text: String = "",
         isDirect: Bool,
         group: String,
         groupColor: Color,
         inMultipleGroups: Bool,
+        images: [IncomingImage] = [],
+        loadFull: (@Sendable (String) async -> Data?)? = nil,
         onReply: @escaping (_ text: String, _ privately: Bool) -> Void
     ) {
         let message = IncomingMessage(
@@ -82,11 +84,22 @@ final class NotchPresenter {
             isDirect: isDirect,
             group: group,
             groupColor: groupColor,
-            inMultipleGroups: inMultipleGroups
+            inMultipleGroups: inMultipleGroups,
+            images: images
         )
+        // History rows are text-only; an album shows its caption (or an image
+        // count), prefixed with a 📷 so it reads as a picture.
+        let historyText: String
+        if images.isEmpty {
+            historyText = text
+        } else if !text.isEmpty {
+            historyText = "📷 \(text)"
+        } else {
+            historyText = images.count == 1 ? "📷 Image" : "📷 \(images.count) images"
+        }
         let entry = HistoryEntry(
             sender: sender,
-            text: text,
+            text: historyText,
             isDirect: isDirect,
             group: group,
             groupColor: groupColor,
@@ -115,7 +128,7 @@ final class NotchPresenter {
         pendingShow = Task { [weak self] in
             await previous?.value
             guard let self, generation == self.showGeneration else { return }
-            await self.display(message, entryID: entry.id, generation: generation, onReply: onReply)
+            await self.display(message, entryID: entry.id, generation: generation, loadFull: loadFull, onReply: onReply)
         }
     }
 
@@ -123,6 +136,7 @@ final class NotchPresenter {
         _ message: IncomingMessage,
         entryID: UUID,
         generation: Int,
+        loadFull: (@Sendable (String) async -> Data?)?,
         onReply: @escaping (_ text: String, _ privately: Bool) -> Void
     ) async {
         // Never yank an open reply field from under the user — wait until
@@ -146,6 +160,15 @@ final class NotchPresenter {
         let model = MessageDisplayModel()
         // Replies default to the channel the message came in on.
         model.replyPrivately = message.isDirect
+        // Per-image loaders the grid cells call on appear (lazy full fetch).
+        if let loadFull {
+            var loaders: [String: @Sendable () async -> Data?] = [:]
+            for image in message.images {
+                let id = image.id
+                loaders[id] = { await loadFull(id) }
+            }
+            model.imageLoaders = loaders
+        }
         // The expanded state shows what else arrived in the last minute
         // before this message.
         pruneHistory()
@@ -230,7 +253,14 @@ final class NotchPresenter {
         notchVisible = true
         installClickMonitors(for: notch, model: model)
         startHistoryPruning(model: model)
-        scheduleHide(of: notch, after: safetyDuration(for: message.text))
+
+        // Album images load lazily per grid cell (see AlbumCell) once the
+        // notch is expanded — no eager fetch here.
+
+        // The text teaser sizes its safety timeout to the scroll length; an
+        // image teaser has no ticker, so give it a fixed generous window.
+        let safety: Duration = message.isImage ? .seconds(20) : safetyDuration(for: message.text)
+        scheduleHide(of: notch, after: safety)
     }
 
     /// Expires history entries live while the notch is on screen, so rows

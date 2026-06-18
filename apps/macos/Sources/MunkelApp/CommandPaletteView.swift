@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// Compact, app-like quick-send palette: circle sections with globe/avatar
@@ -7,6 +8,9 @@ struct CommandPaletteView: View {
     @ObservedObject var model: AppModel
     @ObservedObject var state: CommandPaletteState
     let onClose: () -> Void
+    /// Opens a file picker to attach an image from disk (owned by the
+    /// presenter, which suppresses the palette's resign-key dismiss).
+    let onPickFile: () -> Void
 
     @FocusState private var focused: Bool
     @State private var listHeight: CGFloat = 0
@@ -151,30 +155,84 @@ struct CommandPaletteView: View {
     // MARK: - Composer
 
     private var composer: some View {
-        HStack(spacing: 10) {
-            TextField(placeholder, text: $state.message)
-                .textFieldStyle(.plain)
-                .font(.system(size: 15))
-                .focused($focused)
-                .onSubmit(send)
-                .onExitCommand(perform: onClose)
-                .onChange(of: state.message) { _, new in
-                    if new.count > MessageLimits.maxCharacters {
-                        state.message = String(new.prefix(MessageLimits.maxCharacters))
+        VStack(spacing: 0) {
+            if !state.attachedImages.isEmpty {
+                attachmentStrip
+            }
+            HStack(spacing: 10) {
+                attachButton
+
+                TextField(placeholder, text: $state.message)
+                    .textFieldStyle(.plain)
+                    .font(.system(size: 15))
+                    .focused($focused)
+                    .onSubmit(send)
+                    .onExitCommand(perform: onClose)
+                    .onChange(of: state.message) { _, new in
+                        if new.count > MessageLimits.maxCharacters {
+                            state.message = String(new.prefix(MessageLimits.maxCharacters))
+                        }
+                    }
+
+                Button(action: send) {
+                    Image(systemName: "paperplane.fill")
+                        .font(.system(size: 15))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.primary)
+                .focusable(false)
+                .disabled(!canSend)
+            }
+            .padding(.horizontal, 12)
+            .frame(height: 48)
+        }
+    }
+
+    /// Staged images as a row of thumbnails; click one to remove it.
+    private var attachmentStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(Array(state.attachedImages.enumerated()), id: \.offset) { index, data in
+                    if let nsImage = NSImage(data: data) {
+                        Button {
+                            withAnimation(.spring(duration: 0.2)) { _ = state.attachedImages.remove(at: index) }
+                            focused = true
+                        } label: {
+                            Image(nsImage: nsImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 38, height: 38)
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                                .overlay(alignment: .topTrailing) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 12))
+                                        .foregroundStyle(.white, .black.opacity(0.5))
+                                        .padding(2)
+                                }
+                        }
+                        .buttonStyle(.plain)
+                        .help("Remove")
                     }
                 }
-
-            Button(action: send) {
-                Image(systemName: "paperplane.fill")
-                    .font(.system(size: 15))
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.primary)
-            .focusable(false)
-            .disabled(isEmpty || state.selectedRecipient == nil)
+            .padding(.horizontal, 12)
+            .padding(.top, 10)
         }
-        .padding(.horizontal, 12)
-        .frame(height: 48)
+    }
+
+    /// Paperclip: upload image file(s) from disk (Slack-style). Pasting from
+    /// the clipboard is ⌘V (handled by the presenter's key monitor).
+    private var attachButton: some View {
+        Button {
+            onPickFile()
+        } label: {
+            Image(systemName: "paperclip")
+                .font(.system(size: 14))
+                .foregroundStyle(.secondary)
+        }
+        .buttonStyle(.plain)
+        .focusable(false)
+        .disabled(!state.canAttachMore)
     }
 
     // MARK: - Derived
@@ -183,7 +241,16 @@ struct CommandPaletteView: View {
         state.message.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
+    /// Sendable when a target is picked and there's either a staged image or
+    /// some text.
+    private var canSend: Bool {
+        guard state.selectedRecipient != nil else { return false }
+        return !state.attachedImages.isEmpty || !isEmpty
+    }
+
     private var placeholder: String {
+        // Same prompt whether or not images are attached — typed text becomes
+        // the caption when there are.
         guard let r = state.selectedRecipient else { return "Message…" }
         return r.isEveryone ? "Message everyone in \(r.circle)…" : "Message \(r.label)…"
     }
@@ -212,8 +279,16 @@ struct CommandPaletteView: View {
     }
 
     private func send() {
+        guard let r = state.selectedRecipient else { return }
+        if !state.attachedImages.isEmpty {
+            // Any typed text rides along as the album's shared caption.
+            let caption = state.message.trimmingCharacters(in: .whitespaces)
+            model.send(images: state.attachedImages, caption: caption, group: r.circle, to: r.memberId)
+            onClose()
+            return
+        }
         let text = state.message.trimmingCharacters(in: .whitespaces)
-        guard !text.isEmpty, let r = state.selectedRecipient else { return }
+        guard !text.isEmpty else { return }
         model.send(text: text, group: r.circle, to: r.memberId)
         onClose()
     }

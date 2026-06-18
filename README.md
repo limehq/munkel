@@ -157,13 +157,32 @@ UserDefaults), falling back to a circle broadcast. Override via
 `RELAY_URL` / `CIRCLE` / `SENDER` / `INTERVAL` / `TO`. Under the hood it loops
 `apps/server/scripts/dev-send.ts`, the protocol reference sender.
 
-Deploys (need a `wrangler login` with access to the `limehq` account; CI
-deploys the landing automatically on pushes to `main` that touch it):
+Deploys run automatically: CI ships the relay (`deploy-server.yml`) and the
+landing (`deploy-landing.yml`) on pushes to `main` that touch their
+`apps/<name>/**` paths, authenticating with the `CLOUDFLARE_API_TOKEN` /
+`CLOUDFLARE_ACCOUNT_ID` GitHub secrets (the `limehq` account). The R2 binding,
+the cron trigger, and the `relay.munkel.app` custom domain all apply from
+`wrangler.toml` on deploy — no manual step. To deploy by hand instead (needs a
+`wrangler login` with access to `limehq`):
 
 ```sh
 bunx turbo deploy --filter=@munkel/server    # relay.munkel.app
 bunx turbo deploy --filter=@munkel/landing   # munkel.app
 ```
+
+**One-time R2 setup (relay only).** The relay binds an R2 bucket for image
+blobs (`munkel-blobs`, see `apps/server/wrangler.toml`). `wrangler deploy` does
+*not* create it — create it once before the first deploy that includes the
+binding, or the deploy fails with a missing-bucket error:
+
+```sh
+cd apps/server && bunx wrangler r2 bucket create munkel-blobs
+```
+
+The deploy token (`CLOUDFLARE_API_TOKEN`) must also carry **Workers R2 Storage:
+Edit**, on top of the Workers Scripts / Durable Objects scopes the text relay
+already needed — without it the deploy is rejected. Blobs are opaque ciphertext
+with a ~66 s logical TTL; the per-minute cron sweeps expired ones (`src/blob.ts`).
 
 ## Architecture decisions
 

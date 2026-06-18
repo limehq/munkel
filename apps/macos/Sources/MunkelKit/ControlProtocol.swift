@@ -22,12 +22,16 @@ public struct ControlRequest: Codable, Sendable {
     public var group: String?
     public var to: String?
     public var text: String?
+    /// Absolute paths to image files to send as one album. The app reads,
+    /// encodes, seals and uploads them — bytes never cross the socket or argv.
+    public var imagePaths: [String]?
 
-    public init(action: String, group: String? = nil, to: String? = nil, text: String? = nil) {
+    public init(action: String, group: String? = nil, to: String? = nil, text: String? = nil, imagePaths: [String]? = nil) {
         self.action = action
         self.group = group
         self.to = to
         self.text = text
+        self.imagePaths = imagePaths
     }
 }
 

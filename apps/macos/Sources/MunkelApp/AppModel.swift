@@ -135,6 +135,57 @@ final class AppModel: ObservableObject {
         #endif
     }
 
+    /// Send one or more images (an album), optionally with a caption. The
+    /// session seals each, uploads to R2 and relays one pointer; see
+    /// GroupSession.sendImages.
+    func send(images datas: [Data], caption: String = "", group code: String, to memberId: String? = nil) {
+        guard let session = sessions[code], !datas.isEmpty else { return }
+        Task { await session.sendImages(datas, caption: caption, to: memberId) }
+        #if DEBUG
+        // Dev echo (same rationale as the text path): a broadcast only reaches
+        // *other* members, so show our own album locally too. Decode off-main;
+        // the per-image loader returns the local full bytes — no R2 round trip.
+        if memberId == nil, Self.devEchoBroadcasts {
+            Task { [weak self] in
+                let built = await Task.detached { () -> (images: [IncomingImage], fulls: [String: Data])? in
+                    let datas = Array(datas.prefix(AppPayload.maxImagesPerMessage))
+                    let perThumb = AppPayload.perThumbBudget(imageCount: datas.count)
+                    var images: [IncomingImage] = []
+                    var fulls: [String: Data] = [:]
+                    for (index, data) in datas.enumerated() {
+                        guard let full = ImageCodec.prepareFull(from: data) else { continue }
+                        // Mirror sendImages: reuse the full AVIF as the preview
+                        // when it fits, else a small AVIF — so the local echo
+                        // matches what peers actually receive.
+                        let thumb = full.data.count <= perThumb
+                            ? full.data
+                            : ImageCodec.makeThumbnail(from: data, maxBytes: perThumb)
+                        guard let thumb else { continue }
+                        let id = "echo-\(index)"
+                        images.append(IncomingImage(id: id, thumb: thumb, width: full.width, height: full.height))
+                        fulls[id] = full.data
+                    }
+                    return images.isEmpty ? nil : (images, fulls)
+                }.value
+                guard let self, let built else { return }
+                self.notch.show(
+                    sender: self.displayName,
+                    avatarData: Identity.avatarData,
+                    text: caption,
+                    isDirect: false,
+                    group: code,
+                    groupColor: .groupColor(index: self.groupCodes.firstIndex(of: code) ?? 0),
+                    inMultipleGroups: self.groupCodes.count > 1,
+                    images: built.images,
+                    loadFull: { id in built.fulls[id] }
+                ) { [weak self] reply, _ in
+                    self?.send(text: reply, group: code, to: nil)
+                }
+            }
+        }
+        #endif
+    }
+
     /// Opens the quick-send command palette (also bound to the global hotkey).
     func openCommandPalette() {
         palette?.show()
@@ -293,10 +344,33 @@ final class AppModel: ObservableObject {
             return ControlResponse(ok: true, groups: infos)
 
         case "send":
-            guard let text = request.text, !text.isEmpty else {
+            // An image send carries file paths; the app reads them here so the
+            // bytes never crossed the control socket. An album needs no text.
+            var imageDatas: [Data] = []
+            for path in request.imagePaths ?? [] {
+                guard let data = try? Data(contentsOf: URL(fileURLWithPath: path)), !data.isEmpty else {
+                    return ControlResponse(ok: false, error: "Couldn't read image file: \(path)")
+                }
+                imageDatas.append(data)
+            }
+            let text = request.text ?? ""
+            guard !imageDatas.isEmpty || !text.isEmpty else {
                 return ControlResponse(ok: false, error: "Empty message")
             }
             let isBroadcast = (request.to.map { ["all", "*"].contains($0.lowercased()) }) ?? false
+
+            // Delivers the resolved payload to one target: an image album (with
+            // the text as its shared caption) or a plain chat message.
+            func deliver(_ session: GroupSession, to recipientId: String?) async -> Bool {
+                if !imageDatas.isEmpty {
+                    return await session.sendImages(imageDatas, caption: text, to: recipientId)
+                }
+                return await session.sendChat(text, to: recipientId)
+            }
+            // Image sends can fail at the codec, not just the relay — say so.
+            let sendFailureError = imageDatas.isEmpty
+                ? "Send failed — no connection to the relay?"
+                : "Couldn't send the image — encoding failed or no connection to the relay"
 
             // Circle-scoped send: explicit circle code. Required for a
             // broadcast and used to disambiguate a name across circles.
@@ -313,15 +387,15 @@ final class AppModel: ObservableObject {
                     }
                     recipientId = matches[0].id
                 }
-                let sent = await session.sendChat(text, to: recipientId)
+                let sent = await deliver(session, to: recipientId)
                 return sent
                     ? ControlResponse(ok: true)
-                    : ControlResponse(ok: false, error: "Send failed — no connection to the relay?")
+                    : ControlResponse(ok: false, error: sendFailureError)
             }
 
-            // Recipient-only send (`munkel dm <name> …`): no circle given, so
-            // resolve the name across every circle. This lets an agent notify
-            // someone in a single call instead of listing circles first.
+            // Recipient-only send (`munkel dm <name> …` / `munkel image <name> …`):
+            // no circle given, so resolve the name across every circle. This
+            // lets an agent notify someone in a single call.
             guard let to = request.to, !isBroadcast else {
                 return ControlResponse(ok: false, error: "Broadcast needs a circle — say `munkel <circle> all …`")
             }
@@ -354,7 +428,7 @@ final class AppModel: ObservableObject {
                     groups: payload
                 )
             }
-            let sent = await hits[0].session.sendChat(text, to: hits[0].member.id)
+            let sent = await deliver(hits[0].session, to: hits[0].member.id)
             return sent
                 ? ControlResponse(ok: true)
                 : ControlResponse(ok: false, error: "Send failed — no connection to the relay?")
@@ -401,6 +475,25 @@ final class AppModel: ObservableObject {
             ) { [weak self] reply, privately in
                 // Default mirrors how the message arrived; the toggle
                 // in the reply field can override per message.
+                self?.send(text: reply, group: code, to: privately ? sender.id : nil)
+            }
+        }
+        session.onImages = { [weak self] sender, items, caption, isDirect, loadFull in
+            guard let self else { return }
+            let images = items.map {
+                IncomingImage(id: $0.r2Key, thumb: $0.thumb, width: $0.width, height: $0.height)
+            }
+            self.notch.show(
+                sender: sender.label,
+                avatarData: sender.avatar,
+                text: caption,
+                isDirect: isDirect,
+                group: code,
+                groupColor: .groupColor(index: self.groupCodes.firstIndex(of: code) ?? 0),
+                inMultipleGroups: self.groupCodes.count > 1,
+                images: images,
+                loadFull: loadFull
+            ) { [weak self] reply, privately in
                 self?.send(text: reply, group: code, to: privately ? sender.id : nil)
             }
         }

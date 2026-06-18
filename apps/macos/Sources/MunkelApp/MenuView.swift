@@ -1,4 +1,6 @@
+import AppKit
 import KeyboardShortcuts
+import MunkelKit
 import SwiftUI
 
 struct MenuView: View {
@@ -454,6 +456,12 @@ struct GroupSectionView: View {
     @State private var sentNoticeToken = 0
     /// Active member tooltip (custom, fast) — replaces the slow `.help()`.
     @State private var hoverTip: HoverTip?
+    /// Images staged for sending (pasted with ⌘V); Return sends them with the
+    /// typed text as the shared caption.
+    @State private var attachedImages: [Data] = []
+    /// Local ⌘V monitor, live only while this field is focused (the popover
+    /// has no Edit menu route to onPasteCommand for image data).
+    @State private var pasteMonitor: Any?
     @FocusState private var fieldFocused: Bool
 
     private let targetSize: CGFloat = 26
@@ -503,6 +511,45 @@ struct GroupSectionView: View {
                 recipient = nil
             }
         }
+        // ⌘V-to-attach is wired to the field's focus: the monitor lives only
+        // while this composer is the active one, so exactly one is ever armed.
+        .onChange(of: fieldFocused) { _, focused in updatePasteMonitor(focused) }
+        .onDisappear { teardownPasteMonitor() }
+    }
+
+    /// Installs (on focus) / removes (on blur) a local ⌘V monitor that stages
+    /// a clipboard image. Plain text paste falls through to the field editor.
+    private func updatePasteMonitor(_ focused: Bool) {
+        if focused, pasteMonitor == nil {
+            let binding = $attachedImages
+            pasteMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                // Side effect inside the isolation; the NSEvent (non-Sendable)
+                // is returned outside it — MainActor.assumeIsolated requires a
+                // Sendable result.
+                var consume = false
+                MainActor.assumeIsolated {
+                    guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                          event.charactersIgnoringModifiers?.lowercased() == "v",
+                          binding.wrappedValue.count < AppPayload.maxImagesPerMessage,
+                          let data = ClipboardImage.read()
+                    else {
+                        return
+                    }
+                    binding.wrappedValue.append(data)
+                    consume = true
+                }
+                return consume ? nil : event
+            }
+        } else if !focused {
+            teardownPasteMonitor()
+        }
+    }
+
+    private func teardownPasteMonitor() {
+        if let pasteMonitor {
+            NSEvent.removeMonitor(pasteMonitor)
+        }
+        pasteMonitor = nil
     }
 
     // MARK: - Header
@@ -583,33 +630,69 @@ struct GroupSectionView: View {
     // MARK: - Message field + send
 
     private func messageRow(members: [GroupSession.Member]) -> some View {
-        HStack(spacing: 6) {
-            TextField(placeholder(members: members), text: $draft)
-                .frostedField()
-                .focused($fieldFocused)
-                .onSubmit(sendTapped)
-                .onChange(of: draft) { _, new in
-                    if new.count > MessageLimits.maxCharacters {
-                        draft = String(new.prefix(MessageLimits.maxCharacters))
+        VStack(alignment: .leading, spacing: 6) {
+            // Staged images (⌘V) — click a thumbnail to remove it.
+            if !attachedImages.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(Array(attachedImages.enumerated()), id: \.offset) { index, data in
+                            if let image = NSImage(data: data) {
+                                Button { attachedImages.remove(at: index) } label: {
+                                    Image(nsImage: image)
+                                        .resizable()
+                                        .scaledToFill()
+                                        .frame(width: 34, height: 34)
+                                        .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                        .overlay(alignment: .topTrailing) {
+                                            Image(systemName: "xmark.circle.fill")
+                                                .font(.system(size: 11))
+                                                .foregroundStyle(.white, .black.opacity(0.5))
+                                                .padding(1)
+                                        }
+                                }
+                                .buttonStyle(.plain)
+                                .help("Remove")
+                            }
+                        }
                     }
+                    .padding(.vertical, 1)
                 }
-
-            Button(action: sendTapped) {
-                // Confirmation lives in the button itself — a brief checkmark
-                // instead of a chip that overlapped the field's placeholder.
-                // Neutral color, and a fixed-size frame so swapping the glyph
-                // never changes the button's width.
-                Image(systemName: justSent ? "checkmark" : "paperplane.fill")
-                    .foregroundStyle(.primary)
-                    .frame(width: 16, height: 16)
-                    .animation(.spring(duration: 0.25), value: justSent)
             }
-            .disabled(draft.trimmingCharacters(in: .whitespaces).isEmpty && !justSent)
-            .help(sendHelp(members: members))
+
+            HStack(spacing: 6) {
+                TextField(placeholder(members: members), text: $draft)
+                    .frostedField()
+                    .focused($fieldFocused)
+                    .onSubmit(sendTapped)
+                    .onChange(of: draft) { _, new in
+                        if new.count > MessageLimits.maxCharacters {
+                            draft = String(new.prefix(MessageLimits.maxCharacters))
+                        }
+                    }
+
+                Button(action: sendTapped) {
+                    // Confirmation lives in the button itself — a brief checkmark
+                    // instead of a chip that overlapped the field's placeholder.
+                    // Neutral color, and a fixed-size frame so swapping the glyph
+                    // never changes the button's width.
+                    Image(systemName: justSent ? "checkmark" : "paperplane.fill")
+                        .foregroundStyle(.primary)
+                        .frame(width: 16, height: 16)
+                        .animation(.spring(duration: 0.25), value: justSent)
+                }
+                .disabled(!canSend && !justSent)
+                .help(sendHelp(members: members))
+            }
         }
     }
 
+    private var canSend: Bool {
+        !attachedImages.isEmpty || !draft.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
     private func placeholder(members: [GroupSession.Member]) -> String {
+        // Same prompt whether or not images are attached — typed text becomes
+        // the caption when there are.
         if let id = recipient, let m = members.first(where: { $0.id == id }) {
             return "Message \(m.label)…"
         }
@@ -624,6 +707,14 @@ struct GroupSectionView: View {
     }
 
     private func sendTapped() {
+        if !attachedImages.isEmpty {
+            // Typed text rides along as the album's shared caption.
+            model.send(images: attachedImages, caption: draft.trimmingCharacters(in: .whitespaces), group: code, to: recipient)
+            draft = ""
+            attachedImages = []
+            flashSent()
+            return
+        }
         let text = draft.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else { return }
         model.send(text: text, group: code, to: recipient)
