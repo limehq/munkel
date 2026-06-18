@@ -23,10 +23,13 @@ final class MessageDisplayModel: ObservableObject {
     /// Which history row just had its text copied — drives the per-row
     /// checkmark, independent of `copied` (the current message's button).
     @Published var copiedHistoryID: UUID?
-    /// Which history row the pointer is over (nil = none). Lets NotchPresenter
-    /// enable the bare-"C" copy hotkey only while a row is hovered, and tells it
-    /// which row to copy when "C" is pressed.
+    /// Which history row the pointer is over, or nil when it's over the current
+    /// message (or a gap). Tells the hover-"C" shortcut which row to copy; nil
+    /// means copy the current (newest) message.
     @Published var hoveredHistoryID: UUID?
+    /// Text of the current (newest) message, so the hover-"C" shortcut can copy
+    /// it when the pointer isn't over a history row.
+    var currentText = ""
     /// Hover-revealed per-row copy hit targets. The glyph itself is a plain
     /// visual (CopyGlyph); the AppKit click monitor in NotchPresenter matches
     /// clicks against these frames — just like historyMarker/replyMarker —
@@ -75,12 +78,14 @@ final class MessageDisplayModel: ObservableObject {
         historyCopyTargets.append(HistoryCopyTarget(id: id, text: text, view: view))
     }
 
-    /// Copy whichever history row the pointer is over — the target of the
-    /// hover-only "C" shortcut. No-op if nothing is hovered.
-    func copyHoveredHistory() {
-        guard let id = hoveredHistoryID,
-              let entry = history.first(where: { $0.id == id }) else { return }
-        copyHistory(id: id, text: entry.text)
+    /// The hover-"C" shortcut target: the hovered history row, or — when the
+    /// pointer isn't over a row — the current (newest) message.
+    func copyHovered() {
+        if let id = hoveredHistoryID, let entry = history.first(where: { $0.id == id }) {
+            copyHistory(id: id, text: entry.text)
+        } else if !currentText.isEmpty {
+            copy(currentText)
+        }
     }
 
     private func writePasteboard(_ text: String) {

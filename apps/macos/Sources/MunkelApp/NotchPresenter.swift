@@ -51,7 +51,7 @@ final class NotchPresenter {
         // while a history row is hovered (and no reply is open), so it never
         // swallows a "C" typed anywhere else.
         KeyboardShortcuts.onKeyDown(for: .copyHoveredHistory) { [weak self] in
-            self?.currentModel?.copyHoveredHistory()
+            self?.currentModel?.copyHovered()
         }
         KeyboardShortcuts.disable(.copyHoveredHistory)
     }
@@ -152,20 +152,9 @@ final class NotchPresenter {
         model.history = visibleHistory(excluding: entryID)
         currentEntryID = entryID
         currentModel = model
-
-        // Enable the bare-"C" copy hotkey only while a history row is hovered
-        // and no reply field is open — otherwise it would eat "C" globally, and
-        // while replying "C" must type into the field, not copy a row.
-        hoverCopyObservation = Publishers.CombineLatest(model.$hoveredHistoryID, model.$replying)
-            .map { hoveredID, replying in hoveredID != nil && !replying }
-            .removeDuplicates()
-            .sink { active in
-                if active {
-                    KeyboardShortcuts.enable(.copyHoveredHistory)
-                } else {
-                    KeyboardShortcuts.disable(.copyHoveredHistory)
-                }
-            }
+        // The hover-"C" shortcut copies this when the pointer isn't over a
+        // history row (see MessageDisplayModel.copyHovered).
+        model.currentText = message.text
 
         // Default to the main screen; a future setting (#7) supplies a different
         // closure. One measurement drives both panel placement and content layout.
@@ -213,6 +202,22 @@ final class NotchPresenter {
                         // must not tear it down mid-typing.
                         self.scheduleHide(of: notch, after: self.afterReadDelay)
                     }
+                }
+            }
+
+        // Arm the bare-"C" copy hotkey whenever the notch is hovered and no
+        // reply field is open. "C" then copies the hovered history row, or the
+        // current (newest) message when the pointer isn't over a row (see
+        // MessageDisplayModel.copyHovered). Gated this way it never eats a "C"
+        // typed away from the notch, and while replying "C" types into the field.
+        hoverCopyObservation = Publishers.CombineLatest(notch.$isHovering, model.$replying)
+            .map { hovering, replying in hovering && !replying }
+            .removeDuplicates()
+            .sink { active in
+                if active {
+                    KeyboardShortcuts.enable(.copyHoveredHistory)
+                } else {
+                    KeyboardShortcuts.disable(.copyHoveredHistory)
                 }
             }
 
