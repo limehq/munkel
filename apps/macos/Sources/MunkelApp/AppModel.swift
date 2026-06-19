@@ -23,7 +23,9 @@ final class AppModel: ObservableObject {
             scheduleProfileBroadcast()
         }
     }
-    @Published private(set) var githubLoginState: GitHubLoginState = .idle
+    @Published private(set) var githubLoginState: GitHubLoginState = .idle {
+        didSet { syncAuthCodeNotch() }
+    }
     @Published private(set) var githubUserLogin: String? = Identity.githubLogin
     @Published var relayURLString: String {
         didSet {
@@ -192,6 +194,19 @@ final class AppModel: ObservableObject {
     }
 
     // MARK: - GitHub login (device flow)
+
+    /// Mirrors the device-flow user code into the notch while we await the
+    /// user. The menu-bar popover that shows the code is `.transient`, so it
+    /// vanishes the moment opening the browser steals focus — the notch panel
+    /// is focus-independent and keeps the code (already on the clipboard)
+    /// visible until the flow leaves `.awaitingUser`.
+    private func syncAuthCodeNotch() {
+        if case let .awaitingUser(userCode, _, _) = githubLoginState {
+            notch.showAuthCode(userCode)
+        } else {
+            notch.hideAuthCode()
+        }
+    }
 
     func startGitHubLogin() {
         githubLoginTask?.cancel()
