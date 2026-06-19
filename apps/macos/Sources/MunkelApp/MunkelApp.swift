@@ -55,18 +55,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.delegate = self
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        #if DEBUG
-        // The debug build runs as "Munkel Dev" next to an installed release; a
-        // distinct icon tells the two menu-bar items apart at a glance.
-        item.button?.image = NSImage(
-            systemSymbolName: "ladybug.fill",
-            accessibilityDescription: "Munkel Dev"
-        )
-        #else
         // Brand silhouette as a template image (monochrome, auto-inverting),
         // sized to sit in the menu bar; falls back to the old SF Symbol if the
         // glyph resource is ever missing. Copy first so menu-bar sizing never
         // mutates the shared BrandGlyph.templateImage the popover also uses.
+        // Debug and release share the brand glyph — the dev build is told apart
+        // by its "Munkel Dev" name in the popover, not a separate menu-bar icon.
         if let glyph = BrandGlyph.templateImage?.copy() as? NSImage {
             glyph.isTemplate = true
             glyph.size = NSSize(width: 18, height: 18)
@@ -78,7 +72,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
                 accessibilityDescription: "Munkel"
             )
         }
-        #endif
         item.button?.target = self
         item.button?.action = #selector(togglePopover(_:))
         statusItem = item
