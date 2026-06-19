@@ -1,34 +1,13 @@
 #!/usr/bin/env bun
 // munkel — munkel into your friends' notches.
-// Thin client: talks to the running menu-bar app over its Unix control
-// socket; the app owns the relay connections and the crypto.
+// Thin client: talks to the running tray/menu-bar app over its control
+// channel (Unix-domain socket on macOS, named pipe on Windows); the app
+// owns the relay connections and the crypto.
 
 import { homedir } from "node:os"
 import { basename, join, resolve as resolvePath } from "node:path"
-
-// Mirrors MunkelKit/ControlProtocol.swift: newline-delimited JSON,
-// one request/response per connection.
-interface ControlRequest {
-  action: string
-  group?: string
-  to?: string
-  text?: string
-  // Absolute paths to image files (an album); the app reads, seals and uploads
-  // them, so the bytes never cross this socket.
-  imagePaths?: string[]
-}
-
-interface ControlGroupInfo {
-  code: string
-  connected: boolean
-  members: string[]
-}
-
-interface ControlResponse {
-  ok: boolean
-  error?: string
-  groups?: ControlGroupInfo[]
-}
+import { buildPipeName, type ControlGroupInfo, type ControlRequest, type ControlResponse } from "./control.js"
+import { createPipeClient, type PipeClient } from "./transport.js"
 
 // `MUNKEL_DEV=1` (or a binary named `munkel-dev`) targets the parallel "Munkel
 // Dev" app instead of the installed release — its own control socket and bundle
@@ -38,9 +17,33 @@ interface ControlResponse {
 const devMode =
   process.env.MUNKEL_DEV === "1" || basename(process.execPath).startsWith("munkel-dev")
 
-const socketPath =
-  process.env.MUNKEL_SOCKET ??
-  join(homedir(), "Library", "Application Support", devMode ? "Munkel Dev" : "Munkel", "control.sock")
+// MARK: - Transport selection
+//
+// Platform default: a Unix-domain socket at the macOS-app standard
+// location. On Windows the system-tray app binds a named pipe
+// (`\\.\pipe\Munkel-<user>-Control`) — see apps/windows/src/main/main.ts.
+// Explicit env vars override either direction: MUNKEL_SOCKET forces the
+// Unix path (used by the existing tests on every platform) and
+// MUNKEL_PIPE forces the named-pipe path (used by the new Windows
+// integration tests and as a manual override on macOS/Linux).
+const isWindows = process.platform === "win32"
+const explicitPipe = process.env.MUNKEL_PIPE
+const explicitSocket = process.env.MUNKEL_SOCKET
+// MUNKEL_SOCKET wins on every platform so the Unix-path tests are
+// reproducible; MUNKEL_PIPE forces the pipe path even on macOS/Linux.
+const usePipe = explicitSocket === undefined && (explicitPipe !== undefined || isWindows)
+const pipePath = explicitPipe ?? (isWindows ? buildPipeName() : null)
+const socketPath = usePipe
+  ? null
+  : (process.env.MUNKEL_SOCKET ??
+    join(
+      homedir(),
+      "Library",
+      "Application Support",
+      devMode ? "Munkel Dev" : "Munkel",
+      "control.sock",
+    ))
+const transportAddress: string = (usePipe ? pipePath : socketPath) as string
 
 function fail(message: string, code = 1): never {
   console.error(`munkel: ${message}`)
@@ -85,7 +88,11 @@ Examples:
   munkel blue-table-42 all "coffee?"
 
 Exit codes: 0 ok · 64 usage · 66 no such file · 75 app didn't reply · 1 other failure
-MUNKEL_SOCKET overrides the control socket; MUNKEL_DEV=1 targets the dev app.`
+MUNKEL_SOCKET overrides the Unix control socket (macOS).
+MUNKEL_PIPE   overrides the named-pipe address (Windows).
+MUNKEL_DEV=1  targets the dev app.
+MUNKEL_LAUNCH_CMD overrides the launch command (used by tests).
+MUNKEL_EXE    overrides the Windows .exe path to start the app.`
 
 const args = process.argv.slice(2)
 
@@ -160,111 +167,191 @@ if (args[0] === "circles" || args[0] === "groups") {
   }
 }
 
-// MARK: - Unix-domain-socket roundtrip
+// MARK: - Roundtrip
 
-const { promise: firstLine, resolve } = Promise.withResolvers<string>()
+// Bound the wait for a reply. The transport either returns a parsed
+// response or rejects; we layer a wall-clock bound on top so a silently
+// broken app can't hang the caller (and any agent turn driving it).
+// MUNKEL_RESPONSE_TIMEOUT_MS lets the tests shrink the bound.
+const parsedTimeout = Number(process.env.MUNKEL_RESPONSE_TIMEOUT_MS)
+const responseTimeoutMs = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 4000
+
+function responseTimeout(): Promise<never> {
+  return new Promise((_, reject) => {
+    const t = setTimeout(() => reject(new Error("timeout")), responseTimeoutMs)
+    // The promise rejects first; the timeout is cleared by JSON.parse settling
+    // before the next tick in the common case. The clearTimeout here is a
+    // best-effort — the resolved promise is GC'd either way.
+    void t.unref?.()
+  })
+}
+
+// Named-pipe roundtrip. Mirrors the Windows app's
+// apps/windows/src/main/main.ts createControlServer call: one
+// request/response per connection, newline-delimited JSON. The pipe
+// client in `transport.ts` handles the framing; we only wrap it so the
+// call site can `await` it.
+async function sendOverPipe(path: string, req: ControlRequest): Promise<ControlResponse> {
+  let client: PipeClient | null = null
+  try {
+    client = await createPipeClient(path)
+    return await Promise.race([client.request(req), responseTimeout()])
+  } finally {
+    await client?.close()
+  }
+}
+
+// Unix-domain-socket roundtrip. Mirrors the macOS app's ControlServer
+// (apps/macos/Sources/MunkelApp/ControlServer.swift): one request/response
+// per connection, newline-delimited JSON. The firstLine promise is
+// resolved either by a newline, EOF or socket error — whichever comes
+// first; JSON.parse then decides if the result is usable.
+const { promise: firstLine, resolve: resolveFirstLine } = Promise.withResolvers<string>()
 let received = ""
 
 function feed(text: string) {
   received += text
   const newline = received.indexOf("\n")
   if (newline !== -1) {
-    resolve(received.slice(0, newline))
+    resolveFirstLine(received.slice(0, newline))
   }
 }
 
-function connectOnce() {
+function connectUnixSocket() {
   return Bun.connect({
-    unix: socketPath,
+    unix: socketPath as string,
     socket: {
       data(_socket, data) {
         feed(data.toString())
       },
       close() {
-        resolve(received) // EOF without newline — let JSON parsing decide
+        resolveFirstLine(received) // EOF without newline — let JSON parsing decide
       },
       error() {
-        resolve(received)
+        resolveFirstLine(received)
       },
     },
   }).catch(() => null)
 }
 
-// Ask macOS to launch the menu-bar app. `open -g` brings it up in the
-// background without stealing focus from the terminal; the bundle id is
-// stamped by make-bundle.sh. MUNKEL_LAUNCH_CMD overrides the command (used
-// by the tests to stand up a fake app).
+// MARK: - Connect (with auto-launch when the address is the default)
+
+// Open the transport once, write the request, read the response, close.
+// Returns `null` when the transport isn't reachable (so the caller can
+// decide whether to auto-launch and retry).
+async function openAndSend(req: ControlRequest): Promise<ControlResponse | null> {
+  if (usePipe) {
+    try {
+      return await sendOverPipe(pipePath as string, req)
+    } catch (err) {
+      if (err instanceof Error && err.message === "timeout") throw err
+      return null
+    }
+  }
+  const socket = await connectUnixSocket()
+  if (!socket) return null
+  socket.write(JSON.stringify(req) + "\n")
+  return JSON.parse(await Promise.race([firstLine, responseTimeout()]))
+}
+
+// Ask the OS to launch the menu-bar / tray app. The macOS path uses
+// `open -g -b <bundleId>` (background, no focus steal). The Windows path
+// prefers `MUNKEL_EXE` and falls back to `munkel.exe` on PATH — the
+// installer is expected to register either. MUNKEL_LAUNCH_CMD overrides
+// the command on either platform (used by the tests to stand up a fake
+// app).
 async function launchApp(): Promise<void> {
   const override = process.env.MUNKEL_LAUNCH_CMD
-  const bundleId = devMode ? "dev.uq.munkel.debug" : "dev.uq.munkel"
-  const command = override ? ["sh", "-c", override] : ["open", "-g", "-b", bundleId]
+  let command: string[]
+  if (override) {
+    // `sh -c` on POSIX, `cmd /c` on Windows. The override string is
+    // shell-evaluated so tests can background a long-running fake app.
+    if (isWindows) {
+      command = ["cmd", "/c", override]
+    } else {
+      command = ["sh", "-c", override]
+    }
+  } else if (isWindows) {
+    const exe = process.env.MUNKEL_EXE ?? "munkel.exe"
+    command = [exe]
+  } else {
+    const bundleId = devMode ? "dev.uq.munkel.debug" : "dev.uq.munkel"
+    command = ["open", "-g", "-b", bundleId]
+  }
   const proc = Bun.spawn(command, { stdout: "ignore", stderr: "pipe" })
   if ((await proc.exited) !== 0) {
     const detail = (await new Response(proc.stderr).text()).trim()
-    fail(
-      `couldn't start the Munkel app${detail ? ` (${detail})` : ""} — ` +
-        `install it with: brew install limehq/tap/munkel`,
-    )
+    const installHint = isWindows
+      ? " — install it from the Munkel release page or set MUNKEL_EXE"
+      : " — install it with: brew install limehq/tap/munkel"
+    fail(`couldn't start the Munkel app${detail ? ` (${detail})` : ""}${installHint}`)
   }
 }
 
-// The app's control socket binds in AppModel.init(), so it appears shortly
-// after launch — poll until it's reachable or we give up.
-async function waitForSocket(timeoutMs = 8000, intervalMs = 150) {
+// A custom address points at a specific server we shouldn't try to
+// spawn; only auto-launch the installed app on the default path (the
+// tests opt back in by setting MUNKEL_LAUNCH_CMD).
+function shouldAutoLaunch(): boolean {
+  if (usePipe) {
+    return process.env.MUNKEL_PIPE === undefined || process.env.MUNKEL_LAUNCH_CMD !== undefined
+  }
+  return process.env.MUNKEL_SOCKET === undefined || process.env.MUNKEL_LAUNCH_CMD !== undefined
+}
+
+// Poll until the transport is reachable or we give up. Re-initialises
+// the line-buffer state because the firstLine promise is one-shot.
+async function waitForTransport(timeoutMs = 8000, intervalMs = 150) {
   const deadline = Date.now() + timeoutMs
   for (;;) {
-    const socket = await connectOnce()
-    if (socket) return socket
-    if (Date.now() >= deadline) return null
+    if (usePipe) {
+      try {
+        const client = await createPipeClient(pipePath as string)
+        await client.close()
+        return true
+      } catch {
+        // not reachable yet
+      }
+    } else if (await connectUnixSocket()) {
+      return true
+    }
+    if (Date.now() >= deadline) return false
     await Bun.sleep(intervalMs)
   }
 }
 
-let socket = await connectOnce()
-if (!socket) {
-  // A custom MUNKEL_SOCKET points at a specific server we shouldn't try to
-  // spawn; only auto-launch the installed app on the default path (the
-  // tests opt back in by setting MUNKEL_LAUNCH_CMD).
-  const autoLaunch =
-    process.env.MUNKEL_SOCKET === undefined || process.env.MUNKEL_LAUNCH_CMD !== undefined
-  if (!autoLaunch) {
-    fail(`Munkel app isn't running — start it first (socket: ${socketPath})`)
-  }
-  console.error("munkel: starting the Munkel app…")
-  await launchApp()
-  socket = await waitForSocket()
-  if (!socket) {
-    fail("started the Munkel app but its control socket never came up")
-  }
-}
-
-socket.write(JSON.stringify(request) + "\n")
-
-// Bound the wait for a reply. `firstLine` only settles on a newline, EOF or
-// socket error, so an app that accepts the connection but never answers would
-// otherwise hang the caller — and any agent turn driving it — indefinitely.
-// MUNKEL_RESPONSE_TIMEOUT_MS lets the tests shrink the bound.
-const parsedTimeout = Number(process.env.MUNKEL_RESPONSE_TIMEOUT_MS)
-const responseTimeoutMs = Number.isFinite(parsedTimeout) && parsedTimeout > 0 ? parsedTimeout : 4000
-let responseTimer: ReturnType<typeof setTimeout> | undefined
-const responseTimeout = new Promise<never>((_, reject) => {
-  responseTimer = setTimeout(() => reject(new Error("timeout")), responseTimeoutMs)
-})
-
-let response: ControlResponse
+let response: ControlResponse | null = null
 try {
-  response = JSON.parse(await Promise.race([firstLine, responseTimeout]))
+  response = await openAndSend(request)
 } catch (error) {
-  socket.end()
   if (error instanceof Error && error.message === "timeout") {
     // EX_TEMPFAIL (75): app is up but didn't answer in time; a retry may work.
     fail("the Munkel app accepted the connection but never replied — it may be busy; try again", 75)
   }
   fail("No valid response from the app")
-} finally {
-  clearTimeout(responseTimer)
 }
-socket.end()
+if (!response) {
+  if (!shouldAutoLaunch()) {
+    fail(`Munkel app isn't running — start it first (${usePipe ? "pipe" : "socket"}: ${transportAddress})`)
+  }
+  console.error("munkel: starting the Munkel app…")
+  await launchApp()
+  if (!(await waitForTransport())) {
+    fail(`started the Munkel app but its ${usePipe ? "control pipe" : "control socket"} never came up`)
+  }
+  // Reset the line buffer so the second connection's data is read fresh.
+  received = ""
+  try {
+    response = await openAndSend(request)
+  } catch (error) {
+    if (error instanceof Error && error.message === "timeout") {
+      fail("the Munkel app accepted the connection but never replied — it may be busy; try again", 75)
+    }
+    fail("No valid response from the app")
+  }
+}
+if (!response) {
+  fail("No valid response from the app")
+}
 
 if (!response.ok) {
   // An error can carry the candidate circles (e.g. an ambiguous `dm`

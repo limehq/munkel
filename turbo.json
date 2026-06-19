@@ -8,6 +8,17 @@
 		"@munkel/macos#build": {
 			"cache": false
 		},
+		"@munkel/windows#build": {
+			"dependsOn": ["^build"],
+			"outputs": ["dist/**", "release/**"]
+		},
+		"@munkel/windows#dev": {
+			"cache": false,
+			"persistent": true
+		},
+		"@munkel/windows#typecheck": {
+			"cache": false
+		},
 		"test": {},
 		"typecheck": {},
 		"dev": {
