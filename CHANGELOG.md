@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.10.0](https://github.com/limehq/munkel/compare/v0.9.0...v0.10.0) (2026-06-19)
+
+
+### Features
+
+* add Tab navigation to cycle through recipients in command palette ([#64](https://github.com/limehq/munkel/issues/64)) ([67b5aa0](https://github.com/limehq/munkel/commit/67b5aa026c20e5a785c3dbe9bc95a70466db389c))
+* image sharing with inline AVIF preview and lazy R2 full-res ([#74](https://github.com/limehq/munkel/issues/74)) ([6639ac0](https://github.com/limehq/munkel/commit/6639ac0dcaad7b7f9aaa2821fafad9985b33cd22))
+* **landing:** add Imprint, Privacy & Contact legal pages ([#78](https://github.com/limehq/munkel/issues/78)) ([2a17690](https://github.com/limehq/munkel/commit/2a1769078ab6c3b18c90f21668c691a6d7d82050)), closes [#73](https://github.com/limehq/munkel/issues/73)
+* **landing:** notch hover cue + macOS menu bar, fix top hairline ([#79](https://github.com/limehq/munkel/issues/79)) ([e965ea4](https://github.com/limehq/munkel/commit/e965ea48fe82d5d64c6ad93907191df0e381a6b5))
+* **macos:** add unread message indicator in notch ([#77](https://github.com/limehq/munkel/issues/77)) ([db72608](https://github.com/limehq/munkel/commit/db726087fd3c88c44fd53c842367ba3cd06751a3))
+* **macos:** copy history messages via hover button and "C" shortcut ([623584b](https://github.com/limehq/munkel/commit/623584b53362db1bbba47ce5c019fae294a81fac))
+* **macos:** copy history messages via hover button and "C" shortcut ([ed6df91](https://github.com/limehq/munkel/commit/ed6df91345dd6d6c6439d9fdeddb50e3cbc198a5))
+* show lock/globe icon in collapsed message teaser ([#63](https://github.com/limehq/munkel/issues/63)) ([4fb00fd](https://github.com/limehq/munkel/commit/4fb00fd1619506470a97405935ceace4c200ca09))
+
+
+### Bug Fixes
+
+* **macos:** let hover-"C" copy the current message too ([0ebe322](https://github.com/limehq/munkel/commit/0ebe322f8c4f62ecaaaebab9529347658c5fd2c7))
+
 ## [0.9.0](https://github.com/limehq/munkel/compare/v0.8.4...v0.9.0) (2026-06-17)
 
 
