@@ -22,7 +22,7 @@ export const Route = createRootRoute({
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { title: TITLE },
       { name: 'description', content: DESCRIPTION },
-      { name: 'theme-color', content: '#0a0a0a' },
+      { name: 'theme-color', content: '#1e140d' },
       { property: 'og:title', content: TITLE },
       { property: 'og:description', content: DESCRIPTION },
       { property: 'og:type', content: 'website' },
@@ -46,7 +46,22 @@ export const Route = createRootRoute({
     ],
   }),
   shellComponent: RootDocument,
+  notFoundComponent: NotFound,
 })
+
+// 404 — the shushing meerkat fits: the page, like every munkel, already vanished.
+function NotFound() {
+  return (
+    <div className="not-found">
+      <div className="app-icon">
+        <img src="/app-icon.png" alt="The Munkel meerkat" width={112} height={112} />
+      </div>
+      <h1>404</h1>
+      <p>This one already vanished — like every good munkel. Nothing here is ever stored.</p>
+      <a className="nf-home" href="/">← Back to munkel.app</a>
+    </div>
+  )
+}
 
 function RootDocument({ children }: { children: ReactNode }) {
   return (

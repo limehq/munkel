@@ -1,12 +1,15 @@
 import { Link } from '@tanstack/react-router'
 
+import { MeerkatGlyph } from '@/components/icons'
 import { CLI_URL, GITHUB_URL, LICENSE_URL, PROTOCOL_URL } from '@/lib/constants'
 
 export function SiteFooter() {
   return (
     <footer>
       <div className="container footer-inner">
-        <span className="muted">munkel · ephemeral messages between friends.</span>
+        <span className="muted footer-brand">
+          <MeerkatGlyph />munkel · ephemeral messages between friends.
+        </span>
         <div className="footer-links">
           <Link to="/imprint">Imprint</Link>
           <Link to="/privacy">Privacy</Link>

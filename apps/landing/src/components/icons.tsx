@@ -1,3 +1,10 @@
+// The Munkel mascot — the same single-path meerkat glyph the macOS app ships
+// (public/munkel-glyph.svg). Rendered as a CSS mask so it inherits `currentColor`
+// and themes for free; sizing comes from the consumer's class.
+export function MeerkatGlyph({ className = '' }: { className?: string }) {
+  return <span className={`meerkat-glyph ${className}`.trim()} aria-hidden />
+}
+
 // GitHub's mark isn't in lucide, so it's hand-rolled to match the lucide stroke
 // look (the global `svg.lucide` rule handles sizing + stroke-width).
 export function GithubIcon({ className = '' }: { className?: string }) {
