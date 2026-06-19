@@ -34,15 +34,19 @@ enum NotchScreenMetrics {
         return (cutout, true, menubarHeight)
     }
 
-    /// Top-centre panel frame: a generous half-screen canvas pinned to the top
-    /// edge (size `screen.frame / 2`, origin at top centre) so the content's
-    /// top-anchored layout hangs from the notch and the open/close morph animates
-    /// inside a fixed window without resizing it. Notched and notchless screens
+    /// Top-centre panel frame: a half-width canvas spanning the *full* screen
+    /// height, pinned so its top edge is the screen top. Full height (not the
+    /// old half-screen) gives the top-anchored content unlimited room to grow
+    /// downward — expanded history could otherwise outgrow a half-screen
+    /// window and get clipped at the window's bottom edge, cutting off the
+    /// notch's bottom corners and breaking the layout. The visible shape is
+    /// unaffected: the NotchShape mask sizes to the content, not the window,
+    /// and the empty canvas stays click-through. Notched and notchless screens
     /// share this frame; only the content chrome inside differs.
     @MainActor
     static func panelFrame(for screen: NSScreen) -> NSRect {
-        let size = NSSize(width: screen.frame.width / 2, height: screen.frame.height / 2)
-        let origin = NSPoint(x: screen.frame.midX - size.width / 2, y: screen.frame.maxY - size.height)
-        return NSRect(origin: origin, size: size)
+        let width = screen.frame.width / 2
+        let origin = NSPoint(x: screen.frame.midX - width / 2, y: screen.frame.minY)
+        return NSRect(x: origin.x, y: origin.y, width: width, height: screen.frame.height)
     }
 }

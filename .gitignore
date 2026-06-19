@@ -40,6 +40,9 @@ xcuserdata/
 /handoff.js
 /debug.md
 
+# Planning artifacts
+.planning/
+
 # graphify build artifacts (keep only clean deliverables)
 graphify-out/*
 !graphify-out/graph.json

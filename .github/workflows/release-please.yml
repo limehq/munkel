@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   release-please:
-    runs-on: [self-hosted, macOS, ARM64]
+    runs-on: ubuntu-latest
     timeout-minutes: 5
     # Least privilege: writes live on the job, not the workflow top level.
     permissions:

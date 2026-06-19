@@ -180,3 +180,80 @@ test("too few send arguments prints usage error", async () => {
   expect(result.exitCode).toBe(64)
   expect(result.stderr).toContain("usage: munkel")
 })
+
+test("dm sends a recipient-only request with no circle", async () => {
+  const app = fakeApp(() => ({ ok: true }))
+  const result = await runMunkel(["dm", "sebil", "deploy", "is", "green"], app.socketPath)
+
+  expect(result.exitCode).toBe(0)
+  expect(result.stdout).toContain("munkeled ✓")
+  expect(app.requests).toEqual([{ action: "send", to: "sebil", text: "deploy is green" }])
+})
+
+test("dm with no message is a usage error", async () => {
+  const result = await runMunkel(["dm", "sebil"])
+
+  expect(result.exitCode).toBe(64)
+  expect(result.stderr).toContain("usage: munkel dm")
+})
+
+test("an error's candidate circles are printed to stderr", async () => {
+  // An ambiguous `dm` recipient comes back with the candidate circles so the
+  // single failed call is self-correcting — no follow-up `circles` needed.
+  const app = fakeApp(() => ({
+    ok: false,
+    error: '"sebil" is in blue-table-42, green-room-17 — say `munkel <circle> sebil …`',
+    groups: [
+      { code: "blue-table-42", connected: true, members: ["Sebastian", "Sam"] },
+      { code: "green-room-17", connected: true, members: ["Sebil"] },
+    ],
+  }))
+  const result = await runMunkel(["dm", "sebil", "hi"], app.socketPath)
+
+  expect(result.exitCode).toBe(1)
+  expect(result.stderr).toContain("is in blue-table-42")
+  expect(result.stderr).toContain("● blue-table-42")
+  expect(result.stderr).toContain("● green-room-17")
+})
+
+test("circles --json emits machine-readable output", async () => {
+  const groups = [
+    { code: "blue-table-42", connected: true, members: ["Alex", "Sam"] },
+    { code: "green-room-17", connected: false, members: [] },
+  ]
+  const app = fakeApp(() => ({ ok: true, groups }))
+  const result = await runMunkel(["circles", "--json"], app.socketPath)
+
+  expect(result.exitCode).toBe(0)
+  expect(JSON.parse(result.stdout)).toEqual(groups)
+  expect(app.requests).toEqual([{ action: "groups" }])
+})
+
+test("a silent app triggers a bounded response timeout", async () => {
+  // The app accepts the connection but never replies; the CLI must not hang
+  // the caller (and any agent turn driving it) indefinitely.
+  const socketPath = join(
+    tmpdir(),
+    `munkel-silent-${process.pid}-${Math.random().toString(36).slice(2)}.sock`,
+  )
+  const server = Bun.listen({
+    unix: socketPath,
+    socket: { data() { /* swallow the request, never respond */ } },
+  })
+  try {
+    const proc = Bun.spawn(["bun", cliPath, "circles"], {
+      env: { ...process.env, MUNKEL_SOCKET: socketPath, MUNKEL_RESPONSE_TIMEOUT_MS: "200" },
+      stdout: "pipe",
+      stderr: "pipe",
+    })
+    const [stderr, exitCode] = await Promise.all([
+      new Response(proc.stderr).text(),
+      proc.exited,
+    ])
+
+    expect(exitCode).toBe(75)
+    expect(stderr).toContain("never replied")
+  } finally {
+    server.stop(true)
+  }
+})

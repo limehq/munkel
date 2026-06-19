@@ -1,0 +1,26 @@
+# Swift Bundler config for the Munkel menu-bar app. make-bundle.sh injects the
+# real CFBundleShortVersionString at build time (from MUNKEL_VERSION) through a
+# throwaway copy of this file, so the version below is only a placeholder.
+format_version = 2
+
+[apps.Munkel]
+product = "munkel"
+version = "0.0.0"
+identifier = "dev.uq.munkel"
+
+# Accessory (menu-bar) app: no Dock icon. Swift Bundler generates the base
+# Info.plist; these entries are merged on top.
+[apps.Munkel.plist]
+LSUIElement = true
+LSMinimumSystemVersion = "14.0"
+NSHighResolutionCapable = true
+# Sparkle auto-updates. The feed lives at a stable URL on our own domain
+# (munkel.app/appcast.xml → 302 to the latest GitHub release asset), so the
+# backing store can change without reshipping the app. The EdDSA public key
+# verifies every update; its private half signs the appcast in CI
+# (SPARKLE_ED_PRIVATE_KEY — see RELEASING.md). Automatic checks default on and
+# are user-toggleable in the menu (Sparkle persists the choice in UserDefaults).
+SUFeedURL = "https://munkel.app/appcast.xml"
+SUPublicEDKey = "hNXNZe99QfQWaJTBeYJyQZNTx+86sbHFjfj193jpfzA="
+SUEnableAutomaticChecks = true
+SUScheduledCheckInterval = 86400

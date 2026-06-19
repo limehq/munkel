@@ -1,13 +1,22 @@
 {
-  "originHash" : "817705269b20cf29e76bfafa000065f2fcbacca4d681c0f68f581347e79c5b15",
+  "originHash" : "ae29f4400005886ee37676efcaa5e404bee98fee0475fe50cddeb6780d681b50",
   "pins" : [
     {
       "identity" : "keyboardshortcuts",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/sindresorhus/KeyboardShortcuts",
       "state" : {
-        "revision" : "1aef85578fdd4f9eaeeb8d53b7b4fc31bf08fe27",
-        "version" : "2.4.0"
+        "revision" : "f7d08ba4109d5ca025e1a64165be169cdf089206",
+        "version" : "3.0.0"
+      }
+    },
+    {
+      "identity" : "sparkle",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/sparkle-project/Sparkle",
+      "state" : {
+        "revision" : "d46d456107feacc80711b21847b82b07bd9fb46e",
+        "version" : "2.9.3"
       }
     }
   ],

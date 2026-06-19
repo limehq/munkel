@@ -1,5 +1,94 @@
 # Changelog
 
+## [0.9.0](https://github.com/limehq/munkel/compare/v0.8.4...v0.9.0) (2026-06-17)
+
+
+### Features
+
+* one-call `munkel dm` for agents, app residency, reply timeout ([#61](https://github.com/limehq/munkel/issues/61)) ([6fd2fb2](https://github.com/limehq/munkel/commit/6fd2fb2bda4f650d02faa2a71c40462c26ec4a69))
+
+## [0.8.4](https://github.com/limehq/munkel/compare/v0.8.3...v0.8.4) (2026-06-17)
+
+
+### Bug Fixes
+
+* **release:** stop build-brew-cask.sh executing backticks in the cask template ([#59](https://github.com/limehq/munkel/issues/59)) ([86410d6](https://github.com/limehq/munkel/commit/86410d6fe7a3a293e4a3787be950af0b7e019e8a))
+
+## [0.8.3](https://github.com/limehq/munkel/compare/v0.8.2...v0.8.3) (2026-06-17)
+
+
+### Bug Fixes
+
+* **release:** show the changelog inline in the Sparkle update dialog ([#57](https://github.com/limehq/munkel/issues/57)) ([d043c31](https://github.com/limehq/munkel/commit/d043c314ab3cf866696579f150eaa8653c9f19dd))
+
+## [0.8.2](https://github.com/limehq/munkel/compare/v0.8.1...v0.8.2) (2026-06-17)
+
+
+### Documentation
+
+* **releasing:** document Release-As for forcing a version ([#55](https://github.com/limehq/munkel/issues/55)) ([d631913](https://github.com/limehq/munkel/commit/d6319131bcd6c9299357f485e3ee0f0cd792aed1))
+
+## [0.8.1](https://github.com/limehq/munkel/compare/v0.8.0...v0.8.1) (2026-06-16)
+
+
+### Bug Fixes
+
+* make build-appcast.sh executable ([#53](https://github.com/limehq/munkel/issues/53)) ([4212913](https://github.com/limehq/munkel/commit/4212913be10ca36219990b7e686b486e8c850bc6))
+
+## [0.8.0](https://github.com/limehq/munkel/compare/v0.7.0...v0.8.0) (2026-06-16)
+
+
+### Features
+
+* **macos:** enable Sparkle auto-updates ([#52](https://github.com/limehq/munkel/issues/52)) ([6cff5d9](https://github.com/limehq/munkel/commit/6cff5d914b699ccd3ba33df93b0fdc1d758bf5d5)), closes [#36](https://github.com/limehq/munkel/issues/36)
+
+
+### Bug Fixes
+
+* **macos:** force -Onone for release builds to dodge swift[#88173](https://github.com/limehq/munkel/issues/88173) ([946c7a3](https://github.com/limehq/munkel/commit/946c7a39772976f57001a09dffc4a26a9c64c265))
+* **macos:** unblock release build — work around swift[#88173](https://github.com/limehq/munkel/issues/88173) inliner crash ([e742817](https://github.com/limehq/munkel/commit/e742817371e60495fa8ea7a0b1ae951aaed43182))
+
+## [0.7.0](https://github.com/limehq/munkel/compare/v0.6.0...v0.7.0) (2026-06-15)
+
+
+### Features
+
+* **cli:** target the parallel "Munkel Dev" app ([0e3233d](https://github.com/limehq/munkel/commit/0e3233d47cca125d8ab9b492320e3a7132be15db))
+* **cli:** target the parallel "Munkel Dev" app ([8507f01](https://github.com/limehq/munkel/commit/8507f01278ffdf40ec955298fbbf5c0067636ab8))
+* **landing:** redesign sections, shadcn refactor, Framer Motion scroll ([8ff67e8](https://github.com/limehq/munkel/commit/8ff67e8e59200704451de4e8d63ac400924b4482))
+* **landing:** redesign sections, shadcn refactor, Framer Motion scroll ([26dcd4d](https://github.com/limehq/munkel/commit/26dcd4df320393f5992967ef740f0be79d54ecab))
+* **macos:** Munkel Dev build variant, no-admin CLI install, capture exclusion ([0f795a8](https://github.com/limehq/munkel/commit/0f795a8109c7658016a7e632d9495d554f90febf))
+* **macos:** Munkel Dev variant, no-admin CLI install, capture exclusion ([37d13bf](https://github.com/limehq/munkel/commit/37d13bfb8c54e456b3585cb2e70cea43fd425dc3))
+* **macos:** UI polish + message cap (issues [#31](https://github.com/limehq/munkel/issues/31),33,34,35,37,38) ([#40](https://github.com/limehq/munkel/issues/40)) ([6fac32c](https://github.com/limehq/munkel/commit/6fac32cd81c9f0be2f7d41ce2fbedd06faa0bdb1))
+
+## [0.6.0](https://github.com/limehq/munkel/compare/v0.5.0...v0.6.0) (2026-06-15)
+
+
+### Features
+
+* **macos:** rework recipient picking + UI polish ([#29](https://github.com/limehq/munkel/issues/29)) ([ab2472c](https://github.com/limehq/munkel/commit/ab2472c22ef3761a0703d844ee24f51255b4309f))
+
+## [0.5.0](https://github.com/limehq/munkel/compare/v0.4.2...v0.5.0) (2026-06-15)
+
+
+### Features
+
+* **release:** embed CLI in app bundle, ship a DMG download ([#25](https://github.com/limehq/munkel/issues/25)) ([c08940e](https://github.com/limehq/munkel/commit/c08940e938e7fe5fc368527588683db0e7fb82bb))
+
+## [0.4.2](https://github.com/limehq/munkel/compare/v0.4.1...v0.4.2) (2026-06-14)
+
+
+### Bug Fixes
+
+* **macos:** bundle SwiftPM resources into the .app ([#22](https://github.com/limehq/munkel/issues/22)) ([af1ccd9](https://github.com/limehq/munkel/commit/af1ccd96ebebd21a991e98e237bbf7cef61db265))
+
+## [0.4.1](https://github.com/limehq/munkel/compare/v0.4.0...v0.4.1) (2026-06-14)
+
+
+### Bug Fixes
+
+* **macos:** activate app before showing the menu-bar popover ([#20](https://github.com/limehq/munkel/issues/20)) ([b667674](https://github.com/limehq/munkel/commit/b66767427224988c31f4dc512046efd6449cb703))
+
 ## [0.4.0](https://github.com/limehq/munkel/compare/v0.3.0...v0.4.0) (2026-06-13)
 
 

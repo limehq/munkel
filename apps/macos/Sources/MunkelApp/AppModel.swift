@@ -30,12 +30,29 @@ final class AppModel: ObservableObject {
             UserDefaults.standard.set(relayURLString, forKey: Self.relayURLKey)
         }
     }
+    /// The relay every session actually connects to: the `MUNKEL_RELAY_URL` dev
+    /// override if set, otherwise the persisted/default `relayURLString`.
+    var effectiveRelayURLString: String { Self.relayURLOverride ?? relayURLString }
     /// Bumped whenever any session's presence changes, so views refresh.
     @Published private(set) var presenceVersion = 0
+
+    /// Sparkle bridge, injected by `AppDelegate` at launch (release build only;
+    /// nil in the dev build, which doesn't auto-update).
+    var updater: UpdaterController?
 
     private static let groupsKey = "groupCodes"
     private static let relayURLKey = "relayURL"
     private static let defaultRelayURL = "wss://relay.munkel.app"
+
+    /// Development override: when `MUNKEL_RELAY_URL` is set (and non-empty) in
+    /// the environment, every session connects there instead of the saved or
+    /// default relay. Read once at launch and never written to UserDefaults, so
+    /// it can't clobber the persisted `relayURL` — relaunch without it to fall
+    /// back. Point a dev build at `wrangler dev` with
+    /// `MUNKEL_RELAY_URL=ws://127.0.0.1:8787 bun run dev`, which launches the
+    /// binary directly (`open` does not forward the shell environment).
+    private static let relayURLOverride: String? = ProcessInfo.processInfo
+        .environment["MUNKEL_RELAY_URL"].flatMap { $0.isEmpty ? nil : $0 }
 
     #if DEBUG
     /// Dev-only: echo my own broadcasts into my notch (Settings toggle), so a
@@ -279,26 +296,65 @@ final class AppModel: ObservableObject {
             guard let text = request.text, !text.isEmpty else {
                 return ControlResponse(ok: false, error: "Empty message")
             }
-            guard let groupQuery = request.group else {
-                return ControlResponse(ok: false, error: "Missing circle")
-            }
-            guard let session = resolveGroup(groupQuery) else {
-                return ControlResponse(ok: false, error: "Unknown or ambiguous circle \"\(groupQuery)\" — munkel circles shows them all")
+            let isBroadcast = (request.to.map { ["all", "*"].contains($0.lowercased()) }) ?? false
+
+            // Circle-scoped send: explicit circle code. Required for a
+            // broadcast and used to disambiguate a name across circles.
+            if let groupQuery = request.group {
+                guard let session = resolveGroup(groupQuery) else {
+                    return ControlResponse(ok: false, error: "Unknown or ambiguous circle \"\(groupQuery)\" — munkel circles shows them all")
+                }
+                var recipientId: String?
+                if let to = request.to, !isBroadcast {
+                    let matches = session.members.filter { Self.recipientMatches($0, to) }
+                    guard matches.count == 1 else {
+                        let problem = matches.isEmpty ? "isn't online" : "is ambiguous"
+                        return ControlResponse(ok: false, error: "\"\(to)\" \(problem) in \(session.code)")
+                    }
+                    recipientId = matches[0].id
+                }
+                let sent = await session.sendChat(text, to: recipientId)
+                return sent
+                    ? ControlResponse(ok: true)
+                    : ControlResponse(ok: false, error: "Send failed — no connection to the relay?")
             }
 
-            var recipientId: String?
-            if let to = request.to, !["all", "*"].contains(to.lowercased()) {
-                let matches = session.members.filter {
-                    $0.label.caseInsensitiveCompare(to) == .orderedSame || $0.id.hasPrefix(to.lowercased())
-                }
-                guard matches.count == 1 else {
-                    let problem = matches.isEmpty ? "isn't online" : "is ambiguous"
-                    return ControlResponse(ok: false, error: "\"\(to)\" \(problem) in \(session.code)")
-                }
-                recipientId = matches[0].id
+            // Recipient-only send (`munkel dm <name> …`): no circle given, so
+            // resolve the name across every circle. This lets an agent notify
+            // someone in a single call instead of listing circles first.
+            guard let to = request.to, !isBroadcast else {
+                return ControlResponse(ok: false, error: "Broadcast needs a circle — say `munkel <circle> all …`")
             }
-
-            let sent = await session.sendChat(text, to: recipientId)
+            var hits: [(session: GroupSession, member: GroupSession.Member)] = []
+            for code in groupCodes {
+                guard let session = sessions[code] else { continue }
+                for member in session.members where Self.recipientMatches(member, to) {
+                    hits.append((session, member))
+                }
+            }
+            guard hits.count == 1 else {
+                if hits.isEmpty {
+                    return ControlResponse(ok: false, error: "No online member matches \"\(to)\" — munkel circles shows who's online")
+                }
+                // Ambiguous: name only the candidate circles (and attach them
+                // as a discovery payload) so the caller can retry with
+                // `munkel <circle> <name> …` — never the whole social graph.
+                var candidateCodes: [String] = []
+                for code in hits.map(\.session.code) where !candidateCodes.contains(code) {
+                    candidateCodes.append(code)
+                }
+                let payload = candidateCodes.compactMap { code in
+                    sessions[code].map {
+                        ControlGroupInfo(code: code, connected: $0.isConnected, members: $0.members.map(\.label))
+                    }
+                }
+                return ControlResponse(
+                    ok: false,
+                    error: "\"\(to)\" is in \(candidateCodes.joined(separator: ", ")) — say `munkel <circle> \(to) …`",
+                    groups: payload
+                )
+            }
+            let sent = await hits[0].session.sendChat(text, to: hits[0].member.id)
             return sent
                 ? ControlResponse(ok: true)
                 : ControlResponse(ok: false, error: "Send failed — no connection to the relay?")
@@ -306,6 +362,13 @@ final class AppModel: ObservableObject {
         default:
             return ControlResponse(ok: false, error: "Unknown action \"\(request.action)\"")
         }
+    }
+
+    /// Recipient match shared by the circle-scoped and cross-circle send
+    /// paths: case-insensitive display-name match, or a public-key id prefix.
+    private static func recipientMatches(_ member: GroupSession.Member, _ query: String) -> Bool {
+        member.label.caseInsensitiveCompare(query) == .orderedSame
+            || member.id.hasPrefix(query.lowercased())
     }
 
     /// Exact code match first, then unique prefix (so `munkel kaffee …` works).
@@ -320,7 +383,7 @@ final class AppModel: ObservableObject {
     }
 
     private func openSession(code: String) {
-        guard let relayURL = URL(string: relayURLString) else { return }
+        guard let relayURL = URL(string: effectiveRelayURLString) else { return }
         let session = GroupSession(code: code, relayURL: relayURL)
         session.onStateChange = { [weak self] in
             self?.presenceVersion += 1

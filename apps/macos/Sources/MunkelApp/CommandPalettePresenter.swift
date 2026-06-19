@@ -15,7 +15,8 @@ final class CommandPalettePresenter {
     private var panel: CommandPalettePanel?
     private var keyMonitor: Any?
 
-    private static let panelSize = NSSize(width: 640, height: 440)
+    /// Fixed width; height follows the SwiftUI content (preferredContentSize).
+    private static let panelWidth: CGFloat = 380
 
     init(model: AppModel) {
         self.model = model
@@ -33,7 +34,7 @@ final class CommandPalettePresenter {
         guard panel == nil else { return }
         state.reset()
 
-        let panel = CommandPalettePanel(size: Self.panelSize)
+        let panel = CommandPalettePanel(size: NSSize(width: Self.panelWidth, height: 200))
         panel.onResignKey = { [weak self] in self?.hide() }
 
         let root = CommandPaletteView(
@@ -41,7 +42,13 @@ final class CommandPalettePresenter {
             state: state,
             onClose: { [weak self] in self?.hide() }
         )
-        panel.contentView = NSHostingView(rootView: root)
+        // Hosting controller with preferredContentSize so the panel resizes
+        // to the (fixed-width, content-height) SwiftUI layout — compact for
+        // a couple of circles, capped by the view's own maxHeight.
+        let controller = NSHostingController(rootView: root)
+        controller.sizingOptions = [.preferredContentSize]
+        panel.contentViewController = controller
+        panel.layoutIfNeeded()
 
         position(panel)
         self.panel = panel
@@ -64,34 +71,37 @@ final class CommandPalettePresenter {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
         guard let frame = screen?.visibleFrame else { return }
-        let size = Self.panelSize
+        let size = panel.frame.size
         let x = frame.midX - size.width / 2
         let y = frame.maxY - size.height - frame.height * 0.18
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
-    /// Up/down arrows move the picker selection. Installed only while the
-    /// panel is open; Return (onSubmit) and Esc (onExitCommand) stay with the
-    /// search field. Arrows are consumed (return nil) so they don't move the
-    /// text cursor. Active only in phase 1 — phase 2 has no list.
+    /// Arrow keys are a full D-pad over the target chips while the message
+    /// field keeps focus: left/right within a circle, up/down between
+    /// circles. All four are consumed (return nil) so they don't move the
+    /// text cursor. Tab/Shift+Tab cycle through all recipients. Return (onSubmit)
+    /// sends and Esc (onExitCommand) closes.
     private func installKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
             var consumed = false
             MainActor.assumeIsolated {
-                guard self.state.target == nil else { return }
+                let dir: CommandPaletteState.Direction?
                 switch event.keyCode {
-                case 125: // down arrow
-                    let count = self.state.filteredRecipients.count
-                    if count > 0 {
-                        self.state.selectedIndex = min(count - 1, self.state.selectedIndex + 1)
-                    }
+                case 123: dir = .left
+                case 124: dir = .right
+                case 125: dir = .down
+                case 126: dir = .up
+                default: dir = nil
+                }
+                if let dir {
+                    self.state.move(dir)
                     consumed = true
-                case 126: // up arrow
-                    self.state.selectedIndex = max(0, self.state.selectedIndex - 1)
+                } else if event.keyCode == 48 { // Tab key
+                    let backward = event.modifierFlags.contains(.shift)
+                    self.state.moveTab(backward: backward)
                     consumed = true
-                default:
-                    break
                 }
             }
             return consumed ? nil : event

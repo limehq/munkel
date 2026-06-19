@@ -1,0 +1,30 @@
+#!/usr/bin/env bash
+# Test shim named `munkel`: put scripts/skill-testbin on PATH and the skill's
+# `munkel …` calls route to the from-source CLI against a per-run fake app
+# (scripts/skill-fake-app.ts). Used to measure how the skill steers an agent —
+# every call is logged, nothing touches the real app/relay/notch.
+#
+#   MUNKEL_STEER_RUN       isolates socket + log per run   (default "default")
+#   MUNKEL_STEER_SCENARIO  happy | ambiguous | unknown | silent  (default happy)
+set -euo pipefail
+
+bindir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+repo="$(cd "$bindir/../.." && pwd)"
+
+run="${MUNKEL_STEER_RUN:-default}"
+scenario="${MUNKEL_STEER_SCENARIO:-happy}"
+sock="/tmp/munkel-steer-$run.sock"
+log="/tmp/munkel-steer-$run.jsonl"
+
+# Fresh log on the run's first call only; lazy reboots below append to it so a
+# reaped background fake never loses earlier calls.
+[ -f "$log" ] || : > "$log"
+
+# Lazily (re)start the fake app if its socket isn't up.
+if [ ! -S "$sock" ]; then
+  FAKE_SOCKET="$sock" FAKE_LOG="$log" FAKE_SCENARIO="$scenario" \
+    nohup bun "$repo/scripts/skill-fake-app.ts" >"/tmp/munkel-steer-$run.applog" 2>&1 &
+  for _ in $(seq 1 60); do [ -S "$sock" ] && break; sleep 0.05; done
+fi
+
+exec env MUNKEL_SOCKET="$sock" bun "$repo/apps/cli/src/munkel.ts" "$@"

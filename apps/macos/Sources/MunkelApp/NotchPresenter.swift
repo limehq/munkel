@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import KeyboardShortcuts
 import SwiftUI
 
 /// Presents incoming messages below the notch: a slim one-line teaser
@@ -17,6 +18,8 @@ final class NotchPresenter {
     private var hideTask: Task<Void, Never>?
     private var pruneTask: Task<Void, Never>?
     private var hoverObservation: AnyCancellable?
+    /// Toggles the plain-"C" hover-copy hotkey on/off as rows are hovered.
+    private var hoverCopyObservation: AnyCancellable?
     private var clickMonitor: Any?
     private var outsideClickMonitor: Any?
 
@@ -39,6 +42,20 @@ final class NotchPresenter {
     private let afterTeaserDelay: Duration = .seconds(2)
     /// Grace period after the pointer leaves the expanded message.
     private let afterReadDelay: Duration = .seconds(1)
+
+    init() {
+        // The hover-copy shortcut is a bare "C". Attach the handler once, then
+        // force it OFF: registering the handler is what arms the global Carbon
+        // hotkey, so disabling AFTERWARDS guarantees the end state is dormant no
+        // matter the library's internal ordering. display() turns it on ONLY
+        // while a history row is hovered (and no reply is open), so it never
+        // swallows a "C" typed anywhere else.
+        KeyboardShortcuts.onKeyDown(for: .copyHoveredHistory) { [weak self] in
+            self?.currentModel?.copyHovered()
+        }
+        KeyboardShortcuts.disable(.copyHoveredHistory)
+    }
+
     /// Upper bound in case the teaser never reports completion — sized to
     /// the text so long messages aren't cut off mid-scroll. Rough estimate:
     /// ~7pt per character at the ticker's font, scrolling at 24pt/s through
@@ -118,6 +135,7 @@ final class NotchPresenter {
         hideTask?.cancel()
         hoverObservation = nil
         removeClickMonitors()
+        turnOffHoverCopy()
         if let previous = currentNotch {
             // hide() collapses immediately; afterwards a newer message may
             // already have taken over.
@@ -134,6 +152,9 @@ final class NotchPresenter {
         model.history = visibleHistory(excluding: entryID)
         currentEntryID = entryID
         currentModel = model
+        // The hover-"C" shortcut copies this when the pointer isn't over a
+        // history row (see MessageDisplayModel.copyHovered).
+        model.currentText = message.text
 
         // Default to the main screen; a future setting (#7) supplies a different
         // closure. One measurement drives both panel placement and content layout.
@@ -184,12 +205,28 @@ final class NotchPresenter {
                 }
             }
 
+        // Arm the bare-"C" copy hotkey whenever the notch is hovered and no
+        // reply field is open. "C" then copies the hovered history row, or the
+        // current (newest) message when the pointer isn't over a row (see
+        // MessageDisplayModel.copyHovered). Gated this way it never eats a "C"
+        // typed away from the notch, and while replying "C" types into the field.
+        hoverCopyObservation = Publishers.CombineLatest(notch.$isHovering, model.$replying)
+            .map { hovering, replying in hovering && !replying }
+            .removeDuplicates()
+            .sink { active in
+                if active {
+                    KeyboardShortcuts.enable(.copyHoveredHistory)
+                } else {
+                    KeyboardShortcuts.disable(.copyHoveredHistory)
+                }
+            }
+
         await notch.expand()
         // Belt-and-suspenders. The panel is already non-capturable from birth
         // (NotchPanelWindow sets sharingType in init) and the frame-exact
         // protection is the CaptureExclusion view at the content root; this
         // cheap re-assertion stays purely as insurance for the core promise.
-        notch.panel?.sharingType = .none
+        notch.panel?.sharingType = NSWindow.munkelCaptureSharingType
         notchVisible = true
         installClickMonitors(for: notch, model: model)
         startHistoryPruning(model: model)
@@ -242,11 +279,14 @@ final class NotchPresenter {
                     // hitTest is useless here (NSHostingView returns
                     // itself wherever SwiftUI content covers the marker),
                     // so clicks are matched against the marker frames via
-                    // AppKit coordinate conversion instead. History clicks
-                    // toggle the truncation, clicks on the current message
-                    // open the reply — everything else on the shape is
+                    // AppKit coordinate conversion instead. A hovered history
+                    // row's copy glyph wins first (copy that row), then history
+                    // clicks toggle the truncation, then clicks on the current
+                    // message open the reply — everything else on the shape is
                     // inert (buttons handle themselves).
-                    if Self.click(event, lands: model.historyMarker) {
+                    if let target = model.historyCopyTargets.first(where: { Self.click(event, lands: $0.view) }) {
+                        model.copyHistory(id: target.id, text: target.text)
+                    } else if Self.click(event, lands: model.historyMarker) {
                         withAnimation(.spring(duration: 0.3)) {
                             model.historyExpanded.toggle()
                         }
@@ -270,6 +310,16 @@ final class NotchPresenter {
     private static func click(_ event: NSEvent, lands marker: NSView?) -> Bool {
         guard let marker, marker.window === event.window else { return false }
         return marker.bounds.contains(marker.convert(event.locationInWindow, from: nil))
+    }
+
+    /// Hard off-switch for the bare-"C" hotkey, independent of hover state.
+    /// SwiftUI's `.onHover(false)` doesn't reliably fire when the notch is torn
+    /// down, so the hotkey must be force-disabled on every hide — otherwise a
+    /// stale-enabled "C" would keep swallowing the key after the notch is gone.
+    private func turnOffHoverCopy() {
+        hoverCopyObservation = nil
+        currentModel?.hoveredHistoryID = nil
+        KeyboardShortcuts.disable(.copyHoveredHistory)
     }
 
     private func removeClickMonitors() {
@@ -329,6 +379,7 @@ final class NotchPresenter {
             await notch.hide()
             self?.notchVisible = false
             self?.pruneTask?.cancel()
+            self?.turnOffHoverCopy()
         }
     }
 }
