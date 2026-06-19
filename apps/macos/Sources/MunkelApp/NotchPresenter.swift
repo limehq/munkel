@@ -517,7 +517,15 @@ final class NotchPresenter {
         let previous = authCodeOp
         authCodeOp = Task { [weak self] in
             await previous?.value
+            // Idempotent: a panel is already up for this flow. This relies on
+            // every new `.awaitingUser` being preceded by a non-`.awaitingUser`
+            // state (startGitHubLogin sets `.requestingCode`), which runs
+            // hideAuthCode and nils this first — so a fresh code always rebuilds.
             guard let self, self.authCodeNotch == nil else { return }
+            // The notch slot holds one panel: clear a stale unread indicator
+            // that could linger into a re-login. No message notch can race here
+            // — sessions are login-gated, so none are live mid-sign-in.
+            self.hideIndicator()
             let targetScreen: @MainActor () -> NSScreen? = { NSScreen.main }
             let notch = AuthCodeNotch(hoverBehavior: .none, targetScreen: targetScreen) {
                 AuthCodeNotchView(code: code)
