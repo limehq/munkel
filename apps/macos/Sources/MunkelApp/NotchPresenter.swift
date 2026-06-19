@@ -33,6 +33,11 @@ final class NotchPresenter {
     private var indicatorHoverObservation: AnyCancellable?
     private var clickMonitor: Any?
     private var outsideClickMonitor: Any?
+    /// While a modal file picker (NSOpenPanel) is up, its in-process clicks
+    /// would be read as "clicked outside the notch" by the click monitors and
+    /// collapse the open reply. Set during pickImageFile to suppress the
+    /// dismiss, mirroring CommandPalettePresenter.suppressResignHide.
+    private var suppressReplyDismiss = false
     /// Tracks whether user has interacted with the current message.
     private var userInteractedWithMessage = false
 
@@ -365,7 +370,7 @@ final class NotchPresenter {
                         || Self.click(event, lands: model.teaserMarker) {
                         self.beginReply(model: model, panel: panel)
                     }
-                } else {
+                } else if !self.suppressReplyDismiss {
                     self.cancelReply()
                 }
             }
@@ -373,7 +378,8 @@ final class NotchPresenter {
         }
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in
             MainActor.assumeIsolated {
-                self?.cancelReply()
+                guard let self, !self.suppressReplyDismiss else { return }
+                self.cancelReply()
             }
         }
     }
@@ -446,35 +452,32 @@ final class NotchPresenter {
     /// window, which this dialog does not do).
     private func pickImageFile(model: MessageDisplayModel) {
         guard model.replying, model.canAttachMore, let panel = currentNotch?.panel else { return }
-        // Suspend dismiss-on-outside-click and the auto-hide while modal.
+        // The modal NSOpenPanel runs in-process (the app isn't sandboxed), so its
+        // clicks reach both click monitors carrying the dialog's own window — which
+        // the monitors would read as "clicked outside the notch" and collapse the
+        // reply, dropping the images just picked. Suppress the dismiss for the
+        // modal's duration (mirrors CommandPalettePresenter.suppressResignHide)
+        // instead of tearing the monitors down. Also pause the auto-hide.
+        suppressReplyDismiss = true
         hideTask?.cancel()
-        if let outsideClickMonitor {
-            NSEvent.removeMonitor(outsideClickMonitor)
-            self.outsideClickMonitor = nil
+        defer {
+            suppressReplyDismiss = false
+            // The open dialog took key focus; hand it back so the reply field
+            // stays live and keeps accepting input.
+            panel.makeKeyAndOrderFront(nil)
         }
         let open = NSOpenPanel()
         open.allowedContentTypes = [.image]
         open.allowsMultipleSelection = true
         open.canChooseDirectories = false
         NSApp.activate(ignoringOtherApps: true)
-        let response = open.runModal()
-        if response == .OK {
-            for url in open.urls {
-                guard model.canAttachMore else { break }
-                // Skip an unreadable selection rather than abandoning the rest.
-                guard let data = try? Data(contentsOf: url) else { continue }
-                model.attach(data)
-            }
+        guard open.runModal() == .OK else { return }
+        for url in open.urls {
+            guard model.canAttachMore else { break }
+            // Skip an unreadable selection rather than abandoning the rest.
+            guard let data = try? Data(contentsOf: url) else { continue }
+            model.attach(data)
         }
-        // Re-arm the outside-click dismiss and restore key focus so the field
-        // keeps accepting input. (clickMonitor — the local one — was never
-        // removed, so only the global monitor needs re-adding.)
-        if outsideClickMonitor == nil {
-            outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in
-                MainActor.assumeIsolated { self?.cancelReply() }
-            }
-        }
-        panel.makeKeyAndOrderFront(nil)
     }
 
     private func replyWasSent() {

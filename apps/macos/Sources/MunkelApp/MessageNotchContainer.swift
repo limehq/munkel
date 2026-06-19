@@ -557,7 +557,12 @@ struct MessageNotchContainer: View {
     /// clipboard image into model.attachedImages. Copied from
     /// MenuView.updatePasteMonitor; plain-text paste falls through to the field.
     private func updatePasteMonitor(_ focused: Bool) {
-        if focused, pasteMonitor == nil {
+        // Gate the install on an actually-open reply: the field's 80ms focus
+        // Task can fire after the reply was dismissed (onDisappear already tore
+        // the monitor down). Without this guard that late focus write would
+        // re-install a monitor nothing then removes — a leak that swallows ⌘V
+        // globally. model.replying is false by then, so the install is skipped.
+        if focused, model.replying, pasteMonitor == nil {
             pasteMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 var consume = false
                 MainActor.assumeIsolated {
