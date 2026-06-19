@@ -11,9 +11,16 @@ struct MessageNotchView: View {
     let message: IncomingMessage
     @ObservedObject var model: MessageDisplayModel
 
-    /// Matches the expanded container width.
+    /// The expanded panel width (matches the container's `tickerWindow`).
     private let contentWidth: CGFloat = 250
+    /// Horizontal inset of the message body — keep in sync with the
+    /// `.padding(.horizontal, hInset)` on textBody/imageBody. The picture(s)
+    /// fit this inset width, not the full panel width, or the album sits flush
+    /// against the right edge while keeping a left margin.
+    private let hInset: CGFloat = 6
     private let gridSpacing: CGFloat = 6
+    /// Usable width for the picture(s): the panel minus both body insets.
+    private var imageWidth: CGFloat { contentWidth - 2 * hInset }
 
     var body: some View {
         if message.isImage {
@@ -38,7 +45,7 @@ struct MessageNotchView: View {
 
             Spacer(minLength: 12)
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, hInset)
         .padding(.vertical, 4)
     }
 
@@ -61,12 +68,12 @@ struct MessageNotchView: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .padding(.horizontal, 6)
+        .padding(.horizontal, hInset)
         .padding(.vertical, 4)
     }
 
-    /// A lone image fills the width at its own aspect; an album is a 2-column
-    /// grid of square cells.
+    /// A lone image fills the width at its own aspect; an album is a grid of
+    /// square cells, up to four per row.
     @ViewBuilder private var imageContent: some View {
         if message.images.count == 1, let only = message.images.first {
             let size = fittedSize(width: only.width, height: only.height)
@@ -74,11 +81,14 @@ struct MessageNotchView: View {
                 .frame(width: size.width, height: size.height)
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
         } else {
-            let side = (contentWidth - gridSpacing) / 2
-            let columns = [
-                GridItem(.fixed(side), spacing: gridSpacing),
-                GridItem(.fixed(side), spacing: gridSpacing),
-            ]
+            // Pack up to four thumbnails per row; smaller albums use fewer,
+            // larger columns (2 → two-up, 3 → three-up, 4+ → four per row).
+            let columnCount = min(4, message.images.count)
+            let side = (imageWidth - CGFloat(columnCount - 1) * gridSpacing) / CGFloat(columnCount)
+            let columns = Array(
+                repeating: GridItem(.fixed(side), spacing: gridSpacing),
+                count: columnCount
+            )
             LazyVGrid(columns: columns, alignment: .leading, spacing: gridSpacing) {
                 ForEach(message.images) { img in
                     AlbumCell(model: model, image: img, fill: true)
@@ -86,7 +96,7 @@ struct MessageNotchView: View {
                         .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
                 }
             }
-            .frame(width: contentWidth, alignment: .leading)
+            .frame(width: imageWidth, alignment: .leading)
         }
     }
 
@@ -115,8 +125,8 @@ struct MessageNotchView: View {
         let w = CGFloat(width)
         let h = CGFloat(height)
         let maxHeight: CGFloat = 260
-        guard w > 0, h > 0 else { return CGSize(width: contentWidth, height: contentWidth * 0.6) }
-        let scale = min(contentWidth / w, maxHeight / h)
+        guard w > 0, h > 0 else { return CGSize(width: imageWidth, height: imageWidth * 0.6) }
+        let scale = min(imageWidth / w, maxHeight / h)
         return CGSize(width: max(1, w * scale), height: max(1, h * scale))
     }
 }
