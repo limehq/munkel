@@ -197,6 +197,54 @@ test("dm with no message is a usage error", async () => {
   expect(result.stderr).toContain("usage: munkel dm")
 })
 
+test("image sends a recipient-only request carrying the resolved file path", async () => {
+  const app = fakeApp(() => ({ ok: true }))
+  const imageFile = join(tmpdir(), `munkel-img-${process.pid}-${Math.random().toString(36).slice(2)}.png`)
+  await Bun.write(imageFile, new Uint8Array([0x89, 0x50, 0x4e, 0x47])) // bytes irrelevant to the CLI
+  const result = await runMunkel(["image", "sebil", imageFile], app.socketPath)
+
+  expect(result.exitCode).toBe(0)
+  expect(result.stdout).toContain("munkeled ✓")
+  expect(app.requests).toEqual([{ action: "send", to: "sebil", imagePaths: [imageFile] }])
+})
+
+test("image sends multiple paths as an album", async () => {
+  const app = fakeApp(() => ({ ok: true }))
+  const a = join(tmpdir(), `munkel-img-${process.pid}-${Math.random().toString(36).slice(2)}.png`)
+  const b = join(tmpdir(), `munkel-img-${process.pid}-${Math.random().toString(36).slice(2)}.png`)
+  await Bun.write(a, new Uint8Array([1]))
+  await Bun.write(b, new Uint8Array([2]))
+  const result = await runMunkel(["image", "sebil", a, b], app.socketPath)
+
+  expect(result.exitCode).toBe(0)
+  expect(app.requests).toEqual([{ action: "send", to: "sebil", imagePaths: [a, b] }])
+})
+
+test("image with --caption attaches it as text", async () => {
+  const app = fakeApp(() => ({ ok: true }))
+  const imageFile = join(tmpdir(), `munkel-img-${process.pid}-${Math.random().toString(36).slice(2)}.png`)
+  await Bun.write(imageFile, new Uint8Array([0x89, 0x50, 0x4e, 0x47]))
+  const result = await runMunkel(["image", "sebil", imageFile, "--caption", "ship", "it"], app.socketPath)
+
+  expect(result.exitCode).toBe(0)
+  expect(app.requests).toEqual([{ action: "send", to: "sebil", imagePaths: [imageFile], text: "ship it" }])
+})
+
+test("image with no path is a usage error", async () => {
+  const result = await runMunkel(["image", "sebil"])
+
+  expect(result.exitCode).toBe(64)
+  expect(result.stderr).toContain("usage: munkel image")
+})
+
+test("image with a missing file exits 66 before touching the socket", async () => {
+  const missing = join(tmpdir(), `munkel-missing-${process.pid}-${Math.random().toString(36).slice(2)}.png`)
+  const result = await runMunkel(["image", "sebil", missing])
+
+  expect(result.exitCode).toBe(66)
+  expect(result.stderr).toContain("no such image file")
+})
+
 test("an error's candidate circles are printed to stderr", async () => {
   // An ambiguous `dm` recipient comes back with the candidate circles so the
   // single failed call is self-correcting — no follow-up `circles` needed.

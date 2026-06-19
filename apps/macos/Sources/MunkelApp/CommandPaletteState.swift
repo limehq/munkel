@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import MunkelKit
 
 /// A target the palette can send to: one member, or a whole circle.
 struct Recipient: Identifiable, Equatable {
@@ -24,11 +25,32 @@ struct Recipient: Identifiable, Equatable {
 final class CommandPaletteState: ObservableObject {
     @Published var selectedIndex = 0
     @Published var message = ""
+    /// Images staged for sending (an album): pasted with ⌘V or uploaded from
+    /// files via the paperclip. When non-empty, Return sends the pictures (any
+    /// typed text rides along as the shared caption).
+    @Published var attachedImages: [Data] = []
 
     private weak var app: AppModel?
 
     init(app: AppModel) {
         self.app = app
+    }
+
+    var canAttachMore: Bool { attachedImages.count < AppPayload.maxImagesPerMessage }
+
+    /// Append a staged image (from the file picker), up to the per-message cap.
+    func attach(_ data: Data) {
+        if canAttachMore { attachedImages.append(data) }
+    }
+
+    /// Append the clipboard's image, if any. Returns whether one was added.
+    /// Called from the palette's ⌘V key monitor (the app has no Edit menu
+    /// wiring `paste:`, so SwiftUI's onPasteCommand never fires).
+    @discardableResult
+    func attachClipboardImage() -> Bool {
+        guard canAttachMore, let data = ClipboardImage.read() else { return false }
+        attachedImages.append(data)
+        return true
     }
 
     /// Every send target across all joined circles, in circle order: a
@@ -65,6 +87,7 @@ final class CommandPaletteState: ObservableObject {
     func reset() {
         selectedIndex = 0
         message = ""
+        attachedImages = []
     }
 
     // MARK: - D-pad navigation

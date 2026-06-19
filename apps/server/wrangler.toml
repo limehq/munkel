@@ -11,6 +11,20 @@ routes = [
 name = "GROUP_ROOM"
 class_name = "GroupRoom"
 
+# Out-of-band image blobs. Clients seal images with the group key before
+# upload, so this bucket only ever holds opaque ciphertext (see src/blob.ts).
+# `wrangler dev` simulates the bucket locally; production needs it created once:
+#   wrangler r2 bucket create munkel-blobs
+# Ephemerality: a ~66-second logical TTL (notch survival + 10%) is enforced on
+# GET, and the cron below physically sweeps expired blobs (src/blob.ts).
+[[r2_buckets]]
+binding = "BLOBS"
+bucket_name = "munkel-blobs"
+
+# Per-minute sweep of expired blobs (the backstop for never-fetched objects).
+[triggers]
+crons = ["* * * * *"]
+
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["GroupRoom"]

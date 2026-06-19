@@ -19,12 +19,22 @@ final class GroupSession {
     /// (the name is kept). Senders stay below this via AvatarCodec.
     private static let maxIncomingAvatarBytes = 32_768
 
+    /// Upper bound for a peer-sent inline thumbnail; larger drops the image.
+    private static let maxIncomingThumbBytes = 65_536
+    /// Upper bound for a fetched full-image blob (sealed ciphertext) — matches
+    /// the server's per-blob cap (apps/server/src/blob.ts) plus envelope.
+    private static let maxIncomingImageBytes = 3 * 1024 * 1024 + 4_096
+
     let code: String
     private(set) var members: [Member] = []
     private(set) var isConnected = false
 
     private let key: GroupKey
     private let client: RelayClient
+    private let blobClient = BlobClient()
+    /// HTTPS base for image blobs, derived from the relay URL; nil if the
+    /// relay URL has an unexpected scheme (image sending then no-ops).
+    private let blobBaseURL: URL?
     private var eventTask: Task<Void, Never>?
 
     /// Called on any presence/connection change so the UI can refresh.
@@ -32,11 +42,17 @@ final class GroupSession {
     /// Called when a chat message arrives; `isDirect` distinguishes a
     /// private message (relay `to` set) from a group broadcast.
     var onChat: ((_ sender: Member, _ text: String, _ isDirect: Bool) -> Void)?
+    /// Called when an image album arrives (1–10 images). `caption` is the
+    /// optional shared message (empty if none). `loadFull` fetches + decrypts
+    /// one image's full resolution from R2 on demand, keyed by its r2Key
+    /// (nil on failure/expiry).
+    var onImages: ((_ sender: Member, _ items: [ImageItem], _ caption: String, _ isDirect: Bool, _ loadFull: @escaping @Sendable (String) async -> Data?) -> Void)?
 
     init(code: String, relayURL: URL) {
         self.code = code
         self.key = GroupKey(code: code)
         self.client = RelayClient(relayURL: relayURL, groupId: key.groupId, memberId: Identity.memberId)
+        self.blobBaseURL = BlobClient.baseURL(fromRelay: relayURL)
     }
 
     func start() {
@@ -68,6 +84,83 @@ final class GroupSession {
             avatar: Identity.avatarData
         )
         return await send(payload, to: memberId)
+    }
+
+    /// Transcodes each image to AVIF, ALWAYS uploads the sealed ciphertext to R2
+    /// (in parallel), then relays ONE pointer listing all of them with their
+    /// inline AVIF thumbnails. Encoding + crypto run off the main actor. The
+    /// caption is shared by the album; NOT subject to the text length clamp.
+    @discardableResult
+    func sendImages(_ imageDatas: [Data], caption: String = "", to memberId: String? = nil) async -> Bool {
+        guard let blobBaseURL else {
+            NSLog("munkel: no blob endpoint for \(code)")
+            return false
+        }
+        let datas = Array(imageDatas.prefix(AppPayload.maxImagesPerMessage))
+        guard !datas.isEmpty else { return false }
+
+        let messageKey = key.messageKey
+        let perThumbBytes = AppPayload.perThumbBudget(imageCount: datas.count)
+        // prepareFull/makeThumbnail/sealRaw are CPU-bound on up to ~2 MiB each —
+        // keep them off the main actor. Undecodable images are dropped.
+        let prepared = await Task.detached {
+            datas.compactMap { data -> (ciphertext: Data, mime: String, width: Int, height: Int, thumb: Data)? in
+                guard let full = ImageCodec.prepareFull(from: data),
+                      let ciphertext = try? MessageCrypto.sealRaw(full.data, using: messageKey)
+                else {
+                    return nil
+                }
+                // Reuse the full AVIF as the inline preview when it already fits
+                // the per-image budget; otherwise a small AVIF (same format).
+                let thumb = full.data.count <= perThumbBytes
+                    ? full.data
+                    : ImageCodec.makeThumbnail(from: data, maxBytes: perThumbBytes)
+                guard let thumb else { return nil }
+                return (ciphertext, full.mime, full.width, full.height, thumb)
+            }
+        }.value
+
+        guard !prepared.isEmpty else {
+            NSLog("munkel: could not prepare any image in \(code) (AVIF encoding available: \(ImageCodec.isAVIFEncodingAvailable))")
+            return false
+        }
+
+        let base = blobBaseURL
+        let groupId = key.groupId
+        let client = blobClient
+        do {
+            // Upload all blobs concurrently; every PUT must finish before the
+            // pointer goes out, or a recipient would GET a 404. Order preserved.
+            let items = try await withThrowingTaskGroup(of: (Int, ImageItem).self) { group in
+                for (index, p) in prepared.enumerated() {
+                    let r2Key = Self.makeBlobKey()
+                    group.addTask {
+                        try await client.upload(baseURL: base, group: groupId, key: r2Key, ciphertext: p.ciphertext)
+                        return (index, ImageItem(
+                            r2Key: r2Key, mime: p.mime, width: p.width, height: p.height,
+                            byteLen: p.ciphertext.count, thumb: p.thumb
+                        ))
+                    }
+                }
+                var collected: [(Int, ImageItem)] = []
+                for try await pair in group { collected.append(pair) }
+                return collected.sorted { $0.0 < $1.0 }.map(\.1)
+            }
+            guard !items.isEmpty else {
+                NSLog("munkel: no image uploaded in \(code)")
+                return false
+            }
+            let payload = AppPayload.image(items: items, caption: MessageLimits.clamp(caption), sentAt: Date())
+            return await send(payload, to: memberId)
+        } catch {
+            NSLog("munkel: image send failed in \(code): \(error)")
+            return false
+        }
+    }
+
+    /// Random, URL-safe object id (matches the server's BLOB_KEY_REGEX).
+    private static func makeBlobKey() -> String {
+        UUID().uuidString.replacingOccurrences(of: "-", with: "").lowercased()
     }
 
     private func send(_ payload: AppPayload, to memberId: String?) async -> Bool {
@@ -164,6 +257,36 @@ final class GroupSession {
             let sender = members.first { $0.id == memberId }
                 ?? Member(id: memberId)
             onChat?(sender, MessageLimits.clamp(text), to != nil)
+
+        case let .image(items, caption, _):
+            // Drop items with an implausibly large inline thumb; the relay
+            // frame cap already bounds the total, this guards each one.
+            let safeItems = items.filter { $0.thumb.count <= Self.maxIncomingThumbBytes }
+            guard !safeItems.isEmpty else {
+                NSLog("munkel: dropping image album with no valid items in \(code)")
+                return
+            }
+            let sender = members.first { $0.id == memberId } ?? Member(id: memberId)
+            // Capture only Sendable values for the off-actor per-image fetch.
+            let base = blobBaseURL
+            let groupId = key.groupId
+            let messageKey = key.messageKey
+            let client = blobClient
+            let maxBytes = Self.maxIncomingImageBytes
+            let loadFull: @Sendable (String) async -> Data? = { r2Key in
+                guard let base else { return nil }
+                return await Task.detached {
+                    do {
+                        let ciphertext = try await client.download(
+                            baseURL: base, group: groupId, key: r2Key, maxBytes: maxBytes
+                        )
+                        return try MessageCrypto.openRaw(ciphertext, using: messageKey)
+                    } catch {
+                        return nil
+                    }
+                }.value
+            }
+            onImages?(sender, safeItems, MessageLimits.clamp(caption), to != nil, loadFull)
         }
     }
 }

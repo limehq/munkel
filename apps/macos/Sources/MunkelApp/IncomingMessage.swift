@@ -13,6 +13,21 @@ struct IncomingMessage: Equatable {
     /// Whether the user is in more than one circle — below that, group
     /// labels are noise and partially hidden.
     let inMultipleGroups: Bool
+    /// Images of an album (empty for a plain text message). Each carries its
+    /// inline preview thumbnail; the full resolution is fetched lazily per
+    /// cell into `MessageDisplayModel.fullImages`.
+    var images: [IncomingImage] = []
+
+    var isImage: Bool { !images.isEmpty }
+}
+
+/// One image in a received album: its inline thumbnail plus the pixel size and
+/// the R2 key (`id`) used to fetch + cache its full resolution.
+struct IncomingImage: Equatable, Identifiable, Sendable {
+    let id: String
+    let thumb: Data
+    let width: Int
+    let height: Int
 }
 
 /// One entry of the short-lived notch history: messages stay visible in

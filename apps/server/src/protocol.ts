@@ -61,6 +61,12 @@ import { z } from 'zod';
  *   joining and whenever a `peer-joined` arrives, so newcomers learn who
  *   everyone is. Sending `profile` without `avatar` clears it. Byte budgets
  *   live with the codec: AvatarCodec.swift (MunkelKit).
+ * - `image`:   `items` (1–8), shared `caption`, `sentAt`. Each item is
+ *   `{r2Key, mime, width, height, byteLen, thumb (inline AVIF, base64)}`.
+ *   The full-resolution image is AVIF, always sealed and PUT to R2 (blob.ts);
+ *   only the pointer + a tiny inline AVIF thumbnail are relayed, and the full
+ *   image is fetched from R2 on demand. Byte budgets live with the codec:
+ *   ImageCodec.swift (MunkelKit).
  *
  * Reference implementations: AppPayload.swift and ../scripts/dev-send.ts.
  *

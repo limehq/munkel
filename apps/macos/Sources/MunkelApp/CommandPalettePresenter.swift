@@ -1,6 +1,7 @@
 import AppKit
 import KeyboardShortcuts
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Owns the command-palette window and its global hotkey. Long-lived,
 /// created by AppModel (mirrors NotchPresenter's ownership). The panel is
@@ -14,6 +15,9 @@ final class CommandPalettePresenter {
     private let state: CommandPaletteState
     private var panel: CommandPalettePanel?
     private var keyMonitor: Any?
+    /// Set while the file-open dialog is up: it steals key focus from the
+    /// palette, whose resignKey would otherwise dismiss it (and reset state).
+    private var suppressResignHide = false
 
     /// Fixed width; height follows the SwiftUI content (preferredContentSize).
     private static let panelWidth: CGFloat = 380
@@ -35,12 +39,16 @@ final class CommandPalettePresenter {
         state.reset()
 
         let panel = CommandPalettePanel(size: NSSize(width: Self.panelWidth, height: 200))
-        panel.onResignKey = { [weak self] in self?.hide() }
+        panel.onResignKey = { [weak self] in
+            guard let self, !self.suppressResignHide else { return }
+            self.hide()
+        }
 
         let root = CommandPaletteView(
             model: model,
             state: state,
-            onClose: { [weak self] in self?.hide() }
+            onClose: { [weak self] in self?.hide() },
+            onPickFile: { [weak self] in self?.pickImageFile() }
         )
         // Hosting controller with preferredContentSize so the panel resizes
         // to the (fixed-width, content-height) SwiftUI layout — compact for
@@ -65,6 +73,32 @@ final class CommandPalettePresenter {
         state.reset()
     }
 
+    /// Opens a file picker to attach an image from disk (the paperclip, à la
+    /// Slack). Runs modally while suppressing the palette's resign-key dismiss,
+    /// then restores key focus so the palette stays put with the attachment.
+    private func pickImageFile() {
+        guard let panel else { return }
+        suppressResignHide = true
+        defer {
+            suppressResignHide = false
+            // The open dialog took key focus; hand it back so the palette
+            // stays live and the caption field keeps typing.
+            panel.makeKeyAndOrderFront(nil)
+        }
+        let open = NSOpenPanel()
+        open.allowedContentTypes = [.image]
+        open.allowsMultipleSelection = true
+        open.canChooseDirectories = false
+        open.message = "Choose image(s) to send"
+        NSApp.activate(ignoringOtherApps: true)
+        guard open.runModal() == .OK else { return }
+        for url in open.urls {
+            if let data = try? Data(contentsOf: url) {
+                state.attach(data)
+            }
+        }
+    }
+
     /// Centered horizontally on the screen under the pointer, upper third —
     /// the Spotlight position.
     private func position(_ panel: CommandPalettePanel) {
@@ -87,6 +121,18 @@ final class CommandPalettePresenter {
             guard let self else { return event }
             var consumed = false
             MainActor.assumeIsolated {
+                // ⌘V with an image on the clipboard attaches it. The app has no
+                // Edit menu wiring `paste:`, so SwiftUI's onPasteCommand never
+                // fires — intercept the key here instead. Plain text paste (no
+                // image on the clipboard) falls through to the field editor.
+                if event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                   event.charactersIgnoringModifiers?.lowercased() == "v" {
+                    if self.state.attachClipboardImage() {
+                        consumed = true
+                    }
+                    return
+                }
+
                 let dir: CommandPaletteState.Direction?
                 switch event.keyCode {
                 case 123: dir = .left

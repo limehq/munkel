@@ -8,6 +8,15 @@ import SwiftUI
 final class MessageDisplayModel: ObservableObject {
     @Published var fullyExpanded = false
     @Published var copied = false
+    /// Decrypted full-resolution bytes per album image (keyed by r2Key),
+    /// fetched from R2 on demand by the grid cells. The inline thumbnail
+    /// stands in until then.
+    @Published var fullImages: [String: Data] = [:]
+    /// Images whose full fetch failed (expired/offline) — show a warning glyph.
+    @Published var failedImages: Set<String> = []
+    /// Per-image full-resolution loaders, set once by NotchPresenter. Not
+    /// @Published: read by cells, it never needs to drive a refresh itself.
+    var imageLoaders: [String: @Sendable () async -> Data?] = [:]
     /// Click on the message opened the reply field (set by NotchPresenter).
     @Published var replying = false
     /// The reply went out — show the confirmation, then auto-hide.
@@ -49,6 +58,20 @@ final class MessageDisplayModel: ObservableObject {
 
     func copy(_ text: String) {
         writePasteboard(text)
+        flashCopied()
+    }
+
+    /// Copy a received image to the clipboard (full resolution if it has
+    /// loaded, otherwise the inline thumbnail).
+    func copyImage(_ data: Data) {
+        guard let image = NSImage(data: data) else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects([image])
+        flashCopied()
+    }
+
+    private func flashCopied() {
         withAnimation(.spring(duration: 0.3)) { copied = true }
         Task {
             try? await Task.sleep(for: .seconds(1.5))
@@ -144,15 +167,16 @@ struct MessageNotchContainer: View {
             if model.fullyExpanded {
                 // Same width as the teaser: hovering only grows downward.
                 VStack(alignment: .leading, spacing: 6) {
-                    MessageNotchView(message: message)
+                    MessageNotchView(message: message, model: model)
                         // Reply opens only from a click on the current
                         // message itself, not anywhere on the shape.
                         .background(AreaMarker { [weak model] in model?.replyMarker = $0 })
                         // Expanded, the copy button travels down to sit on
-                        // the message it copies.
+                        // the message it copies. For an image it copies the
+                        // picture (full resolution if loaded, else the thumb).
                         .overlay(alignment: .topTrailing) {
                             CopyMessageButton(copied: model.copied, diameter: avatarSize) {
-                                model.copy(message.text)
+                                copyCurrent()
                             }
                             .padding(.top, 2)
                             .padding(.trailing, 4)
@@ -182,7 +206,7 @@ struct MessageNotchContainer: View {
         .overlay(alignment: .topTrailing) {
             if !model.fullyExpanded {
                 CopyMessageButton(copied: model.copied, diameter: avatarSize) {
-                    model.copy(message.text)
+                    copyCurrent()
                 }
                 .offset(y: notchSize.height > 0 ? avatarOffsetY : 0)
             }
@@ -362,7 +386,7 @@ struct MessageNotchContainer: View {
             Image(systemName: message.isDirect ? "lock.fill" : "globe")
                 .font(.system(size: 9))
                 .foregroundStyle(.white.opacity(0.55))
-            TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
+            teaserContent
         }
         .padding(.top, 2)
         .padding(.bottom, -6)
@@ -384,11 +408,61 @@ struct MessageNotchContainer: View {
                 Image(systemName: message.isDirect ? "lock.fill" : "globe")
                     .font(.system(size: 9))
                     .foregroundStyle(.white.opacity(0.55))
-                TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
+                teaserContent
             }
         }
         .padding(.vertical, 4)
         .background(AreaMarker { [weak model] in model?.teaserMarker = $0 })
+    }
+
+    /// One-line teaser body: the scrolling text, or a thumbnail strip for an
+    /// image message (which has no text to scroll).
+    @ViewBuilder private var teaserContent: some View {
+        if message.isImage {
+            imageTeaserLine
+        } else {
+            TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
+        }
+    }
+
+    private var imageTeaserLine: some View {
+        HStack(spacing: 6) {
+            ForEach(message.images.prefix(3)) { img in
+                NotchThumb(thumb: img.thumb, side: 26)
+                    .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+            }
+            if message.images.count > 3 {
+                Text("+\(message.images.count - 3)")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+            Text(teaserLabel)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+        }
+        // No ticker to report completion — linger briefly, then hand off to
+        // the same auto-hide timing the text teaser uses.
+        .task {
+            try? await Task.sleep(for: .seconds(2.5))
+            onTeaserFinished()
+        }
+    }
+
+    /// Teaser caption: the album's caption if any, else an image count.
+    private var teaserLabel: String {
+        if !message.text.isEmpty { return message.text }
+        return message.images.count == 1 ? "Image" : "\(message.images.count) images"
+    }
+
+    /// Copies the current message: the first picture for an album (full
+    /// resolution if it has loaded, else its thumbnail), otherwise its text.
+    private func copyCurrent() {
+        if let first = message.images.first {
+            model.copyImage(model.fullImages[first.id] ?? first.thumb)
+        } else {
+            model.copy(message.text)
+        }
     }
 
     /// Vertically centers the avatar in the menu-bar-height strip above.
