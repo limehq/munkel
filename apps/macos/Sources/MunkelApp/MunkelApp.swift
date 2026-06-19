@@ -63,10 +63,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             accessibilityDescription: "Munkel Dev"
         )
         #else
-        item.button?.image = NSImage(
-            systemSymbolName: "bubble.left.and.bubble.right.fill",
-            accessibilityDescription: "Munkel"
-        )
+        // Brand silhouette as a template image (monochrome, auto-inverting),
+        // sized to sit in the menu bar; falls back to the old SF Symbol if the
+        // glyph resource is ever missing. Copy first so menu-bar sizing never
+        // mutates the shared BrandGlyph.templateImage the popover also uses.
+        if let glyph = BrandGlyph.templateImage?.copy() as? NSImage {
+            glyph.isTemplate = true
+            glyph.size = NSSize(width: 18, height: 18)
+            glyph.accessibilityDescription = "Munkel"
+            item.button?.image = glyph
+        } else {
+            item.button?.image = NSImage(
+                systemSymbolName: "bubble.left.and.bubble.right.fill",
+                accessibilityDescription: "Munkel"
+            )
+        }
         #endif
         item.button?.target = self
         item.button?.action = #selector(togglePopover(_:))

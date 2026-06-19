@@ -7,6 +7,10 @@ format_version = 2
 product = "munkel"
 version = "0.0.0"
 identifier = "dev.uq.munkel"
+# Icon Composer bundle (app.icon/). Swift Bundler runs it through actool to
+# produce AppIcon.icns, which drives Finder, Dock, the About panel, the
+# Sparkle update dialog, the mounted DMG and the Homebrew-installed app.
+icon = "app.icon"
 
 # Accessory (menu-bar) app: no Dock icon. Swift Bundler generates the base
 # Info.plist; these entries are merged on top.
