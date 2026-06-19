@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, SVGProps } from 'react'
-import { Check, ChevronDown, Copy, Download, Globe, Wifi } from 'lucide-react'
+import { BatteryMedium, Check, ChevronDown, ChevronUp, Copy, Download, Globe, Wifi } from 'lucide-react'
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
@@ -104,13 +104,15 @@ export function Hero() {
   const wrapRef = useRef<HTMLDivElement>(null)
   const macRef = useRef<HTMLDivElement>(null)
   const notchRef = useRef<HTMLDivElement>(null)
-  const demoHintRef = useRef<HTMLDivElement>(null)
 
   const [clock, setClock] = useState('Thu 9:41')
   const [msgCopied, setMsgCopied] = useState(false)
   const [copiedRow, setCopiedRow] = useState<number | null>(null)
   const [teaserOpen, setTeaserOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  // "hover for details" cue under the docked notch: shown when it docks,
+  // dismissed once hovered, brought back on a fresh dock.
+  const [hintVisible, setHintVisible] = useState(false)
   const [msgIdx, setMsgIdx] = useState(0)
   const hoveredRef = useRef(false)
   const dockedRef = useRef(false)
@@ -189,12 +191,12 @@ export function Hero() {
     if (p >= DOCK_AT && !dockedRef.current) {
       dockedRef.current = true
       setTeaserOpen(true)
-      demoHintRef.current?.classList.add('show')
+      setHintVisible(true)
     } else if (p < DOCK_AT && dockedRef.current) {
       dockedRef.current = false
       setTeaserOpen(false)
       setExpanded(false)
-      demoHintRef.current?.classList.remove('show')
+      setHintVisible(false)
     }
   })
 
@@ -209,8 +211,8 @@ export function Hero() {
       // Hover swells the docked teaser into the full message card — like the
       // real notch. Hovering the closed pill (pre-dock) does nothing.
       if (dockedRef.current) setExpanded(true)
-      const cap = demoHintRef.current
-      if (cap?.classList.contains('show')) cap.classList.add('off')
+      // Dismiss the cue once they've taken the hint; it returns on a fresh dock.
+      setHintVisible(false)
     }
     const onLeave = () => {
       hoveredRef.current = false
@@ -328,14 +330,18 @@ export function Hero() {
                   <div className="mb-wallpaper"></div>
                   <div className="mb-menubar">
                     <div className="mb-menu">
+                      {/* U+F8FF renders as the Apple logo in the system font on
+                          Apple devices (the landing's audience). */}
+                      <span className="mb-apple" aria-hidden>&#xF8FF;</span>
                       <span className="mb-app">munkel</span>
                       <span>Circles</span>
                       <span>Identity</span>
                       <span>Help</span>
                     </div>
                     <div className="mb-menu-right">
+                      <BatteryMedium aria-hidden />
                       <Wifi aria-hidden />
-                      <span>{clock}</span>
+                      <span className="mb-clock">{clock}</span>
                     </div>
                   </div>
                   <div
@@ -456,13 +462,17 @@ export function Hero() {
                       </div>
                     </div>
                   </div>
+                  {/* "hover for details" cue, just below the docked notch (so it
+                      tracks the notch under the zoom); fades on hover, returns
+                      on a fresh dock. */}
+                  <div className={`notch-hint${hintVisible ? ' show' : ''}`} aria-hidden>
+                    <ChevronUp aria-hidden />
+                    <span>hover for details</span>
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
           </motion.div>
-          <div className="demo-caption" ref={demoHintRef} aria-hidden>
-            hover to hold a munkel open — just like the real thing
-          </div>
           <motion.div className="scroll-hint" style={reduce ? undefined : { opacity: hintOpacity }}>
             <span>See it munkel</span>
             <ChevronDown aria-hidden />
