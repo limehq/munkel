@@ -325,22 +325,32 @@ nav.floating .nav-inner {
     radial-gradient(50% 45% at 12% 70%, color-mix(in oklab, var(--brand) 12%, oklch(0.13 0 0)), transparent 70%),
     linear-gradient(180deg, oklch(0.14 0.008 250), oklch(0.1 0.005 260));
 }
+/* The menu bar sits a touch taller than the (closed) notch, like real macOS,
+   and uses the native system font so it reads as the user's own desktop. */
 .mb-menubar {
-  position: absolute; top: 0; left: 0; right: 0; height: 25px;
+  position: absolute; top: 0; left: 0; right: 0; height: 28px;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 0 16px;
-  font-size: 12px; color: oklch(0.97 0 0 / 0.8);
+  padding: 0 14px;
+  font-family: -apple-system, system-ui, sans-serif;
+  font-size: 13px; color: oklch(0.97 0 0 / 0.85);
   background: oklch(0 0 0 / 0.26);
 }
-.mb-menu { display: flex; align-items: center; gap: 16px; }
+.mb-menu { display: flex; align-items: center; gap: 15px; }
+/* U+F8FF = the Apple logo glyph in the system font on Apple devices. */
+.mb-apple { font-size: 15px; line-height: 0; opacity: 0.92; }
 .mb-menu .mb-app { font-weight: 600; }
-.mb-menu-right { display: flex; align-items: center; gap: 12px; font-variant-numeric: tabular-nums; }
-.mb-menu-right svg.lucide { width: 13px; height: 13px; }
+.mb-menu-right { display: flex; align-items: center; gap: 11px; font-variant-numeric: tabular-nums; }
+.mb-menu-right svg.lucide { width: 15px; height: 15px; }
+.mb-clock { font-weight: 500; }
 .mb-notch {
-  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+  position: absolute; top: -1px; left: 50%; transform: translateX(-50%);
   width: 128px; height: 25px;
   background: #000;
   z-index: 5;
+  /* Bleed 1px over the display's top edge (clipped by .mb-display's overflow)
+     so the notch's anti-aliased top — which lands on a sub-pixel row under the
+     scroll-zoom — can't leak the green wallpaper as a hairline; the visible
+     edge stays solid-black and flush. */
   /* The real NotchShape, not a rounded rectangle: concave top corners that
      blend into the menu bar, side walls inset by the top radius, convex bottom
      corners. Built as an animatable clip-path so the demo's silhouette is
@@ -548,16 +558,20 @@ nav.floating .nav-inner {
 .scroll-hint span { font-size: var(--text-xs); }
 .scroll-hint svg.lucide { width: 20px; height: 20px; animation: hint-bob 2s ease-in-out infinite; }
 @keyframes hint-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
-/* One-time interactivity nudge, shown while the notch demo is docked */
-.demo-caption {
-  position: absolute; bottom: 26px; left: 50%; transform: translateX(-50%);
-  font-size: var(--text-xs); color: var(--muted-foreground);
-  opacity: 0; transition: opacity 0.45s ease;
-  pointer-events: none; white-space: nowrap;
+/* "Hover for details" cue right under the docked notch. It lives inside the
+   mockup display, so the macbook's zoom transform carries it with the notch. */
+.notch-hint {
+  position: absolute; top: 64px; left: 50%; transform: translateX(-50%);
+  z-index: 4; pointer-events: none;
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  font-size: 11px; line-height: 1; white-space: nowrap;
+  color: oklch(1 0 0 / 0.62); text-shadow: 0 1px 3px oklch(0 0 0 / 0.6);
+  opacity: 0; transition: opacity 0.4s ease;
 }
-.demo-caption.show { opacity: 1; }
-.demo-caption.off { opacity: 0 !important; }
-@media (hover: none) { .demo-caption { display: none; } }
+.notch-hint.show { opacity: 1; }
+.notch-hint svg.lucide { width: 13px; height: 13px; animation: hint-bob-up 2s ease-in-out infinite; }
+@keyframes hint-bob-up { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+@media (hover: none) { .notch-hint { display: none; } }
 .hero > .container { position: relative; }
 .pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 calc(var(--glow) * 12px) 1px var(--brand); animation: pulse 2s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
@@ -1018,8 +1032,11 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
      scale the WHOLE notch down uniformly rather than hand-tuning each element —
      so the ping ring, icon sizes and every spacing stay perfectly aligned. */
   .mb-notch { transform: translateX(-50%) scale(0.75); transform-origin: top center; }
-  .mb-menubar { height: 19px; font-size: 10px; }
-  .mb-menu span:not(.mb-app) { display: none; }
+  .mb-menubar { height: 21px; font-size: 11px; }
+  .mb-apple { font-size: 13px; }
+  /* keep the Apple logo + app name, drop the rest of the menu titles */
+  .mb-menu span:not(.mb-app):not(.mb-apple) { display: none; }
+  .mb-menu-right svg.lucide { width: 13px; height: 13px; }
   .share-compare { grid-template-columns: 1fr; }
   section { padding: 5rem 0; }
   .section-head { margin-bottom: 3rem; }
@@ -1028,7 +1045,8 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
    the shrinking mockup. Same uniform transform — proportions stay intact. */
 @media (max-width: 600px) {
   .mb-notch { transform: translateX(-50%) scale(0.58); }
-  .mb-menubar { height: 15px; }
+  .mb-menubar { height: 16px; font-size: 9px; }
+  .mb-apple { font-size: 11px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pulse, .cursor { animation: none; }
@@ -1041,7 +1059,7 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
   .hero-stage { height: auto; }
   .hero-sticky { position: static; height: auto; overflow: visible; padding: 6rem 0; }
   .scroll-hint { display: none; }
-  .demo-caption { display: none; }
+  .notch-hint { display: none; }
   /* .meanwhile reveal is Motion-driven; MotionConfig reducedMotion="user" handles it. */
   [data-slot="accordion-content"] { animation-duration: 1ms; }
   [data-slot="accordion-trigger"] span { transition: none; }
