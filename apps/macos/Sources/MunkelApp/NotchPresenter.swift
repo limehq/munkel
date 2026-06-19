@@ -334,12 +334,17 @@ final class NotchPresenter {
                     // hitTest is useless here (NSHostingView returns
                     // itself wherever SwiftUI content covers the marker),
                     // so clicks are matched against the marker frames via
-                    // AppKit coordinate conversion instead. A hovered history
-                    // row's copy glyph wins first (copy that row), then history
-                    // clicks toggle the truncation, then clicks on the current
-                    // message open the reply — everything else on the shape is
-                    // inert (buttons handle themselves).
-                    if let target = model.historyCopyTargets.first(where: { Self.click(event, lands: $0.view) }) {
+                    // AppKit coordinate conversion instead. A hovered album
+                    // image's copy glyph wins first (copy that picture, bytes
+                    // resolved now so full-vs-thumb is decided at click time),
+                    // then a hovered history row's copy glyph (copy that row),
+                    // then history clicks toggle the truncation, then clicks on
+                    // the current message open the reply — everything else on the
+                    // shape is inert (buttons handle themselves). The image copy
+                    // falls through to nothing else, so reply does not open.
+                    if let target = model.imageCopyTargets.first(where: { Self.click(event, lands: $0.view) }) {
+                        model.copyImage(id: target.id, data: target.resolve())
+                    } else if let target = model.historyCopyTargets.first(where: { Self.click(event, lands: $0.view) }) {
                         model.copyHistory(id: target.id, text: target.text)
                     } else if Self.click(event, lands: model.historyMarker) {
                         withAnimation(.spring(duration: 0.3)) {
