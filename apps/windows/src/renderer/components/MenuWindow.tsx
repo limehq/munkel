@@ -15,6 +15,7 @@ export default function MenuWindow() {
 	const [displayName, setDisplayName] = useState(state.identity?.displayName ?? '');
 	const [messages, setMessages] = useState<Record<string, string>>({});
 	const [recipients, setRecipients] = useState<Record<string, string>>({});
+	const [sendErrors, setSendErrors] = useState<Record<string, string>>({});
 
 	useEffect(() => {
 		if (state.identity) {
@@ -46,8 +47,16 @@ export default function MenuWindow() {
 		const text = messages[code]?.trim();
 		if (!text) return;
 		const to = recipients[code] || undefined;
-		await sendChat(code, text, to);
-		setMessages((prev) => ({ ...prev, [code]: '' }));
+		const sent = await sendChat(code, text, to);
+		if (sent) {
+			setMessages((prev) => ({ ...prev, [code]: '' }));
+			setSendErrors((prev) => ({ ...prev, [code]: '' }));
+		} else {
+			setSendErrors((prev) => ({
+				...prev,
+				[code]: 'Circle offline — message not sent.',
+			}));
+		}
 	}
 
 	function updateName() {
@@ -118,9 +127,13 @@ export default function MenuWindow() {
 						circle={circle}
 						message={messages[circle.code] ?? ''}
 						recipient={recipients[circle.code] ?? ''}
-						onMessageChange={(text) =>
+						sendError={sendErrors[circle.code] ?? ''}
+						onMessageChange={(text) => {
 							setMessages((prev) => ({ ...prev, [circle.code]: text }))
-						}
+							if (sendErrors[circle.code]) {
+								setSendErrors((prev) => ({ ...prev, [circle.code]: '' }))
+							}
+						}}
 						onRecipientChange={(to) =>
 							setRecipients((prev) => ({ ...prev, [circle.code]: to }))
 						}
@@ -185,6 +198,7 @@ interface CircleSectionProps {
 	circle: CircleState;
 	message: string;
 	recipient: string;
+	sendError: string;
 	onMessageChange: (text: string) => void;
 	onRecipientChange: (to: string) => void;
 	onSend: () => void;
@@ -195,6 +209,7 @@ function CircleSection({
 	circle,
 	message,
 	recipient,
+	sendError,
 	onMessageChange,
 	onRecipientChange,
 	onSend,
@@ -262,6 +277,7 @@ function CircleSection({
 					➤
 				</button>
 			</div>
+			{sendError && <p className="compose-error">{sendError}</p>}
 		</div>
 	);
 }
