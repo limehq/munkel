@@ -24,7 +24,10 @@ final class AppModel: ObservableObject {
         }
     }
     @Published private(set) var githubLoginState: GitHubLoginState = .idle {
-        didSet { syncAuthCodeNotch() }
+        didSet {
+            guard githubLoginState != oldValue else { return }
+            syncAuthCodeNotch()
+        }
     }
     @Published private(set) var githubUserLogin: String? = Identity.githubLogin
     @Published var relayURLString: String {

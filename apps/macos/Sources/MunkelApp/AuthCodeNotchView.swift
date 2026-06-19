@@ -28,11 +28,11 @@ struct AuthCodeNotchView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
-        // The device code must never leak into a screen share. The panel
-        // window is already non-capturable (sharingType), but the rule wants
-        // the content layer covered too — on the root, outside any conditional
-        // branch — so nothing slips through while the view is mounting. See
-        // CaptureExclusion, and MessageNotchContainer / CommandPaletteView.
+        // The device code must never leak into a screen share. The panel window
+        // is born non-capturable (NotchPanelWindow sets sharingType at birth) —
+        // that's the primary guarantee. This content-root exclusion is the
+        // second layer the project's rule wants, matching MessageNotchContainer
+        // and CommandPaletteView. Keep it on the root, never inside a branch.
         .excludedFromScreenCapture()
     }
 }
