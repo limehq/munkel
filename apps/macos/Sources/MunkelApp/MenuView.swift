@@ -98,7 +98,11 @@ struct MenuView: View {
 
     private var header: some View {
         HStack {
-            Image(systemName: "bubble.left.and.bubble.right.fill")
+            BrandGlyph.image
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
                 .foregroundStyle(.primary)
             Text("Munkel")
                 .font(.headline)

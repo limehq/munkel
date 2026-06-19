@@ -17,7 +17,8 @@ let package = Package(
                 .product(name: "KeyboardShortcuts", package: "KeyboardShortcuts"),
                 .product(name: "Sparkle", package: "Sparkle"),
             ],
-            path: "Sources/MunkelApp"
+            path: "Sources/MunkelApp",
+            resources: [.process("Resources")]
             // No linkerSettings rpath: Sparkle ships as a binary framework that
             // Swift Bundler embeds in Contents/Frameworks/ and makes loadable by
             // adding an @executable_path rpath, which resolves Sparkle's
