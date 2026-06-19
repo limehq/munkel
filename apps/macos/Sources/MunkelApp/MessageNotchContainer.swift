@@ -355,12 +355,14 @@ struct MessageNotchContainer: View {
     /// Text below the notch; avatar lifted into the strip left of the cutout,
     /// flush with the text's leading edge so the line starts right under it.
     private var notchedTeaser: some View {
-        HStack(alignment: .top, spacing: 6) {
-            TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
+        // The channel icon leads the line and is vertically centered with the
+        // single-line message; being outside the ticker window it stays put
+        // (always visible at the start) while the text scrolls.
+        HStack(spacing: 6) {
             Image(systemName: message.isDirect ? "lock.fill" : "globe")
                 .font(.system(size: 9))
                 .foregroundStyle(.white.opacity(0.55))
-                .padding(.top, 2)
+            TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
         }
         .padding(.top, 2)
         .padding(.bottom, -6)
@@ -377,10 +379,13 @@ struct MessageNotchContainer: View {
     private var fallbackTeaser: some View {
         HStack(spacing: 10) {
             CompactAvatarView(name: message.sender, avatarData: message.avatarData)
-            TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
-            Image(systemName: message.isDirect ? "lock.fill" : "globe")
-                .font(.system(size: 9))
-                .foregroundStyle(.white.opacity(0.55))
+            // Channel icon leads the message (mirrors notchedTeaser).
+            HStack(spacing: 6) {
+                Image(systemName: message.isDirect ? "lock.fill" : "globe")
+                    .font(.system(size: 9))
+                    .foregroundStyle(.white.opacity(0.55))
+                TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
+            }
         }
         .padding(.vertical, 4)
         .background(AreaMarker { [weak model] in model?.teaserMarker = $0 })
