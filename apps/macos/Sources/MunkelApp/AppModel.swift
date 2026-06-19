@@ -133,8 +133,12 @@ final class AppModel: ObservableObject {
                 group: code,
                 groupColor: .groupColor(index: groupCodes.firstIndex(of: code) ?? 0),
                 inMultipleGroups: groupCodes.count > 1
-            ) { [weak self] reply, _ in
-                self?.send(text: reply, group: code, to: nil)
+            ) { [weak self] reply, images, _ in
+                if images.isEmpty {
+                    self?.send(text: reply, group: code, to: nil)
+                } else {
+                    self?.send(images: images, caption: reply, group: code, to: nil)
+                }
             }
         }
         #endif
@@ -183,8 +187,12 @@ final class AppModel: ObservableObject {
                     inMultipleGroups: self.groupCodes.count > 1,
                     images: built.images,
                     loadFull: { id in built.fulls[id] }
-                ) { [weak self] reply, _ in
-                    self?.send(text: reply, group: code, to: nil)
+                ) { [weak self] reply, images, _ in
+                    if images.isEmpty {
+                        self?.send(text: reply, group: code, to: nil)
+                    } else {
+                        self?.send(images: images, caption: reply, group: code, to: nil)
+                    }
                 }
             }
         }
@@ -490,10 +498,15 @@ final class AppModel: ObservableObject {
                 group: code,
                 groupColor: .groupColor(index: self.groupCodes.firstIndex(of: code) ?? 0),
                 inMultipleGroups: self.groupCodes.count > 1
-            ) { [weak self] reply, privately in
+            ) { [weak self] reply, images, privately in
                 // Default mirrors how the message arrived; the toggle
                 // in the reply field can override per message.
-                self?.send(text: reply, group: code, to: privately ? sender.id : nil)
+                let to = privately ? sender.id : nil
+                if images.isEmpty {
+                    self?.send(text: reply, group: code, to: to)
+                } else {
+                    self?.send(images: images, caption: reply, group: code, to: to)
+                }
             }
         }
         session.onImages = { [weak self] sender, items, caption, isDirect, loadFull in
@@ -511,8 +524,13 @@ final class AppModel: ObservableObject {
                 inMultipleGroups: self.groupCodes.count > 1,
                 images: images,
                 loadFull: loadFull
-            ) { [weak self] reply, privately in
-                self?.send(text: reply, group: code, to: privately ? sender.id : nil)
+            ) { [weak self] reply, images, privately in
+                let to = privately ? sender.id : nil
+                if images.isEmpty {
+                    self?.send(text: reply, group: code, to: to)
+                } else {
+                    self?.send(images: images, caption: reply, group: code, to: to)
+                }
             }
         }
         sessions[code] = session
