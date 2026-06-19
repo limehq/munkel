@@ -142,9 +142,13 @@ struct AlbumCell: View {
     let fill: Bool
 
     @State private var decoded: CGImage?
+    @State private var hovering = false
 
     private var isLoaded: Bool { model.fullImages[image.id] != nil }
     private var didFail: Bool { model.failedImages.contains(image.id) }
+
+    /// Matches the history rows' copy glyph.
+    private let glyphDiameter: CGFloat = 20
 
     var body: some View {
         ZStack {
@@ -165,7 +169,56 @@ struct AlbumCell: View {
             }
         }
         .clipped()
+        // Per-image copy: a hover-revealed glyph on the picture, mirroring the
+        // history rows. The glyph is purely visual — clicking it is caught by
+        // NotchPresenter's event monitor, which matches the hover-registered
+        // hit target laid out beneath it (a SwiftUI Button here would sit inside
+        // the reply marker and a click would both copy AND open the reply).
+        .overlay(alignment: .topTrailing) { copyGlyph }
+        // One hover handler drives both per-image affordances: the copy glyph
+        // (local `hovering`) and the large Quick-Look preview (ImagePreviewOverlay,
+        // rendered free-floating below the notch in the same capture-excluded
+        // panel window). The preview's debounce + owner-checked dismissal live on
+        // the model, so a dropped leave or teardown can't resurrect a cleared one.
+        .onHover { inside in
+            hovering = inside
+            if inside {
+                model.requestPreview(image.id)
+            } else {
+                model.endPreview(forCell: image.id)
+            }
+        }
         .task { await load() }
+    }
+
+    /// Copy affordance: hidden until hover (or while its checkmark lingers),
+    /// flashing the checkmark on this image alone via copiedImageID. The hit
+    /// target only exists while hovered — NotchPresenter copies the image whose
+    /// target the click lands in, resolving full-vs-thumb at that moment.
+    private var copyGlyph: some View {
+        let isCopied = model.copiedImageID == image.id
+        let show = hovering || isCopied
+        return CopyGlyph(copied: isCopied, diameter: glyphDiameter)
+            .opacity(show ? 1 : 0)
+            .background {
+                if hovering {
+                    ImageCopyHitTarget(
+                        id: image.id,
+                        // [weak model]: the resolve closure is stored on the
+                        // model (via imageCopyTargets) — a strong capture would
+                        // retain-cycle the model and leak its full-res image
+                        // bytes past the message's RAM-only lifetime. At click
+                        // time the monitor already holds the live model, so the
+                        // weak ref is never nil then; after teardown it lets the
+                        // model deallocate.
+                        resolve: { [weak model] in model?.fullImages[image.id] ?? image.thumb }
+                    ) { [weak model] id, resolve, view in
+                        model?.registerImageCopy(id: id, resolve: resolve, view: view)
+                    }
+                }
+            }
+            .padding(4)
+            .animation(.easeInOut(duration: 0.12), value: show)
     }
 
     private func load() async {
@@ -187,6 +240,24 @@ struct AlbumCell: View {
             model.failedImages.insert(image.id)
         }
     }
+}
+
+/// Invisible NSView laid out under an album image's copy glyph. Like AreaMarker
+/// but carries the image id and a `resolve` closure (full bytes if loaded, else
+/// the thumbnail), registered into the model so the click monitor can copy the
+/// matching image (NSHostingView's hitTest can't surface it).
+private struct ImageCopyHitTarget: NSViewRepresentable {
+    let id: String
+    let resolve: () -> Data
+    let register: (String, @escaping () -> Data, NSView) -> Void
+
+    func makeNSView(context: Context) -> NSView {
+        let view = NSView()
+        register(id, resolve, view)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
 /// A tiny thumbnail-only image (no R2 fetch) for the collapsed teaser strip.

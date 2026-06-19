@@ -15,6 +15,17 @@ final class MessageDisplayModel: ObservableObject {
     @Published var fullImages: [String: Data] = [:]
     /// Images whose full fetch failed (expired/offline) — show a warning glyph.
     @Published var failedImages: Set<String> = []
+    /// `id` (r2Key) of the album image currently shown in the large hover
+    /// "Quick Look" preview, or nil when none. Set by an `AlbumCell` on hover
+    /// (debounced) and force-cleared on every teardown path by NotchPresenter,
+    /// since `.onHover(false)` doesn't reliably fire when the notch is torn down.
+    /// Deliberately kept OUT of MessageNotchContainer's `.animation(value:)`
+    /// lists so toggling it never re-runs the container's expand/history springs.
+    @Published var previewImageID: String?
+    /// The pending hover-debounce, owned here (not per-cell) so every teardown
+    /// path can cancel it centrally — a per-cell `@State` Task would outlive its
+    /// cell and could resurrect a just-cleared preview.
+    private var previewDebounce: Task<Void, Never>?
     /// Per-image full-resolution loaders, set once by NotchPresenter. Not
     /// @Published: read by cells, it never needs to drive a refresh itself.
     var imageLoaders: [String: @Sendable () async -> Data?] = [:]
@@ -40,6 +51,10 @@ final class MessageDisplayModel: ObservableObject {
     /// Which history row just had its text copied — drives the per-row
     /// checkmark, independent of `copied` (the current message's button).
     @Published var copiedHistoryID: UUID?
+    /// Which album image just had its picture copied — drives the per-image
+    /// checkmark, independent of `copied` (the current message's button). The
+    /// id is the image's r2Key (IncomingImage.id).
+    @Published var copiedImageID: String?
     /// Which history row the pointer is over, or nil when it's over the current
     /// message (or a gap). Tells the hover-"C" shortcut which row to copy; nil
     /// means copy the current (newest) message.
@@ -54,6 +69,13 @@ final class MessageDisplayModel: ObservableObject {
     /// A row registers its target only while hovered, so a non-hovered row's
     /// trailing area still falls through to the expand toggle.
     var historyCopyTargets: [HistoryCopyTarget] = []
+    /// Hover-revealed per-image copy hit targets, mirroring historyCopyTargets:
+    /// the glyph is a plain visual (CopyGlyph) and the AppKit click monitor in
+    /// NotchPresenter matches clicks against these frames — checked FIRST, before
+    /// the reply/teaser markers, so copying a picture never also opens the reply
+    /// field. A cell registers its target only while hovered. Not @Published:
+    /// read by the monitor, it never needs to drive a refresh itself.
+    var imageCopyTargets: [ImageCopyTarget] = []
     /// Marker views registered by the container so NotchPresenter's click
     /// monitor can match clicks against their frames. NSHostingView's
     /// hitTest doesn't surface embedded NSViews, so frames it is.
@@ -69,14 +91,45 @@ final class MessageDisplayModel: ObservableObject {
         flashCopied()
     }
 
-    /// Copy a received image to the clipboard (full resolution if it has
-    /// loaded, otherwise the inline thumbnail).
-    func copyImage(_ data: Data) {
-        guard let image = NSImage(data: data) else { return }
-        let pasteboard = NSPasteboard.general
-        pasteboard.clearContents()
-        pasteboard.writeObjects([image])
-        flashCopied()
+    /// Hover requested the large preview for `id`. Debounced on first appearance
+    /// (a fast album sweep shouldn't flash a card per cell); instant once a card
+    /// is already up, so an adjacent-cell hand-off cross-fades via `.id(id)`
+    /// instead of blanking for the debounce. The debounce is owned by the model
+    /// so a leave/teardown can cancel it (see `clearPreview`).
+    func requestPreview(_ id: String) {
+        previewDebounce?.cancel()
+        if previewImageID != nil {
+            withAnimation(.easeOut(duration: 0.18)) { previewImageID = id }
+            return
+        }
+        previewDebounce = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(180))
+            guard !Task.isCancelled, let self else { return }
+            withAnimation(.easeOut(duration: 0.18)) { self.previewImageID = id }
+        }
+    }
+
+    /// A cell reports hover-out: drop the pending request and, if this cell owns
+    /// the visible preview, dismiss it (owner-check so an adjacent cell's enter,
+    /// which can land before this leave, isn't undone).
+    func endPreview(forCell id: String) {
+        previewDebounce?.cancel()
+        if previewImageID == id {
+            withAnimation(.easeOut(duration: 0.18)) { previewImageID = nil }
+        }
+    }
+
+    /// Hard clear for every teardown path (notch-leave, hide, reply): cancel any
+    /// pending request and drop the preview. A cell's `.onHover(false)` doesn't
+    /// reliably fire when the notch is torn down, so this must not depend on it.
+    func clearPreview(animated: Bool = false) {
+        previewDebounce?.cancel()
+        guard previewImageID != nil else { return }
+        if animated {
+            withAnimation(.easeOut(duration: 0.18)) { previewImageID = nil }
+        } else {
+            previewImageID = nil
+        }
     }
 
     private func flashCopied() {
@@ -109,6 +162,32 @@ final class MessageDisplayModel: ObservableObject {
         historyCopyTargets.append(HistoryCopyTarget(id: id, text: text, view: view))
     }
 
+    /// Copy one album image to the clipboard, flashing the checkmark on that
+    /// image's glyph alone. The bytes are resolved at click time (full
+    /// resolution if it has loaded, else the inline thumbnail).
+    func copyImage(id: String, data: Data) {
+        writeImagePasteboard(data)
+        withAnimation(.spring(duration: 0.3)) { copiedImageID = id }
+        Task {
+            try? await Task.sleep(for: .seconds(1.5))
+            // Only clear if this image is still the one showing the checkmark,
+            // so a fresh copy on another image isn't cut short.
+            if copiedImageID == id {
+                withAnimation(.spring(duration: 0.3)) { copiedImageID = nil }
+            }
+        }
+    }
+
+    /// Register an image's copy hit target (called from the hover-revealed
+    /// glyph). Replaces any prior target for the same image and drops dead ones,
+    /// so the list never grows past the handful of cells hovered in one panel's
+    /// life. The `resolve` closure is stored so full-vs-thumb is decided at the
+    /// moment the click lands, not when the cell was first hovered.
+    func registerImageCopy(id: String, resolve: @escaping () -> Data, view: NSView) {
+        imageCopyTargets.removeAll { $0.view == nil || $0.id == id }
+        imageCopyTargets.append(ImageCopyTarget(id: id, resolve: resolve, view: view))
+    }
+
     /// The hover-"C" shortcut target: the hovered history row, or — when the
     /// pointer isn't over a row — the current (newest) message.
     func copyHovered() {
@@ -123,6 +202,13 @@ final class MessageDisplayModel: ObservableObject {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
+    }
+
+    private func writeImagePasteboard(_ data: Data) {
+        guard let image = NSImage(data: data) else { return }
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        pasteboard.writeObjects([image])
     }
 
     var canAttachMore: Bool { attachedImages.count < AppPayload.maxImagesPerMessage }
@@ -154,6 +240,25 @@ final class HistoryCopyTarget {
     init(id: UUID, text: String, view: NSView) {
         self.id = id
         self.text = text
+        self.view = view
+    }
+}
+
+/// A hover-revealed copy affordance on an album image. Holds the image's id
+/// (its r2Key) and a `resolve` closure returning the bytes to copy — evaluated
+/// at click time so the full resolution is preferred once it has loaded — plus
+/// a weak reference to the marker NSView laid out under the glyph;
+/// NotchPresenter's click monitor copies the image whose view contains the
+/// click. Weak view: once the cell un-hovers the marker leaves the hierarchy
+/// and this target goes stale (matched against nothing, pruned on next use).
+final class ImageCopyTarget {
+    let id: String
+    let resolve: () -> Data
+    weak var view: NSView?
+
+    init(id: String, resolve: @escaping () -> Data, view: NSView) {
+        self.id = id
+        self.resolve = resolve
         self.view = view
     }
 }
@@ -205,14 +310,18 @@ struct MessageNotchContainer: View {
                         // message itself, not anywhere on the shape.
                         .background(AreaMarker { [weak model] in model?.replyMarker = $0 })
                         // Expanded, the copy button travels down to sit on
-                        // the message it copies. For an image it copies the
-                        // picture (full resolution if loaded, else the thumb).
+                        // the message it copies. It copies the text/caption;
+                        // pictures are copied per-image via the cell glyphs, so
+                        // a captionless image message hides it (see
+                        // showsMessageCopyButton).
                         .overlay(alignment: .topTrailing) {
-                            CopyMessageButton(copied: model.copied, diameter: avatarSize) {
-                                copyCurrent()
+                            if showsMessageCopyButton {
+                                CopyMessageButton(copied: model.copied, diameter: avatarSize) {
+                                    copyCurrent()
+                                }
+                                .padding(.top, 2)
+                                .padding(.trailing, 4)
                             }
-                            .padding(.top, 2)
-                            .padding(.trailing, 4)
                         }
                     if model.replySent {
                         sentConfirmation
@@ -240,7 +349,7 @@ struct MessageNotchContainer: View {
         // In the teaser the copy button sits in the strip right of the
         // cutout; expanded it moves onto the message itself (see above).
         .overlay(alignment: .topTrailing) {
-            if !model.fullyExpanded {
+            if !model.fullyExpanded, showsMessageCopyButton {
                 CopyMessageButton(copied: model.copied, diameter: avatarSize) {
                     copyCurrent()
                 }
@@ -571,14 +680,19 @@ struct MessageNotchContainer: View {
         return message.images.count == 1 ? "Image" : "\(message.images.count) images"
     }
 
-    /// Copies the current message: the first picture for an album (full
-    /// resolution if it has loaded, else its thumbnail), otherwise its text.
+    /// Copies the current message's text — a plain message's body, or an
+    /// album's caption. Pictures are copied per-image via the glyph on each
+    /// cell (see AlbumCell), so a captionless image message has nothing to copy
+    /// here and hides this button entirely (see showsMessageCopyButton).
     private func copyCurrent() {
-        if let first = message.images.first {
-            model.copyImage(model.fullImages[first.id] ?? first.thumb)
-        } else {
-            model.copy(message.text)
-        }
+        model.copy(message.text)
+    }
+
+    /// Whether the per-message copy button is shown at all. It copies
+    /// text/caption, so an image message with no caption — which has no text —
+    /// drops it and relies solely on the per-image copy glyphs.
+    private var showsMessageCopyButton: Bool {
+        !message.isImage || !message.text.isEmpty
     }
 
     /// Vertically centers the avatar in the menu-bar-height strip above.

@@ -14,10 +14,16 @@ import UniformTypeIdentifiers
 final class NotchPresenter {
     private typealias MessageNotch = NotchPanel<MessageNotchContainer>
     private typealias IndicatorNotch = NotchPanel<UnreadIndicatorView>
+    private typealias AuthCodeNotch = NotchPanel<AuthCodeNotchView>
 
     private var currentNotch: MessageNotch?
     private var currentModel: MessageDisplayModel?
     private var indicatorNotch: IndicatorNotch?
+    private var authCodeNotch: AuthCodeNotch?
+    /// Serializes auth-code show/hide so a hide fully tears its panel down
+    /// before the next show builds one — a quick cancel→re-login would
+    /// otherwise race the new code's panel against the old one's teardown.
+    private var authCodeOp: Task<Void, Never>?
     private var hideTask: Task<Void, Never>?
     private var pruneTask: Task<Void, Never>?
     private var hoverObservation: AnyCancellable?
@@ -216,6 +222,14 @@ final class NotchPresenter {
             openingAnimation: .spring(response: 0.6, dampingFraction: 0.7),
             skipIntermediateHides: true
         )
+        // Image messages get a free-floating Quick-Look preview that pops below
+        // the notch on cell hover (see ImagePreviewOverlay / AlbumCell). It
+        // renders inside this same capture-excluded panel window.
+        if message.isImage {
+            notch.floatingOverlay = AnyView(
+                ImagePreviewOverlay(model: model, images: message.images)
+            )
+        }
         currentNotch = notch
 
         hoverObservation = notch.$isHovering
@@ -234,10 +248,17 @@ final class NotchPresenter {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                             self.currentModel?.fullyExpanded = true
                         }
-                    } else if self.currentModel?.replying != true {
-                        // While the reply field is open, leaving the notch
-                        // must not tear it down mid-typing.
-                        self.scheduleHide(of: notch, after: self.afterReadDelay)
+                    } else {
+                        // Leaving the notch entirely dismisses the hover image
+                        // preview even if a cell's own `.onHover(false)` didn't
+                        // fire (the same teardown-unreliability the hover-copy
+                        // hotkey guards against).
+                        self.currentModel?.clearPreview(animated: true)
+                        if self.currentModel?.replying != true {
+                            // While the reply field is open, leaving the notch
+                            // must not tear it down mid-typing.
+                            self.scheduleHide(of: notch, after: self.afterReadDelay)
+                        }
                     }
                 }
             }
@@ -324,12 +345,17 @@ final class NotchPresenter {
                     // hitTest is useless here (NSHostingView returns
                     // itself wherever SwiftUI content covers the marker),
                     // so clicks are matched against the marker frames via
-                    // AppKit coordinate conversion instead. A hovered history
-                    // row's copy glyph wins first (copy that row), then history
-                    // clicks toggle the truncation, then clicks on the current
-                    // message open the reply — everything else on the shape is
-                    // inert (buttons handle themselves).
-                    if let target = model.historyCopyTargets.first(where: { Self.click(event, lands: $0.view) }) {
+                    // AppKit coordinate conversion instead. A hovered album
+                    // image's copy glyph wins first (copy that picture, bytes
+                    // resolved now so full-vs-thumb is decided at click time),
+                    // then a hovered history row's copy glyph (copy that row),
+                    // then history clicks toggle the truncation, then clicks on
+                    // the current message open the reply — everything else on the
+                    // shape is inert (buttons handle themselves). The image copy
+                    // falls through to nothing else, so reply does not open.
+                    if let target = model.imageCopyTargets.first(where: { Self.click(event, lands: $0.view) }) {
+                        model.copyImage(id: target.id, data: target.resolve())
+                    } else if let target = model.historyCopyTargets.first(where: { Self.click(event, lands: $0.view) }) {
                         model.copyHistory(id: target.id, text: target.text)
                     } else if Self.click(event, lands: model.historyMarker) {
                         withAnimation(.spring(duration: 0.3)) {
@@ -364,6 +390,11 @@ final class NotchPresenter {
     private func turnOffHoverCopy() {
         hoverCopyObservation = nil
         currentModel?.hoveredHistoryID = nil
+        // Same teardown rationale as the hover-copy hotkey: clear the hover
+        // image preview here, on every hide, since a cell's `.onHover(false)`
+        // doesn't reliably fire when the notch is torn down. clearPreview also
+        // cancels any in-flight debounce so it can't re-set the flag afterwards.
+        currentModel?.clearPreview()
         KeyboardShortcuts.disable(.copyHoveredHistory)
     }
 
@@ -381,6 +412,9 @@ final class NotchPresenter {
     private func beginReply(model: MessageDisplayModel, panel: NSWindow) {
         guard !model.replying, !model.replySent else { return }
         hideTask?.cancel()
+        // Opening the reply field dismisses any hover preview (and cancels a
+        // pending debounce) so it can't obscure the text field.
+        model.clearPreview()
         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
             model.fullyExpanded = true
             model.replying = true
@@ -517,6 +551,44 @@ final class NotchPresenter {
                 await indicator.hide()
                 self?.indicatorNotch = nil
             }
+        }
+    }
+
+    // MARK: - GitHub sign-in code
+
+    /// Show the GitHub device-flow user code in the notch. Driven by AppModel's
+    /// `.awaitingUser` login state, it stays up — focus-independent, unlike the
+    /// `.transient` menu-bar popover — until the flow leaves that state. A
+    /// second call while already shown is a no-op.
+    func showAuthCode(_ code: String) {
+        let previous = authCodeOp
+        authCodeOp = Task { [weak self] in
+            await previous?.value
+            guard let self, self.authCodeNotch == nil else { return }
+            let targetScreen: @MainActor () -> NSScreen? = { NSScreen.main }
+            let notch = AuthCodeNotch(hoverBehavior: .none, targetScreen: targetScreen) {
+                AuthCodeNotchView(code: code)
+            }
+            notch.transitionConfiguration = .init(
+                openingAnimation: .spring(response: 0.6, dampingFraction: 0.7),
+                skipIntermediateHides: true
+            )
+            self.authCodeNotch = notch
+            await notch.expand()
+            if let panel = notch.panel {
+                panel.sharingType = NSWindow.munkelCaptureSharingType
+            }
+        }
+    }
+
+    /// Hide the GitHub sign-in code notch.
+    func hideAuthCode() {
+        let previous = authCodeOp
+        authCodeOp = Task { [weak self] in
+            await previous?.value
+            guard let self, let notch = self.authCodeNotch else { return }
+            await notch.hide()
+            self.authCodeNotch = nil
         }
     }
 }
