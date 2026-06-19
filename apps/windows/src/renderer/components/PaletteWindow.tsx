@@ -1,19 +1,55 @@
 import { useMemo, useState } from 'react';
-import { recipients } from '../mock-data';
+import { useAppStore } from '../store/app-store';
 import { Avatar } from './Avatar';
 
+interface Recipient {
+	id: string;
+	label: string;
+	circle: string;
+	isEveryone: boolean;
+	memberId?: string;
+	circleCode: string;
+}
+
 export default function PaletteWindow() {
+	const { state, sendChat } = useAppStore();
 	const [query, setQuery] = useState('');
 	const [selectedIndex, setSelectedIndex] = useState(0);
-	const [target, setTarget] = useState<(typeof recipients)[0] | null>(null);
+	const [target, setTarget] = useState<Recipient | null>(null);
 	const [message, setMessage] = useState('');
+	const [sending, setSending] = useState(false);
+	const [error, setError] = useState<string | null>(null);
+
+	const recipients = useMemo<Recipient[]>(() => {
+		const out: Recipient[] = [];
+		for (const c of state.circles) {
+			out.push({
+				id: `all-${c.code}`,
+				label: `Everyone in ${c.code}`,
+				circle: c.code,
+				isEveryone: true,
+				circleCode: c.code,
+			});
+			for (const m of c.members) {
+				out.push({
+					id: m.memberId,
+					label: m.displayName ?? m.memberId.slice(0, 8),
+					circle: c.code,
+					isEveryone: false,
+					memberId: m.memberId,
+					circleCode: c.code,
+				});
+			}
+		}
+		return out;
+	}, [state.circles]);
 
 	const filtered = useMemo(() => {
 		const q = query.toLowerCase();
 		return recipients.filter(
 			(r) => r.label.toLowerCase().includes(q) || r.circle.toLowerCase().includes(q)
 		);
-	}, [query]);
+	}, [recipients, query]);
 
 	const safeSelectedIndex = filtered.length === 0 ? -1 : Math.min(selectedIndex, filtered.length - 1);
 
@@ -42,6 +78,29 @@ export default function PaletteWindow() {
 		}
 	}
 
+	async function handleSend() {
+		if (!target || sending) return;
+		const text = message.trim();
+		if (!text) return;
+		setSending(true);
+		setError(null);
+		try {
+			const to = target.isEveryone ? undefined : target.memberId;
+			const ok = await sendChat(target.circleCode, text, to);
+			if (!ok) {
+				setError('Circle offline — message not sent.');
+				return; // keep the text so the user can retry
+			}
+			setMessage('');
+			setTarget(null);
+			setQuery('');
+			setSelectedIndex(0);
+			window.electronAPI.hideWindow();
+		} finally {
+			setSending(false);
+		}
+	}
+
 	if (target) {
 		return (
 			<div className="palette glass">
@@ -59,20 +118,28 @@ export default function PaletteWindow() {
 						className="frosted-field"
 						placeholder={`Message ${target.label}…`}
 						value={message}
-						onChange={(e) => setMessage(e.target.value)}
+						onChange={(e) => {
+							setMessage(e.target.value);
+							if (error) setError(null);
+						}}
 						onKeyDown={(e) => {
-							if (e.key === 'Enter' && message.trim()) {
-								setMessage('');
-								setTarget(null);
+							if (e.key === 'Enter' && message.trim() && !sending) {
+								void handleSend();
 							}
 							if (e.key === 'Escape') setTarget(null);
 						}}
 						autoFocus
 					/>
-					<button className="icon-button" disabled={!message.trim()} title="Send">
+					<button
+						className="icon-button"
+						disabled={!message.trim() || sending}
+						onClick={() => void handleSend()}
+						title="Send"
+					>
 						➤
 					</button>
 				</div>
+				{error && <p className="compose-error">{error}</p>}
 			</div>
 		);
 	}
@@ -95,7 +162,13 @@ export default function PaletteWindow() {
 			</div>
 			<div className="palette-divider" />
 			<div className="recipient-list">
-				{filtered.length === 0 ? (
+				{state.circles.length === 0 ? (
+					<div className="empty-state">
+						<span className="caption">
+							No circles joined yet. Open the Munkel menu and join or create one.
+						</span>
+					</div>
+				) : filtered.length === 0 ? (
 					<div className="empty-state">
 						<span className="caption">No matches.</span>
 					</div>
