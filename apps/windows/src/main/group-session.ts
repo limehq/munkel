@@ -6,11 +6,11 @@ import {
 	encodeProfile,
 	decodePayload,
 	normalizeCircleCode,
-} from '@munkel/core';
+} from '../core';
 import { RelayClient } from './relay-client';
 import { getCircleColor } from '../shared/group-color';
 import type { CircleState, Member, NotchMessage } from '../shared/types';
-import type { ClientMessage, ServerMessage } from '@munkel/core';
+import type { ClientMessage, ServerMessage } from '../core';
 
 export interface GroupSessionCallbacks {
 	onStateChange(state: CircleState): void;

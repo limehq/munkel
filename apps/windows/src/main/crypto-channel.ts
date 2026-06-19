@@ -5,8 +5,8 @@ import {
 	open,
 	encodeChat,
 	decodePayload,
-} from '@munkel/core';
-import type { ChatPayload } from '@munkel/core';
+} from '../core';
+import type { ChatPayload } from '../core';
 
 export async function deriveGroupId(code: string): Promise<string> {
 	const { groupId } = await deriveGroupKeys(code);

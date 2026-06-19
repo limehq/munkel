@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import WebSocket from 'ws';
-import type { ClientMessage, ServerMessage } from '@munkel/core';
+import type { ClientMessage, ServerMessage } from '../core';
 
 export type RelayEvent =
 	| { kind: 'frame'; frame: ServerMessage }

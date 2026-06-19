@@ -81,7 +81,6 @@
       "name": "@munkel/windows",
       "version": "0.0.1",
       "dependencies": {
-        "@munkel/core": "workspace:*",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
         "ws": "^8.21.0",
@@ -95,15 +94,6 @@
         "electron": "^31.0.2",
         "typescript": "^5.4.5",
         "vite": "^5.3.1",
-      },
-    },
-    "packages/munkel-core": {
-      "name": "@munkel/core",
-      "version": "0.0.1",
-      "devDependencies": {
-        "@types/node": "^25.9.3",
-        "typescript": "^5.4.5",
-        "vitest": "^4.1.8",
       },
     },
   },
@@ -294,8 +284,6 @@
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.9", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.0.3", "@jridgewell/sourcemap-codec": "^1.4.10" } }, "sha512-3Belt6tdc8bPgAtbcmdtNJlirVoTmEb5e2gC94PnkwEW9jI6CAHUeoG85tjWP5WquqfavoMtMwiG4P926ZKKuQ=="],
 
     "@munkel/cli": ["@munkel/cli@workspace:apps/cli"],
-
-    "@munkel/core": ["@munkel/core@workspace:packages/munkel-core"],
 
     "@munkel/landing": ["@munkel/landing@workspace:apps/landing"],
 
@@ -1082,8 +1070,6 @@
     "@jridgewell/gen-mapping/@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
     "@jridgewell/remapping/@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
-
-    "@munkel/core/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@munkel/windows/@types/react": ["@types/react@18.3.31", "", { "dependencies": { "@types/prop-types": "*", "csstype": "^3.2.2" } }, "sha512-vfEqpXTvwT91yhmwdfouStN2hSKwTvyRs8qpLfADyrq/kxDw0hZM7Wk9Ug1FELj8hIby+S/+kQCSRFF32nv2Qw=="],
 

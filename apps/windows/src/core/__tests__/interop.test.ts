@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'vitest';
-import { deriveGroupKeys, seal, open } from '../src/crypto.js';
-import { encodeChat, encodeProfile } from '../src/payload.js';
+import { describe, it, expect } from 'bun:test';
+import { deriveGroupKeys, seal, open } from '../crypto';
+import { encodeChat, encodeProfile } from '../payload';
 
 /**
  * Mirror of apps/server/scripts/dev-send.ts decryption logic. Proves a
- * payload sealed by @munkel/core can be opened by the server reference.
+ * payload sealed by ../core can be opened by the server reference.
  */
 async function devSendOpen(payload: string, messageKey: CryptoKey): Promise<unknown> {
   const combined = Buffer.from(payload, 'base64');

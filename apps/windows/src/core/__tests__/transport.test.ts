@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { createControlServer, createControlClient } from '../src/transport.js';
-import { buildPipeName } from '../src/control.js';
-import type { ControlRequest, ControlResponse } from '../src/control.js';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { createControlServer, createControlClient } from '../transport';
+import { buildPipeName } from '../control';
+import type { ControlRequest, ControlResponse } from '../control';
 
 describe('named-pipe transport', () => {
   let pipeName: string;

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { encodeChat, encodeProfile, decodePayload } from '../src/payload.js';
+import { describe, it, expect } from 'bun:test';
+import { encodeChat, encodeProfile, decodePayload } from '../payload';
 
 describe('payload encoding', () => {
   it('encodes a chat payload with ISO-8601 sentAt', () => {

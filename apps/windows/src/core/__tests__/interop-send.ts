@@ -1,5 +1,5 @@
 // Dev helper equivalent to apps/server/scripts/dev-send.ts, but built on
-// @munkel/core. It proves that this package produces payloads the server
+// ../core. It proves that this package produces payloads the server
 // reference script can decrypt.
 //
 // Usage from repo root:
@@ -7,12 +7,12 @@
 //
 // Set RELAY_URL, MEMBER_ID, and TO env vars as in dev-send.ts.
 
-import { deriveGroupKeys, seal } from '../src/crypto.js';
-import { encodeChat, encodeProfile } from '../src/payload.js';
+import { deriveGroupKeys, seal } from '../crypto';
+import { encodeChat, encodeProfile } from '../payload';
 
 const listenMode = process.argv[2] === '--listen';
 const positional = process.argv.slice(listenMode ? 3 : 2);
-const [code, sender = 'CoreSender', text = 'Hello from @munkel/core!'] = positional;
+const [code, sender = 'CoreSender', text = 'Hello from ../core!'] = positional;
 
 if (!code) {
   process.stderr.write('usage: bun interop-send.ts [--listen] <group-code> <sender-name> [text]\n');

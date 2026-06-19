@@ -19,12 +19,6 @@
 		"@munkel/windows#typecheck": {
 			"cache": false
 		},
-		"@munkel/core#typecheck": {
-			"cache": false
-		},
-		"@munkel/core#test": {
-			"cache": false
-		},
 		"test": {},
 		"typecheck": {},
 		"dev": {

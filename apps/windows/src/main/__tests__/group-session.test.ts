@@ -1,6 +1,6 @@
 import { expect, test, describe, beforeEach, afterEach } from 'bun:test';
 import { WebSocketServer, WebSocket } from 'ws';
-import { deriveGroupKeys, seal, open, encodeChat, encodeProfile } from '@munkel/core';
+import { deriveGroupKeys, seal, open, encodeChat, encodeProfile } from '../../core';
 import { GroupSession } from '../group-session';
 import type { CircleState, NotchMessage } from '../../shared/types';
 

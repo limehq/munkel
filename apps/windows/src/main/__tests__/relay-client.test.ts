@@ -1,7 +1,7 @@
 import { expect, test, describe, beforeEach, afterEach } from 'bun:test';
 import { EventEmitter } from 'node:events';
 import { RelayClient } from '../relay-client';
-import type { ServerMessage } from '@munkel/core';
+import type { ServerMessage } from '../../core';
 import type WebSocket from 'ws';
 
 class MockSocket extends EventEmitter {

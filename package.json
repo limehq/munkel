@@ -2,7 +2,7 @@
 	"name": "munkel",
 	"private": true,
 	"packageManager": "bun@1.3.9",
-	"workspaces": ["apps/*", "packages/*"],
+	"workspaces": ["apps/*"],
 	"scripts": {
 		"dev": "turbo dev --filter=!@munkel/macos",
 		"build": "turbo build",

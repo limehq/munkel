@@ -1,4 +1,4 @@
-import { normalizeCircleCode } from '@munkel/core';
+import { normalizeCircleCode } from '../core';
 import { IdentityStore } from './identity-store';
 import { GroupSession } from './group-session';
 import { ProfileBroadcaster } from './profile-broadcaster';

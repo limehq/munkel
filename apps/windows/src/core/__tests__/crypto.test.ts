@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { deriveGroupKeys, seal, open, CryptoError } from '../src/crypto.js';
-import { normalizeCircleCode } from '../src/normalize.js';
+import { describe, it, expect } from 'bun:test';
+import { deriveGroupKeys, seal, open, CryptoError } from '../crypto';
+import { normalizeCircleCode } from '../normalize';
 
 describe('crypto', () => {
   it('derives the golden vector groupId for blue-table-42', async () => {

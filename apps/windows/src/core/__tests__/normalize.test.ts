@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { normalizeCircleCode } from '../src/normalize.js';
+import { describe, it, expect } from 'bun:test';
+import { normalizeCircleCode } from '../normalize';
 
 describe('normalizeCircleCode', () => {
   it('trims whitespace and lowercases', () => {
