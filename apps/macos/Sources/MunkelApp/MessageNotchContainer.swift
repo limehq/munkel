@@ -14,6 +14,17 @@ final class MessageDisplayModel: ObservableObject {
     @Published var fullImages: [String: Data] = [:]
     /// Images whose full fetch failed (expired/offline) — show a warning glyph.
     @Published var failedImages: Set<String> = []
+    /// `id` (r2Key) of the album image currently shown in the large hover
+    /// "Quick Look" preview, or nil when none. Set by an `AlbumCell` on hover
+    /// (debounced) and force-cleared on every teardown path by NotchPresenter,
+    /// since `.onHover(false)` doesn't reliably fire when the notch is torn down.
+    /// Deliberately kept OUT of MessageNotchContainer's `.animation(value:)`
+    /// lists so toggling it never re-runs the container's expand/history springs.
+    @Published var previewImageID: String?
+    /// The pending hover-debounce, owned here (not per-cell) so every teardown
+    /// path can cancel it centrally — a per-cell `@State` Task would outlive its
+    /// cell and could resurrect a just-cleared preview.
+    private var previewDebounce: Task<Void, Never>?
     /// Per-image full-resolution loaders, set once by NotchPresenter. Not
     /// @Published: read by cells, it never needs to drive a refresh itself.
     var imageLoaders: [String: @Sendable () async -> Data?] = [:]
@@ -69,6 +80,47 @@ final class MessageDisplayModel: ObservableObject {
         pasteboard.clearContents()
         pasteboard.writeObjects([image])
         flashCopied()
+    }
+
+    /// Hover requested the large preview for `id`. Debounced on first appearance
+    /// (a fast album sweep shouldn't flash a card per cell); instant once a card
+    /// is already up, so an adjacent-cell hand-off cross-fades via `.id(id)`
+    /// instead of blanking for the debounce. The debounce is owned by the model
+    /// so a leave/teardown can cancel it (see `clearPreview`).
+    func requestPreview(_ id: String) {
+        previewDebounce?.cancel()
+        if previewImageID != nil {
+            withAnimation(.easeOut(duration: 0.18)) { previewImageID = id }
+            return
+        }
+        previewDebounce = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(180))
+            guard !Task.isCancelled, let self else { return }
+            withAnimation(.easeOut(duration: 0.18)) { self.previewImageID = id }
+        }
+    }
+
+    /// A cell reports hover-out: drop the pending request and, if this cell owns
+    /// the visible preview, dismiss it (owner-check so an adjacent cell's enter,
+    /// which can land before this leave, isn't undone).
+    func endPreview(forCell id: String) {
+        previewDebounce?.cancel()
+        if previewImageID == id {
+            withAnimation(.easeOut(duration: 0.18)) { previewImageID = nil }
+        }
+    }
+
+    /// Hard clear for every teardown path (notch-leave, hide, reply): cancel any
+    /// pending request and drop the preview. A cell's `.onHover(false)` doesn't
+    /// reliably fire when the notch is torn down, so this must not depend on it.
+    func clearPreview(animated: Bool = false) {
+        previewDebounce?.cancel()
+        guard previewImageID != nil else { return }
+        if animated {
+            withAnimation(.easeOut(duration: 0.18)) { previewImageID = nil }
+        } else {
+            previewImageID = nil
+        }
     }
 
     private func flashCopied() {
