@@ -12,16 +12,22 @@ import SwiftUI
 @MainActor
 final class NotchPresenter {
     private typealias MessageNotch = NotchPanel<MessageNotchContainer>
+    private typealias IndicatorNotch = NotchPanel<UnreadIndicatorView>
 
     private var currentNotch: MessageNotch?
     private var currentModel: MessageDisplayModel?
+    private var indicatorNotch: IndicatorNotch?
     private var hideTask: Task<Void, Never>?
     private var pruneTask: Task<Void, Never>?
     private var hoverObservation: AnyCancellable?
     /// Toggles the plain-"C" hover-copy hotkey on/off as rows are hovered.
     private var hoverCopyObservation: AnyCancellable?
+    /// Observes hover on the unread indicator to dismiss it.
+    private var indicatorHoverObservation: AnyCancellable?
     private var clickMonitor: Any?
     private var outsideClickMonitor: Any?
+    /// Tracks whether user has interacted with the current message.
+    private var userInteractedWithMessage = false
 
     /// RAM-only message history shown in the expanded notch: everything
     /// younger than this window, deleted afterwards (also live on screen).
@@ -136,12 +142,14 @@ final class NotchPresenter {
         hoverObservation = nil
         removeClickMonitors()
         turnOffHoverCopy()
+        hideIndicator()
         if let previous = currentNotch {
             // hide() collapses immediately; afterwards a newer message may
             // already have taken over.
             await previous.hide()
             guard generation == showGeneration else { return }
         }
+        userInteractedWithMessage = false
 
         let model = MessageDisplayModel()
         // Replies default to the channel the message came in on.
@@ -189,6 +197,7 @@ final class NotchPresenter {
                 guard let self, let notch else { return }
                 Task { @MainActor in
                     if hovering {
+                        self.userInteractedWithMessage = true
                         self.hideTask?.cancel()
                         // Animate the teaser→expanded morph explicitly: the
                         // implicit `.animation(value:)` inside MessageNotchContainer
@@ -276,6 +285,7 @@ final class NotchPresenter {
             MainActor.assumeIsolated {
                 guard let self, let model, let panel = notch?.panel else { return }
                 if event.window === panel {
+                    self.userInteractedWithMessage = true
                     // hitTest is useless here (NSHostingView returns
                     // itself wherever SwiftUI content covers the marker),
                     // so clicks are matched against the marker frames via
@@ -359,6 +369,8 @@ final class NotchPresenter {
 
     private func replyWasSent() {
         guard let notch = currentNotch, let model = currentModel else { return }
+        userInteractedWithMessage = true
+        hideIndicator()
         withAnimation(.spring(duration: 0.3)) {
             model.replying = false
             model.replySent = true
@@ -380,6 +392,54 @@ final class NotchPresenter {
             self?.notchVisible = false
             self?.pruneTask?.cancel()
             self?.turnOffHoverCopy()
+            // Show unread indicator if user didn't interact with the message
+            if !(self?.userInteractedWithMessage ?? true) {
+                self?.showIndicator()
+            }
+        }
+    }
+
+    /// Show the unread indicator (blue dot) in the notch.
+    private func showIndicator() {
+        guard indicatorNotch == nil else { return }
+
+        let targetScreen: @MainActor () -> NSScreen? = { NSScreen.main }
+        let indicator = IndicatorNotch(hoverBehavior: .all, targetScreen: targetScreen) {
+            UnreadIndicatorView()
+        }
+        indicator.transitionConfiguration = .init(
+            openingAnimation: .spring(response: 0.6, dampingFraction: 0.7),
+            skipIntermediateHides: true
+        )
+        indicatorNotch = indicator
+
+        // Hide indicator on hover (user interaction)
+        indicatorHoverObservation = indicator.$isHovering
+            .filter { $0 }
+            .sink { [weak self, weak indicator] _ in
+                Task { @MainActor in
+                    guard let indicator else { return }
+                    await indicator.hide()
+                    self?.indicatorNotch = nil
+                    self?.indicatorHoverObservation = nil
+                }
+            }
+
+        Task {
+            await indicator.expand()
+            if let panel = indicator.panel {
+                panel.sharingType = NSWindow.munkelCaptureSharingType
+            }
+        }
+    }
+
+    /// Hide the unread indicator.
+    private func hideIndicator() {
+        Task { [weak self] in
+            if let indicator = self?.indicatorNotch {
+                await indicator.hide()
+                self?.indicatorNotch = nil
+            }
         }
     }
 }
