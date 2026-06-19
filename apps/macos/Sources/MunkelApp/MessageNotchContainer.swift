@@ -62,6 +62,12 @@ final class MessageDisplayModel: ObservableObject {
     /// Text of the current (newest) message, so the hover-"C" shortcut can copy
     /// it when the pointer isn't over a history row.
     var currentText = ""
+    /// `id` (r2Key) of the album image the pointer is over, set immediately on
+    /// hover (no debounce, unlike the visual `previewImageID`) and cleared on the
+    /// same lifecycle paths (endPreview / clearPreview). Lets the hover-"C"
+    /// shortcut copy the hovered picture instead of the message text. Not
+    /// @Published: read only at key-press time, it never drives a refresh.
+    var hoveredImageID: String?
     /// Hover-revealed per-row copy hit targets. The glyph itself is a plain
     /// visual (CopyGlyph); the AppKit click monitor in NotchPresenter matches
     /// clicks against these frames — just like historyMarker/replyMarker —
@@ -97,6 +103,9 @@ final class MessageDisplayModel: ObservableObject {
     /// instead of blanking for the debounce. The debounce is owned by the model
     /// so a leave/teardown can cancel it (see `clearPreview`).
     func requestPreview(_ id: String) {
+        // Immediate (the visual preview below is debounced, but the hover-"C"
+        // copy must work the instant the pointer is over the image).
+        hoveredImageID = id
         previewDebounce?.cancel()
         if previewImageID != nil {
             withAnimation(.easeOut(duration: 0.18)) { previewImageID = id }
@@ -114,6 +123,9 @@ final class MessageDisplayModel: ObservableObject {
     /// which can land before this leave, isn't undone).
     func endPreview(forCell id: String) {
         previewDebounce?.cancel()
+        // Owner-check (mirrors previewImageID): an adjacent cell's enter can set
+        // hoveredImageID before this leave fires, so only clear our own id.
+        if hoveredImageID == id { hoveredImageID = nil }
         if previewImageID == id {
             withAnimation(.easeOut(duration: 0.18)) { previewImageID = nil }
         }
@@ -124,6 +136,7 @@ final class MessageDisplayModel: ObservableObject {
     /// reliably fire when the notch is torn down, so this must not depend on it.
     func clearPreview(animated: Bool = false) {
         previewDebounce?.cancel()
+        hoveredImageID = nil
         guard previewImageID != nil else { return }
         if animated {
             withAnimation(.easeOut(duration: 0.18)) { previewImageID = nil }
@@ -188,10 +201,17 @@ final class MessageDisplayModel: ObservableObject {
         imageCopyTargets.append(ImageCopyTarget(id: id, resolve: resolve, view: view))
     }
 
-    /// The hover-"C" shortcut target: the hovered history row, or — when the
-    /// pointer isn't over a row — the current (newest) message.
+    /// The hover-"C" shortcut target, in priority order: the hovered album image
+    /// (resolved through its registered copy target, exactly like a click on the
+    /// per-image glyph), then the hovered history row, then — when the pointer
+    /// isn't over either — the current (newest) message. Images sit on the
+    /// current message, so without the image branch "C" over a picture fell
+    /// through to the message text instead of copying the picture.
     func copyHovered() {
-        if let id = hoveredHistoryID, let entry = history.first(where: { $0.id == id }) {
+        if let id = hoveredImageID,
+           let target = imageCopyTargets.first(where: { $0.id == id }) {
+            copyImage(id: id, data: target.resolve())
+        } else if let id = hoveredHistoryID, let entry = history.first(where: { $0.id == id }) {
             copyHistory(id: id, text: entry.text)
         } else if !currentText.isEmpty {
             copy(currentText)
