@@ -211,6 +211,14 @@ final class NotchPresenter {
             openingAnimation: .spring(response: 0.6, dampingFraction: 0.7),
             skipIntermediateHides: true
         )
+        // Image messages get a free-floating Quick-Look preview that pops below
+        // the notch on cell hover (see ImagePreviewOverlay / AlbumCell). It
+        // renders inside this same capture-excluded panel window.
+        if message.isImage {
+            notch.floatingOverlay = AnyView(
+                ImagePreviewOverlay(model: model, images: message.images)
+            )
+        }
         currentNotch = notch
 
         hoverObservation = notch.$isHovering
@@ -229,10 +237,17 @@ final class NotchPresenter {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
                             self.currentModel?.fullyExpanded = true
                         }
-                    } else if self.currentModel?.replying != true {
-                        // While the reply field is open, leaving the notch
-                        // must not tear it down mid-typing.
-                        self.scheduleHide(of: notch, after: self.afterReadDelay)
+                    } else {
+                        // Leaving the notch entirely dismisses the hover image
+                        // preview even if a cell's own `.onHover(false)` didn't
+                        // fire (the same teardown-unreliability the hover-copy
+                        // hotkey guards against).
+                        self.currentModel?.clearPreview(animated: true)
+                        if self.currentModel?.replying != true {
+                            // While the reply field is open, leaving the notch
+                            // must not tear it down mid-typing.
+                            self.scheduleHide(of: notch, after: self.afterReadDelay)
+                        }
                     }
                 }
             }
@@ -359,6 +374,11 @@ final class NotchPresenter {
     private func turnOffHoverCopy() {
         hoverCopyObservation = nil
         currentModel?.hoveredHistoryID = nil
+        // Same teardown rationale as the hover-copy hotkey: clear the hover
+        // image preview here, on every hide, since a cell's `.onHover(false)`
+        // doesn't reliably fire when the notch is torn down. clearPreview also
+        // cancels any in-flight debounce so it can't re-set the flag afterwards.
+        currentModel?.clearPreview()
         KeyboardShortcuts.disable(.copyHoveredHistory)
     }
 
@@ -376,6 +396,9 @@ final class NotchPresenter {
     private func beginReply(model: MessageDisplayModel, panel: NSWindow) {
         guard !model.replying, !model.replySent else { return }
         hideTask?.cancel()
+        // Opening the reply field dismisses any hover preview (and cancels a
+        // pending debounce) so it can't obscure the text field.
+        model.clearPreview()
         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
             model.fullyExpanded = true
             model.replying = true
@@ -472,4 +495,5 @@ final class NotchPresenter {
             }
         }
     }
+
 }

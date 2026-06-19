@@ -13,19 +13,36 @@ import SwiftUI
 struct NotchHostingContent<Content: View>: View {
     @ObservedObject var owner: NotchPanel<Content>
     @State private var floatingHeight: CGFloat = 0
+    /// Measured height of the notch/floating chrome, so the free-floating
+    /// overlay (Quick-Look preview) can sit just below it without overlap.
+    @State private var notchContentHeight: CGFloat = 0
 
     private let safeAreaInset: CGFloat = 15
     private let expandedTopCornerRadius: CGFloat = 15
     private let expandedBottomCornerRadius: CGFloat = 20
     private let floatingCornerRadius: CGFloat = 20
+    /// Gap between the bottom of the notch chrome and the floating overlay.
+    private let floatingOverlayGap: CGFloat = 14
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             if owner.hasNotch {
                 notchBody
                     .foregroundStyle(.white)
             } else {
                 floatingBody
+            }
+            // The app's free-floating overlay (Quick-Look image preview): a
+            // sibling of the masked notch, so it escapes the NotchShape clip
+            // yet stays inside this capture-excluded panel window. Positioned
+            // just below the measured chrome; never intercepts clicks.
+            if let overlay = owner.floatingOverlay, owner.state == .expanded {
+                // Padding is outermost so the overlay is proposed only the room
+                // BELOW the chrome — its GeometryReader then bounds the card to
+                // what fits (no off-screen overflow). Never intercepts clicks.
+                overlay
+                    .allowsHitTesting(false)
+                    .padding(.top, overlayTopClearance + floatingOverlayGap)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -33,6 +50,11 @@ struct NotchHostingContent<Content: View>: View {
             color: .black.opacity(owner.state == .expanded ? 0.5 : 0),
             radius: owner.state == .hidden ? 0 : 10
         )
+    }
+
+    /// How far down the overlay must start to clear the notch (or floating pill).
+    private var overlayTopClearance: CGFloat {
+        owner.hasNotch ? notchContentHeight : floatingHeight + owner.notchSize.height
     }
 
     // MARK: - Notch
@@ -85,6 +107,14 @@ struct NotchHostingContent<Content: View>: View {
         .fixedSize()
         .frame(minWidth: minWidth, minHeight: owner.notchSize.height)
         .onHover(perform: owner.updateHoverState)
+        .background(
+            GeometryReader { proxy in
+                Color.clear
+                    .onChange(of: proxy.size.height, initial: true) { _, height in
+                        notchContentHeight = height
+                    }
+            }
+        )
     }
 
     // MARK: - Floating (no-notch screens)

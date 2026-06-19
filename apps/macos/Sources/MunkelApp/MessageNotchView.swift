@@ -165,6 +165,18 @@ struct AlbumCell: View {
             }
         }
         .clipped()
+        // Hovering pops the large Quick-Look preview (ImagePreviewOverlay),
+        // rendered free-floating below the notch in the same capture-excluded
+        // panel window. The debounce + owner-checked dismissal live on the model
+        // (centrally cancellable) so a dropped leave or teardown can't resurrect
+        // a cleared preview.
+        .onHover { inside in
+            if inside {
+                model.requestPreview(image.id)
+            } else {
+                model.endPreview(forCell: image.id)
+            }
+        }
         .task { await load() }
     }
 
