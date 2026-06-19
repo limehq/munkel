@@ -36,9 +36,27 @@ struct IncomingImage: Equatable, Identifiable, Sendable {
 struct HistoryEntry: Identifiable, Equatable {
     let id = UUID()
     let sender: String
+    /// Collapsed-row label — the body text, or a `📷 …` caption/count for an
+    /// album. Also what the per-row copy affordance copies.
     let text: String
     let isDirect: Bool
     let group: String
     let groupColor: Color
     let receivedAt: Date
+    /// Album images for an image message (empty for plain text), carried so the
+    /// EXPANDED history can render thumbnails that upgrade to full resolution
+    /// just like the current message. RAM-only — gone when the entry is pruned.
+    var images: [IncomingImage] = []
+    /// The album's real caption (no `📷` prefix), shown beneath the thumbnails
+    /// in the expanded view; empty when the album had none.
+    var caption: String = ""
+    /// Per-image full-resolution loader (R2 fetch keyed by r2Key); nil for a
+    /// text entry. Excluded from `Equatable` — closures aren't comparable, and
+    /// entries are never reassigned after construction and carry a unique id, so
+    /// `==` compares ids alone.
+    var loadFull: (@Sendable (String) async -> Data?)?
+
+    var isImage: Bool { !images.isEmpty }
+
+    static func == (lhs: HistoryEntry, rhs: HistoryEntry) -> Bool { lhs.id == rhs.id }
 }
