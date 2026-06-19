@@ -1050,3 +1050,116 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
   .badge-marquee-row { animation: none; flex-wrap: wrap; justify-content: center; width: auto; }
   .badge-dup { display: none; }
 }
+
+/* ============================================================
+ * Legal / content pages (Imprint, Privacy, Contact)
+ * Slim header + centered prose column + shared SiteFooter.
+ * ============================================================ */
+
+/* Slim standalone header — NOT the bespoke landing <nav>. Static, no float,
+   no hash links. Same sticky height token so the layout rhythm matches. */
+.legal-header {
+  position: sticky; top: 0; z-index: 100;
+  height: var(--nav-h);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklab, var(--background) 86%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+.legal-header-inner {
+  height: 100%;
+  display: flex; align-items: center;
+}
+
+/* Outer page region: clears the sticky header and gives generous bottom air
+   before the footer. */
+.legal {
+  padding: 5rem 0 7rem;
+  border-top: 1px solid var(--border);
+}
+
+/* Reading column: narrow the measure inside the existing .container gutters. */
+.legal-container { max-width: 1100px; } /* .container already sets this + padding */
+.legal-prose,
+.legal-title,
+.legal-lead { max-width: 70ch; } /* ~68–72ch comfortable measure */
+
+/* Page heading + lead */
+.legal-title {
+  font-size: var(--text-4xl); font-weight: 700;
+  letter-spacing: var(--tracking-tight); line-height: var(--leading-tight);
+  text-wrap: balance;
+}
+.legal-lead {
+  margin-top: 1.125rem;
+  font-size: var(--text-lg); color: var(--muted-foreground);
+  line-height: var(--leading-relaxed); text-wrap: pretty;
+}
+
+/* Prose body */
+.legal-prose {
+  margin-top: 2.5rem;
+  font-size: var(--text-base); color: var(--foreground);
+  line-height: var(--leading-relaxed); text-wrap: pretty;
+}
+.legal-prose > * + * { margin-top: 1.25rem; } /* flow rhythm between blocks */
+
+.legal-prose h2 {
+  margin-top: 3rem;
+  font-size: var(--text-2xl); font-weight: 600;
+  letter-spacing: var(--tracking-tight); line-height: var(--leading-snug);
+  text-wrap: balance;
+}
+.legal-prose h3 {
+  margin-top: 2rem;
+  font-size: var(--text-lg); font-weight: 600;
+  letter-spacing: var(--tracking-tight); line-height: var(--leading-snug);
+}
+/* First heading shouldn't fight the .legal-prose top margin. */
+.legal-prose > :first-child { margin-top: 0; }
+
+.legal-prose p { color: var(--foreground); }
+
+/* Lists */
+.legal-prose ul { padding-left: 1.25rem; list-style: disc; }
+.legal-prose li { margin-top: 0.5rem; }
+.legal-prose li::marker { color: var(--muted-foreground); }
+
+/* Links — match the existing `.honest a` / `.faq-foot a` treatment exactly:
+   foreground text, subtle border-colored underline brightening on hover. */
+.legal-prose a {
+  color: var(--foreground);
+  text-decoration: underline; text-underline-offset: 3px;
+  text-decoration-color: var(--border);
+  transition: text-decoration-color 0.2s ease;
+}
+.legal-prose a:hover { text-decoration-color: var(--foreground); }
+
+/* Inline code reuses the global `.code` role (already defined above). */
+
+/* "Last updated" line for the privacy page — an understated muted note. */
+.legal-updated {
+  margin-top: 0.5rem;
+  color: var(--muted-foreground);
+  font-size: var(--text-sm);
+}
+
+/* Key/value blocks for the imprint (name/address/email …). Two-column on
+   wide viewports, stacked on narrow. dt is the muted label, dd the value. */
+.legal-dl {
+  display: grid;
+  grid-template-columns: minmax(7rem, 12rem) 1fr;
+  gap: 0.5rem 1.5rem;
+  margin-top: 1.25rem;
+}
+.legal-dl dt {
+  font-size: var(--text-sm); color: var(--muted-foreground);
+  font-family: var(--font-mono); letter-spacing: var(--tracking-wide);
+}
+.legal-dl dd { color: var(--foreground); }
+
+@media (max-width: 600px) {
+  .legal { padding: 3.5rem 0 5rem; }
+  .legal-dl { grid-template-columns: 1fr; gap: 0.125rem 0; }
+  .legal-dl dd { margin-bottom: 0.75rem; }
+}
