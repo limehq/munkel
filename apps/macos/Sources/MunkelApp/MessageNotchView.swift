@@ -72,32 +72,34 @@ struct MessageNotchView: View {
         .padding(.vertical, 4)
     }
 
-    /// A lone image fills the width at its own aspect; an album is a grid of
-    /// square cells, up to four per row.
+    /// Every picture is a square, fill-cropped thumbnail — a lone image included
+    /// — so a row of mixed aspect ratios stays tidy and a single image lines up
+    /// with album cells; the hover preview shows each one whole. Up to four per
+    /// row, fewer-but-larger cells for smaller albums.
+    ///
+    /// A non-lazy VStack/HStack grid (not LazyVGrid): an album is at most eight
+    /// cells, so laziness buys nothing, and LazyVGrid's per-cell `.onHover` only
+    /// fires reliably for the first cell — which hid the copy glyph on the rest.
     @ViewBuilder private var imageContent: some View {
-        if message.images.count == 1, let only = message.images.first {
-            let size = fittedSize(width: only.width, height: only.height)
-            AlbumCell(model: model, image: only, fill: false)
-                .frame(width: size.width, height: size.height)
-                .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-        } else {
-            // Pack up to four thumbnails per row; smaller albums use fewer,
-            // larger columns (2 → two-up, 3 → three-up, 4+ → four per row).
-            let columnCount = min(4, message.images.count)
-            let side = (imageWidth - CGFloat(columnCount - 1) * gridSpacing) / CGFloat(columnCount)
-            let columns = Array(
-                repeating: GridItem(.fixed(side), spacing: gridSpacing),
-                count: columnCount
-            )
-            LazyVGrid(columns: columns, alignment: .leading, spacing: gridSpacing) {
-                ForEach(message.images) { img in
-                    AlbumCell(model: model, image: img, fill: true)
-                        .frame(width: side, height: side)
-                        .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        let count = message.images.count
+        let columnCount = min(4, count)
+        let side = (imageWidth - CGFloat(columnCount - 1) * gridSpacing) / CGFloat(columnCount)
+        // A lone image gets a slightly softer corner than the tighter album cells.
+        let radius: CGFloat = count == 1 ? 10 : 8
+        let rows = stride(from: 0, to: count, by: columnCount).map { start in
+            Array(message.images[start..<min(start + columnCount, count)])
+        }
+        VStack(alignment: .leading, spacing: gridSpacing) {
+            ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                HStack(spacing: gridSpacing) {
+                    ForEach(row) { img in
+                        AlbumCell(model: model, image: img, cornerRadius: radius,
+                                  displaySize: CGSize(width: side, height: side))
+                    }
                 }
             }
-            .frame(width: imageWidth, alignment: .leading)
         }
+        .frame(width: imageWidth, alignment: .leading)
     }
 
     private var header: some View {
@@ -118,17 +120,6 @@ struct MessageNotchView: View {
         }
         .foregroundStyle(.white.opacity(0.55))
     }
-
-    /// A lone image's display size: its aspect scaled to fit the bounding box
-    /// (never upscaled past it).
-    private func fittedSize(width: Int, height: Int) -> CGSize {
-        let w = CGFloat(width)
-        let h = CGFloat(height)
-        let maxHeight: CGFloat = 260
-        guard w > 0, h > 0 else { return CGSize(width: imageWidth, height: imageWidth * 0.6) }
-        let scale = min(imageWidth / w, maxHeight / h)
-        return CGSize(width: max(1, w * scale), height: max(1, h * scale))
-    }
 }
 
 /// One image cell: paints its inline thumbnail instantly, then fetches its full
@@ -138,8 +129,15 @@ struct MessageNotchView: View {
 struct AlbumCell: View {
     @ObservedObject var model: MessageDisplayModel
     let image: IncomingImage
-    /// Grid cells fill+crop to a square; a lone image fits its aspect.
-    let fill: Bool
+    /// Corner radius for the picture. Applied to the image here (not by the
+    /// caller) so the copy glyph can sit OUTSIDE the rounded clip — a clip on
+    /// the whole cell would shave the glyph's top-right corner.
+    let cornerRadius: CGFloat
+    /// Final on-screen size of the picture. Sized + clipped HERE (not by the
+    /// caller) so the frame constrains the layout BEFORE the clip: a `.fill`
+    /// image reports an oversized intrinsic frame, and clipping before the frame
+    /// let that overflow spill over and overlap neighbouring content.
+    let displaySize: CGSize
 
     @State private var decoded: CGImage?
     @State private var hovering = false
@@ -156,7 +154,7 @@ struct AlbumCell: View {
                 Image(decorative: decoded, scale: 1)
                     .resizable()
                     .interpolation(.medium)
-                    .aspectRatio(contentMode: fill ? .fill : .fit)
+                    .aspectRatio(contentMode: .fill)
             } else {
                 Rectangle().fill(.white.opacity(0.08))
             }
@@ -168,13 +166,25 @@ struct AlbumCell: View {
                     .foregroundStyle(.white.opacity(0.6))
             }
         }
-        .clipped()
+        // Size + round the picture HERE, before the copy-glyph overlay: the
+        // frame pins the layout to the final cell size so a `.fill` image's
+        // overflow can't spill onto neighbours, the clip crops that overflow and
+        // rounds the corner, and the glyph (added next, outside the clip) is
+        // never shaved by the rounding.
+        .frame(width: displaySize.width, height: displaySize.height)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         // Per-image copy: a hover-revealed glyph on the picture, mirroring the
         // history rows. The glyph is purely visual — clicking it is caught by
         // NotchPresenter's event monitor, which matches the hover-registered
         // hit target laid out beneath it (a SwiftUI Button here would sit inside
         // the reply marker and a click would both copy AND open the reply).
         .overlay(alignment: .topTrailing) { copyGlyph }
+        // Hit-test the cell as its plain square. `.clipShape` only clips the
+        // pixels: a `.fill` image still reports its oversized (overflowing) frame
+        // for hit-testing, so without this the wider image of an adjacent cell
+        // (drawn on top) steals the hover over this cell's edge — the glyph then
+        // only appeared near the side the neighbour's overflow didn't reach.
+        .contentShape(Rectangle())
         // One hover handler drives both per-image affordances: the copy glyph
         // (local `hovering`) and the large Quick-Look preview (ImagePreviewOverlay,
         // rendered free-floating below the notch in the same capture-excluded
