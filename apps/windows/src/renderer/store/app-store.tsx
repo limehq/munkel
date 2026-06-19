@@ -26,7 +26,7 @@ interface AppStore {
 
 	joinCircle: (code: string, relayUrl?: string) => Promise<void>;
 	leaveCircle: (code: string) => Promise<void>;
-	sendChat: (code: string, text: string, to?: string) => Promise<void>;
+	sendChat: (code: string, text: string, to?: string) => Promise<boolean>;
 	updateProfile: (displayName: string, avatar?: string) => Promise<void>;
 	setRelayUrl: (code: string, relayUrl: string) => Promise<void>;
 }
@@ -106,7 +106,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 	}, []);
 
 	const sendChat = useCallback(async (code: string, text: string, to?: string) => {
-		await window.electronAPI.sendChat(code, text, to);
+		return window.electronAPI.sendChat(code, text, to);
 	}, []);
 
 	const updateProfile = useCallback(async (displayName: string, avatar?: string) => {

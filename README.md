@@ -54,6 +54,10 @@ bun run build
 open apps/macos/.build/Munkel.app
 ```
 
+The Windows client can be built from the integration branch with
+`bunx turbo build --filter=@munkel/windows`; see `apps/windows/README.md` for
+dev mode and current limitations.
+
 ## Components
 
 Bun workspaces + [Turborepo](https://turborepo.dev):
@@ -61,7 +65,8 @@ Bun workspaces + [Turborepo](https://turborepo.dev):
 | Path | Tech |
 |---|---|
 | `apps/macos/` | Swift menu-bar app: `MunkelKit` (crypto, protocol, relay client, GitHub login) + MenuBarExtra UI + notch display |
-| `apps/cli/` | `munkel` CLI (Bun/TypeScript, talks to the app via Unix domain socket) |
+| `apps/windows/` | Electron Windows client: TypeScript core + React UI shell (in development on the Windows integration branch) |
+| `apps/cli/` | `munkel` CLI (Bun/TypeScript, talks to the macOS app via Unix domain socket; Windows named-pipe support in development) |
 | `apps/server/` | Relay: Cloudflare Workers + **Durable Objects** (Hono + partyserver, TypeScript) |
 | `apps/landing/` | Landing page: TanStack Start (React) on Cloudflare Workers, [munkel.app](https://munkel.app) |
 | `skills/` | Agent skills (`SKILL.md`), installable via the [skills CLI](https://skills.sh) |
@@ -108,6 +113,7 @@ Starting the individual apps:
 | Relay | `bunx turbo dev --filter=@munkel/server` → `ws://127.0.0.1:8787` |
 | Landing | `bunx turbo dev --filter=@munkel/landing` → `http://localhost:3000` |
 | macOS app | `cd apps/macos && bun run dev` (builds & runs **Munkel Dev**, see below) |
+| Windows app | `bunx turbo dev --filter=@munkel/windows` |
 | CLI | `bunx turbo build --filter=@munkel/cli`, then `apps/cli/dist/munkel` |
 
 `bun run dev` builds and runs the **Munkel Dev** variant: a separate identity
@@ -273,15 +279,21 @@ name or key-id prefix) across every circle, so no `munkel circles` lookup is
 needed first. If the name is unknown or matches more than one circle the send
 fails with a message naming the candidates, so a single call self-corrects.
 
-The CLI is a thin client: it talks to the running app over
+The CLI is a thin client: on macOS it talks to the running app over
 `~/Library/Application Support/Munkel/control.sock` (newline-delimited
 JSON; see `ControlProtocol.swift`, mirrored in `apps/cli/src/munkel.ts`). If
 the app isn't running, the CLI launches it in the background (`open -g -b
 dev.uq.munkel`) and waits for the socket before sending. The release app also
 registers itself as a login item on first launch (toggle under the menu's
 gear) so it stays resident and the first send skips cold-start. The
-socket path can be overridden via `MUNKEL_SOCKET` (used by the tests). The
-app resolves circle-code prefixes and recipient display names, and owns all
+socket path can be overridden via `MUNKEL_SOCKET` (used by the tests).
+
+Windows named-pipe IPC (`\\.\pipe\Munkel-<user>-Control`) is implemented in
+`apps/windows/src/core/transport.ts` and is the next integration milestone;
+until it is wired end-to-end the CLI on Windows does not yet talk to the
+Windows app.
+
+The app resolves circle-code prefixes and recipient display names, and owns all
 crypto and relay connections, an ideal substrate for scripting and agent
 skills.
 

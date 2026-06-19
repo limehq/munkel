@@ -1,3 +1,11 @@
+/**
+ * @deprecated All exports in this file are dead. PaletteWindow and
+ * NotchWidget now read from the live `AppState` store instead of these
+ * fixtures. The interfaces (`Circle`, `Member`, `Message`, `Recipient`) and
+ * the `circles`/`recipients`/`sampleMessage` constants should all be removed
+ * in a follow-up cleanup pass. Left in place for now to keep this change
+ * minimal and reviewable.
+ */
 export interface Circle {
 	code: string;
 	isConnected: boolean;

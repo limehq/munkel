@@ -162,7 +162,7 @@ state using the 👥 glyph on a neutral background.
 4. **Quick-send hotkey** — plane icon + label + `Ctrl + Shift + M`.
 5. **GitHub area** — visual states for idle/requesting/awaiting/fetching/failed.
 
-### Notch content (Phase 1 placeholder)
+### Notch content
 
 - Avatar + sender name + channel icon (🔒 direct / 🌐 broadcast) + circle dot +
   circle name.
@@ -170,46 +170,45 @@ state using the 👥 glyph on a neutral background.
 - Copy button.
 - Clicking the message opens an inline reply field with a channel toggle
   (🔒/🌐) and frosted input.
+- `Enter` or the `➤` send button calls `useAppStore().sendChat`; on
+  `false` (session offline) the field stays open with a small red
+  inline error ("Circle offline — reply not sent."). A new incoming
+  message (`onNotchMessage`) resets the reply state so a half-typed
+  reply cannot bleed across messages.
+- The reply is private by default for direct messages, broadcast by
+  default for public messages (matches the incoming channel). The
+  recipient `memberId` is resolved from `state.circles` by display
+  name; if the sender has since renamed, the original display name
+  is sent as `to` so the wire payload stays parseable.
 
-### Palette content (Phase 1 placeholder)
+### Palette content
 
 - Search input with plane icon.
-- Filtered recipient list (name + circle, avatar).
+- Recipient list is derived live from `useAppStore().state.circles`:
+  one `Everyone in <code>` row per circle plus one row per member.
+  Filtered by name or circle code, case-insensitive.
+- When no circles are joined yet the list shows a hint pointing the
+  user to the Munkel menu; otherwise an unmatched query shows
+  "No matches."
 - Selected row highlighted with accent-soft background.
-- Compose view with back arrow, target avatar/name/circle, message input.
+- Compose view with back arrow, target avatar/name/circle, message
+  input, and a `➤` send button. `Enter` and the button both call
+  `useAppStore().sendChat`; on `false` the field stays open with a
+  small red inline error ("Circle offline — message not sent.") and
+  the text is preserved for retry. On success the palette hides via
+  `window.electronAPI.hideWindow()`.
 
-## Mock data schema
+## Live data wiring
 
-Hardcoded in `src/renderer/mock-data.ts`:
+`PaletteWindow` and `NotchWidget` read from the `useAppStore()` context
+(`apps/windows/src/renderer/store/app-store.tsx`), which is fed by the
+`state-update` and `notch-message` push channels from the main process.
+See `docs/ipc-contract.md` for the wire shape.
 
-```ts
-interface Circle {
-  code: string;
-  isConnected: boolean;
-  members: Member[];
-  color: string;
-}
-
-interface Member { id: string; label: string; }
-
-interface Message {
-  sender: string;
-  text: string;
-  isDirect: boolean;
-  group: string;
-  groupColor: string;
-}
-
-interface Recipient {
-  id: string;
-  label: string;
-  circle: string;
-  isEveryone: boolean;
-}
-```
-
-Phase 1 ships two circles (`lunar-owl`, `solar-kite`), one sample message, and
-five recipients.
+The historical fixtures in `src/renderer/mock-data.ts` are deprecated
+and unused by any renderer component. They should be deleted in the
+next cleanup pass; left in place temporarily to keep the palette/notch
+change reviewable.
 
 ## Animations
 
