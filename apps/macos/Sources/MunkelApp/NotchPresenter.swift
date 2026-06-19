@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import KeyboardShortcuts
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Presents incoming messages below the notch: a slim one-line teaser
 /// (avatar + text scrolling through once), expanding to the full message
@@ -81,7 +82,7 @@ final class NotchPresenter {
         inMultipleGroups: Bool,
         images: [IncomingImage] = [],
         loadFull: (@Sendable (String) async -> Data?)? = nil,
-        onReply: @escaping (_ text: String, _ privately: Bool) -> Void
+        onReply: @escaping (_ text: String, _ images: [Data], _ privately: Bool) -> Void
     ) {
         let message = IncomingMessage(
             sender: sender,
@@ -143,7 +144,7 @@ final class NotchPresenter {
         entryID: UUID,
         generation: Int,
         loadFull: (@Sendable (String) async -> Data?)?,
-        onReply: @escaping (_ text: String, _ privately: Bool) -> Void
+        onReply: @escaping (_ text: String, _ images: [Data], _ privately: Bool) -> Void
     ) async {
         // Never yank an open reply field from under the user — wait until
         // the reply is sent or dismissed.
@@ -196,12 +197,16 @@ final class NotchPresenter {
                 model: model,
                 message: message,
                 notchSize: notchSize,
-                onReply: { [weak self] reply, privately in
-                    onReply(reply, privately)
+                onReply: { [weak self] reply, images, privately in
+                    onReply(reply, images, privately)
                     self?.replyWasSent()
                 },
                 onCancelReply: { [weak self] in
                     self?.cancelReply()
+                },
+                onPickFile: { [weak self, weak model] in
+                    guard let self, let model else { return }
+                    self.pickImageFile(model: model)
                 }
             ) { [weak self] in
                 self?.teaserFinished()
@@ -393,8 +398,49 @@ final class NotchPresenter {
         // the reply field would otherwise snap shut.
         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) {
             model.replying = false
+            model.attachedImages = []
         }
         scheduleHide(of: notch, after: afterReadDelay)
+    }
+
+    /// Opens an NSOpenPanel to attach image files to the open reply. The notch
+    /// panel is non-activating and dismisses on any outside click, so the
+    /// global dismiss monitor and the hide timer must be suspended for the
+    /// duration of the modal, then the panel re-made-key. The OS file browser
+    /// renders no notch/message content, so it does not breach the capture
+    /// exclusion (the invariant forbids drawing NOTCH content in a separate
+    /// window, which this dialog does not do).
+    private func pickImageFile(model: MessageDisplayModel) {
+        guard model.replying, model.canAttachMore, let panel = currentNotch?.panel else { return }
+        // Suspend dismiss-on-outside-click and the auto-hide while modal.
+        hideTask?.cancel()
+        if let outsideClickMonitor {
+            NSEvent.removeMonitor(outsideClickMonitor)
+            self.outsideClickMonitor = nil
+        }
+        let open = NSOpenPanel()
+        open.allowedContentTypes = [.image]
+        open.allowsMultipleSelection = true
+        open.canChooseDirectories = false
+        NSApp.activate(ignoringOtherApps: true)
+        let response = open.runModal()
+        if response == .OK {
+            for url in open.urls {
+                guard model.canAttachMore else { break }
+                // Skip an unreadable selection rather than abandoning the rest.
+                guard let data = try? Data(contentsOf: url) else { continue }
+                model.attach(data)
+            }
+        }
+        // Re-arm the outside-click dismiss and restore key focus so the field
+        // keeps accepting input. (clickMonitor — the local one — was never
+        // removed, so only the global monitor needs re-adding.)
+        if outsideClickMonitor == nil {
+            outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: .leftMouseDown) { [weak self] _ in
+                MainActor.assumeIsolated { self?.cancelReply() }
+            }
+        }
+        panel.makeKeyAndOrderFront(nil)
     }
 
     private func replyWasSent() {
@@ -404,6 +450,7 @@ final class NotchPresenter {
         withAnimation(.spring(duration: 0.3)) {
             model.replying = false
             model.replySent = true
+            model.attachedImages = []
         }
         scheduleHide(of: notch, after: .seconds(1.2))
     }

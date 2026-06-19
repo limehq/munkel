@@ -1,4 +1,5 @@
 import AppKit
+import MunkelKit
 import SwiftUI
 
 /// Drives the in-place morph between the one-line teaser, the full message
@@ -24,6 +25,13 @@ final class MessageDisplayModel: ObservableObject {
     /// Reply channel: defaults to how the message arrived (private vs
     /// broadcast), toggled per message via the chip in the reply field.
     @Published var replyPrivately = false
+    /// Images staged for the inline reply (an album): pasted with ⌘V or
+    /// uploaded via the paperclip. When non-empty, Return sends the pictures
+    /// and the typed text rides along as the shared caption. Lives on the
+    /// model (not view-local @State) so the in-view ⌘V monitor AND the
+    /// presenter's send/cancel reset can both reach it; mirrors
+    /// CommandPaletteState.attachedImages.
+    @Published var attachedImages: [Data] = []
     /// Messages from the last minute (excluding the current one), shown
     /// above it in the expanded state. Pruned live by NotchPresenter.
     @Published var history: [HistoryEntry] = []
@@ -116,6 +124,21 @@ final class MessageDisplayModel: ObservableObject {
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
     }
+
+    var canAttachMore: Bool { attachedImages.count < AppPayload.maxImagesPerMessage }
+
+    /// Append a staged image (from the file picker), up to the per-message cap.
+    func attach(_ data: Data) {
+        if canAttachMore { attachedImages.append(data) }
+    }
+
+    /// Append the clipboard's image, if any. Returns whether one was added.
+    @discardableResult
+    func attachClipboardImage() -> Bool {
+        guard canAttachMore, let data = ClipboardImage.read() else { return false }
+        attachedImages.append(data)
+        return true
+    }
 }
 
 /// A hover-revealed copy affordance on a history row. Holds the row's id and
@@ -145,13 +168,23 @@ struct MessageNotchContainer: View {
     /// Hardware notch cutout size, measured from NSScreen; .zero on Macs
     /// without a notch (the panel then uses its floating style).
     let notchSize: CGSize
-    /// Called with the trimmed reply text and whether it goes privately to
-    /// the sender (true) or to the whole circle; routing happens in AppModel.
-    var onReply: (String, Bool) -> Void
+    /// Called with the trimmed reply text, any staged images, and whether it
+    /// goes privately to the sender (true) or to the whole circle; the
+    /// images-vs-text routing happens in AppModel.
+    var onReply: (_ text: String, _ images: [Data], _ privately: Bool) -> Void
     var onCancelReply: () -> Void
+    /// Opens the file picker (NSOpenPanel) to attach image files from disk —
+    /// driven by NotchPresenter so it can suspend the outside-click dismiss
+    /// while the modal is up. ⌘V paste is handled in-view (see pasteMonitor).
+    var onPickFile: () -> Void
     var onTeaserFinished: () -> Void
 
     @State private var draft = ""
+    /// Local ⌘V monitor, armed only while the reply field is focused (MenuView
+    /// pattern): an accessory app's field editor never routes `paste:` to
+    /// SwiftUI, so image paste must be intercepted at the NSEvent level. Plain
+    /// text paste falls through (we return the event) to the field editor.
+    @State private var pasteMonitor: Any?
     /// Measured height of the expanded history, to bound its scroll region.
     @State private var historyHeight: CGFloat = 0
     @FocusState private var replyFocused: Bool
@@ -184,6 +217,9 @@ struct MessageNotchContainer: View {
                     if model.replySent {
                         sentConfirmation
                     } else if model.replying {
+                        if !model.attachedImages.isEmpty {
+                            attachmentStrip
+                        }
                         replyField
                     }
                     if !model.history.isEmpty {
@@ -222,6 +258,7 @@ struct MessageNotchContainer: View {
         // height jumping while the rows animate.
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.historyExpanded)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.history)
+        .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.attachedImages)
         // The notch is always black — pin the content to dark so the
         // system light mode can't restyle field, caret and chip.
         .colorScheme(.dark)
@@ -311,6 +348,19 @@ struct MessageNotchContainer: View {
             }
             .buttonStyle(.plain)
 
+            Button {
+                onPickFile()
+            } label: {
+                Image(systemName: "paperclip")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(width: 20, height: 20)
+                    .background(.white.opacity(0.12), in: Circle())
+            }
+            .buttonStyle(.plain)
+            .focusable(false)
+            .disabled(!model.canAttachMore)
+
             TextField(
                 "",
                 text: $draft,
@@ -340,8 +390,9 @@ struct MessageNotchContainer: View {
                 }
                 .onSubmit {
                     let text = draft.trimmingCharacters(in: .whitespaces)
-                    guard !text.isEmpty else { return }
-                    onReply(text, model.replyPrivately)
+                    // Allow an image-only reply (mirrors CommandPaletteView.canSend).
+                    guard !text.isEmpty || !model.attachedImages.isEmpty else { return }
+                    onReply(text, model.attachedImages, model.replyPrivately)
                 }
                 .onExitCommand(perform: onCancelReply)
                 .onAppear {
@@ -352,9 +403,74 @@ struct MessageNotchContainer: View {
                         replyFocused = true
                     }
                 }
+                .onChange(of: replyFocused) { _, focused in updatePasteMonitor(focused) }
+                .onDisappear { teardownPasteMonitor() }
         }
         .padding(.horizontal, 6)
         .padding(.bottom, 6)
+    }
+
+    /// Staged reply images as a row of thumbnails; tap one to remove it.
+    /// Mirrors CommandPaletteView.attachmentStrip but WITHOUT .help() (AppKit
+    /// tooltips draw in their own window that can't inherit the capture
+    /// exclusion — see the invariant at the .excludedFromScreenCapture root).
+    private var attachmentStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(Array(model.attachedImages.enumerated()), id: \.offset) { index, data in
+                    if let nsImage = NSImage(data: data) {
+                        Button {
+                            withAnimation(.spring(duration: 0.2)) { _ = model.attachedImages.remove(at: index) }
+                            replyFocused = true
+                        } label: {
+                            Image(nsImage: nsImage)
+                                .resizable()
+                                .scaledToFill()
+                                .frame(width: 30, height: 30)
+                                .clipShape(RoundedRectangle(cornerRadius: 5, style: .continuous))
+                                .overlay(alignment: .topTrailing) {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 11))
+                                        .foregroundStyle(.white, .black.opacity(0.5))
+                                        .padding(1)
+                                }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+            }
+            .padding(.horizontal, 6)
+        }
+        .padding(.bottom, 4)
+    }
+
+    /// Installs (on focus) / removes (on blur) a local ⌘V monitor that stages a
+    /// clipboard image into model.attachedImages. Copied from
+    /// MenuView.updatePasteMonitor; plain-text paste falls through to the field.
+    private func updatePasteMonitor(_ focused: Bool) {
+        if focused, pasteMonitor == nil {
+            pasteMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                var consume = false
+                MainActor.assumeIsolated {
+                    guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
+                          event.charactersIgnoringModifiers?.lowercased() == "v",
+                          model.canAttachMore,
+                          model.attachClipboardImage()
+                    else { return }
+                    consume = true
+                }
+                return consume ? nil : event
+            }
+        } else if !focused {
+            teardownPasteMonitor()
+        }
+    }
+
+    private func teardownPasteMonitor() {
+        if let pasteMonitor {
+            NSEvent.removeMonitor(pasteMonitor)
+        }
+        pasteMonitor = nil
     }
 
     private var sentConfirmation: some View {
