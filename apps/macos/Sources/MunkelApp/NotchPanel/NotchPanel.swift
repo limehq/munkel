@@ -63,6 +63,14 @@ final class NotchPanel<Content: View>: ObservableObject {
     var transitionConfiguration = TransitionConfiguration()
     let content: Content
 
+    /// Optional app-supplied view rendered as a free-floating layer BELOW the
+    /// notch — in the *same* capture-excluded panel window but OUTSIDE the
+    /// NotchShape mask, so it can be larger than the black blob (the Quick-Look
+    /// image preview). nil for panels that don't need it (e.g. the indicator).
+    /// Set once before ``expand()``, like ``transitionConfiguration``; it is
+    /// read when the hosting view is built, so it needs no @Published refresh.
+    var floatingOverlay: AnyView?
+
     private let hoverBehavior: HoverBehavior
     private let targetScreen: @MainActor () -> NSScreen?
 
