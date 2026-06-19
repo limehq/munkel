@@ -13,10 +13,16 @@ import SwiftUI
 final class NotchPresenter {
     private typealias MessageNotch = NotchPanel<MessageNotchContainer>
     private typealias IndicatorNotch = NotchPanel<UnreadIndicatorView>
+    private typealias AuthCodeNotch = NotchPanel<AuthCodeNotchView>
 
     private var currentNotch: MessageNotch?
     private var currentModel: MessageDisplayModel?
     private var indicatorNotch: IndicatorNotch?
+    private var authCodeNotch: AuthCodeNotch?
+    /// Serializes auth-code show/hide so a hide fully tears its panel down
+    /// before the next show builds one — a quick cancel→re-login would
+    /// otherwise race the new code's panel against the old one's teardown.
+    private var authCodeOp: Task<Void, Never>?
     private var hideTask: Task<Void, Never>?
     private var pruneTask: Task<Void, Never>?
     private var hoverObservation: AnyCancellable?
@@ -501,4 +507,41 @@ final class NotchPresenter {
         }
     }
 
+    // MARK: - GitHub sign-in code
+
+    /// Show the GitHub device-flow user code in the notch. Driven by AppModel's
+    /// `.awaitingUser` login state, it stays up — focus-independent, unlike the
+    /// `.transient` menu-bar popover — until the flow leaves that state. A
+    /// second call while already shown is a no-op.
+    func showAuthCode(_ code: String) {
+        let previous = authCodeOp
+        authCodeOp = Task { [weak self] in
+            await previous?.value
+            guard let self, self.authCodeNotch == nil else { return }
+            let targetScreen: @MainActor () -> NSScreen? = { NSScreen.main }
+            let notch = AuthCodeNotch(hoverBehavior: .none, targetScreen: targetScreen) {
+                AuthCodeNotchView(code: code)
+            }
+            notch.transitionConfiguration = .init(
+                openingAnimation: .spring(response: 0.6, dampingFraction: 0.7),
+                skipIntermediateHides: true
+            )
+            self.authCodeNotch = notch
+            await notch.expand()
+            if let panel = notch.panel {
+                panel.sharingType = NSWindow.munkelCaptureSharingType
+            }
+        }
+    }
+
+    /// Hide the GitHub sign-in code notch.
+    func hideAuthCode() {
+        let previous = authCodeOp
+        authCodeOp = Task { [weak self] in
+            await previous?.value
+            guard let self, let notch = self.authCodeNotch else { return }
+            await notch.hide()
+            self.authCodeNotch = nil
+        }
+    }
 }
