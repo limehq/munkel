@@ -48,6 +48,15 @@ private func isAVIF(_ data: Data) -> Bool {
     return major == Array("avif".utf8) || major == Array("avis".utf8)
 }
 
+/// AVIF *encoding* via ImageIO routes through a system media service that needs
+/// a GUI/app context. A plain `swift test` CLI binary on a headless CI runner
+/// has none, so `CGImageDestinationFinalize(public.avif)` blocks forever and the
+/// job only ends at the 20-minute timeout (no output, since stdout is buffered).
+/// GitHub Actions sets `CI`, so skip the encode tests there; they run locally
+/// where a full window-server session is available. Decode/property tests never
+/// reach the encoder and run everywhere.
+private let avifEncodeRunsHere = ProcessInfo.processInfo.environment["CI"] == nil
+
 @Suite("ImageCodec")
 struct ImageCodecTests {
     @Test func readsPropertiesAndMime() {
@@ -58,7 +67,7 @@ struct ImageCodecTests {
         #expect(info?.mime == "image/png")
     }
 
-    @Test func prepareFullTranscodesToAVIF() {
+    @Test(.enabled(if: avifEncodeRunsHere)) func prepareFullTranscodesToAVIF() {
         // A small PNG is still transcoded to AVIF (no passthrough) and is a
         // recognizable, decodable image of the same pixel size.
         let png = noisePNG(width: 64, height: 64)
@@ -71,7 +80,7 @@ struct ImageCodecTests {
         #expect(ImageCodec.decode(prepared.data) != nil)
     }
 
-    @Test func prepareFullHardCapsSizeToBudget() {
+    @Test(.enabled(if: avifEncodeRunsHere)) func prepareFullHardCapsSizeToBudget() {
         let big = noisePNG(width: 1200, height: 1200)
         let prepared = try! #require(ImageCodec.prepareFull(from: big, maxBytes: 80_000, maxPixels: 256))
         #expect(prepared.data.count <= 80_000)
@@ -80,7 +89,7 @@ struct ImageCodecTests {
         #expect(max(prepared.width, prepared.height) <= 256)
     }
 
-    @Test func prepareFullDefaultsToPixelCeiling() {
+    @Test(.enabled(if: avifEncodeRunsHere)) func prepareFullDefaultsToPixelCeiling() {
         // With no explicit maxPixels, a large source is bounded by the default
         // ceiling (2048) — we don't ship pixels the receiver decodes away.
         #expect(ImageCodec.maxFullPixels == 2048)
@@ -89,7 +98,7 @@ struct ImageCodecTests {
         #expect(max(prepared.width, prepared.height) <= ImageCodec.maxFullPixels)
     }
 
-    @Test func makeThumbnailFitsBudget() {
+    @Test(.enabled(if: avifEncodeRunsHere)) func makeThumbnailFitsBudget() {
         let big = noisePNG(width: 800, height: 800)
         let thumb = try! #require(ImageCodec.makeThumbnail(from: big))
         #expect(thumb.count <= ImageCodec.maxThumbBytes)
@@ -98,7 +107,7 @@ struct ImageCodecTests {
         #expect(ImageCodec.decode(thumb) != nil)
     }
 
-    @Test func makeThumbnailFitsTinyAlbumBudget() {
+    @Test(.enabled(if: avifEncodeRunsHere)) func makeThumbnailFitsTinyAlbumBudget() {
         // An 8-image album gives each thumb only ~2 KiB — AVIF must still fit.
         let big = noisePNG(width: 800, height: 800)
         let thumb = try! #require(ImageCodec.makeThumbnail(from: big, maxBytes: 2_048))
@@ -107,9 +116,10 @@ struct ImageCodecTests {
         #expect(ImageCodec.decode(thumb) != nil)
     }
 
-    @Test func avifEncodingIsAvailableHere() {
+    @Test(.enabled(if: avifEncodeRunsHere)) func avifEncodingIsAvailableHere() {
         // If this fails, the host can't encode AVIF and the whole feature
-        // silently no-ops — make that loud.
+        // silently no-ops — make that loud. Skipped on CI (see avifEncodeRunsHere):
+        // touching the probe there would deadlock the same way an encode does.
         #expect(ImageCodec.isAVIFEncodingAvailable)
     }
 
