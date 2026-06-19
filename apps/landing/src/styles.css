@@ -96,34 +96,37 @@
   --shadow-lg: 0 10px 15px -3px oklch(0 0 0 / 0.08), 0 4px 6px -4px oklch(0 0 0 / 0.08);
   --shadow-xl: 0 20px 25px -5px oklch(0 0 0 / 0.08), 0 8px 10px -6px oklch(0 0 0 / 0.08);
 
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  /* Warm "meerkat" palette: neutrals carry a low-chroma espresso tint (hue ~52°),
+     the accent is the icon's sand/amber (hue ~66°). Light mode reads like the
+     icon's cream backdrop (#F7E7C2). */
+  --background: oklch(0.985 0.012 88);
+  --foreground: oklch(0.255 0.03 52);
+  --card: oklch(0.995 0.006 88);
+  --card-foreground: oklch(0.255 0.03 52);
+  --primary: oklch(0.34 0.04 52);
+  --primary-foreground: oklch(0.975 0.012 88);
+  --secondary: oklch(0.955 0.014 86);
+  --secondary-foreground: oklch(0.30 0.03 54);
+  --muted: oklch(0.955 0.014 86);
+  --muted-foreground: oklch(0.505 0.035 60);
+  --accent: oklch(0.95 0.018 84);
+  --accent-foreground: oklch(0.30 0.03 54);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.97 0.01 17);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --surface: oklch(0.98 0 0);
+  --border: oklch(0.55 0.04 64 / 0.16);
+  --input: oklch(0.55 0.04 64 / 0.16);
+  --ring: oklch(0.60 0.08 66);
+  --surface: oklch(0.972 0.012 86);
   --surface-foreground: var(--foreground);
   --code: var(--surface);
   --code-foreground: var(--surface-foreground);
-  --code-highlight: oklch(0.96 0 0);
-  --code-number: oklch(0.56 0 0);
-  --selection: oklch(0.145 0 0);
-  --selection-foreground: oklch(1 0 0);
+  --code-highlight: oklch(0.95 0.016 84);
+  --code-number: oklch(0.56 0.03 60);
+  --selection: oklch(0.56 0.13 68);
+  --selection-foreground: oklch(0.99 0.01 90);
 
-  --brand: oklch(0.52 0.12 165);
-  --brand-soft: oklch(0.52 0.12 165 / 0.1);
+  --brand: oklch(0.56 0.13 68);
+  --brand-soft: oklch(0.56 0.13 68 / 0.12);
   --nav-h: 56px;
   --glow: 0.25;
 
@@ -137,32 +140,33 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.371 0 0);
-  --accent-foreground: oklch(0.985 0 0);
+  /* Deep espresso (#2F1B11-ish), reads near-black but warm; amber accent pops. */
+  --background: oklch(0.175 0.024 54);
+  --foreground: oklch(0.955 0.012 86);
+  --card: oklch(0.228 0.026 52);
+  --card-foreground: oklch(0.955 0.012 86);
+  --primary: oklch(0.82 0.115 78);
+  --primary-foreground: oklch(0.25 0.04 50);
+  --secondary: oklch(0.30 0.026 52);
+  --secondary-foreground: oklch(0.955 0.012 86);
+  --muted: oklch(0.30 0.026 52);
+  --muted-foreground: oklch(0.74 0.03 76);
+  --accent: oklch(0.40 0.03 54);
+  --accent-foreground: oklch(0.96 0.012 86);
   --destructive: oklch(0.704 0.191 22.216);
   --destructive-foreground: oklch(0.58 0.22 27);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --surface: oklch(0.2 0 0);
-  --surface-foreground: oklch(0.708 0 0);
-  --code-highlight: oklch(0.27 0 0);
-  --code-number: oklch(0.72 0 0);
-  --selection: oklch(0.922 0 0);
-  --selection-foreground: oklch(0.205 0 0);
+  --border: oklch(0.85 0.05 80 / 0.12);
+  --input: oklch(0.85 0.05 80 / 0.16);
+  --ring: oklch(0.70 0.06 76);
+  --surface: oklch(0.215 0.024 52);
+  --surface-foreground: oklch(0.74 0.03 76);
+  --code-highlight: oklch(0.27 0.026 52);
+  --code-number: oklch(0.72 0.03 76);
+  --selection: oklch(0.82 0.115 78);
+  --selection-foreground: oklch(0.22 0.03 50);
 
-  --brand: oklch(0.78 0.14 160);
-  --brand-soft: oklch(0.78 0.14 160 / 0.12);
+  --brand: oklch(0.80 0.12 78);
+  --brand-soft: oklch(0.80 0.12 78 / 0.14);
   --glow: 0.55;
 }
 
@@ -269,7 +273,17 @@ nav.floating .nav-inner {
   font-size: var(--text-base); font-weight: 600; letter-spacing: var(--tracking-tight);
   display: flex; align-items: center; gap: 0.5rem;
 }
-.wordmark .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--brand); box-shadow: 0 0 calc(var(--glow) * 10px) var(--brand); }
+/* Mascot mark — the Munkel meerkat glyph (single-path silhouette from the macOS
+   app), masked so it inherits the current text color (themeable via currentColor). */
+.meerkat-glyph {
+  display: inline-block; flex: none; background: currentColor;
+  -webkit-mask: url('/munkel-glyph.svg') center / contain no-repeat;
+  mask: url('/munkel-glyph.svg') center / contain no-repeat;
+}
+.wordmark .meerkat-mark {
+  width: 1.5em; height: 1.5em; color: var(--brand);
+  filter: drop-shadow(0 0 calc(var(--glow) * 10px) var(--brand-soft));
+}
 .nav-links { display: flex; align-items: center; gap: 0.25rem; position: relative; }
 .nav-links a {
   font-size: var(--text-sm); color: var(--muted-foreground);
@@ -528,7 +542,7 @@ nav.floating .nav-inner {
 
 /* Shared copy ⇄ check glyph swap (CopyGlyph: doc.on.doc, size diameter*0.43). */
 .nt-copy svg.lucide, .nx-copy svg.lucide { width: 9px; height: 9px; }
-.nt-copy .ic-check, .nx-copy .ic-check, .nx-rcopy .ic-check { display: none; color: oklch(0.78 0.14 160); }
+.nt-copy .ic-check, .nx-copy .ic-check, .nx-rcopy .ic-check { display: none; color: var(--brand); }
 .nt-copy.copied .ic-copy, .nx-copy.copied .ic-copy, .nx-row.copied .ic-copy { display: none; }
 .nt-copy.copied .ic-check, .nx-copy.copied .ic-check, .nx-row.copied .ic-check { display: block; }
 
@@ -622,6 +636,32 @@ h1 .notch-word {
   margin-bottom: 1.25rem;
 }
 
+/* App icon — the authentic rendered macOS icon (meerkat on its cream squircle,
+   exported from app.icon via iconutil), so the hero literally shows the app. The
+   tile + pixel art + shadow are baked into the PNG; we just frame and lift it. */
+.app-icon { display: block; width: 112px; margin: 0 auto 1.75rem; }
+.app-icon img {
+  width: 100%; height: auto; display: block;
+  filter: drop-shadow(0 14px 28px oklch(0 0 0 / 0.5));
+}
+.app-icon.app-icon-sm { width: 84px; margin-bottom: 1.25rem; }
+
+/* Tiny mascot glyph inside the simulated menu bar (mirrors the real app). */
+.mb-glyph { width: 13px; height: 13px; vertical-align: -2px; margin-right: 5px; opacity: 0.95; }
+/* Footer wordmark gets the mascot too. */
+.footer-brand { display: inline-flex; align-items: center; gap: 0.45rem; }
+.footer-brand .meerkat-glyph { width: 1.05rem; height: 1.05rem; color: var(--brand); }
+
+/* 404 — the shushing meerkat, since the message already vanished. */
+.not-found {
+  min-height: 70vh; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center;
+  gap: 0.5rem; padding: 6rem 1.5rem;
+}
+.not-found h1 { font-size: var(--text-4xl); font-weight: 700; letter-spacing: var(--tracking-tight); }
+.not-found p { color: var(--muted-foreground); max-width: 42ch; line-height: var(--leading-relaxed); }
+.not-found a.nf-home { margin-top: 1.5rem; color: var(--brand); font-weight: 600; }
+
 /* ---------- Sections ---------- */
 section { padding: 7.5rem 0; border-top: 1px solid var(--border); }
 .section-head { max-width: 620px; margin-bottom: 4rem; }
@@ -659,7 +699,7 @@ section { padding: 7.5rem 0; border-top: 1px solid var(--border); }
 }
 .mini-notch img { width: 22px; height: 22px; border-radius: 50%; object-fit: cover; }
 .mini-notch span { font-size: 12px; color: #fafafa; white-space: nowrap; }
-.mini-notch .mn-name { font-family: var(--font-mono); font-size: 10px; color: oklch(0.78 0.14 160); }
+.mini-notch .mn-name { font-family: var(--font-mono); font-size: 10px; color: var(--brand); }
 
 /* ---------- How it works → asymmetric timeline ---------- */
 .how-grid { display: grid; grid-template-columns: 5fr 7fr; gap: 5.5rem; align-items: start; }
@@ -812,7 +852,7 @@ html:not(.dark) .install-cmd { background: oklch(0.205 0 0); }
 }
 .install-copy:hover { background: oklch(1 0 0 / 0.1); color: oklch(0.97 0 0); }
 .install-copy svg.lucide { width: 14px; height: 14px; }
-.install-copy .ic-check { display: none; color: oklch(0.78 0.14 160); }
+.install-copy .ic-check { display: none; color: var(--brand); }
 .install-copy.copied .ic-copy { display: none; }
 .install-copy.copied .ic-check { display: block; }
 .install-body {
@@ -845,9 +885,9 @@ html:not(.dark) .terminal { background: oklch(0.205 0 0); }
   min-height: 200px;
 }
 .tline { white-space: pre-wrap; }
-.tprompt { color: oklch(0.78 0.14 160); text-shadow: 0 0 calc(var(--glow) * 12px) oklch(0.78 0.14 160 / 0.6); }
+.tprompt { color: var(--brand); text-shadow: 0 0 calc(var(--glow) * 12px) color-mix(in oklab, var(--brand) 60%, transparent); }
 .tdim { color: oklch(0.6 0 0); }
-.tdot-live { color: oklch(0.78 0.14 160); }
+.tdot-live { color: var(--brand); }
 .cursor { display: inline-block; width: 7px; height: 14px; background: oklch(0.85 0 0); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
 @keyframes blink { 50% { opacity: 0; } }
 .cli-copy h2 { font-size: var(--text-4xl); font-weight: 600; letter-spacing: var(--tracking-tight); margin-top: 1rem; }

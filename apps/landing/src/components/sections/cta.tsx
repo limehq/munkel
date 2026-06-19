@@ -44,6 +44,9 @@ export function Cta() {
           </p>
           <span className="founder-sig">Built for lightweight, low-pressure messages.</span>
         </div>
+        <div className="app-icon app-icon-sm">
+          <img src="/app-icon.png" alt="" width={84} height={84} />
+        </div>
         <h2>Start Munkeling.</h2>
         <p>
           Open source, MIT licensed. A native Swift app — no Electron — one signed &amp; notarized

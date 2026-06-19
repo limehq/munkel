@@ -3,7 +3,7 @@ import { Download, Moon, Sun } from 'lucide-react'
 import { motion, useMotionValueEvent, useScroll } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
-import { GithubIcon } from '@/components/icons'
+import { GithubIcon, MeerkatGlyph } from '@/components/icons'
 import { DOWNLOAD_URL, GITHUB_URL } from '@/lib/constants'
 
 const NAV_LINKS = [
@@ -50,7 +50,7 @@ export function Nav() {
       <div className="nav-inner">
         <div className="nav-left">
           <a href="/" className="wordmark">
-            <span className="dot"></span>munkel
+            <MeerkatGlyph className="meerkat-mark" />munkel
           </a>
           <div className="nav-links">
             {NAV_LINKS.map(([href, label]) => (

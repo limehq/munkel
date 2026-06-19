@@ -4,7 +4,7 @@ import { BatteryMedium, Check, ChevronDown, ChevronUp, Copy, Download, Globe, Wi
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
-import { GithubIcon } from '@/components/icons'
+import { GithubIcon, MeerkatGlyph } from '@/components/icons'
 import { DOWNLOAD_URL, GITHUB_URL } from '@/lib/constants'
 import { easeInOutQuad } from '@/lib/motion'
 import { sleep } from '@/lib/utils'
@@ -285,6 +285,9 @@ export function Hero() {
                 : { opacity: copyOpacity, y: copyY, scale: copyScale, pointerEvents: copyPointer }
             }
           >
+            <div className="app-icon">
+              <img src="/app-icon.png" alt="The Munkel meerkat, paws to its mouth" width={112} height={112} />
+            </div>
             <div className="hero-kicker">Ephemeral circle messages for macOS</div>
             <h1>
               Psst, your <span className="notch-word">notch</span> has something to tell&nbsp;you.
@@ -333,7 +336,7 @@ export function Hero() {
                       {/* U+F8FF renders as the Apple logo in the system font on
                           Apple devices (the landing's audience). */}
                       <span className="mb-apple" aria-hidden>&#xF8FF;</span>
-                      <span className="mb-app">munkel</span>
+                      <span className="mb-app"><MeerkatGlyph className="mb-glyph" />munkel</span>
                       <span>Circles</span>
                       <span>Identity</span>
                       <span>Help</span>
