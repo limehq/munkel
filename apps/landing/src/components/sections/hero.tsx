@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { Check, ChevronDown, Copy, Download, Wifi } from 'lucide-react'
+import type { CSSProperties, SVGProps } from 'react'
+import { Check, ChevronDown, Copy, Download, Globe, Wifi } from 'lucide-react'
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
@@ -8,16 +9,84 @@ import { DOWNLOAD_URL, GITHUB_URL } from '@/lib/constants'
 import { easeInOutQuad } from '@/lib/motion'
 import { sleep } from '@/lib/utils'
 
-const MESSAGES = [
-  { name: 'Alex', avatar: '/avatars/01.png', text: 'coffee?' },
-  { name: 'Sam', avatar: '/avatars/02.png', text: 'on my way' },
-  { name: 'Taylor', avatar: '/avatars/03.png', text: 'deploy is live, go look' },
-  { name: 'Morgan', avatar: '/avatars/05.png', text: 'same table as last time' },
+type Msg = {
+  name: string
+  text: string
+  /** Lock (private to you) vs globe (the whole circle saw it). */
+  direct: boolean
+  /** Circle the message came from — shown in the expanded header. */
+  circle: string
+  /** Stable per-circle dot color, mirroring the app's groupColor. */
+  color: string
+}
+
+// Circle dot colors are the app's groupPalette (system colors, dark variants),
+// assigned by join order: blue, purple, pink, teal, …
+const MESSAGES: Msg[] = [
+  { name: 'Alex', text: 'coffee?', direct: true, circle: 'inner-circle', color: '#0a84ff' },
+  { name: 'Sam', text: 'on my way', direct: false, circle: 'roomies', color: '#bf5af2' },
+  { name: 'Taylor', text: 'deploy is live, go look', direct: false, circle: 'eng', color: '#ff375f' },
+  { name: 'Morgan', text: 'same table as last time', direct: true, circle: 'lunch-crew', color: '#40c8e0' },
 ]
 
 // Stage progress at which the notch whispers — well into the zoom, so the
 // MacBook has visibly zoomed toward the notch before it triggers.
 const DOCK_AT = 0.78
+
+/** Filled padlock, matching the app's SF Symbol `lock.fill` (lucide ships only
+ *  an outline Lock). Globe stays the outline lucide icon, as in the app. */
+function LockFill(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden {...props}>
+      <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" strokeWidth={2.2} strokeLinecap="round" />
+      <rect x="5" y="10.5" width="14" height="10" rx="2.6" fill="currentColor" />
+    </svg>
+  )
+}
+
+// macOS-style avatar for users without a photo — a 1:1 port of the app's
+// AvatarView: an initial on a gradient circle, the gradient picked
+// deterministically per name so a sender keeps a stable color.
+const AVATAR_PALETTES: [string, string][] = [
+  ['#f56b6b', '#d93069'],
+  ['#5ca6fa', '#3857eb'],
+  ['#66d99e', '#1a9475'],
+  ['#fab84f', '#eb6b2e'],
+  ['#bf85fa', '#7a40e0'],
+  ['#57d6db', '#2980b8'],
+]
+
+/** FNV-1a over the name (UInt64, matching AvatarView.palette(for:)), so the
+ *  color a sender gets here is the exact one the app would assign. */
+function avatarPalette(name: string): [string, string] {
+  let hash = 0xcbf29ce484222325n
+  const mask = 0xffffffffffffffffn
+  for (const byte of new TextEncoder().encode(name)) {
+    hash ^= BigInt(byte)
+    hash = (hash * 0x100000001b3n) & mask
+  }
+  return AVATAR_PALETTES[Number(hash % BigInt(AVATAR_PALETTES.length))]
+}
+
+/** First letters of up to two words, uppercased — like the app. */
+function avatarInitials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0] ?? '')
+    .join('')
+    .toUpperCase()
+}
+
+function Avatar({ name, className }: { name: string; className?: string }) {
+  const [c1, c2] = avatarPalette(name)
+  return (
+    <span className={className} style={{ backgroundImage: `linear-gradient(to bottom right, ${c1}, ${c2})` }}>
+      {avatarInitials(name)}
+    </span>
+  )
+}
 
 /** Hero: pinned scroll stage (Motion useScroll/useTransform) + notch whisper demo. */
 export function Hero() {
@@ -35,15 +104,15 @@ export function Hero() {
   const wrapRef = useRef<HTMLDivElement>(null)
   const macRef = useRef<HTMLDivElement>(null)
   const notchRef = useRef<HTMLDivElement>(null)
-  const msgRef = useRef<HTMLDivElement>(null)
-  const avatarRef = useRef<HTMLImageElement>(null)
   const demoHintRef = useRef<HTMLDivElement>(null)
 
   const [clock, setClock] = useState('Thu 9:41')
   const [msgCopied, setMsgCopied] = useState(false)
+  const [copiedRow, setCopiedRow] = useState<number | null>(null)
   const [teaserOpen, setTeaserOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const [msgIdx, setMsgIdx] = useState(0)
   const hoveredRef = useRef(false)
-  const msgIdxRef = useRef(0)
   const dockedRef = useRef(false)
 
   // Scroll progress over the 220vh pinned stage: 0 when its top hits the viewport
@@ -124,6 +193,7 @@ export function Hero() {
     } else if (p < DOCK_AT && dockedRef.current) {
       dockedRef.current = false
       setTeaserOpen(false)
+      setExpanded(false)
       demoHintRef.current?.classList.remove('show')
     }
   })
@@ -136,11 +206,15 @@ export function Hero() {
     if (!window.matchMedia('(hover: hover)').matches) return
     const onEnter = () => {
       hoveredRef.current = true
+      // Hover swells the docked teaser into the full message card — like the
+      // real notch. Hovering the closed pill (pre-dock) does nothing.
+      if (dockedRef.current) setExpanded(true)
       const cap = demoHintRef.current
       if (cap?.classList.contains('show')) cap.classList.add('off')
     }
     const onLeave = () => {
       hoveredRef.current = false
+      setExpanded(false)
     }
     root.addEventListener('mouseenter', onEnter)
     root.addEventListener('mouseleave', onLeave)
@@ -150,64 +224,52 @@ export function Hero() {
     }
   }, [])
 
-  // Message rotation — runs only while the notch is open. The effect cleanup
-  // guarantees exactly one live loop (it replaces the old session-token machinery):
-  // a close/reopen tears down the previous loop before the next mounts.
+  // Message rotation — advances the current message only while the notch is
+  // docked, pausing while hovered (the expanded card freezes on whatever you're
+  // reading). The effect cleanup guarantees exactly one live loop: a
+  // close/reopen tears down the previous loop before the next mounts. Each
+  // message cross-fades in via CSS keyed on the index (see `.nt-fade`).
   useEffect(() => {
     if (!teaserOpen || reduce) return
-    const elMsg = msgRef.current
-    const elAvatar = avatarRef.current
-    if (!elMsg || !elAvatar) return
-
     let alive = true
     const dwell = window.matchMedia('(hover: hover)').matches ? 3400 : 5000
-
-    const first = MESSAGES[msgIdxRef.current % MESSAGES.length]
-    elMsg.textContent = first.text
-    elAvatar.src = first.avatar
-    msgIdxRef.current++
-
     void (async () => {
       while (alive) {
         await sleep(dwell)
         while (hoveredRef.current && alive) await sleep(300)
         if (!alive) break
-        const next = MESSAGES[msgIdxRef.current % MESSAGES.length]
-        msgIdxRef.current++
-        elMsg.style.transition = 'opacity 0.18s ease'
-        elAvatar.style.transition = 'opacity 0.18s ease'
-        elMsg.style.opacity = '0'
-        elAvatar.style.opacity = '0'
-        await sleep(200)
-        if (!alive) break
-        elMsg.textContent = next.text
-        elAvatar.src = next.avatar
-        elMsg.style.opacity = '1'
-        elAvatar.style.opacity = '1'
-        await sleep(220)
-        if (!alive) break
-        elMsg.style.transition = ''
-        elAvatar.style.transition = ''
-        elMsg.style.opacity = ''
-        elAvatar.style.opacity = ''
+        setMsgIdx((i) => (i + 1) % MESSAGES.length)
       }
     })()
-
     return () => {
       alive = false
-      elMsg.style.transition = ''
-      elAvatar.style.transition = ''
-      elMsg.style.opacity = ''
-      elAvatar.style.opacity = ''
     }
   }, [teaserOpen, reduce])
 
-  const copyMessage = () => {
-    const text = msgRef.current?.textContent ?? ''
+  const copyText = (text: string) => {
     if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {})
+  }
+  const copyMessage = () => {
+    copyText(MESSAGES[msgIdx].text)
     setMsgCopied(true)
     setTimeout(() => setMsgCopied(false), 1400)
   }
+  const copyRow = (idx: number, text: string) => {
+    copyText(text)
+    setCopiedRow(idx)
+    setTimeout(() => setCopiedRow((r) => (r === idx ? null : r)), 1400)
+  }
+
+  const msg = MESSAGES[msgIdx]
+  const ChanIcon = msg.direct ? LockFill : Globe
+  // The pulse-ring color = the avatar's first palette color, like the app.
+  const ring = avatarPalette(msg.name)[0]
+  // The two most recently shown messages, newest first — the "last minute"
+  // backlog the real notch stacks under the current one.
+  const history = [1, 2].map((back) => {
+    const i = (msgIdx - back + MESSAGES.length) % MESSAGES.length
+    return { ...MESSAGES[i], idx: i }
+  })
 
   return (
     <header className="hero">
@@ -277,27 +339,120 @@ export function Hero() {
                     </div>
                   </div>
                   <div
-                    className={`mb-notch${teaserOpen ? ' teaser' : ''}`}
+                    className={`mb-notch${teaserOpen ? ' docked' : ''}${
+                      expanded ? ' expanded' : ''
+                    }`}
                     ref={notchRef}
-                    onClick={() => {
-                      // In the page demo a click copies the message (the real
-                      // notch opens an inline reply on click).
-                      if (teaserOpen) copyMessage()
-                    }}
                   >
                     <span className="notch-cam"></span>
-                    <img className="mbn-avatar" ref={avatarRef} src="/avatars/01.png" alt="" />
-                    <button
-                      className={`mbn-copy${msgCopied ? ' copied' : ''}`}
-                      onClick={copyMessage}
-                      aria-label="Copy message"
-                    >
-                      <Copy className="ic-copy" strokeWidth={2} aria-hidden />
-                      <Check className="ic-check" strokeWidth={2.5} aria-hidden />
-                    </button>
-                    <div className="mbn-body">
-                      <div className="mbn-msg" ref={msgRef}>
-                        coffee?
+
+                    {/* Compact teaser — what the notch shows at rest: avatar and
+                        copy tucked into the menu-bar strip flanking the camera,
+                        with the one-line message running below it. */}
+                    <div className="nt">
+                      {/* Pulse ring behind the avatar (the app's CompactAvatarView
+                          "ping"), in the sender's color. Rendered only while docked
+                          and keyed on the message, so it fires when the notch opens
+                          and replays on each rotation — not silently on page load. */}
+                      {teaserOpen && (
+                        <span
+                          className="nt-ping"
+                          key={`p${msgIdx}`}
+                          style={{ '--ring': ring } as CSSProperties}
+                          aria-hidden
+                        />
+                      )}
+                      <Avatar key={`a${msgIdx}`} name={msg.name} className="nt-avatar nt-fade" />
+                      <button
+                        className={`nt-copy${msgCopied ? ' copied' : ''}`}
+                        onClick={copyMessage}
+                        aria-label="Copy message"
+                      >
+                        <Copy className="ic-copy" strokeWidth={2} aria-hidden />
+                        <Check className="ic-check" strokeWidth={2.5} aria-hidden />
+                      </button>
+                      {/* Channel icon leads the line (and stays put while the text
+                          tickers), vertically centered with the single-line text. */}
+                      <div className="nt-line nt-fade" key={`t${msgIdx}`}>
+                        <ChanIcon
+                          className={`nt-chan${msg.direct ? '' : ' is-globe'}`}
+                          strokeWidth={1.8}
+                          aria-hidden
+                        />
+                        <span className="nt-text">{msg.text}</span>
+                      </div>
+                    </div>
+
+                    {/* Expanded card — the full message view the real notch
+                        swells into on hover: avatar, sender + circle header,
+                        message, reply field, and the last-minute history. */}
+                    <div className="nx" aria-hidden={!expanded}>
+                      <div className="nx-msg">
+                        <Avatar name={msg.name} className="nx-avatar" />
+                        <div className="nx-col">
+                          <div className="nx-head">
+                            <span className="nx-sender">{msg.name}</span>
+                            <ChanIcon
+                              className={`nx-chan${msg.direct ? '' : ' is-globe'}`}
+                              strokeWidth={1.8}
+                              aria-hidden
+                            />
+                            <span className="nx-sep">·</span>
+                            <span className="nx-cdot" style={{ background: msg.color }} />
+                            <span className="nx-circle">{msg.circle}</span>
+                          </div>
+                          <div className="nx-text">{msg.text}</div>
+                        </div>
+                        <button
+                          className={`nx-copy${msgCopied ? ' copied' : ''}`}
+                          onClick={copyMessage}
+                          aria-label="Copy message"
+                        >
+                          <Copy className="ic-copy" strokeWidth={2} aria-hidden />
+                          <Check className="ic-check" strokeWidth={2.5} aria-hidden />
+                        </button>
+                      </div>
+
+                      <div className="nx-reply">
+                        <span className="nx-chip">
+                          <ChanIcon
+                            className={msg.direct ? undefined : 'is-globe'}
+                            strokeWidth={2}
+                            aria-hidden
+                          />
+                        </span>
+                        <div className="nx-input">
+                          {msg.direct ? `Private to ${msg.name}…` : 'Reply to all…'}
+                        </div>
+                      </div>
+
+                      <div className="nx-history">
+                        <div className="nx-rule" />
+                        {history.map((h) => {
+                          const RowIcon = h.direct ? LockFill : Globe
+                          return (
+                            <button
+                              key={h.idx}
+                              className={`nx-row${copiedRow === h.idx ? ' copied' : ''}`}
+                              onClick={() => copyRow(h.idx, h.text)}
+                            >
+                              <span className="nx-rhead">
+                                <span className="nx-rdot" style={{ background: h.color }} />
+                                <span className="nx-rsender">{h.name}</span>
+                                <RowIcon
+                                  className={`nx-rchan${h.direct ? '' : ' is-globe'}`}
+                                  strokeWidth={1.8}
+                                  aria-hidden
+                                />
+                              </span>
+                              <span className="nx-rtext">{h.text}</span>
+                              <span className="nx-rcopy">
+                                <Copy className="ic-copy" strokeWidth={2} aria-hidden />
+                                <Check className="ic-check" strokeWidth={2.5} aria-hidden />
+                              </span>
+                            </button>
+                          )
+                        })}
                       </div>
                     </div>
                   </div>

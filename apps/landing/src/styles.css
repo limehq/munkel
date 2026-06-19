@@ -340,60 +340,187 @@ nav.floating .nav-inner {
   position: absolute; top: 0; left: 50%; transform: translateX(-50%);
   width: 128px; height: 25px;
   background: #000;
-  border-radius: 0 0 9px 9px;
   z-index: 5;
-  transition: width 0.45s cubic-bezier(0.32, 1.4, 0.46, 1), height 0.45s cubic-bezier(0.32, 1.4, 0.46, 1), border-radius 0.3s ease, box-shadow 0.3s ease;
+  /* The real NotchShape, not a rounded rectangle: concave top corners that
+     blend into the menu bar, side walls inset by the top radius, convex bottom
+     corners. Built as an animatable clip-path so the demo's silhouette is
+     point-for-point the app's (top radius 15, bottom radius 20 when docked). */
+  clip-path: path('M0 0 Q8 0 8 8 L8 16 Q8 25 17 25 L111 25 Q120 25 120 16 L120 8 Q120 0 128 0 Z');
+  /* Clean ease-out, no overshoot — mirrors the app's well-damped expand
+     spring(response 0.35, dampingFraction 0.75). The old bezier overshot ~40%
+     (the bounce); the real notch barely overshoots (~3%), so it reads linear. */
+  transition: width 0.42s cubic-bezier(0.33, 1, 0.68, 1), height 0.42s cubic-bezier(0.33, 1, 0.68, 1), clip-path 0.42s cubic-bezier(0.33, 1, 0.68, 1), filter 0.3s ease;
 }
-/* Fillet "ears" where the black shape meets the menu bar */
-.mb-notch::before, .mb-notch::after {
-  content: ""; position: absolute; top: 0; width: 10px; height: 10px;
-}
-.mb-notch::before { left: -10px; background: radial-gradient(circle at 0 100%, transparent 9.5px, #000 10px); }
-.mb-notch::after { right: -10px; background: radial-gradient(circle at 100% 100%, transparent 9.5px, #000 10px); }
-.mb-notch.teaser {
-  width: 260px; height: 56px; border-radius: 0 0 18px 18px;
-  box-shadow: 0 14px 40px -12px oklch(0 0 0 / 0.6), 0 4px calc(var(--glow) * 40px) color-mix(in oklab, var(--brand) 25%, transparent);
+
+/* Docked (teaser) and hover-expanded share one width (310pt = real shape):
+   hovering only grows the shape downward, like the real notch. All inner
+   metrics are 1:1 with the SwiftUI source (MessageNotchView / notchedTeaser),
+   so the demo matches the app point-for-point. The 32pt top strip is the
+   hardware-notch safe area the content sits below. The shadow is a drop-shadow
+   (not box-shadow, which clip-path would clip away), matching the app's
+   .shadow(color: .black.opacity(0.5), radius: 10). */
+.mb-notch.docked {
+  width: 310px; height: 58px;
+  clip-path: path('M0 0 Q15 0 15 15 L15 38 Q15 58 35 58 L275 58 Q295 58 295 38 L295 15 Q295 0 310 0 Z');
+  filter: drop-shadow(0 10px 16px oklch(0 0 0 / 0.5));
   cursor: pointer;
 }
-.mb-notch .notch-cam { top: 8px; width: 8px; height: 8px; }
-.mbn-avatar {
-  position: absolute; top: 3px; left: 13px;
-  width: 19px; height: 19px; border-radius: 50%; object-fit: cover; background: #222;
+.mb-notch.docked.expanded {
+  height: 180px;
+  clip-path: path('M0 0 Q15 0 15 15 L15 160 Q15 180 35 180 L275 180 Q295 180 295 160 L295 15 Q295 0 310 0 Z');
+}
+.mb-notch.docked .notch-cam { top: 11px; width: 7px; height: 7px; z-index: 3; }
+
+/* Both content layers fill the shape and clip to it, so the expanded card
+   reveals top-down as the shape grows instead of spilling past the black. */
+.nt, .nx {
+  position: absolute; inset: 0; overflow: hidden;
+  border-radius: 0 0 20px 20px;
   opacity: 0; visibility: hidden;
   transition: opacity 0.2s ease, visibility 0s linear 0.2s;
+  /* Native system font — on macOS these resolve to the SAME faces the app
+     renders (SF Pro / SF Pro Rounded / SF Mono), so the demo text is glyph-for-
+     glyph identical instead of Geist-shaped. */
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
-.mbn-copy {
-  position: absolute; top: 3px; right: 13px;
-  width: 19px; height: 19px; border-radius: 50%;
+.mb-notch.docked .nt { opacity: 1; visibility: visible; transition: opacity 0.25s ease 0.1s, visibility 0s; }
+.mb-notch.expanded .nt { opacity: 0; visibility: hidden; transition: opacity 0.12s ease, visibility 0s linear 0.12s; }
+.mb-notch.expanded .nx { opacity: 1; visibility: visible; transition: opacity 0.22s ease 0.08s, visibility 0s; }
+
+/* Fresh-message cross-fade, re-triggered by the React key on rotation. */
+.nt-fade { animation: nt-in 0.32s ease both; }
+@keyframes nt-in { from { opacity: 0 } to { opacity: 1 } }
+
+/* ----- Compact teaser (1:1 with notchedTeaser) ----- */
+/* Avatar (20) + copy (20) tuck into the 32pt strip, flush with the content's
+   leading/trailing edges (30pt insets); the one-line message runs below. */
+/* Avatar + ping share one position/size (via vars on .nt), so the pulse ring
+   can never drift off the avatar — including at the mobile scale. */
+.nt { --av-x: 30px; --av-y: 6px; --av-d: 20px; }
+.nt-avatar {
+  position: absolute; top: var(--av-y); left: var(--av-x); width: var(--av-d); height: var(--av-d);
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: ui-rounded, system-ui, sans-serif; font-weight: 700;
+  font-size: calc(var(--av-d) * 0.38); line-height: 1; color: #fff;
+}
+.nt-copy {
+  position: absolute; top: 6px; right: 30px; width: 20px; height: 20px; border-radius: 50%;
   display: inline-flex; align-items: center; justify-content: center;
-  border: none; padding: 0;
-  background: oklch(1 0 0 / 0.14); color: oklch(0.88 0 0);
-  opacity: 0; visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0s linear 0.2s, background 0.15s;
+  border: none; padding: 0; cursor: pointer;
+  background: oklch(1 0 0 / 0.1); color: oklch(1 0 0 / 0.65);
+  transition: background 0.15s;
 }
-.mbn-copy:hover { background: oklch(1 0 0 / 0.22); }
-.mbn-copy svg.lucide { width: 10px; height: 10px; }
-.mbn-copy .ic-check { display: none; color: oklch(0.78 0.14 160); }
-.mbn-copy.copied .ic-copy { display: none; }
-.mbn-copy.copied .ic-check { display: block; }
-.mbn-body {
-  position: absolute; top: 25px; left: 13px; right: 13px;
-  text-align: left;
-  opacity: 0; visibility: hidden;
-  transition: opacity 0.2s ease, visibility 0s linear 0.2s;
-  overflow: hidden;
-}
-.mb-notch.teaser .mbn-avatar,
-.mb-notch.teaser .mbn-copy,
-.mb-notch.teaser .mbn-body {
-  opacity: 1; visibility: visible;
-  transition: opacity 0.25s ease 0.15s, visibility 0s;
-}
-.mbn-msg {
-  font-size: 13px; font-weight: 600; color: #fff;
+.nt-copy:hover { background: oklch(1 0 0 / 0.18); }
+/* Channel icon leads the line and is vertically centered with the single-line
+   text; it stays put (flex: none) so it's always visible as the text tickers. */
+.nt-line { position: absolute; top: 34px; left: 30px; right: 30px; display: flex; align-items: center; gap: 5px; }
+.nt-text {
+  flex: 0 1 auto; min-width: 0;
+  /* .rounded design in the app → SF Pro Rounded (ui-rounded on macOS). */
+  font-family: ui-rounded, system-ui, sans-serif;
+  font-size: 12px; font-weight: 500; line-height: 1.2;
+  color: oklch(1 0 0 / 0.85);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  margin-top: 4px; line-height: 1.35;
 }
+.nt-chan { flex: none; width: 11px; height: 11px; color: oklch(1 0 0 / 0.55); }
+.nt-chan.is-globe { width: 9.5px; height: 9.5px; }
+
+/* Pulse ring behind the avatar — the app's CompactAvatarView "ping": a 1px
+   stroke in the sender's color that scales out and fades once. */
+.nt-ping {
+  position: absolute; top: var(--av-y); left: var(--av-x); width: var(--av-d); height: var(--av-d);
+  border-radius: 50%; border: 1px solid var(--ring, #fff);
+  pointer-events: none;
+  animation: nt-ping 1s ease-out 0.55s both;
+}
+@keyframes nt-ping {
+  from { transform: scale(0.8); opacity: 0.9; }
+  to { transform: scale(1.6); opacity: 0; }
+}
+
+/* ----- Expanded card (1:1 with MessageNotchView + reply + history) ----- */
+.nx { display: flex; flex-direction: column; padding: 32px 30px 15px; gap: 5px; text-align: left; }
+.nx-msg { display: flex; align-items: flex-start; gap: 12px; padding: 4px 6px; }
+.nx-avatar {
+  flex: none; width: 34px; height: 34px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: ui-rounded, system-ui, sans-serif; font-weight: 700;
+  font-size: 13px; line-height: 1; color: #fff;
+}
+.nx-col { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.nx-head { display: flex; align-items: center; gap: 4px; line-height: 1.1; color: oklch(1 0 0 / 0.55); }
+.nx-sender { font-size: 11px; font-weight: 600; }
+.nx-chan { flex: none; width: 10px; height: 10px; }
+.nx-chan.is-globe { width: 8.5px; height: 8.5px; }
+.nx-sep { font-size: 12px; }
+.nx-cdot { flex: none; width: 6px; height: 6px; border-radius: 50%; }
+.nx-circle {
+  /* .monospaced design in the app → SF Mono (ui-monospace on macOS). */
+  font-size: 10px; font-family: ui-monospace, monospace;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nx-text { font-size: 14px; font-weight: 500; line-height: 1.2; color: #fff; }
+.nx-copy {
+  flex: none; margin-top: -2px; width: 20px; height: 20px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; padding: 0; cursor: pointer;
+  background: oklch(1 0 0 / 0.1); color: oklch(1 0 0 / 0.65);
+  transition: background 0.15s;
+}
+.nx-copy:hover { background: oklch(1 0 0 / 0.18); }
+
+/* Inline reply — channel chip + a placeholder field. */
+.nx-reply { display: flex; align-items: center; gap: 6px; padding: 0 6px 4px; }
+.nx-chip {
+  flex: none; width: 20px; height: 20px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: oklch(1 0 0 / 0.12); color: oklch(1 0 0 / 0.7);
+}
+.nx-chip svg { width: 12px; height: 12px; }
+.nx-chip svg.is-globe { width: 11px; height: 11px; }
+.nx-input {
+  flex: 1; min-width: 0;
+  padding: 5px 8px; border-radius: 7px;
+  background: oklch(1 0 0 / 0.12);
+  font-size: 13px; line-height: 1.2; color: oklch(1 0 0 / 0.7);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* History — last-minute backlog stacked under the current message. */
+.nx-history { display: flex; flex-direction: column; padding: 0 6px 6px; }
+.nx-rule { height: 1px; background: oklch(1 0 0 / 0.15); margin-bottom: 3px; }
+.nx-row {
+  display: flex; align-items: center; gap: 4px;
+  width: 100%; min-height: 20px; padding: 0;
+  border: none; background: none; cursor: pointer; text-align: left;
+}
+.nx-rhead { flex: none; display: flex; align-items: center; gap: 4px; }
+.nx-rdot { flex: none; width: 5px; height: 5px; border-radius: 50%; }
+.nx-rsender { font-size: 10px; font-weight: 600; color: oklch(1 0 0 / 0.4); }
+.nx-rchan { flex: none; width: 9px; height: 9px; color: oklch(1 0 0 / 0.3); }
+.nx-rchan.is-globe { width: 8px; height: 8px; }
+.nx-rtext {
+  flex: 0 1 auto; min-width: 0; margin-right: auto;
+  font-size: 11px; color: oklch(1 0 0 / 0.55);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.nx-rcopy {
+  flex: none; width: 20px; height: 20px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: oklch(1 0 0 / 0.1); color: oklch(1 0 0 / 0.65);
+  opacity: 0; transition: opacity 0.12s ease;
+}
+.nx-row:hover .nx-rcopy, .nx-row.copied .nx-rcopy { opacity: 1; }
+.nx-rcopy svg { width: 9px; height: 9px; }
+
+/* Shared copy ⇄ check glyph swap (CopyGlyph: doc.on.doc, size diameter*0.43). */
+.nt-copy svg.lucide, .nx-copy svg.lucide { width: 9px; height: 9px; }
+.nt-copy .ic-check, .nx-copy .ic-check, .nx-rcopy .ic-check { display: none; color: oklch(0.78 0.14 160); }
+.nt-copy.copied .ic-copy, .nx-copy.copied .ic-copy, .nx-row.copied .ic-copy { display: none; }
+.nt-copy.copied .ic-check, .nx-copy.copied .ic-check, .nx-row.copied .ic-check { display: block; }
 
 /* ---------- Buttons → shadcn <Button> (components/ui/button.tsx) ---------- */
 /* .btn / .btn-primary / .btn-outline are now CVA variants on <Button>; the
@@ -887,28 +1014,29 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
   .hero-stage { height: 200vh; }
   .hero-copy { padding-top: 8vh; }
   .mockup-wrap { margin-top: 3rem; }
-  .mb-notch { width: 92px; height: 17px; border-radius: 0 0 6px 6px; }
-  .mb-notch .notch-cam { width: 5px; height: 5px; top: 6px; }
-  .mb-notch.teaser { width: 220px; height: 44px; }
-  .mbn-avatar { width: 13px; height: 13px; top: 2px; }
-  .mbn-copy { width: 13px; height: 13px; top: 2px; }
-  .mbn-copy svg.lucide { width: 8px; height: 8px; }
-  .mbn-body { top: 17px; }
-  .mbn-msg { font-size: 12px; }
-  .mb-menubar { height: 20px; font-size: 10px; }
+  /* The notch is internally 1:1 with the app (310pt etc.); on narrow viewports
+     scale the WHOLE notch down uniformly rather than hand-tuning each element —
+     so the ping ring, icon sizes and every spacing stay perfectly aligned. */
+  .mb-notch { transform: translateX(-50%) scale(0.75); transform-origin: top center; }
+  .mb-menubar { height: 19px; font-size: 10px; }
   .mb-menu span:not(.mb-app) { display: none; }
   .share-compare { grid-template-columns: 1fr; }
   section { padding: 5rem 0; }
   .section-head { margin-bottom: 3rem; }
 }
+/* Even narrower (phones): scale the notch down further so it doesn't dominate
+   the shrinking mockup. Same uniform transform — proportions stay intact. */
+@media (max-width: 600px) {
+  .mb-notch { transform: translateX(-50%) scale(0.58); }
+  .mb-menubar { height: 15px; }
+}
 @media (prefers-reduced-motion: reduce) {
   .pulse, .cursor { animation: none; }
   .mb-notch { transition: none; }
-  /* Static teaser (set by the director's reduced-motion branch): children
-     appear instantly, no fade-in. */
-  .mb-notch.teaser .mbn-avatar,
-  .mb-notch.teaser .mbn-copy,
-  .mb-notch.teaser .mbn-body { transition: none; }
+  /* Static teaser (set by the director's reduced-motion branch): content
+     appears instantly, no fade-in. */
+  .mb-notch.docked .nt, .mb-notch.expanded .nx { transition: none; }
+  .nt-fade { animation: none; }
   .macbook { transform: none !important; opacity: 1 !important; }
   .hero-stage { height: auto; }
   .hero-sticky { position: static; height: auto; overflow: visible; padding: 6rem 0; }
