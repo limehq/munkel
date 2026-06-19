@@ -9,6 +9,9 @@ import { registerCryptoHandlers, deriveGroupId } from './crypto-channel';
 import { IdentityStore } from './identity-store';
 import { AppState } from './session-store';
 import { registerSessionHandlers } from './session-handlers';
+import { buildControlHandler } from './control-handlers';
+import { createControlServer } from '../core/transport';
+import { buildPipeName } from '../core/control';
 import type { WindowType } from '../shared/types';
 
 const gotTheLock = app.requestSingleInstanceLock();
@@ -20,6 +23,7 @@ if (!gotTheLock) {
 let menuWindow: BrowserWindow | null = null;
 let notchWindow: BrowserWindow | null = null;
 let paletteWindow: BrowserWindow | null = null;
+let controlServer: { close(): Promise<void> } | null = null;
 
 function getWindowType(sender: Electron.WebContents): WindowType {
 	const win = BrowserWindow.fromWebContents(sender);
@@ -84,6 +88,22 @@ app.whenReady().then(async () => {
 	const appState = new AppState(identityStore, broadcastState, showNotchMessage, relayError);
 	registerSessionHandlers(appState);
 
+	// Named-pipe control server for the `munkel` CLI. Mirrors the macOS app's
+	// Unix-domain-socket `ControlServer` — one request/response per connection,
+	// same wire format. The CLI discovers the pipe by `buildPipeName()`.
+	try {
+		controlServer = await createControlServer(
+			buildPipeName(),
+			buildControlHandler(appState),
+		);
+		console.log(`[munkel] control pipe: ${buildPipeName()}`);
+	} catch (err) {
+		// Don't abort startup: another instance may already own the pipe and
+		// the single-instance lock above would have caught that. Surface a
+		// hint so the user can investigate if `munkel circles` can't connect.
+		console.error('[munkel] control pipe failed to start:', err);
+	}
+
 	ipcMain.handle('get-window-type', (event: IpcMainInvokeEvent) => getWindowType(event.sender));
 	ipcMain.handle('hide-window', (event: IpcMainInvokeEvent) => {
 		BrowserWindow.fromWebContents(event.sender)?.hide();
@@ -111,4 +131,6 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
 	unregisterShortcuts();
+	void controlServer?.close();
+	controlServer = null;
 });
