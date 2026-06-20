@@ -2,9 +2,6 @@ import { afterEach, expect, test } from "bun:test"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 
-// Runs the CLI as a subprocess against a fake app listening on a temporary
-// Unix socket (MUNKEL_SOCKET overrides the default path).
-
 const cliPath = new URL("../src/munkel.ts", import.meta.url).pathname
 
 let stopFakeApp: (() => void) | undefined
@@ -97,7 +94,7 @@ test("app error is reported on stderr", async () => {
 })
 
 test("invalid response is rejected", async () => {
-  const app = fakeApp(() => undefined) // serializes to "undefined\n" — not JSON
+  const app = fakeApp(() => undefined)
   const result = await runMunkel(["blue-table-42", "all", "hi"], app.socketPath)
 
   expect(result.exitCode).toBe(1)
@@ -200,7 +197,7 @@ test("dm with no message is a usage error", async () => {
 test("image sends a recipient-only request carrying the resolved file path", async () => {
   const app = fakeApp(() => ({ ok: true }))
   const imageFile = join(tmpdir(), `munkel-img-${process.pid}-${Math.random().toString(36).slice(2)}.png`)
-  await Bun.write(imageFile, new Uint8Array([0x89, 0x50, 0x4e, 0x47])) // bytes irrelevant to the CLI
+  await Bun.write(imageFile, new Uint8Array([0x89, 0x50, 0x4e, 0x47]))
   const result = await runMunkel(["image", "sebil", imageFile], app.socketPath)
 
   expect(result.exitCode).toBe(0)
