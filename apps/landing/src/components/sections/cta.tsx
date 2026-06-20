@@ -4,7 +4,6 @@ import { Check, Copy, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { BREW_CMD, DOWNLOAD_URL, GITHUB_URL } from '@/lib/constants'
 
-// Brew one-liner with a copy button (reuses the dark `.install-*` terminal shell).
 function BrewCmd() {
   const [copied, setCopied] = useState(false)
 
@@ -32,7 +31,6 @@ function BrewCmd() {
   )
 }
 
-/** Final CTA: founder note, download buttons, brew one-liner. */
 export function Cta() {
   return (
     <section className="cta">
