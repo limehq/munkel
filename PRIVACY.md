@@ -25,8 +25,19 @@ GitHub account settings.
 ## Local data
 
 The app stores local settings in the `dev.uq.munkel` defaults domain, including
-joined circle codes, relay URL, member ID, display name, GitHub login, and the
-downscaled avatar image.
+joined circle codes, relay URL, member ID, display name, GitHub login, the
+downscaled avatar image, and the chosen presence status.
+
+## Presence
+
+Each member broadcasts a presence status — Online, Do Not Disturb, or Away — to
+the other members of their circles inside the end-to-end-encrypted profile
+payload. The relay never sees it in plaintext; only connected peers do. Away is
+also set automatically after five minutes without keyboard or mouse input (and
+on screen sleep, system sleep, or fast user switch), so being in a circle
+reveals coarse at-the-keyboard activity to the other members. Do Not Disturb and
+Away only suppress the notch preview on the recipient's own machine; they never
+block or delay delivery.
 
 ## Limits
 

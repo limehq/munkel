@@ -1,4 +1,5 @@
 import Foundation
+import MunkelKit
 
 /// Local identity: a stable per-installation member UUID plus the display
 /// name (the GitHub first name — login is mandatory, the name not editable).
@@ -8,6 +9,7 @@ enum Identity {
     private static let displayNameKey = "displayName"
     private static let avatarDataKey = "avatarData"
     private static let githubLoginKey = "githubLogin"
+    private static let presenceStatusKey = "presenceStatus"
 
     static var memberId: String {
         let defaults = UserDefaults.standard
@@ -36,5 +38,13 @@ enum Identity {
     static var githubLogin: String? {
         get { UserDefaults.standard.string(forKey: githubLoginKey) }
         set { UserDefaults.standard.set(newValue, forKey: githubLoginKey) }
+    }
+
+    static var presenceStatus: PresenceStatus {
+        get {
+            UserDefaults.standard.string(forKey: presenceStatusKey)
+                .flatMap(PresenceStatus.init(rawValue:)) ?? .online
+        }
+        set { UserDefaults.standard.set(newValue.rawValue, forKey: presenceStatusKey) }
     }
 }

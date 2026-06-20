@@ -86,7 +86,8 @@ with anything sensitive.
 - **No cryptographic proof of identity from GitHub login.** "Sign in with
   GitHub" imports a display name and avatar only. It does not prove to peers
   that a member controls a given GitHub account; profiles are self-asserted,
-  the same as a typed name.
+  the same as a typed name. Presence status (Online / Do Not Disturb / Away) is
+  likewise self-asserted — a member can broadcast any value.
 - **No hiding metadata from the relay.** The relay necessarily observes
   connection metadata: derived group IDs, member IDs, connection timing,
   message sizes, and routing targets. It cannot read content, but it is not a
@@ -108,7 +109,7 @@ followed by adversaries that are explicitly out of scope.
 | **Passive network or relay observer** (anyone watching the wire or running the relay) | Payloads are end-to-end encrypted with AES-256-GCM on-device; the relay only sees the derived `groupId`, member IDs, sizes, and timing — never plaintext or the circle code. Image blobs in R2 are opaque ciphertext with a short TTL. |
 | **Screen capture / screen sharing** (Zoom, Teams, screenshots, recorders) | Notch panel, menu popover, and command palette set `NSWindow.sharingType = .none` via `CaptureExclusion`, so message content and circle codes are hidden from captured frames while staying visible on the physical display. This is reliable on the legacy capture path and on ScreenCaptureKit through macOS 15.3; full-display SCK capture on macOS 15.4+ can bypass it. |
 | **A malicious or curious circle member** | Limited by design: the message key is shared, so a member can read circle traffic. The relay enforces targeted delivery for direct messages, and there is no message history for a member to exfiltrate after the fact. To exclude someone, rotate to a new circle code. |
-| **A lost or unlocked device** | No message history is stored and no GitHub token is persisted (the token is RAM-only and discarded after one profile fetch). What remains locally is settings in the `dev.uq.munkel` defaults domain — joined circle codes, member ID, display name, GitHub login, and a downscaled avatar; ephemerality limits what can be recovered from the device. |
+| **A lost or unlocked device** | No message history is stored and no GitHub token is persisted (the token is RAM-only and discarded after one profile fetch). What remains locally is settings in the `dev.uq.munkel` defaults domain — joined circle codes, member ID, display name, GitHub login, a downscaled avatar, and the chosen presence status; ephemerality limits what can be recovered from the device. |
 
 ### Out of scope
 

@@ -30,6 +30,7 @@ final class NotchPresenter {
     private var hoverCopyObservation: AnyCancellable?
     /// Observes hover on the unread indicator to dismiss it.
     private var indicatorHoverObservation: AnyCancellable?
+    private var onIndicatorHover: (() -> Void)?
     private var clickMonitor: Any?
     private var outsideClickMonitor: Any?
     /// While a modal file picker (NSOpenPanel) is up, its in-process clicks
@@ -85,6 +86,7 @@ final class NotchPresenter {
         groupColor: Color,
         inMultipleGroups: Bool,
         images: [IncomingImage] = [],
+        silent: Bool = false,
         loadFull: (@Sendable (String) async -> Data?)? = nil,
         onReply: @escaping (_ text: String, _ images: [Data], _ privately: Bool) -> Void
     ) {
@@ -135,17 +137,32 @@ final class NotchPresenter {
             return
         }
 
-        // Strictly serialized, collapsing display chain: messages display one
-        // after another, and a newer one supersedes an older still-pending one
-        // (it survives only as a history row). This keeps two near-simultaneous
-        // messages from racing on the single current panel.
+        if silent {
+            if !notchVisible {
+                onIndicatorHover = { [weak self] in
+                    self?.scheduleDisplay(message, entryID: entry.id, loadFull: loadFull, onReply: onReply)
+                }
+                showIndicator()
+            }
+            return
+        }
+
+        scheduleDisplay(message, entryID: entry.id, loadFull: loadFull, onReply: onReply)
+    }
+
+    private func scheduleDisplay(
+        _ message: IncomingMessage,
+        entryID: UUID,
+        loadFull: (@Sendable (String) async -> Data?)?,
+        onReply: @escaping (_ text: String, _ images: [Data], _ privately: Bool) -> Void
+    ) {
         showGeneration += 1
         let generation = showGeneration
         let previous = pendingShow
         pendingShow = Task { [weak self] in
             await previous?.value
             guard let self, generation == self.showGeneration else { return }
-            await self.display(message, entryID: entry.id, generation: generation, loadFull: loadFull, onReply: onReply)
+            await self.display(message, entryID: entryID, generation: generation, loadFull: loadFull, onReply: onReply)
         }
     }
 
@@ -167,6 +184,7 @@ final class NotchPresenter {
         hoverObservation = nil
         removeClickMonitors()
         turnOffHoverCopy()
+        onIndicatorHover = nil
         hideIndicator()
         if let previous = currentNotch {
             // hide() collapses immediately; afterwards a newer message may
@@ -530,10 +548,13 @@ final class NotchPresenter {
             .filter { $0 }
             .sink { [weak self, weak indicator] _ in
                 Task { @MainActor in
-                    guard let indicator else { return }
+                    guard let self, let indicator else { return }
                     await indicator.hide()
-                    self?.indicatorNotch = nil
-                    self?.indicatorHoverObservation = nil
+                    self.indicatorNotch = nil
+                    self.indicatorHoverObservation = nil
+                    let reveal = self.onIndicatorHover
+                    self.onIndicatorHover = nil
+                    reveal?()
                 }
             }
 

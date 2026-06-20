@@ -9,6 +9,8 @@ struct AvatarView: View {
     let name: String
     var imageData: Data?
     var size: CGFloat = 34
+    var status: PresenceStatus? = nil
+    var statusRingColor: Color = Color(nsColor: .windowBackgroundColor)
 
     private static let palettes: [[Color]] = [
         [Color(red: 0.96, green: 0.42, blue: 0.42), Color(red: 0.85, green: 0.19, blue: 0.41)],
@@ -43,6 +45,15 @@ struct AvatarView: View {
         }
         .frame(width: size, height: size)
         .clipShape(Circle())
+        .overlay(alignment: .bottomTrailing) {
+            if let status {
+                let dot = max(7, size * 0.34)
+                Circle()
+                    .fill(status.dotColor)
+                    .frame(width: dot, height: dot)
+                    .overlay(Circle().strokeBorder(statusRingColor, lineWidth: dot * 0.2))
+            }
+        }
     }
 
     private var initials: String {

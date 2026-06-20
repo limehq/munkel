@@ -57,10 +57,11 @@ import { z } from 'zod';
  * discriminator:
  *
  * - `chat`:    `text`, `sentAt` (ISO-8601) — the actual message.
- * - `profile`: `displayName`, `avatar?` (base64 JPEG/PNG) — broadcast after
- *   joining and whenever a `peer-joined` arrives, so newcomers learn who
- *   everyone is. Sending `profile` without `avatar` clears it. Byte budgets
- *   live with the codec: AvatarCodec.swift (MunkelKit).
+ * - `profile`: `displayName`, `avatar?` (base64 JPEG/PNG), `status?`
+ *   (`online` | `dnd` | `away`; an absent or unknown value reads as `online`)
+ *   — broadcast after joining and whenever a `peer-joined` arrives, so
+ *   newcomers learn who everyone is. Sending `profile` without `avatar` clears
+ *   it. Byte budgets live with the codec: AvatarCodec.swift (MunkelKit).
  * - `image`:   `items` (1–8), shared `caption`, `sentAt`. Each item is
  *   `{r2Key, mime, width, height, byteLen, thumb (inline AVIF, base64)}`.
  *   The full-resolution image is AVIF, always sealed and PUT to R2 (blob.ts);

@@ -65,8 +65,8 @@ and relay connections; the CLI and the UI are clients of it. Source layout under
     resolves circle/recipient names for the CLI.
   - [`GroupSession.swift`](../apps/macos/Sources/MunkelApp/GroupSession.swift) —
     one joined circle: holds its `RelayClient`, seals/opens payloads, tracks
-    presence, and exchanges `profile` payloads. This is where send and receive
-    are wired end-to-end.
+    presence and each member's status, and exchanges `profile` payloads. This is
+    where send and receive are wired end-to-end.
   - [`NotchPanel/`](../apps/macos/Sources/MunkelApp/NotchPanel) +
     [`NotchPresenter.swift`](../apps/macos/Sources/MunkelApp/NotchPresenter.swift)
     — the notch display: a borderless `NotchPanelWindow` shaped to the physical
@@ -210,8 +210,11 @@ and [`blob.ts`](../apps/server/src/blob.ts)).
    payload that fails to decrypt or decode is dropped, not surfaced.
 3. The decoded `AppPayload` is dispatched: `chat` text and `image` albums are
    shown in the notch via `NotchPanel` / `NotchPresenter`; `profile` payloads
-   update the sender's display name and avatar locally. Full-resolution images
-   are fetched and decrypted from R2 lazily, on demand, keyed by `r2Key`.
+   update the sender's display name, avatar, and presence status locally. When
+   the local user's own status is Do Not Disturb or Away, the proactive notch
+   preview is suppressed and the message lands silently in the 60 s history.
+   Full-resolution images are fetched and decrypted from R2 lazily, on demand,
+   keyed by `r2Key`.
 4. Messages live only in memory and only for the notch-survival window
    (~60 s); there is no history and nothing is written to disk. See
    [`GroupSession.handleIncoming`](../apps/macos/Sources/MunkelApp/GroupSession.swift).
@@ -246,9 +249,9 @@ TypeScript reference sender is
   closes connections idle for more than 120 s.
 - **Application payloads** (inside the encrypted blob, invisible to the relay):
   a `kind`-discriminated JSON object — `chat` (`text`, `sentAt`), `profile`
-  (`displayName`, optional base64 `avatar`), or `image` (1–8 `items`, shared
-  `caption`, `sentAt`; each item is an `r2Key` pointer plus an inline AVIF
-  `thumb`). See
+  (`displayName`, optional base64 `avatar`, optional `status` of
+  `online` | `dnd` | `away`), or `image` (1–8 `items`, shared `caption`,
+  `sentAt`; each item is an `r2Key` pointer plus an inline AVIF `thumb`). See
   [`AppPayload.swift`](../apps/macos/Sources/MunkelKit/AppPayload.swift).
 
 ### Image blobs (R2)

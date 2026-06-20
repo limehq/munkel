@@ -9,6 +9,7 @@ final class GroupSession {
         let id: String
         var displayName: String? = nil
         var avatar: Data? = nil
+        var status: PresenceStatus = .online
 
         var label: String {
             displayName ?? String(id.prefix(8))
@@ -28,6 +29,7 @@ final class GroupSession {
     let code: String
     private(set) var members: [Member] = []
     private(set) var isConnected = false
+    var localStatus: PresenceStatus = .online
 
     private let key: GroupKey
     private let client: RelayClient
@@ -81,7 +83,8 @@ final class GroupSession {
     func sendProfile(to memberId: String? = nil) async -> Bool {
         let payload = AppPayload.profile(
             displayName: Identity.displayName,
-            avatar: Identity.avatarData
+            avatar: Identity.avatarData,
+            status: localStatus
         )
         return await send(payload, to: memberId)
     }
@@ -238,7 +241,7 @@ final class GroupSession {
         }
 
         switch decoded {
-        case let .profile(displayName, avatar):
+        case let .profile(displayName, avatar, status):
             // nil clears the avatar (peer logged out of GitHub).
             let sanitizedAvatar = avatar.flatMap {
                 $0.count <= Self.maxIncomingAvatarBytes ? $0 : nil
@@ -246,9 +249,10 @@ final class GroupSession {
             if let index = members.firstIndex(where: { $0.id == memberId }) {
                 members[index].displayName = displayName
                 members[index].avatar = sanitizedAvatar
+                members[index].status = status
             } else {
                 members.append(
-                    Member(id: memberId, displayName: displayName, avatar: sanitizedAvatar)
+                    Member(id: memberId, displayName: displayName, avatar: sanitizedAvatar, status: status)
                 )
             }
             onStateChange?()

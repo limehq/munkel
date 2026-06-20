@@ -166,6 +166,13 @@ struct MenuView: View {
             Toggle("Allow in screenshots", isOn: $allowInScreenshots)
             #endif
             Divider()
+            if model.githubUserLogin != nil {
+                Button {
+                    model.logoutGitHub()
+                } label: {
+                    Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
+                }
+            }
             Button {
                 NSApp.terminate(nil)
             } label: {
@@ -180,6 +187,34 @@ struct MenuView: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .help("Settings")
+    }
+
+    private var statusPicker: some View {
+        Menu {
+            ForEach(PresenceStatus.allCases, id: \.self) { status in
+                Button {
+                    model.localStatus = status
+                } label: {
+                    if model.localStatus == status {
+                        Label(status.menuLabel, systemImage: "checkmark")
+                    } else {
+                        Text(status.menuLabel)
+                    }
+                }
+            }
+        } label: {
+            HStack(spacing: 4) {
+                Circle()
+                    .fill(model.localStatus.dotColor)
+                    .frame(width: 8, height: 8)
+                Text(model.localStatus.menuLabel)
+                    .font(.caption)
+            }
+        }
+        .menuStyle(.borderlessButton)
+        .fixedSize()
+        .controlSize(.small)
+        .help("Set your presence")
     }
 
     private func showAbout() {
@@ -228,15 +263,14 @@ struct MenuView: View {
     private var githubArea: some View {
         switch model.githubLoginState {
         case .idle:
-            if let login = model.githubUserLogin {
+            if model.githubUserLogin != nil {
                 HStack(spacing: 8) {
-                    AvatarView(name: model.displayName, imageData: Identity.avatarData, size: 20)
-                    Text("Signed in as \(model.displayName) (@\(login))")
+                    AvatarView(name: model.displayName, imageData: Identity.avatarData, size: 20, status: model.effectiveStatus)
+                    Text(model.displayName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Sign out") { model.logoutGitHub() }
-                        .controlSize(.small)
+                    statusPicker
                 }
             } else {
                 Button {
@@ -619,7 +653,7 @@ struct GroupSectionView: View {
                         recipient = member.id
                         fieldFocused = true
                     } label: {
-                        AvatarView(name: member.label, imageData: member.avatar, size: targetSize)
+                        AvatarView(name: member.label, imageData: member.avatar, size: targetSize, status: member.status)
                     }
                 }
 

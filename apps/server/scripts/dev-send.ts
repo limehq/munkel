@@ -107,7 +107,7 @@ ws.onmessage = async (event) => {
 };
 
 ws.onopen = async () => {
-  ws.send(JSON.stringify({ type: 'send', payload: await seal({ kind: 'profile', displayName: sender }) }));
+  ws.send(JSON.stringify({ type: 'send', payload: await seal({ kind: 'profile', displayName: sender, status: 'online' }) }));
   if (listenMode) {
     process.stdout.write(`listening as "${sender}" (${memberId})…\n`);
     setInterval(() => ws.send(JSON.stringify({ type: 'ping' })), 30_000);

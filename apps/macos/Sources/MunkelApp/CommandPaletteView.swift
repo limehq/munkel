@@ -128,7 +128,7 @@ struct CommandPaletteView: View {
                         .font(.system(size: 12))
                         .frame(width: 18, height: 18)
                 } else {
-                    AvatarView(name: recipient.label, imageData: recipient.avatar, size: 18)
+                    AvatarView(name: recipient.label, imageData: recipient.avatar, size: 18, status: recipient.status)
                 }
                 Text(recipient.isEveryone ? "Everyone" : recipient.label)
                     .font(.system(size: 12, weight: .medium))

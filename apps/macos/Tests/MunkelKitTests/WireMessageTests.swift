@@ -85,7 +85,7 @@ struct AppPayloadTests {
     }
 
     @Test func profileRoundtrip() throws {
-        let payload = AppPayload.profile(displayName: "Alex", avatar: Data([1, 2, 3]))
+        let payload = AppPayload.profile(displayName: "Alex", avatar: Data([1, 2, 3]), status: .doNotDisturb)
         let decoded = try AppPayload.decoded(from: payload.encoded())
         #expect(decoded == payload)
     }
@@ -109,7 +109,7 @@ struct AppPayloadTests {
     }
 
     @Test func profileWithoutAvatarOmitsKey() throws {
-        let data = try AppPayload.profile(displayName: "Alex", avatar: nil).encoded()
+        let data = try AppPayload.profile(displayName: "Alex", avatar: nil, status: .online).encoded()
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         #expect(json["avatar"] == nil)
     }
@@ -118,14 +118,41 @@ struct AppPayloadTests {
         let decoded = try AppPayload.decoded(
             from: Data(#"{"kind":"profile","displayName":"Alex"}"#.utf8)
         )
-        #expect(decoded == .profile(displayName: "Alex", avatar: nil))
+        #expect(decoded == .profile(displayName: "Alex", avatar: nil, status: .online))
     }
 
     @Test func profileAvatarEncodesAsBase64String() throws {
         let bytes = Data([0xFF, 0xD8, 0xFF, 0xE0])
-        let data = try AppPayload.profile(displayName: "Alex", avatar: bytes).encoded()
+        let data = try AppPayload.profile(displayName: "Alex", avatar: bytes, status: .online).encoded()
         let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         let base64 = try #require(json["avatar"] as? String)
         #expect(Data(base64Encoded: base64) == bytes)
+    }
+
+    @Test func profileStatusEncodesAsString() throws {
+        let data = try AppPayload.profile(displayName: "Alex", avatar: nil, status: .doNotDisturb).encoded()
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["status"] as? String == "dnd")
+    }
+
+    @Test func profileDecodesMissingStatusAsOnline() throws {
+        let decoded = try AppPayload.decoded(
+            from: Data(#"{"kind":"profile","displayName":"Alex"}"#.utf8)
+        )
+        #expect(decoded == .profile(displayName: "Alex", avatar: nil, status: .online))
+    }
+
+    @Test func profileDecodesUnknownStatusAsOnline() throws {
+        let decoded = try AppPayload.decoded(
+            from: Data(#"{"kind":"profile","displayName":"Alex","status":"vacation"}"#.utf8)
+        )
+        #expect(decoded == .profile(displayName: "Alex", avatar: nil, status: .online))
+    }
+
+    @Test func profileDecodesAwayStatus() throws {
+        let decoded = try AppPayload.decoded(
+            from: Data(#"{"kind":"profile","displayName":"Alex","status":"away"}"#.utf8)
+        )
+        #expect(decoded == .profile(displayName: "Alex", avatar: nil, status: .away))
     }
 }
