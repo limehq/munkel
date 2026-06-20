@@ -57,8 +57,6 @@ struct NotchHostingContent<Content: View>: View {
         owner.hasNotch ? notchContentHeight : floatingHeight + owner.notchSize.height
     }
 
-    // MARK: - Notch
-
     private var minWidth: CGFloat { owner.notchSize.width + expandedTopCornerRadius * 2 }
 
     private var notchBody: some View {
@@ -86,7 +84,7 @@ struct NotchHostingContent<Content: View>: View {
     /// `Content` pinned below the cutout via a top safe-area inset equal to the
     /// notch height — so the app can lift the avatar into the black strip with a
     /// negative overlay offset. `.onHover` covers the whole shape, cutout
-    /// included, so hovering the physical notch registers (decision 2).
+    /// included, so hovering the physical notch registers.
     private var notchContent: some View {
         HStack(spacing: 0) {
             if owner.state == .expanded {
@@ -116,8 +114,6 @@ struct NotchHostingContent<Content: View>: View {
             }
         )
     }
-
-    // MARK: - Floating (no-notch screens)
 
     private var floatingBody: some View {
         floatingContent
