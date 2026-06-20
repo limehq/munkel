@@ -15,20 +15,16 @@ const NAV_LINKS = [
   ['#faq', 'FAQ'],
 ] as const
 
-/** Nav: floating bar (scroll hysteresis) + sliding active pill (Motion layoutId). */
 export function Nav() {
   const [floating, setFloating] = useState(false)
   const [active, setActive] = useState<string | null>(null)
 
-  // Hysteresis: enter floating well below the top, leave only near the very top —
-  // so the bar never flip-flops around a single threshold.
   const { scrollY } = useScroll()
   useMotionValueEvent(scrollY, 'change', (y) => {
     if (y > 72) setFloating(true)
     else if (y < 16) setFloating(false)
   })
 
-  // Land on the matching pill if the page opens at a section hash.
   useEffect(() => {
     if (location.hash && NAV_LINKS.some(([href]) => href === location.hash)) {
       const hash = location.hash
@@ -41,7 +37,6 @@ export function Nav() {
     try {
       localStorage.setItem('munkel-theme', dark ? 'dark' : 'light')
     } catch {
-      // private mode etc. — theme just won't persist
     }
   }
 
