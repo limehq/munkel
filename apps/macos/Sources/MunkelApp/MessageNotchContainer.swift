@@ -857,15 +857,23 @@ private struct HistoryAlbumGrid: View {
         } else {
             let columnCount = min(4, images.count)
             let side = (maxWidth - CGFloat(columnCount - 1) * spacing) / CGFloat(columnCount)
-            let columns = Array(
-                repeating: GridItem(.fixed(side), spacing: spacing),
-                count: columnCount
-            )
-            LazyVGrid(columns: columns, alignment: .leading, spacing: spacing) {
-                ForEach(images) { img in
-                    HistoryAlbumCell(model: model, image: img, loadFull: entry.loadFull, fill: true)
-                        .frame(width: side, height: side)
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            // Non-lazy rows (not LazyVGrid): an album is ≤8 cells so laziness
+            // buys nothing, and LazyVGrid's per-cell `.onHover` only fires
+            // reliably for the first cell — which would break the hover preview on
+            // every other history picture (same reason the current message's grid
+            // is non-lazy, see MessageNotchView.imageContent).
+            let rows = stride(from: 0, to: images.count, by: columnCount).map { start in
+                Array(images[start..<min(start + columnCount, images.count)])
+            }
+            VStack(alignment: .leading, spacing: spacing) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                    HStack(spacing: spacing) {
+                        ForEach(row) { img in
+                            HistoryAlbumCell(model: model, image: img, loadFull: entry.loadFull, fill: true)
+                                .frame(width: side, height: side)
+                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                        }
+                    }
                 }
             }
             .frame(width: maxWidth, alignment: .leading)
@@ -886,9 +894,10 @@ private struct HistoryAlbumGrid: View {
 /// One history image cell: paints its inline thumbnail at once, then upgrades to
 /// full resolution via the entry's loader, caching the bytes on the shared model
 /// (keyed by the unique r2Key) so a collapse→expand toggle re-decodes from cache
-/// instead of re-fetching from R2. A self-contained sibling of `AlbumCell`
-/// WITHOUT the per-image copy glyph or hover preview — those belong to the
-/// current message; the history echo is a read-only thumbnail.
+/// instead of re-fetching from R2. A self-contained sibling of `AlbumCell`: it
+/// has no per-image copy glyph (the history echo stays read-only), but a hover
+/// pops the SAME large free-floating Quick-Look preview as the current message —
+/// the preview resolves past images from the model's history (ImagePreviewOverlay).
 ///
 /// Cells mount — and so fetch — only when the history is actually expanded, and
 /// only the FIRST expand fetches (later ones hit the cache). The resulting burst
@@ -926,6 +935,18 @@ private struct HistoryAlbumCell: View {
             }
         }
         .clipped()
+        // Hover any past picture to pop the same large Quick-Look preview the
+        // current message's cells show — the preview (ImagePreviewOverlay)
+        // resolves the image from the model's history. contentShape so a `.fill`
+        // cell's overflow can't steal the hover from a neighbour (mirrors AlbumCell).
+        .contentShape(Rectangle())
+        .onHover { inside in
+            if inside {
+                model.requestPreview(image.id)
+            } else {
+                model.endPreview(forCell: image.id)
+            }
+        }
         .task { await load() }
     }
 
