@@ -3,11 +3,6 @@ import type { ReactNode } from 'react'
 import { LegalHeader } from './legal-header'
 import { SiteFooter } from '@/components/sections/site-footer'
 
-/**
- * Shared layout wrapper for the legal/content pages (Imprint, Privacy,
- * Contact). Renders the slim LegalHeader, a centered prose column, and the
- * shared SiteFooter so all three pages are pixel-consistent.
- */
 export function LegalPage({
   title,
   intro,
