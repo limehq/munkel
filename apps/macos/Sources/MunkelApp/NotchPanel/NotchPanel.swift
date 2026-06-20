@@ -50,7 +50,14 @@ final class NotchPanel<Content: View>: ObservableObject {
     var transitionConfiguration = TransitionConfiguration()
     let content: Content
 
-    var floatingOverlay: AnyView?
+    /// @Published so swapping it on a morph (a new image message reusing the
+    /// same panel) re-renders the Quick-Look preview for the new album.
+    @Published var floatingOverlay: AnyView?
+
+    /// Drop the chrome's bottom inset so the shape stays at menu-bar height in
+    /// indicator mode. @Published so flipping it (inside withAnimation) animates
+    /// the bottom strip in lockstep with the message<->dot morph.
+    @Published var suppressBottomInset = false
 
     private let hoverBehavior: HoverBehavior
     private let targetScreen: @MainActor () -> NSScreen?
