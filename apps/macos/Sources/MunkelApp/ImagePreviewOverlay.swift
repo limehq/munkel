@@ -110,14 +110,21 @@ private struct PreviewCard: View {
         decoded = img
     }
 
-    /// The image's aspect scaled into the space actually available below the
-    /// notch (the panel is half the screen wide); small images are upscaled
-    /// modestly (≤3×) for a usable peek without turning to mush.
+    /// The image's aspect scaled to fill nearly all the room available below the
+    /// notch. For image messages the panel spans the full screen width (see
+    /// ``NotchScreenMetrics/panelFrame(for:wide:)``), so `available` is roughly the
+    /// whole screen and the preview lands near-fullscreen — only a small gutter
+    /// keeps it off the edges. A big screenshot is downscaled to fit; a small
+    /// image is still upscaled at most 3× so it stays sharp instead of blowing up
+    /// to a blurry wall. The full image is itself capped at
+    /// `ImageCodec.maxFullPixels` on the wire, which bounds the crispest result.
     private func fittedSize(in available: CGSize) -> CGSize {
         let w = CGFloat(max(image.width, 1))
         let h = CGFloat(max(image.height, 1))
-        let maxW = max(80, min(available.width - 32, 620))
-        let maxH = max(80, available.height - 24)
+        let horizontalGutter: CGFloat = 48
+        let bottomGutter: CGFloat = 40
+        let maxW = max(80, available.width - 2 * horizontalGutter)
+        let maxH = max(80, available.height - bottomGutter)
         let scale = min(min(maxW / w, maxH / h), 3)
         return CGSize(width: max(1, w * scale), height: max(1, h * scale))
     }

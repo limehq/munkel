@@ -182,7 +182,7 @@ final class NotchPanel<Content: View>: ObservableObject {
     private func buildPanel(on screen: NSScreen) {
         let window = NotchPanelWindow()
         window.contentView = NSHostingView(rootView: NotchHostingContent(owner: self))
-        window.setFrame(NotchScreenMetrics.panelFrame(for: screen), display: false)
+        window.setFrame(panelFrame(on: screen), display: false)
         window.layoutIfNeeded()
         window.applyCaptureExclusion()
         panelWindow = window
@@ -190,11 +190,19 @@ final class NotchPanel<Content: View>: ObservableObject {
 
     private func reposition(on screen: NSScreen) {
         guard let window = panelWindow else { return }
-        window.setFrame(NotchScreenMetrics.panelFrame(for: screen), display: true)
+        window.setFrame(panelFrame(on: screen), display: true)
         // Re-assert the panel properties that a window reconfigure can drop.
         window.applyCaptureExclusion()
         window.level = .screenSaver
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
+    }
+
+    /// Panels carrying a `floatingOverlay` (the image Quick-Look preview) get the
+    /// full-width canvas so the preview can grow to near-fullscreen; every other
+    /// panel keeps the slimmer half-width frame. Either way the visible shape is
+    /// mask-sized and the empty canvas stays click-through (see ``NotchScreenMetrics``).
+    private func panelFrame(on screen: NSScreen) -> NSRect {
+        NotchScreenMetrics.panelFrame(for: screen, wide: floatingOverlay != nil)
     }
 
     private func showWindow() {
