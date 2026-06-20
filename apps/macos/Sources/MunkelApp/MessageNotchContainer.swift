@@ -851,9 +851,8 @@ private struct HistoryAlbumGrid: View {
         let images = entry.images
         if images.count == 1, let only = images.first {
             let size = fittedSize(width: only.width, height: only.height)
-            HistoryAlbumCell(model: model, image: only, loadFull: entry.loadFull, fill: false)
-                .frame(width: size.width, height: size.height)
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            HistoryAlbumCell(model: model, image: only, loadFull: entry.loadFull,
+                             displaySize: size, cornerRadius: 7, fill: false)
         } else {
             let columnCount = min(4, images.count)
             let side = (maxWidth - CGFloat(columnCount - 1) * spacing) / CGFloat(columnCount)
@@ -869,9 +868,9 @@ private struct HistoryAlbumGrid: View {
                 ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
                     HStack(spacing: spacing) {
                         ForEach(row) { img in
-                            HistoryAlbumCell(model: model, image: img, loadFull: entry.loadFull, fill: true)
-                                .frame(width: side, height: side)
-                                .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                            HistoryAlbumCell(model: model, image: img, loadFull: entry.loadFull,
+                                             displaySize: CGSize(width: side, height: side),
+                                             cornerRadius: 6, fill: true)
                         }
                     }
                 }
@@ -894,10 +893,11 @@ private struct HistoryAlbumGrid: View {
 /// One history image cell: paints its inline thumbnail at once, then upgrades to
 /// full resolution via the entry's loader, caching the bytes on the shared model
 /// (keyed by the unique r2Key) so a collapse→expand toggle re-decodes from cache
-/// instead of re-fetching from R2. A self-contained sibling of `AlbumCell`: it
-/// has no per-image copy glyph (the history echo stays read-only), but a hover
-/// pops the SAME large free-floating Quick-Look preview as the current message —
-/// the preview resolves past images from the model's history (ImagePreviewOverlay).
+/// instead of re-fetching from R2. A self-contained sibling of `AlbumCell` with
+/// the same affordances: a hover pops the large free-floating Quick-Look preview
+/// (resolved from the model's history, see ImagePreviewOverlay) AND reveals a
+/// per-image copy glyph — click it, or press "C" while hovering, to copy the
+/// picture, through the exact same hit-target path as the current message.
 ///
 /// Cells mount — and so fetch — only when the history is actually expanded, and
 /// only the FIRST expand fetches (later ones hit the cache). The resulting burst
@@ -908,13 +908,21 @@ private struct HistoryAlbumCell: View {
     @ObservedObject var model: MessageDisplayModel
     let image: IncomingImage
     let loadFull: (@Sendable (String) async -> Data?)?
+    /// Final on-screen size of the picture. Sized + clipped HERE (not by the
+    /// caller) so the copy glyph can sit OUTSIDE the rounded clip — mirrors AlbumCell.
+    let displaySize: CGSize
+    let cornerRadius: CGFloat
     /// Grid cells fill+crop to a square; a lone image fits its aspect.
     let fill: Bool
 
     @State private var decoded: CGImage?
+    @State private var hovering = false
 
     private var isLoaded: Bool { model.fullImages[image.id] != nil }
     private var didFail: Bool { model.failedImages.contains(image.id) }
+
+    /// Smaller than the current message's 20pt glyph — history cells are compact.
+    private let glyphDiameter: CGFloat = 18
 
     var body: some View {
         ZStack {
@@ -934,13 +942,18 @@ private struct HistoryAlbumCell: View {
                     .foregroundStyle(.white.opacity(0.5))
             }
         }
-        .clipped()
-        // Hover any past picture to pop the same large Quick-Look preview the
-        // current message's cells show — the preview (ImagePreviewOverlay)
-        // resolves the image from the model's history. contentShape so a `.fill`
-        // cell's overflow can't steal the hover from a neighbour (mirrors AlbumCell).
+        // Size + clip HERE (before the glyph overlay) so a `.fill` cell's overflow
+        // can't spill onto neighbours, and the glyph — added next — sits outside
+        // the rounded clip. Mirrors AlbumCell.
+        .frame(width: displaySize.width, height: displaySize.height)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .overlay(alignment: .topTrailing) { copyGlyph }
+        // Hover pops the large preview (resolved from history) and, via `hovering`,
+        // the copy glyph. contentShape so a `.fill` cell's overflow can't steal the
+        // hover from a neighbour (mirrors AlbumCell).
         .contentShape(Rectangle())
         .onHover { inside in
+            hovering = inside
             if inside {
                 model.requestPreview(image.id)
             } else {
@@ -948,6 +961,30 @@ private struct HistoryAlbumCell: View {
             }
         }
         .task { await load() }
+    }
+
+    /// Per-image copy, mirroring AlbumCell: hidden until hover (or while its
+    /// checkmark lingers). The hit target exists only while hovered — NotchPresenter
+    /// copies the image whose target a click lands in, and the bare-"C" hotkey
+    /// copies the hovered one via the same target; the bytes resolve full-vs-thumb
+    /// at copy time.
+    private var copyGlyph: some View {
+        let isCopied = model.copiedImageID == image.id
+        let show = hovering || isCopied
+        return CopyGlyph(copied: isCopied, diameter: glyphDiameter)
+            .opacity(show ? 1 : 0)
+            .background {
+                if hovering {
+                    ImageCopyHitTarget(
+                        id: image.id,
+                        resolve: { [weak model] in model?.fullImages[image.id] ?? image.thumb }
+                    ) { [weak model] id, resolve, view in
+                        model?.registerImageCopy(id: id, resolve: resolve, view: view)
+                    }
+                }
+            }
+            .padding(3)
+            .animation(.easeInOut(duration: 0.12), value: show)
     }
 
     private func load() async {
