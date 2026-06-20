@@ -103,8 +103,6 @@ final class MessageDisplayModel: ObservableObject {
     /// instead of blanking for the debounce. The debounce is owned by the model
     /// so a leave/teardown can cancel it (see `clearPreview`).
     func requestPreview(_ id: String) {
-        // Immediate (the visual preview below is debounced, but the hover-"C"
-        // copy must work the instant the pointer is over the image).
         hoveredImageID = id
         previewDebounce?.cancel()
         if previewImageID != nil {
@@ -123,8 +121,6 @@ final class MessageDisplayModel: ObservableObject {
     /// which can land before this leave, isn't undone).
     func endPreview(forCell id: String) {
         previewDebounce?.cancel()
-        // Owner-check (mirrors previewImageID): an adjacent cell's enter can set
-        // hoveredImageID before this leave fires, so only clear our own id.
         if hoveredImageID == id { hoveredImageID = nil }
         if previewImageID == id {
             withAnimation(.easeOut(duration: 0.18)) { previewImageID = nil }
@@ -629,9 +625,6 @@ struct MessageNotchContainer: View {
     /// Text below the notch; avatar lifted into the strip left of the cutout,
     /// flush with the text's leading edge so the line starts right under it.
     private var notchedTeaser: some View {
-        // The channel icon leads the line and is vertically centered with the
-        // single-line message; being outside the ticker window it stays put
-        // (always visible at the start) while the text scrolls.
         HStack(spacing: 6) {
             Image(systemName: message.isDirect ? "lock.fill" : "globe")
                 .font(.system(size: 9))
@@ -644,8 +637,6 @@ struct MessageNotchContainer: View {
             CompactAvatarView(name: message.sender, avatarData: message.avatarData)
                 .offset(y: avatarOffsetY)
         }
-        // In the teaser the message IS the whole content — clicking
-        // it starts the reply (and expands).
         .background(AreaMarker { [weak model] in model?.teaserMarker = $0 })
     }
 
@@ -653,7 +644,6 @@ struct MessageNotchContainer: View {
     private var fallbackTeaser: some View {
         HStack(spacing: 10) {
             CompactAvatarView(name: message.sender, avatarData: message.avatarData)
-            // Channel icon leads the message (mirrors notchedTeaser).
             HStack(spacing: 6) {
                 Image(systemName: message.isDirect ? "lock.fill" : "globe")
                     .font(.system(size: 9))
@@ -705,10 +695,6 @@ struct MessageNotchContainer: View {
         return message.images.count == 1 ? "Image" : "\(message.images.count) images"
     }
 
-    /// Copies the current message's text — a plain message's body, or an
-    /// album's caption. Pictures are copied per-image via the glyph on each
-    /// cell (see AlbumCell), so a captionless image message has nothing to copy
-    /// here and hides this button entirely (see showsMessageCopyButton).
     private func copyCurrent() {
         model.copy(message.text)
     }
@@ -786,9 +772,6 @@ private struct HistoryRow: View {
         // glyph appears as soon as the pointer is in the history block — no need
         // to land exactly on the text — while collapsed rows stay compact.
         .contentShape(Rectangle())
-        // Hover gates the glyph, its click target, AND the bare-"C" copy
-        // shortcut (NotchPresenter watches hoveredHistoryID). An un-hovered
-        // row's trailing area still toggles the history via the monitor.
         .onHover { inside in
             hovering = inside
             if inside {
@@ -801,7 +784,6 @@ private struct HistoryRow: View {
         }
     }
 
-    /// Dot, sender and channel icon of the row.
     private var header: some View {
         HStack(spacing: 4) {
             Circle()
@@ -948,12 +930,10 @@ private struct HistoryAlbumCell: View {
     }
 
     private func load() async {
-        // Instant preview from the inline thumbnail.
         if decoded == nil {
             let thumb = image.thumb
             decoded = await Task.detached { ImageCodec.decode(thumb, maxPixels: 300) }.value
         }
-        // Full resolution: reuse the shared cache, else fetch once via the loader.
         if let full = model.fullImages[image.id] {
             decoded = await Task.detached { ImageCodec.decode(full, maxPixels: 900) }.value
             return
