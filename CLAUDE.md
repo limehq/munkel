@@ -115,29 +115,14 @@ fails otherwise): `cd apps/server && bunx wrangler r2 bucket create munkel-blobs
 
 ## Working on an issue
 
-When asked to work on an issue (e.g. "arbeite an Issue #N"):
-
-1. **Check for an existing draft PR first.** Someone may already own it — never
-   open a duplicate. Look for an open PR that references the issue, and check the
-   issue's assignee:
-   ```sh
-   gh pr list --state open --search "N in:body" --json number,title,isDraft,url,headRefName
-   gh issue view N            # assignee + linked PRs signal who already holds it
-   ```
-   If an open (draft) PR already references the issue, it is taken — coordinate or
-   pick another instead of starting a parallel branch.
-2. **Assign the issue** to whoever is doing the work — this is the ownership
-   signal: `gh issue edit N --add-assignee @me` (or the relevant login).
-3. **Open a draft PR immediately**, before the work is finished, so the issue↔PR
-   link exists from the start and others can see who is on what:
-   - Branch from `main` (`<type>/<short-slug>`), make the first commit — the
-     initial change, or `git commit --allow-empty -m "chore: start #N"` if nothing
-     is ready yet — and `git push -u origin <branch>`.
-   - `gh pr create --draft --base main --title "<type>: <summary>" --body "Closes #N"`.
-     The `Closes #N` keyword links the PR under the issue's Development section and
-     auto-closes the issue on merge.
-   - Take it out of draft with `gh pr ready <PR>` only once it is genuinely
-     reviewable.
+Starting work on a GitHub issue follows a fixed workflow — **check for an
+existing draft PR and the issue's assignee first** (never duplicate work someone
+already owns), then **claim the issue** by assigning it and open a **draft PR
+immediately**, linked with `Closes #N`, so ownership and in-flight work are
+visible from the start. The full procedure with the exact `gh` commands lives in
+the `github-issue-workflow` skill
+(`.claude/skills/github-issue-workflow/SKILL.md`) — follow it whenever you are
+asked to work on, start, or pick up an issue.
 
 ## Conventions
 
