@@ -9,7 +9,8 @@
 		"test": "turbo test",
 		"typecheck": "turbo typecheck",
 		"deploy": "turbo deploy",
-		"build:release": "scripts/build-release.sh"
+		"build:release": "scripts/build-release.sh",
+		"test:interop": "bun scripts/interop.ts"
 	},
 	"overrides": {
 		"esbuild": "0.28.1"
