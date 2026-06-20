@@ -18,6 +18,21 @@ the plaintext code.
 
 Website: **[munkel.app](https://munkel.app)**
 
+## Quick start
+
+1. Install the app and CLI: `brew install limehq/tap/munkel`, then `open -a Munkel`.
+2. Sign in with GitHub (or just pick a display name) from the menu-bar icon.
+3. Create or join a circle with a shared, spoken code like `blue-table-42`.
+4. Send a message — to the whole circle or one member:
+   - From the app: type in the menu-bar popover.
+   - From the terminal: `munkel blue-table-42 all "coffee?"`
+5. Incoming messages slide out of each recipient's MacBook notch (a floating
+   panel on Macs without a notch).
+
+Full install options (direct download, from source) are in
+[Install](#install); how it all works is in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## Install
 
 **Homebrew** (app plus the `munkel` CLI):
@@ -314,13 +329,19 @@ bun scripts/dev-send.ts blue-table-42 Alex "coffee?"
 
 ## Project health
 
+- [Architecture](docs/ARCHITECTURE.md)
+- [Roadmap](ROADMAP.md)
+- [Governance](GOVERNANCE.md)
+- [Maintainers](MAINTAINERS.md)
 - [Changelog](CHANGELOG.md)
 - [Security policy](SECURITY.md)
 - [Privacy notes](PRIVACY.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Code of conduct](CODE_OF_CONDUCT.md)
+- [Accessibility](docs/ACCESSIBILITY.md)
+- [Internationalization](docs/INTERNATIONALIZATION.md)
 - [Release process](RELEASING.md)
-- [OpenSSF Scorecard report](https://scorecard.dev/viewer/?uri=github.com/limehq/munkel)
+- [OpenSSF Best Practices](https://www.bestpractices.dev/projects/13278) · [OpenSSF Scorecard report](https://scorecard.dev/viewer/?uri=github.com/limehq/munkel)
 
 ## Star history
 
