@@ -750,7 +750,18 @@ private struct HistoryRow: View {
                 HStack(alignment: .top, spacing: 4) {
                     VStack(alignment: .leading, spacing: 1) {
                         header
-                        text.fixedSize(horizontal: false, vertical: true)
+                        if entry.isImage {
+                            // The album that the collapsed 📷 row stands in for —
+                            // thumbnails upgrading to full resolution like the
+                            // current message, with the real caption beneath.
+                            HistoryAlbumGrid(model: model, entry: entry)
+                                .padding(.top, 2)
+                            if !entry.caption.isEmpty {
+                                caption
+                            }
+                        } else {
+                            text.fixedSize(horizontal: false, vertical: true)
+                        }
                     }
                     Spacer(minLength: 4)
                     glyph
@@ -811,6 +822,16 @@ private struct HistoryRow: View {
             .foregroundStyle(.white.opacity(0.55))
     }
 
+    /// The album's real caption, shown under the thumbnails in the expanded
+    /// view (the collapsed row uses the 📷 label in `text` instead).
+    private var caption: some View {
+        Text(entry.caption)
+            .font(.system(size: 11))
+            .foregroundStyle(.white.opacity(0.55))
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.top, 2)
+    }
+
     /// Copy affordance: hidden until hover (or while its checkmark lingers),
     /// always reserving its slot so the text doesn't reflow on reveal. The
     /// hit target only exists while hovered — NotchPresenter copies the row
@@ -828,6 +849,122 @@ private struct HistoryRow: View {
                 }
             }
             .animation(.easeInOut(duration: 0.12), value: show)
+    }
+}
+
+/// The album of a past image message, laid out for the expanded history: a lone
+/// picture fits its aspect, an album packs up to four square thumbnails per row —
+/// a compact echo of the current message's grid (MessageNotchView.imageContent),
+/// scaled down to suit the secondary, dimmed history area.
+private struct HistoryAlbumGrid: View {
+    @ObservedObject var model: MessageDisplayModel
+    let entry: HistoryEntry
+
+    /// Narrower than the current message's grid: the history block is inset and
+    /// leaves room for the trailing copy glyph.
+    private let maxWidth: CGFloat = 196
+    private let spacing: CGFloat = 4
+
+    var body: some View {
+        let images = entry.images
+        if images.count == 1, let only = images.first {
+            let size = fittedSize(width: only.width, height: only.height)
+            HistoryAlbumCell(model: model, image: only, loadFull: entry.loadFull, fill: false)
+                .frame(width: size.width, height: size.height)
+                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+        } else {
+            let columnCount = min(4, images.count)
+            let side = (maxWidth - CGFloat(columnCount - 1) * spacing) / CGFloat(columnCount)
+            let columns = Array(
+                repeating: GridItem(.fixed(side), spacing: spacing),
+                count: columnCount
+            )
+            LazyVGrid(columns: columns, alignment: .leading, spacing: spacing) {
+                ForEach(images) { img in
+                    HistoryAlbumCell(model: model, image: img, loadFull: entry.loadFull, fill: true)
+                        .frame(width: side, height: side)
+                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+                }
+            }
+            .frame(width: maxWidth, alignment: .leading)
+        }
+    }
+
+    /// A lone image's aspect scaled to fit the history box (never upscaled past it).
+    private func fittedSize(width: Int, height: Int) -> CGSize {
+        let w = CGFloat(width)
+        let h = CGFloat(height)
+        let maxHeight: CGFloat = 130
+        guard w > 0, h > 0 else { return CGSize(width: maxWidth, height: maxWidth * 0.6) }
+        let scale = min(maxWidth / w, maxHeight / h)
+        return CGSize(width: max(1, w * scale), height: max(1, h * scale))
+    }
+}
+
+/// One history image cell: paints its inline thumbnail at once, then upgrades to
+/// full resolution via the entry's loader, caching the bytes on the shared model
+/// (keyed by the unique r2Key) so a collapse→expand toggle re-decodes from cache
+/// instead of re-fetching from R2. A self-contained sibling of `AlbumCell`
+/// WITHOUT the per-image copy glyph or hover preview — those belong to the
+/// current message; the history echo is a read-only thumbnail.
+///
+/// Cells mount — and so fetch — only when the history is actually expanded, and
+/// only the FIRST expand fetches (later ones hit the cache). The resulting burst
+/// across the backlog is hard-bounded by the ≤60 s history window, and R2 GETs
+/// stay valid within that window (the blob TTL mirrors it, and a GET isn't
+/// delete-on-fetch), so concurrent re-fetches are safe.
+private struct HistoryAlbumCell: View {
+    @ObservedObject var model: MessageDisplayModel
+    let image: IncomingImage
+    let loadFull: (@Sendable (String) async -> Data?)?
+    /// Grid cells fill+crop to a square; a lone image fits its aspect.
+    let fill: Bool
+
+    @State private var decoded: CGImage?
+
+    private var isLoaded: Bool { model.fullImages[image.id] != nil }
+    private var didFail: Bool { model.failedImages.contains(image.id) }
+
+    var body: some View {
+        ZStack {
+            if let decoded {
+                Image(decorative: decoded, scale: 1)
+                    .resizable()
+                    .interpolation(.medium)
+                    .aspectRatio(contentMode: fill ? .fill : .fit)
+            } else {
+                Rectangle().fill(.white.opacity(0.08))
+            }
+            if !isLoaded, !didFail {
+                ProgressView().controlSize(.small).tint(.white.opacity(0.7))
+            } else if didFail {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 12))
+                    .foregroundStyle(.white.opacity(0.5))
+            }
+        }
+        .clipped()
+        .task { await load() }
+    }
+
+    private func load() async {
+        // Instant preview from the inline thumbnail.
+        if decoded == nil {
+            let thumb = image.thumb
+            decoded = await Task.detached { ImageCodec.decode(thumb, maxPixels: 300) }.value
+        }
+        // Full resolution: reuse the shared cache, else fetch once via the loader.
+        if let full = model.fullImages[image.id] {
+            decoded = await Task.detached { ImageCodec.decode(full, maxPixels: 900) }.value
+            return
+        }
+        guard !didFail, let loadFull else { return }
+        if let data = await loadFull(image.id) {
+            model.fullImages[image.id] = data
+            decoded = await Task.detached { ImageCodec.decode(data, maxPixels: 900) }.value
+        } else {
+            model.failedImages.insert(image.id)
+        }
     }
 }
 

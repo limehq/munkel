@@ -121,7 +121,13 @@ final class NotchPresenter {
             isDirect: isDirect,
             group: group,
             groupColor: groupColor,
-            receivedAt: Date()
+            receivedAt: Date(),
+            // Carry the album so the expanded history can show it later; the
+            // collapsed row still reads as the 📷 label above. `text` is the
+            // raw caption here (empty for a captionless album / plain message).
+            images: images,
+            caption: images.isEmpty ? "" : text,
+            loadFull: loadFull
         )
         pruneHistory()
         history.append(entry)
