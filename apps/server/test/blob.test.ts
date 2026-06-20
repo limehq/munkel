@@ -35,7 +35,7 @@ class FakeBucket {
 }
 
 const GROUP = 'a'.repeat(32);
-const KEY = 'abcdefghijklmnop'; // 16 chars, passes BLOB_KEY_REGEX
+const KEY = 'abcdefghijklmnop';
 const PATH = `/blob/${GROUP}/${KEY}`;
 
 function makeApp(bucket: FakeBucket) {
