@@ -2,16 +2,9 @@ import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
 import { clientMessageSchema, MAX_PAYLOAD_CHARS, MEMBER_ID_REGEX } from '../src/protocol';
 
-// Property-based ("fuzz") tests for the wire-protocol parser. clientMessageSchema
-// runs on every untrusted client frame before any routing, so it is the relay's
-// first line of defense against malformed or hostile input. Unit tests pin down
-// specific cases; these properties feed the parser large random/adversarial inputs
-// and assert invariants that hold for *all* of them.
-
 const MEMBER_ID_ALPHABET =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-'.split('');
 
-/** Strings that always satisfy MEMBER_ID_REGEX (`^[A-Za-z0-9_-]{1,64}$`). */
 const memberIdArb = fc
   .array(fc.constantFrom(...MEMBER_ID_ALPHABET), { minLength: 1, maxLength: 64 })
   .map((chars) => chars.join(''));
