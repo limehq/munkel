@@ -199,9 +199,10 @@ final class NotchPresenter {
         // history row (see MessageDisplayModel.copyHovered).
         model.currentText = message.text
 
-        // Default to the main screen; a future setting (#7) supplies a different
-        // closure. One measurement drives both panel placement and content layout.
-        let targetScreen: @MainActor () -> NSScreen? = { NSScreen.main }
+        // The display chosen in Settings (or the active screen when set to
+        // automatic / the chosen one is unplugged). One measurement drives both
+        // panel placement and content layout.
+        let targetScreen: @MainActor () -> NSScreen? = { DisplayPreference.resolvedScreen() }
         let notchSize = NotchScreenMetrics.metrics(for: targetScreen()).notchSize
         let notch = NotchPanel(hoverBehavior: .all, targetScreen: targetScreen) {
             MessageNotchContainer(
@@ -517,7 +518,7 @@ final class NotchPresenter {
     private func showIndicator() {
         guard indicatorNotch == nil else { return }
 
-        let targetScreen: @MainActor () -> NSScreen? = { NSScreen.main }
+        let targetScreen: @MainActor () -> NSScreen? = { DisplayPreference.resolvedScreen() }
         let indicator = IndicatorNotch(hoverBehavior: .all, targetScreen: targetScreen) {
             UnreadIndicatorView()
         }
@@ -576,7 +577,7 @@ final class NotchPresenter {
             // that could linger into a re-login. No message notch can race here
             // — sessions are login-gated, so none are live mid-sign-in.
             self.hideIndicator()
-            let targetScreen: @MainActor () -> NSScreen? = { NSScreen.main }
+            let targetScreen: @MainActor () -> NSScreen? = { DisplayPreference.resolvedScreen() }
             let notch = AuthCodeNotch(hoverBehavior: .none, targetScreen: targetScreen) {
                 AuthCodeNotchView(code: code)
             }

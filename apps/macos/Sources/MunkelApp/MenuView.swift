@@ -8,6 +8,13 @@ struct MenuView: View {
     @State private var joinCode = ""
     @State private var userCodeCopied = false
     @State private var groupListHeight: CGFloat = 0
+    /// Live list of connected displays, refreshed on screen changes.
+    @StateObject private var displayList = DisplayList()
+    /// "Launch at Login" state that reflects intent immediately and reconciles
+    /// with the real SMAppService status on foreground.
+    @StateObject private var loginItem = LoginItemModel()
+    /// Empty = automatic (active display); otherwise a display's stable UUID.
+    @AppStorage(DisplayPreference.key) private var preferredDisplayID = ""
     #if DEBUG
     @AppStorage("devEchoBroadcasts") private var devEchoBroadcasts = true
     @AppStorage(CaptureScreenshotPreference.defaultsKey) private var allowInScreenshots = false
@@ -145,9 +152,21 @@ struct MenuView: View {
             // Items) and never crashes — `try?` snaps the toggle back to its
             // true state if a register/unregister fails.
             Toggle("Launch at Login", isOn: Binding(
-                get: { LoginItem.isEnabled },
-                set: { try? LoginItem.setEnabled($0) }
+                get: { loginItem.isEnabled },
+                set: { loginItem.setEnabled($0) }
             ))
+            Divider()
+            // Which display the notch appears on. "Automatic" follows the active
+            // screen; a specific pick is remembered by the display's stable UUID
+            // and applies to the next notch (panels are rebuilt per message).
+            Picker(selection: $preferredDisplayID) {
+                Text("Automatic").tag("")
+                ForEach(displayList.displays) { option in
+                    Text(option.name).tag(option.id)
+                }
+            } label: {
+                Label("Notch display", systemImage: "display")
+            }
             #if DEBUG
             Divider()
             Toggle("Echo my broadcasts to me", isOn: $devEchoBroadcasts)

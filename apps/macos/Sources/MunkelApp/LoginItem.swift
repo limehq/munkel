@@ -1,3 +1,5 @@
+import AppKit
+import Combine
 import Foundation
 import ServiceManagement
 
@@ -50,5 +52,42 @@ enum LoginItem {
         } catch {
             NSLog("munkel: login-item auto-register failed: \(error)")
         }
+    }
+}
+
+/// Drives the "Launch at Login" toggle. Binding the toggle straight to
+/// `LoginItem.isEnabled` looked right but read stale: `SMAppService.status`
+/// doesn't update synchronously when `register()` returns, so SwiftUI re-read
+/// the old value the instant after the call and snapped the toggle back off
+/// even though registration had just succeeded.
+///
+/// Instead this reflects the user's intent optimistically the moment the call
+/// succeeds (or the true state if it threw), then reconciles with the real
+/// status whenever the app returns to the foreground — which also picks up
+/// changes the user made in System Settings › Login Items.
+@MainActor
+final class LoginItemModel: ObservableObject {
+    @Published var isEnabled: Bool
+    private var observation: AnyCancellable?
+
+    init() {
+        isEnabled = LoginItem.isEnabled
+        observation = NotificationCenter.default
+            .publisher(for: NSApplication.didBecomeActiveNotification)
+            .sink { [weak self] _ in self?.reconcile() }
+    }
+
+    func setEnabled(_ enabled: Bool) {
+        do {
+            try LoginItem.setEnabled(enabled)
+            isEnabled = enabled
+        } catch {
+            isEnabled = LoginItem.isEnabled
+        }
+    }
+
+    private func reconcile() {
+        let real = LoginItem.isEnabled
+        if real != isEnabled { isEnabled = real }
     }
 }
