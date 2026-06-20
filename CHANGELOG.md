@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.11.0](https://github.com/limehq/munkel/compare/v0.10.0...v0.11.0) (2026-06-20)
+
+
+### Features
+
+* **landing:** warm meerkat theme + app icon throughout ([#90](https://github.com/limehq/munkel/issues/90)) ([8787edd](https://github.com/limehq/munkel/commit/8787edd7ad4f92cae44a99afc07df04a873f9c43))
+* **macos:** app icon + Munkel glyph in menu bar/popover ([#76](https://github.com/limehq/munkel/issues/76)) ([556c766](https://github.com/limehq/munkel/commit/556c7661999ffcb8f019dd6fc06d131c6ab4746f))
+* **macos:** attach images to inline notch reply ([#88](https://github.com/limehq/munkel/issues/88)) ([787b402](https://github.com/limehq/munkel/commit/787b4022464b1632c3a1ea7da465898fea558d2b)), closes [#68](https://github.com/limehq/munkel/issues/68)
+* **macos:** free-floating Quick Look hover preview for album images ([#84](https://github.com/limehq/munkel/issues/84)) ([c7f5410](https://github.com/limehq/munkel/commit/c7f5410a328f8c66262b6e571081c818c42d38e0)), closes [#69](https://github.com/limehq/munkel/issues/69)
+* **macos:** notch display picker, ⌥M quick-send default, Launch-at-Login fix ([#95](https://github.com/limehq/munkel/issues/95)) ([5eb723e](https://github.com/limehq/munkel/commit/5eb723e16a3266c2f4ac3105e874985b7e4efd4e))
+* **macos:** per-image and per-message copy controls in the notch ([#86](https://github.com/limehq/munkel/issues/86)) ([ab53a05](https://github.com/limehq/munkel/commit/ab53a0543c058bd41dc00bf3a9b6ba1daa68f997)), closes [#71](https://github.com/limehq/munkel/issues/71)
+* **macos:** render past image messages in the expanded notch history ([#93](https://github.com/limehq/munkel/issues/93)) ([ea39d17](https://github.com/limehq/munkel/commit/ea39d17cd611f7dc1a928cc4dcec5228c98b8c58))
+
+
+### Bug Fixes
+
+* **macos:** harden auth-code notch (review follow-ups) ([#87](https://github.com/limehq/munkel/issues/87)) ([6e50de5](https://github.com/limehq/munkel/commit/6e50de5e3663fa67ab76dd0cf64941b400ee06bc))
+* **macos:** keep GitHub sign-in code visible in the notch ([#85](https://github.com/limehq/munkel/issues/85)) ([63b49ae](https://github.com/limehq/munkel/commit/63b49ae80f1ad49115ae864b16ef9c7818a2a3be))
+* **macos:** keep the notch reply alive while the image picker is open ([#91](https://github.com/limehq/munkel/issues/91)) ([8773570](https://github.com/limehq/munkel/commit/87735702888222940e728721bf0f42eaf3fe3834))
+* **macos:** notch image thumbnails — per-image copy, layout & hover fixes ([#92](https://github.com/limehq/munkel/issues/92)) ([4bea7b9](https://github.com/limehq/munkel/commit/4bea7b9afebcdbb6a6281620f69e50720ddaf658))
+* **macos:** pack ~4 album thumbnails per row in the notch ([#82](https://github.com/limehq/munkel/issues/82)) ([ade1300](https://github.com/limehq/munkel/commit/ade13005ec846ddcb9700f892b8f9e42c786f3c9)), closes [#67](https://github.com/limehq/munkel/issues/67)
+
 ## [0.10.0](https://github.com/limehq/munkel/compare/v0.9.0...v0.10.0) (2026-06-19)
 
 

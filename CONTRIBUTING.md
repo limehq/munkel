@@ -44,37 +44,6 @@ workflow.
 - Use Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`). Release
   Please uses those commits to maintain `CHANGELOG.md` and releases.
 
-## Developer Certificate of Origin (DCO)
-
-All contributions must be signed off. Every commit needs a `Signed-off-by`
-trailer in its message:
-
-```
-Signed-off-by: Your Name <your.email@example.com>
-```
-
-The easiest way to add it is the `-s` flag:
-
-```sh
-git commit -s -m "fix: correct circle-code derivation"
-```
-
-To fix a commit that is missing the trailer:
-
-```sh
-git commit --amend -s        # amend the most recent commit
-git rebase --signoff main    # add sign-off to every commit on the branch
-```
-
-Signing off certifies that you wrote the change, or otherwise have the right
-to submit it under the project's [MIT license](LICENSE), as described by the
-[Developer Certificate of Origin 1.1](https://developercertificate.org/). The
-name and email in the trailer must be real.
-
-CI enforces sign-off on pull requests: the DCO check
-(`.github/workflows/dco.yml`) fails any PR whose non-merge commits lack a
-`Signed-off-by` trailer. Re-push after amending or rebasing to clear it.
-
 ## Keeping documentation current
 
 Documentation lives next to the code and is expected to match it. When a change
