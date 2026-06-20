@@ -17,7 +17,7 @@ the main process by `ipcMain.handle(...)`.
 | `quit-app` | `() => Promise<void>` | `main.ts` | Quits the application. |
 | `join-circle` | `(code: string, relayUrl?: string) => Promise<void>` | `session-handlers.ts` | Join or create a circle. |
 | `leave-circle` | `(code: string) => Promise<void>` | `session-handlers.ts` | Leave a circle. |
-| `send-chat` | `(code: string, text: string, to?: string) => Promise<boolean>` | `session-handlers.ts` | Encrypt and send a chat message. |
+| `send-chat` | `(code: string, text: string, to?: string) => Promise<{ ok: boolean; error?: string }>` | `session-handlers.ts` | Encrypt and send a chat message. `ok: false` carries a user-facing `error` (e.g. `"Message too long (…; max …)."` when over `MAX_PAYLOAD_CHARS`, or `"Circle offline — message not sent."` when the relay is down). |
 | `update-profile` | `(displayName: string, avatar?: string) => Promise<void>` | `session-handlers.ts` | Update local identity. |
 | `set-relay-url` | `(code: string, relayUrl: string) => Promise<void>` | `session-handlers.ts` | Change relay URL for a circle. |
 | `get-state` | `() => Promise<StateUpdate>` | `session-handlers.ts` | Returns current identity and circles. |

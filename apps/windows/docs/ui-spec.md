@@ -45,8 +45,13 @@ mean "online"/"offline" in the menu. Windows uses the same fixed palette:
 ```
 blue (#3b82f6), purple (#a855f7), pink (#ec4899),
 teal (#14b8a6), yellow (#eab308), indigo (#6366f1),
-mint (#10b981), brown (#a87132)
+mint (#10b981), brown (#92400e)
 ```
+
+Windows uses Tailwind `amber-900` (`#92400e`) for the brown slot rather
+than SwiftUI's semantic `.brown` (`#a87132`) so the palette stays in the
+Tailwind vocabulary the rest of the design system uses; the 8-color
+ordering and the green/orange exclusion are otherwise identical.
 
 Circle colors are assigned by index in the joined list.
 
