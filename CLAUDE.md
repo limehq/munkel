@@ -113,6 +113,32 @@ bunx turbo deploy --filter=@munkel/landing    # munkel.app
 One-time before the first relay deploy that includes the R2 binding (the deploy
 fails otherwise): `cd apps/server && bunx wrangler r2 bucket create munkel-blobs`.
 
+## Working on an issue
+
+When asked to work on an issue (e.g. "arbeite an Issue #N"):
+
+1. **Check for an existing draft PR first.** Someone may already own it — never
+   open a duplicate. Look for an open PR that references the issue, and check the
+   issue's assignee:
+   ```sh
+   gh pr list --state open --search "N in:body" --json number,title,isDraft,url,headRefName
+   gh issue view N            # assignee + linked PRs signal who already holds it
+   ```
+   If an open (draft) PR already references the issue, it is taken — coordinate or
+   pick another instead of starting a parallel branch.
+2. **Assign the issue** to whoever is doing the work — this is the ownership
+   signal: `gh issue edit N --add-assignee @me` (or the relevant login).
+3. **Open a draft PR immediately**, before the work is finished, so the issue↔PR
+   link exists from the start and others can see who is on what:
+   - Branch from `main` (`<type>/<short-slug>`), make the first commit — the
+     initial change, or `git commit --allow-empty -m "chore: start #N"` if nothing
+     is ready yet — and `git push -u origin <branch>`.
+   - `gh pr create --draft --base main --title "<type>: <summary>" --body "Closes #N"`.
+     The `Closes #N` keyword links the PR under the issue's Development section and
+     auto-closes the issue on merge.
+   - Take it out of draft with `gh pr ready <PR>` only once it is genuinely
+     reviewable.
+
 ## Conventions
 
 - **No comments in source code (Swift/TS).** Zero — code must be fully
