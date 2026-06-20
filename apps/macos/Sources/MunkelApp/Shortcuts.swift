@@ -1,13 +1,13 @@
 import KeyboardShortcuts
 
 extension KeyboardShortcuts.Name {
-    /// Opens the quick-send command palette from anywhere. Default ⌃⌘M:
-    /// two modifiers avoid the "greedy single-modifier" trap, ⌘M alone is
-    /// Minimize, and ⌥ would clash with character entry (µ). User-rebindable
-    /// via the Recorder in the menu.
+    /// Opens the quick-send command palette from anywhere. Default ⌥M: a quick
+    /// one-hand reach for the app's primary action. It shadows ⌥M's µ character
+    /// entry, an accepted trade-off for the convenience; user-rebindable via the
+    /// Recorder in the menu for anyone who needs µ.
     static let togglePalette = Self(
         "togglePalette",
-        initial: .init(.m, modifiers: [.control, .command])
+        initial: .init(.m, modifiers: [.option])
     )
 
     /// Copy the message under the pointer (a hovered history row, or the
