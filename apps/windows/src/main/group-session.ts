@@ -194,12 +194,18 @@ export class GroupSession {
 							this.members[index].displayName = decoded.displayName;
 							if (decoded.avatar !== undefined) {
 								this.members[index].avatar = decoded.avatar;
+							} else {
+								// Sender explicitly cleared their avatar (relay
+								// sends `{kind:'profile', displayName}` with no
+								// `avatar` key). macOS already honors this; the
+								// Windows side used to keep the stale avatar.
+								delete this.members[index].avatar;
 							}
 						} else {
 							this.members.push({
 								memberId: frame.from,
 								displayName: decoded.displayName,
-								avatar: decoded.avatar,
+								...(decoded.avatar !== undefined ? { avatar: decoded.avatar } : {}),
 								joinedAt: new Date().toISOString(),
 							});
 						}

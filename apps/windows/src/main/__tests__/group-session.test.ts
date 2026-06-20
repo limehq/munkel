@@ -119,6 +119,93 @@ describe('GroupSession', () => {
 		session.disconnect();
 	});
 
+	test('clears an existing avatar when an incoming profile omits it', async () => {
+		const wss = startServer();
+		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
+		const code = 'amber-fox';
+		const { messageKey } = await deriveGroupKeys(code);
+
+		const states: CircleState[] = [];
+		const session = await GroupSession.create(
+			code,
+			relayUrl,
+			memberId,
+			{ displayName: 'Windows User' },
+			{
+				onStateChange: (state) => states.push(state),
+				onChat: () => {},
+				onNotch: () => {},
+				getColorIndex: () => 0,
+			},
+		);
+		session.connect();
+
+		await waitFor(() => serverSocket !== null);
+		serverSocket!.send(JSON.stringify({ type: 'welcome', members: ['peer-1'] }));
+		await waitFor(() => states.some((s) => s.isConnected));
+
+		// Step 1: peer-1 broadcasts a profile WITH an avatar.
+		const withAvatar = encodeProfile('Alice', 'data:image/png;base64,AAAA');
+		const sealed1 = await seal(JSON.stringify(withAvatar), messageKey);
+		serverSocket!.send(JSON.stringify({ type: 'message', from: 'peer-1', payload: sealed1 }));
+		await waitFor(() =>
+			states.some((s) => s.members.some((m) => m.memberId === 'peer-1' && m.avatar === 'data:image/png;base64,AAAA')),
+		);
+
+		// Step 2: peer-1 broadcasts a profile WITHOUT an avatar → must clear.
+		const cleared = encodeProfile('AliceNew');
+		const sealed2 = await seal(JSON.stringify(cleared), messageKey);
+		serverSocket!.send(JSON.stringify({ type: 'message', from: 'peer-1', payload: sealed2 }));
+		await waitFor(() =>
+			states.some((s) => {
+				const m = s.members.find((m) => m.memberId === 'peer-1');
+				return m?.displayName === 'AliceNew' && m.avatar === undefined;
+			}),
+		);
+
+		session.disconnect();
+	});
+
+	test('does not set an avatar on a fresh peer when the incoming profile omits it', async () => {
+		const wss = startServer();
+		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
+		const code = 'cobalt-hare';
+		const { messageKey } = await deriveGroupKeys(code);
+
+		const states: CircleState[] = [];
+		const session = await GroupSession.create(
+			code,
+			relayUrl,
+			memberId,
+			{ displayName: 'Windows User' },
+			{
+				onStateChange: (state) => states.push(state),
+				onChat: () => {},
+				onNotch: () => {},
+				getColorIndex: () => 0,
+			},
+		);
+		session.connect();
+
+		await waitFor(() => serverSocket !== null);
+		// Welcome with NO peer-1 yet; the profile frame introduces them.
+		serverSocket!.send(JSON.stringify({ type: 'welcome', members: [] }));
+		await waitFor(() => states.some((s) => s.isConnected));
+
+		const profilePayload = encodeProfile('Bob');
+		const sealed = await seal(JSON.stringify(profilePayload), messageKey);
+		serverSocket!.send(JSON.stringify({ type: 'message', from: 'peer-2', payload: sealed }));
+
+		await waitFor(() =>
+			states.some((s) => {
+				const m = s.members.find((m) => m.memberId === 'peer-2');
+				return m?.displayName === 'Bob' && m.avatar === undefined;
+			}),
+		);
+
+		session.disconnect();
+	});
+
 	test('receives chat messages and fires onChat + onNotch', async () => {
 		const wss = startServer();
 		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
