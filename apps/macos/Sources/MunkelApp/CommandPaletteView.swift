@@ -51,8 +51,6 @@ struct CommandPaletteView: View {
         }
     }
 
-    // MARK: - Target chips, grouped by circle
-
     @ViewBuilder
     private var content: some View {
         if state.recipients.isEmpty {
@@ -152,8 +150,6 @@ struct CommandPaletteView: View {
         .animation(.spring(duration: 0.2), value: selected)
     }
 
-    // MARK: - Composer
-
     private var composer: some View {
         VStack(spacing: 0) {
             if !state.attachedImages.isEmpty {
@@ -234,8 +230,6 @@ struct CommandPaletteView: View {
         .focusable(false)
         .disabled(!state.canAttachMore)
     }
-
-    // MARK: - Derived
 
     private var isEmpty: Bool {
         state.message.trimmingCharacters(in: .whitespaces).isEmpty
