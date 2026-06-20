@@ -165,7 +165,7 @@ struct MenuView: View {
                     Text(option.name).tag(option.id)
                 }
             } label: {
-                Label("Notch display", systemImage: "display")
+                Label("Preferred Display", systemImage: "display")
             }
             #if DEBUG
             Divider()
