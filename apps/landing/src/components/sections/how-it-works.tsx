@@ -1,4 +1,3 @@
-/** How it works: asymmetric editorial timeline (sticky head + numbered steps). */
 export function HowItWorks() {
   return (
     <section id="how">
