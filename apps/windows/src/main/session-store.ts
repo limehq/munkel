@@ -45,6 +45,11 @@ export class AppState {
 			},
 			onNotch: (message) => this.onNotch(message),
 			onError: (message) => this.onRelayError?.(message),
+			getColorIndex: () => {
+				// Read at call time so the color follows the live joined
+				// order after `leaveCircle` / `setRelayUrl`.
+				return this.getState().circles.findIndex((c) => c.code === normalized);
+			},
 		});
 
 		this.sessions.set(normalized, session);

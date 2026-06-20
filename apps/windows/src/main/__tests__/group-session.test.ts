@@ -67,6 +67,7 @@ describe('GroupSession', () => {
 				onStateChange: (state) => states.push(state),
 				onChat: () => {},
 				onNotch: () => {},
+				getColorIndex: () => 0,
 			},
 		);
 		session.connect();
@@ -98,6 +99,7 @@ describe('GroupSession', () => {
 				onStateChange: (state) => states.push(state),
 				onChat: () => {},
 				onNotch: () => {},
+				getColorIndex: () => 0,
 			},
 		);
 		session.connect();
@@ -134,6 +136,7 @@ describe('GroupSession', () => {
 				onStateChange: () => {},
 				onChat: (payload) => chats.push(payload),
 				onNotch: (message) => notches.push(message),
+				getColorIndex: () => 0,
 			},
 		);
 		session.connect();
@@ -172,6 +175,7 @@ describe('GroupSession', () => {
 				onStateChange: () => {},
 				onChat: () => {},
 				onNotch: () => {},
+				getColorIndex: () => 0,
 			},
 		);
 		session.connect();

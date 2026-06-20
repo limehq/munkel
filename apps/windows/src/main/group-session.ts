@@ -17,6 +17,12 @@ export interface GroupSessionCallbacks {
 	onChat(payload: { sender: string; text: string; isDirect: boolean; sentAt: string }): void;
 	onNotch(message: NotchMessage): void;
 	onError?(message: string): void;
+	/**
+	 * Current joined-list index for this circle. Read at every call site
+	 * (not stored on the session) so the color follows the live joined
+	 * order after `leaveCircle` / `setRelayUrl`.
+	 */
+	getColorIndex(): number;
 }
 
 export class GroupSession {
@@ -180,7 +186,7 @@ export class GroupSession {
 							text: decoded.text,
 							isDirect,
 							group: this.code,
-							groupColor: getCircleColor(this.code),
+							groupColor: getCircleColor(this.callbacks.getColorIndex()),
 						});
 					} else if (decoded.kind === 'profile') {
 						const index = this.members.findIndex((m) => m.memberId === frame.from);
