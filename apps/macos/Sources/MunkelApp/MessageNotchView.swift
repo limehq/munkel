@@ -84,7 +84,6 @@ struct MessageNotchView: View {
         let count = message.images.count
         let columnCount = min(4, count)
         let side = (imageWidth - CGFloat(columnCount - 1) * gridSpacing) / CGFloat(columnCount)
-        // A lone image gets a slightly softer corner than the tighter album cells.
         let radius: CGFloat = count == 1 ? 10 : 8
         let rows = stride(from: 0, to: count, by: columnCount).map { start in
             Array(message.images[start..<min(start + columnCount, count)])
@@ -145,8 +144,7 @@ struct AlbumCell: View {
     private var isLoaded: Bool { model.fullImages[image.id] != nil }
     private var didFail: Bool { model.failedImages.contains(image.id) }
 
-    /// Matches the history rows' copy glyph.
-    private let glyphDiameter: CGFloat = 20
+        private let glyphDiameter: CGFloat = 20
 
     var body: some View {
         ZStack {
@@ -290,9 +288,9 @@ struct NotchThumb: View {
         .frame(width: side, height: side)
         .clipped()
         .task {
-            let thumb = thumb
+            let data = thumb
             let pixels = Int(side * 2)
-            decoded = await Task.detached { ImageCodec.decode(thumb, maxPixels: pixels) }.value
+            decoded = await Task.detached { ImageCodec.decode(data, maxPixels: pixels) }.value
         }
     }
 }

@@ -68,12 +68,10 @@ struct ImageCodecTests {
     }
 
     @Test(.enabled(if: avifEncodeRunsHere)) func prepareFullTranscodesToAVIF() {
-        // A small PNG is still transcoded to AVIF (no passthrough) and is a
-        // recognizable, decodable image of the same pixel size.
         let png = noisePNG(width: 64, height: 64)
         let prepared = try! #require(ImageCodec.prepareFull(from: png))
         #expect(prepared.mime == "image/avif")
-        #expect(isAVIF(prepared.data)) // real AVIF bytes, not just the mime label
+        #expect(isAVIF(prepared.data))
         #expect(prepared.data != png)
         #expect(prepared.width == 64)
         #expect(prepared.height == 64)
@@ -90,8 +88,6 @@ struct ImageCodecTests {
     }
 
     @Test(.enabled(if: avifEncodeRunsHere)) func prepareFullDefaultsToPixelCeiling() {
-        // With no explicit maxPixels, a large source is bounded by the default
-        // ceiling (2048) — we don't ship pixels the receiver decodes away.
         #expect(ImageCodec.maxFullPixels == 2048)
         let big = noisePNG(width: 2400, height: 1000)
         let prepared = try! #require(ImageCodec.prepareFull(from: big))
@@ -102,13 +98,11 @@ struct ImageCodecTests {
         let big = noisePNG(width: 800, height: 800)
         let thumb = try! #require(ImageCodec.makeThumbnail(from: big))
         #expect(thumb.count <= ImageCodec.maxThumbBytes)
-        #expect(isAVIF(thumb)) // the inline thumb is AVIF too — one format
-        // And it stays decodable for display.
+        #expect(isAVIF(thumb))
         #expect(ImageCodec.decode(thumb) != nil)
     }
 
     @Test(.enabled(if: avifEncodeRunsHere)) func makeThumbnailFitsTinyAlbumBudget() {
-        // An 8-image album gives each thumb only ~2 KiB — AVIF must still fit.
         let big = noisePNG(width: 800, height: 800)
         let thumb = try! #require(ImageCodec.makeThumbnail(from: big, maxBytes: 2_048))
         #expect(thumb.count <= 2_048)

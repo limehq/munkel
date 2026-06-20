@@ -73,9 +73,6 @@ final class CommandPalettePresenter {
         state.reset()
     }
 
-    /// Opens a file picker to attach an image from disk (the paperclip, à la
-    /// Slack). Runs modally while suppressing the palette's resign-key dismiss,
-    /// then restores key focus so the palette stays put with the attachment.
     private func pickImageFile() {
         guard let panel else { return }
         suppressResignHide = true
@@ -99,8 +96,6 @@ final class CommandPalettePresenter {
         }
     }
 
-    /// Centered horizontally on the screen under the pointer, upper third —
-    /// the Spotlight position.
     private func position(_ panel: CommandPalettePanel) {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
@@ -144,7 +139,7 @@ final class CommandPalettePresenter {
                 if let dir {
                     self.state.move(dir)
                     consumed = true
-                } else if event.keyCode == 48 { // Tab key
+                } else if event.keyCode == 48 {
                     let backward = event.modifierFlags.contains(.shift)
                     self.state.moveTab(backward: backward)
                     consumed = true

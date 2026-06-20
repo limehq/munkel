@@ -8,7 +8,6 @@ import Foundation
 enum MessageLimits {
     static let maxCharacters = 2048
 
-    /// Trims `text` to the character cap.
     static func clamp(_ text: String) -> String {
         text.count > maxCharacters ? String(text.prefix(maxCharacters)) : text
     }

@@ -4,11 +4,6 @@ import { cva, type VariantProps } from 'class-variance-authority'
 
 import { cn } from '@/lib/utils'
 
-// Variants mirror the original hand-written buttons 1:1:
-//   primary → .btn-primary (filled, soft brand-tinted glow)
-//   outline → .btn-outline (hairline border)
-//   ghost   → .icon-btn    (transparent, hover surface — nav icon buttons)
-//   nav     → .nav-cta     (muted pill link in the nav bar)
 const buttonVariants = cva(
   'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-[var(--radius-md)] border border-transparent text-sm font-medium transition-[background,border-color,color] outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50',
   {

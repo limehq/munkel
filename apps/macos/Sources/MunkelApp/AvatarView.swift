@@ -7,7 +7,7 @@ import SwiftUI
 /// a stable color across messages and launches.
 struct AvatarView: View {
     let name: String
-    var imageData: Data? = nil
+    var imageData: Data?
     var size: CGFloat = 34
 
     private static let palettes: [[Color]] = [

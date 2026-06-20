@@ -19,12 +19,6 @@ let package = Package(
             ],
             path: "Sources/MunkelApp",
             resources: [.process("Resources")]
-            // No linkerSettings rpath: Sparkle ships as a binary framework that
-            // Swift Bundler embeds in Contents/Frameworks/ and makes loadable by
-            // adding an @executable_path rpath, which resolves Sparkle's
-            // @rpath/../Frameworks/Sparkle.framework/… install name to
-            // Contents/Frameworks/. Adding our own @executable_path here would just
-            // duplicate that rpath (see make-bundle.sh / scripts/build-release.sh).
         ),
         .testTarget(
             name: "MunkelKitTests",

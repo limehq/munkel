@@ -15,7 +15,6 @@ struct MessageCryptoRawTests {
     }
 
     @Test func sealRawIsTheBytesBehindSeal() throws {
-        // seal == base64(sealRaw): both wrap AES.GCM combined output.
         let plaintext = Data("hello".utf8)
         let raw = try MessageCrypto.sealRaw(plaintext, using: key)
         #expect(try MessageCrypto.open(raw.base64EncodedString(), using: key) == plaintext)
@@ -111,7 +110,7 @@ struct AppPayloadAlbumTests {
     @Test func perThumbBudgetScalesAndFloors() {
         #expect(AppPayload.perThumbBudget(imageCount: 1) == 16_384)
         #expect(AppPayload.perThumbBudget(imageCount: 8) == 2_048)
-        #expect(AppPayload.perThumbBudget(imageCount: 20) == 1_200) // floor
+        #expect(AppPayload.perThumbBudget(imageCount: 20) == 1_200)
     }
 
     @Test func fullEightImageAlbumStaysUnderRelayCap() throws {

@@ -27,7 +27,6 @@ final class NotchPresenter {
     private var hideTask: Task<Void, Never>?
     private var pruneTask: Task<Void, Never>?
     private var hoverObservation: AnyCancellable?
-    /// Toggles the plain-"C" hover-copy hotkey on/off as rows are hovered.
     private var hoverCopyObservation: AnyCancellable?
     /// Observes hover on the unread indicator to dismiss it.
     private var indicatorHoverObservation: AnyCancellable?
@@ -38,7 +37,6 @@ final class NotchPresenter {
     /// collapse the open reply. Set during pickImageFile to suppress the
     /// dismiss, mirroring CommandPalettePresenter.suppressResignHide.
     private var suppressReplyDismiss = false
-    /// Tracks whether user has interacted with the current message.
     private var userInteractedWithMessage = false
 
     /// RAM-only message history shown in the expanded notch: everything
@@ -50,15 +48,10 @@ final class NotchPresenter {
     /// superseded while waiting is skipped (it lives on as a history row).
     private var pendingShow: Task<Void, Never>?
     private var showGeneration = 0
-    /// History id of the message currently on screen.
     private var currentEntryID: UUID?
-    /// Whether a notch panel is actually on screen — `fullyExpanded` alone
-    /// is not enough, it stays true after the panel has hidden.
     private var notchVisible = false
 
-    /// Linger after the teaser finished its single scroll-through.
     private let afterTeaserDelay: Duration = .seconds(2)
-    /// Grace period after the pointer leaves the expanded message.
     private let afterReadDelay: Duration = .seconds(1)
 
     init() {
@@ -513,7 +506,6 @@ final class NotchPresenter {
             self?.notchVisible = false
             self?.pruneTask?.cancel()
             self?.turnOffHoverCopy()
-            // Show unread indicator if user didn't interact with the message
             if !(self?.userInteractedWithMessage ?? true) {
                 self?.showIndicator()
             }
@@ -534,7 +526,6 @@ final class NotchPresenter {
         )
         indicatorNotch = indicator
 
-        // Hide indicator on hover (user interaction)
         indicatorHoverObservation = indicator.$isHovering
             .filter { $0 }
             .sink { [weak self, weak indicator] _ in
@@ -563,8 +554,6 @@ final class NotchPresenter {
             }
         }
     }
-
-    // MARK: - GitHub sign-in code
 
     /// Show the GitHub device-flow user code in the notch. Driven by AppModel's
     /// `.awaitingUser` login state, it stays up — focus-independent, unlike the

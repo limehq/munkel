@@ -1,22 +1,13 @@
 import { Rocket } from 'lucide-react'
 
-// Platforms Munkel is on. Until a platform's official badge image is added, it
-// renders in-house (the "Featured on" pill). To swap in a real listing, set
-// `live: true`, point `href` at our listing, and drop the platform's official
-// badge into `img` — self-hosted under /badges so we never hot-link a third
-// party (no layout shift, no tracking, no availability risk). See issue #8.
 type LaunchPlatform = {
   name: string
   href: string
   live?: boolean
-  /** Self-hosted official badge, e.g. '/badges/product-hunt.svg'. */
   img?: string
   alt?: string
 }
 
-// Source of truth + status tracking: docs/launch-platforms.md. This array
-// mirrors the "live" rows from there; hrefs are platform homepages until we
-// have our own listing URL for each.
 const LAUNCH_PLATFORMS: LaunchPlatform[] = [
   { name: 'Product Hunt', href: 'https://www.producthunt.com' },
   { name: 'Peerlist', href: 'https://peerlist.io' },
@@ -57,11 +48,6 @@ function LaunchBadge({ platform }: { platform: LaunchPlatform }) {
   )
 }
 
-// A seamless marquee: the badge list is rendered twice (the duplicate is
-// display:contents, so its badges join the same flex row with even spacing) and
-// the row is translated by exactly -50%, looping without a seam. Under reduced
-// motion the duplicate is hidden and the badges wrap statically. Pass liveOnly
-// once we have real launches to shrink the strip to earned badges.
 export function LaunchBadgeTrack({ liveOnly = false }: { liveOnly?: boolean }) {
   const platforms = liveOnly ? LAUNCH_PLATFORMS.filter((p) => p.live) : LAUNCH_PLATFORMS
   if (platforms.length === 0) return null

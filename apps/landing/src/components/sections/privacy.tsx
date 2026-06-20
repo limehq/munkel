@@ -2,7 +2,6 @@ import { Check, Info, MonitorOff } from 'lucide-react'
 
 import { PROTOCOL_URL } from '@/lib/constants'
 
-/** Privacy: what the relay sees / never sees + the screen-sharing comparison. */
 export function Privacy() {
   return (
     <section id="privacy">
