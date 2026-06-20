@@ -97,7 +97,7 @@ struct NotchHostingContent<Content: View>: View {
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { Color.clear.frame(height: owner.notchSize.height) }
-        .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: safeAreaInset) }
+        .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: owner.suppressBottomInset ? 0 : safeAreaInset) }
         .safeAreaInset(edge: .leading, spacing: 0) { Color.clear.frame(width: safeAreaInset) }
         .safeAreaInset(edge: .trailing, spacing: 0) { Color.clear.frame(width: safeAreaInset) }
         .frame(minWidth: owner.notchSize.width)
