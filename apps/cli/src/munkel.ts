@@ -160,8 +160,6 @@ if (args[0] === "circles" || args[0] === "groups") {
   }
 }
 
-// MARK: - Unix-domain-socket roundtrip
-
 const { promise: firstLine, resolve } = Promise.withResolvers<string>()
 let received = ""
 

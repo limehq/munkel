@@ -1,11 +1,8 @@
 import SwiftUI
 
 extension Color {
-    /// Fixed, clearly distinct palette for circle markers. Assigned by the
-    /// circle's position in the joined list, so circles never collide
-    /// locally (a content hash could — and did). Green and orange are
-    /// deliberately absent: the menu already uses them as connection
-    /// status, and the dot must not read as "online".
+    // Distinct palette for circle markers; avoids green/orange because the menu
+    // already uses them for connection status.
     private static let groupPalette: [Color] = [
         .blue, .purple, .pink, .teal, .yellow, .indigo, .mint, .brown,
     ]

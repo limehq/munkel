@@ -1,12 +1,8 @@
 import SwiftUI
 
-/// The GitHub device-flow user code, shown in the notch while a sign-in is
-/// waiting for the user to authorize on github.com. The menu-bar popover that
-/// normally carries the code is `.transient`, so it dismisses the instant the
-/// browser steals focus — taking the code with it. The notch panel is a
-/// non-activating window that stays put across focus changes, so the code (and
-/// the reminder that it's already on the clipboard) keeps glanceable while the
-/// user is over on github.com pasting it.
+/// Shows the GitHub device-flow code in the notch while authorization is
+/// pending. The notch stays visible after focus changes, unlike the transient
+/// menu-bar popover.
 struct AuthCodeNotchView: View {
     let code: String
 
@@ -28,11 +24,8 @@ struct AuthCodeNotchView: View {
         }
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
-        // The device code must never leak into a screen share. The panel window
-        // is born non-capturable (NotchPanelWindow sets sharingType at birth) —
-        // that's the primary guarantee. This content-root exclusion is the
-        // second layer the project's rule wants, matching MessageNotchContainer
-        // and CommandPaletteView. Keep it on the root, never inside a branch.
+        // Keep the code out of screen captures; the non-capturable panel is the
+        // primary guard, and this root exclusion is the second layer.
         .excludedFromScreenCapture()
     }
 }

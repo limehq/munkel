@@ -12,8 +12,6 @@ const INSTALL_CMDS = {
 
 type Pm = keyof typeof INSTALL_CMDS
 
-// Prominent shadcn-doc-style command block: Radix Tabs switch the package
-// manager; the dark terminal shell is the shared `.install-*` styling.
 function InstallCmd() {
   const [pm, setPm] = useState<Pm>('npx')
   const [copied, setCopied] = useState(false)
@@ -51,7 +49,6 @@ function InstallCmd() {
   )
 }
 
-/** Agents: the CLI is LLM-ready, with installable skills. */
 export function Agents() {
   return (
     <section id="agents">

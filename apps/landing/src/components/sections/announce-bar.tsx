@@ -2,7 +2,6 @@ import { ArrowRight, MonitorSmartphone } from 'lucide-react'
 
 import { GITHUB_URL } from '@/lib/constants'
 
-/** Announce bar: cross-platform / Windows soon. */
 export function AnnounceBar() {
   return (
     <a

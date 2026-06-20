@@ -49,7 +49,6 @@ export const Route = createRootRoute({
   notFoundComponent: NotFound,
 })
 
-// 404 — the shushing meerkat fits: the page, like every munkel, already vanished.
 function NotFound() {
   return (
     <div className="not-found">

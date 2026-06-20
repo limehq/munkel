@@ -8,7 +8,6 @@ struct MenuView: View {
     @State private var joinCode = ""
     @State private var userCodeCopied = false
     @State private var groupListHeight: CGFloat = 0
-    /// Live list of connected displays, refreshed on screen changes.
     @StateObject private var displayList = DisplayList()
     /// "Launch at Login" state that reflects intent immediately and reconciles
     /// with the real SMAppService status on foreground.
@@ -20,16 +19,12 @@ struct MenuView: View {
     @AppStorage(CaptureScreenshotPreference.defaultsKey) private var allowInScreenshots = false
     #endif
 
-    /// Cap before the group list starts scrolling.
-    // A fourth circle card peeks in cut off, hinting the list scrolls.
     private let maxGroupListHeight: CGFloat = 400
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
 
-            // GitHub login is mandatory: until it happens, the menu offers
-            // nothing but the login flow.
             if model.githubUserLogin == nil {
                 Text("Sign in with GitHub to use Munkel.")
                     .font(.callout)
@@ -120,8 +115,6 @@ struct MenuView: View {
         }
     }
 
-    /// Apple convention for menu-bar apps: a gear "action menu" on the
-    /// right edge — About, update check, then quit with the standard ⌘Q.
     private var settingsMenu: some View {
         Menu {
             Button {
@@ -165,7 +158,7 @@ struct MenuView: View {
                     Text(option.name).tag(option.id)
                 }
             } label: {
-                Label("Notch display", systemImage: "display")
+                Label("Preferred Display", systemImage: "display")
             }
             #if DEBUG
             Divider()
@@ -189,9 +182,6 @@ struct MenuView: View {
         .help("Settings")
     }
 
-    /// The standard about panel; it reads name and versions from the
-    /// bundle's Info.plist, so future info lands there (or in a Credits
-    /// file) rather than in code.
     private func showAbout() {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.orderFrontStandardAboutPanel(nil)
@@ -223,7 +213,6 @@ struct MenuView: View {
         }
     }
 
-    /// Global hotkey that opens the quick-send palette from anywhere.
     private var paletteHotkeyRow: some View {
         HStack {
             Image(systemName: "paperplane")
@@ -498,7 +487,6 @@ struct GroupSectionView: View {
     }
 
     var body: some View {
-        // Re-renders on presenceVersion bumps via the EnvironmentObject.
         let session = model.session(for: code)
         let members = session?.members ?? []
 
@@ -575,8 +563,6 @@ struct GroupSectionView: View {
         pasteMonitor = nil
     }
 
-    // MARK: - Header
-
     private func header(connected: Bool) -> some View {
         HStack {
             Circle()
@@ -605,8 +591,6 @@ struct GroupSectionView: View {
             .help("Leave circle")
         }
     }
-
-    // MARK: - Recipient picker (globe = everyone, then one avatar per member)
 
     private func recipientRow(members: [GroupSession.Member]) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -650,11 +634,8 @@ struct GroupSectionView: View {
         }
     }
 
-    // MARK: - Message field + send
-
     private func messageRow(members: [GroupSession.Member]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            // Staged images (⌘V) — click a thumbnail to remove it.
             if !attachedImages.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {

@@ -41,7 +41,6 @@ const FAQS: { q: string; a: ReactNode }[] = [
   },
 ]
 
-/** FAQ: centered card accordion (shadcn/Radix, one open at a time). */
 export function Faq() {
   return (
     <section id="faq">

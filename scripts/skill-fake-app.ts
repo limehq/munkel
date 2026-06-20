@@ -3,10 +3,6 @@
 // `munkel` CLI and skill steering without the real app, relay, or notch: it
 // logs every request as JSONL and answers per FAKE_SCENARIO. Mirrors the wire
 // contract in MunkelKit/ControlProtocol.swift.
-//
-//   FAKE_SOCKET    unix socket to bind (required)
-//   FAKE_LOG       JSONL request log, appended (required)
-//   FAKE_SCENARIO  happy | ambiguous | unknown | silent   (default happy)
 import { appendFileSync, existsSync, unlinkSync } from "node:fs"
 
 const socketPath = process.env.FAKE_SOCKET
@@ -21,7 +17,6 @@ if (existsSync(socketPath)) unlinkSync(socketPath)
 const circles = (members: Record<string, string[]>) =>
   Object.entries(members).map(([code, m]) => ({ code, connected: true, members: m }))
 
-// Returns the response object, or undefined to send nothing (silent scenario).
 function respond(req: { action?: string; group?: string; to?: string }): unknown | undefined {
   if (scenario === "silent") return undefined
 
@@ -40,7 +35,6 @@ function respond(req: { action?: string; group?: string; to?: string }): unknown
     // this is the disambiguation path the agent should fall back to.
     if (req.group || isBroadcast) return { ok: true }
 
-    // Recipient-only (`dm`) send — the path under test.
     if (scenario === "ambiguous") {
       return {
         ok: false,
@@ -54,7 +48,7 @@ function respond(req: { action?: string; group?: string; to?: string }): unknown
         error: `No online member matches "${req.to}" — munkel circles shows who's online`,
       }
     }
-    return { ok: true } // happy
+    return { ok: true }
   }
 
   return { ok: false, error: `unknown action ${req.action}` }

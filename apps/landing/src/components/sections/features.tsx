@@ -2,7 +2,6 @@ import { Laptop, Lock, Terminal, TimerOff, UserRoundX } from 'lucide-react'
 
 import { GithubIcon } from '@/components/icons'
 
-/** Features: bento rhythm with notch-motif mini-visuals. */
 export function Features() {
   return (
     <section id="features">

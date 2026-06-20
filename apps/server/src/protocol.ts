@@ -27,7 +27,7 @@ import { z } from 'zod';
  * ## Identity and groups
  *
  * There are no accounts. Everything derives from the human-readable group
-     * code (e.g. `blue-table-42`), which never leaves the clients. Code
+ * code (e.g. `blue-table-42`), which never leaves the clients. Code
  * normalization before derivation: Unicode NFC, trim, lowercase.
  *
  * - `groupId`    = hex(HKDF-SHA256(ikm: utf8(code), salt: "munkel-v1",

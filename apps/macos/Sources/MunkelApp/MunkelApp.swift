@@ -37,10 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         model.updater = updater
         #endif
 
-        // Keep the app resident across logins so the `munkel` CLI's first send
-        // never pays app cold-start. Release-only and once: the dev build runs
-        // as "Munkel Dev" (own bundle id) and must not self-install, and a user
-        // who later opts out isn't re-enabled on the next launch.
+        // Keep the app resident so the CLI's first send avoids cold-start.
         #if !DEBUG
         LoginItem.registerOnFirstLaunchIfNeeded()
         #endif
@@ -55,12 +52,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         popover.delegate = self
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        // Brand silhouette as a template image (monochrome, auto-inverting),
-        // sized to sit in the menu bar; falls back to the old SF Symbol if the
-        // glyph resource is ever missing. Copy first so menu-bar sizing never
-        // mutates the shared BrandGlyph.templateImage the popover also uses.
-        // Debug and release share the brand glyph — the dev build is told apart
-        // by its "Munkel Dev" name in the popover, not a separate menu-bar icon.
+        // Brand silhouette as a template image, sized for the menu bar;
+        // falls back to the SF Symbol if the glyph resource is missing.
         if let glyph = BrandGlyph.templateImage?.copy() as? NSImage {
             glyph.isTemplate = true
             glyph.size = NSSize(width: 18, height: 18)
@@ -78,8 +71,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     }
 
     /// A minimal Edit menu so Cut/Copy/Paste/Select All reach the first
-    /// responder (the focused text field). Never shown — an accessory app has
-    /// no menu bar — but its ⌘-key equivalents are still dispatched.
+    /// responder (the focused text field).
     private func installEditMenu() {
         let mainMenu = NSMenu()
         let editItem = NSMenuItem()
