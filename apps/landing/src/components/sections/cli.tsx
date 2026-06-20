@@ -5,8 +5,6 @@ import { sleep } from '@/lib/utils'
 
 type TermStep = { type: 'cmd'; text: string } | { type: 'out'; html: string }
 
-// Mirrors the real CLI output (apps/cli/src/munkel.ts): circles print as
-// `● code  —  members`, every successful send prints `munkeled ✓`.
 const TERM_SCRIPT: TermStep[] = [
   { type: 'cmd', text: 'munkel circles' },
   {
@@ -148,7 +146,6 @@ function CliShowcase() {
   )
 }
 
-/** CLI: copy + a typed terminal demo that lands a munkel in a receiving notch. */
 export function Cli() {
   return (
     <section id="cli">
