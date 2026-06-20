@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'bun:test';
-import { encodeChat, encodeProfile, decodePayload } from '../payload';
+import {
+  encodeChat,
+  encodeProfile,
+  decodePayload,
+  assertPayloadFits,
+  PayloadTooLargeError,
+  MAX_PAYLOAD_CHARS,
+} from '../payload';
 
 describe('payload encoding', () => {
   it('encodes a chat payload with ISO-8601 sentAt', () => {
@@ -45,5 +52,22 @@ describe('payload encoding', () => {
     expect(() => decodePayload('not json')).toThrow('not valid JSON');
     expect(() => decodePayload('{"kind":"chat","text":"x"}')).toThrow('sentAt');
     expect(() => decodePayload('{"kind":"unknown"}')).toThrow('Unknown payload kind');
+  });
+});
+
+describe('assertPayloadFits', () => {
+  it('exposes MAX_PAYLOAD_CHARS at 48 KiB (matches server relay cap)', () => {
+    expect(MAX_PAYLOAD_CHARS).toBe(48 * 1024);
+  });
+
+  it('accepts a payload at exactly the cap', () => {
+    const json = 'x'.repeat(MAX_PAYLOAD_CHARS);
+    expect(() => assertPayloadFits(json)).not.toThrow();
+  });
+
+  it('rejects a payload one byte over the cap with PayloadTooLargeError', () => {
+    const json = 'x'.repeat(MAX_PAYLOAD_CHARS + 1);
+    expect(() => assertPayloadFits(json)).toThrow(PayloadTooLargeError);
+    expect(() => assertPayloadFits(json)).toThrow(/too long/i);
   });
 });

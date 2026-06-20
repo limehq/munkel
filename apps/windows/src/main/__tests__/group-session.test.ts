@@ -281,7 +281,7 @@ describe('GroupSession', () => {
 		expect(profileFrame.type).toBe('send');
 
 		const sent = await session.sendChat('Hello from Windows');
-		expect(sent).toBe(true);
+		expect(sent).toEqual({ ok: true });
 
 		await waitFor(() => frames.length >= 2);
 		const chatFrame = frames[1] as { type: string; payload: string };
@@ -290,6 +290,35 @@ describe('GroupSession', () => {
 		const plaintext = await decrypt(chatFrame.payload, messageKey);
 		expect(plaintext.kind).toBe('chat');
 		expect(plaintext.text).toBe('Hello from Windows');
+
+		session.disconnect();
+	});
+
+	test('rejects an over-cap chat with a "too long" SendResult before sealing', async () => {
+		const wss = startServer();
+		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
+		const code = 'paper-river';
+		const session = await GroupSession.create(
+			code,
+			relayUrl,
+			memberId,
+			{ displayName: 'Windows User' },
+			{
+				onStateChange: () => {},
+				onChat: () => {},
+				onNotch: () => {},
+				getColorIndex: () => 0,
+			},
+		);
+		session.connect();
+
+		await waitFor(() => serverSocket !== null);
+
+		// 60 KiB of plaintext — well over MAX_PAYLOAD_CHARS (48 KiB base64).
+		const hugeText = 'x'.repeat(60_000);
+		const result = await session.sendChat(hugeText);
+		expect(result.ok).toBe(false);
+		expect(result.error?.toLowerCase()).toContain('too long');
 
 		session.disconnect();
 	});

@@ -1,6 +1,6 @@
 import { normalizeCircleCode } from '../core';
 import { IdentityStore } from './identity-store';
-import { GroupSession } from './group-session';
+import { GroupSession, type SendResult } from './group-session';
 import { ProfileBroadcaster } from './profile-broadcaster';
 import type { CircleState, IdentityState, NotchMessage, StateUpdate } from '../shared/types';
 
@@ -69,11 +69,11 @@ export class AppState {
 		this.broadcast();
 	}
 
-	async sendChat(code: string, text: string, to?: string): Promise<boolean> {
+	async sendChat(code: string, text: string, to?: string): Promise<SendResult> {
 		const normalized = normalizeCircleCode(code);
 		const session = this.sessions.get(normalized);
 		if (!session) {
-			return false;
+			return { ok: false, error: 'Circle offline — message not sent.' };
 		}
 		return session.sendChat(text, to);
 	}

@@ -69,9 +69,9 @@ export default function NotchWidget() {
 			const to = replyPrivate
 				? lookupMemberId(message.group, message.sender) ?? message.sender
 				: undefined;
-			const ok = await sendChat(message.group, text, to);
-			if (!ok) {
-				setError('Circle offline — reply not sent.');
+			const result = await sendChat(message.group, text, to);
+			if (!result.ok) {
+				setError(result.error ?? 'Circle offline — reply not sent.');
 				return; // keep text, leave field open
 			}
 			setReplyText('');

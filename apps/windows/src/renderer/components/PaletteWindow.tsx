@@ -86,9 +86,9 @@ export default function PaletteWindow() {
 		setError(null);
 		try {
 			const to = target.isEveryone ? undefined : target.memberId;
-			const ok = await sendChat(target.circleCode, text, to);
-			if (!ok) {
-				setError('Circle offline — message not sent.');
+			const result = await sendChat(target.circleCode, text, to);
+			if (!result.ok) {
+				setError(result.error ?? 'Circle offline — message not sent.');
 				return; // keep the text so the user can retry
 			}
 			setMessage('');

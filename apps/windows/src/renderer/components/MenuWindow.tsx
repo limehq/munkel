@@ -47,14 +47,14 @@ export default function MenuWindow() {
 		const text = messages[code]?.trim();
 		if (!text) return;
 		const to = recipients[code] || undefined;
-		const sent = await sendChat(code, text, to);
-		if (sent) {
+		const result = await sendChat(code, text, to);
+		if (result.ok) {
 			setMessages((prev) => ({ ...prev, [code]: '' }));
 			setSendErrors((prev) => ({ ...prev, [code]: '' }));
 		} else {
 			setSendErrors((prev) => ({
 				...prev,
-				[code]: 'Circle offline — message not sent.',
+				[code]: result.error ?? 'Circle offline — message not sent.',
 			}));
 		}
 	}

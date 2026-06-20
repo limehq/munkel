@@ -5,12 +5,20 @@ import {
 	encodeChat,
 	encodeProfile,
 	decodePayload,
+	assertPayloadFits,
+	PayloadError,
 	normalizeCircleCode,
 } from '../core';
 import { RelayClient } from './relay-client';
 import { getCircleColor } from '../shared/group-color';
 import type { CircleState, Member, NotchMessage } from '../shared/types';
-import type { ClientMessage, ServerMessage } from '../core';
+import type { ChatPayload, ClientMessage, ProfilePayload, ServerMessage } from '../core';
+
+/**
+ * Result of a GroupSession send. Surfaced all the way to the renderer
+ * so the inline-error UI can distinguish "too long" from "offline".
+ */
+export type SendResult = { ok: true } | { ok: false; error: string };
 
 export interface GroupSessionCallbacks {
 	onStateChange(state: CircleState): void;
@@ -82,16 +90,37 @@ export class GroupSession {
 		this.identity = identity;
 	}
 
-	async sendChat(text: string, to?: string): Promise<boolean> {
-		const payload = encodeChat(text);
-		const sealed = await seal(JSON.stringify(payload), this.messageKey);
-		return this.send({ type: 'send', payload: sealed, to }, to);
+	/**
+	 * Seal `text` and dispatch it. Returns the wire-send result as a
+	 * discriminated union so callers can show a user-facing error for
+	 * "too long" / sealing failures vs. an opaque relay-disconnect.
+	 */
+	async sendChat(text: string, to?: string): Promise<SendResult> {
+		return this.sendPayload(encodeChat(text), to);
 	}
 
-	async sendProfile(to?: string): Promise<boolean> {
-		const payload = encodeProfile(this.identity.displayName, this.identity.avatar);
-		const sealed = await seal(JSON.stringify(payload), this.messageKey);
-		return this.send({ type: 'send', payload: sealed, to }, to);
+	async sendProfile(to?: string): Promise<SendResult> {
+		return this.sendPayload(encodeProfile(this.identity.displayName, this.identity.avatar), to);
+	}
+
+	private async sendPayload(payload: ChatPayload | ProfilePayload, to?: string): Promise<SendResult> {
+		let sealed: string;
+		try {
+			const json = JSON.stringify(payload);
+			// Clamp after sealing: AES-GCM overhead is fixed (12-byte nonce
+			// + 16-byte tag → 28 bytes ≈ 38 base64 chars), so the sealed
+			// length tracks plaintext length closely. Clamping the sealed
+			// string is the actual wire check.
+			sealed = await seal(json, this.messageKey);
+			assertPayloadFits(sealed);
+		} catch (err) {
+			const message = err instanceof PayloadError ? err.message : 'Could not seal message';
+			return { ok: false, error: message };
+		}
+		const wireOk = this.send({ type: 'send', payload: sealed, to }, to);
+		return wireOk
+			? { ok: true }
+			: { ok: false, error: 'Circle offline — message not sent.' };
 	}
 
 	toState(): CircleState {
