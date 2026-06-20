@@ -115,14 +115,9 @@ fails otherwise): `cd apps/server && bunx wrangler r2 bucket create munkel-blobs
 
 ## Working on an issue
 
-Starting work on a GitHub issue follows a fixed workflow — **check for an
-existing draft PR and the issue's assignee first** (never duplicate work someone
-already owns), then **claim the issue** by assigning it and open a **draft PR
-immediately**, linked with `Closes #N`, so ownership and in-flight work are
-visible from the start. The full procedure with the exact `gh` commands lives in
-the `github-issue-workflow` skill
-(`.claude/skills/github-issue-workflow/SKILL.md`) — follow it whenever you are
-asked to work on, start, or pick up an issue.
+Follow the **`github-issue-workflow`** skill: check the issue isn't already taken
+(open/draft PR or an assignee) before starting, then claim it and open a draft PR
+linked with `Closes #N`.
 
 ## Conventions
 
