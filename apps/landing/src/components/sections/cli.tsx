@@ -1,25 +1,64 @@
 import { useEffect, useRef, useState } from 'react'
+import { Check, Copy } from 'lucide-react'
 import { motion } from 'motion/react'
 
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { sleep } from '@/lib/utils'
 
 type TermStep = { type: 'cmd'; text: string } | { type: 'out'; html: string }
 
 const TERM_SCRIPT: TermStep[] = [
-  { type: 'cmd', text: 'munkel circles' },
-  {
-    type: 'out',
-    html: '<span class="tdot-live">●</span> blue-table-42  <span class="tdim">—</span>  Alex, Sam, Morgan',
-  },
-  {
-    type: 'out',
-    html: '<span class="tdot-live">●</span> project-7  <span class="tdim">—</span>  Sam, Alex',
-  },
   { type: 'cmd', text: 'munkel blue-table-42 all "table\'s free, come down"' },
   { type: 'out', html: '<span class="tdim">munkeled ✓</span>' },
   { type: 'cmd', text: 'munkel project-7 Sam "package for you downstairs"' },
   { type: 'out', html: '<span class="tdim">munkeled ✓</span>' },
 ]
+
+const INSTALL_CMDS = {
+  npx: 'npx skills add limehq/munkel',
+  pnpm: 'pnpm dlx skills add limehq/munkel',
+  yarn: 'yarn dlx skills add limehq/munkel',
+  bun: 'bunx skills add limehq/munkel',
+} as const
+
+type Pm = keyof typeof INSTALL_CMDS
+
+function InstallCmd() {
+  const [pm, setPm] = useState<Pm>('npx')
+  const [copied, setCopied] = useState(false)
+
+  const copy = () => {
+    if (navigator.clipboard) navigator.clipboard.writeText(INSTALL_CMDS[pm]).catch(() => {})
+    setCopied(true)
+    setTimeout(() => setCopied(false), 1400)
+  }
+
+  return (
+    <Tabs value={pm} onValueChange={(v) => setPm(v as Pm)} className="install-cmd">
+      <div className="install-bar">
+        <TabsList className="install-tabs">
+          {(Object.keys(INSTALL_CMDS) as Pm[]).map((key) => (
+            <TabsTrigger key={key} value={key}>
+              {key}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+        <button
+          className={`install-copy${copied ? ' copied' : ''}`}
+          onClick={copy}
+          aria-label="Copy command"
+        >
+          <Copy className="ic-copy" strokeWidth={2} aria-hidden />
+          <Check className="ic-check" strokeWidth={2.5} aria-hidden />
+        </button>
+      </div>
+      <div className="install-body">
+        <span className="prompt">$</span>
+        <span>{INSTALL_CMDS[pm]}</span>
+      </div>
+    </Tabs>
+  )
+}
 
 function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
   const termRef = useRef<HTMLDivElement>(null)
@@ -152,17 +191,14 @@ export function Cli() {
       <div className="container">
         <div className="cli-grid">
           <div className="cli-copy">
-            <div className="section-kicker">CLI</div>
-            <h2>Munkel from the shell.</h2>
+            <div className="section-kicker">CLI &amp; agents</div>
+            <h2>Munkel from your terminal.</h2>
             <p>
-              <span className="code">munkel</span> is a thin client over the app's Unix domain
-              socket. The app owns all crypto and relay connections, the CLI just talks. Recipients
-              by display name, circles by code prefix.
+              One line sends to a person or a channel. Plain text in and out, so your agents can
+              munkel too.
             </p>
-            <p>
-              Newline-delimited JSON over <span className="code">control.sock</span> makes it an
-              ideal substrate for scripts and agents.
-            </p>
+            <p className="muted">Teach your agent in one step:</p>
+            <InstallCmd />
           </div>
           <CliShowcase />
         </div>

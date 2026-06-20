@@ -8,7 +8,7 @@ export function SiteFooter() {
     <footer>
       <div className="container footer-inner">
         <span className="muted footer-brand">
-          <MeerkatGlyph />munkel · ephemeral messages between friends.
+          <MeerkatGlyph />munkel · the note you'd say across a table.
         </span>
         <div className="footer-links">
           <Link to="/imprint">Imprint</Link>

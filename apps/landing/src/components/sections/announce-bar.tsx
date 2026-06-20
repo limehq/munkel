@@ -7,12 +7,12 @@ export function AnnounceBar() {
     <a
       className="announce"
       href={GITHUB_URL}
-      aria-label="Munkel is going cross-platform — Windows support is coming soon"
+      aria-label="Munkel is coming to Windows soon"
     >
       <span className="announce-tag">Soon</span>
       <span className="announce-text">
         <MonitorSmartphone aria-hidden />
-        Going cross-platform — <strong>Windows support</strong> is on the way.
+        <strong>Windows</strong> is learning to munkel.
       </span>
       <ArrowRight className="announce-arrow" aria-hidden />
     </a>

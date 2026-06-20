@@ -624,9 +624,9 @@ h1 .notch-word {
     0 0 calc(var(--glow) * 80px) color-mix(in oklab, var(--brand) 35%, transparent);
 }
 .hero .lead {
-  max-width: 54ch; margin: 1.75rem auto 0;
+  max-width: 40ch; margin: 1.75rem auto 0;
   font-size: var(--text-lg); line-height: var(--leading-relaxed);
-  text-wrap: pretty;
+  text-wrap: balance;
 }
 .hero-ctas { margin-top: 2.5rem; display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap; }
 .hero-meta { margin-top: 1.25rem; font-size: var(--text-xs); color: var(--muted-foreground); }
@@ -895,6 +895,33 @@ html:not(.dark) .terminal { background: oklch(0.205 0 0); }
 .cli-copy .code { font-size: 0.8125rem; }
 /* The send → receive loop: the just-sent message lands in a notch */
 .cli-stage { min-width: 0; }
+
+/* ---------- Copy-rewrite additions ---------- */
+/* How it works: centered head + a small visual row (no numbered steps). */
+.how-head-center { max-width: 640px; margin-left: auto; margin-right: auto; text-align: center; }
+.how-show {
+  display: flex; align-items: center; justify-content: center; gap: 1.5rem; flex-wrap: wrap;
+}
+
+/* Merged CLI & agents: the install block now lives inside the copy column. */
+.cli-copy .muted { margin-top: 1.5rem; }
+.cli-copy .install-cmd { margin: 0.875rem 0 0; max-width: 100%; }
+
+/* Screenshots section: an image album popping out of the notch. */
+.shot-head { max-width: 640px; margin-left: auto; margin-right: auto; text-align: center; }
+.shot-demo { display: flex; justify-content: center; }
+.shot-notch {
+  display: flex; align-items: center; gap: 12px;
+  background: #000; border: 1px solid oklch(1 0 0 / 0.12); border-top: none;
+  border-radius: 0 0 22px 22px; padding: 12px 18px 14px;
+  box-shadow: var(--shadow-lg);
+}
+.shot-from { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; flex: none; }
+.shot-thumbs { display: flex; gap: 6px; }
+.shot-thumb { width: 48px; height: 34px; border-radius: 6px; border: 1px solid oklch(1 0 0 / 0.16); }
+.shot-thumb.st-1 { background: linear-gradient(135deg, #6aa0ff, #3857eb); }
+.shot-thumb.st-2 { background: linear-gradient(135deg, #f6a44f, #eb6b2e); }
+.shot-thumb.st-3 { background: linear-gradient(135deg, #66d99e, #1a9475); }
 /* Reveal (opacity + y) is driven by Motion (see cli.tsx); this rule is layout only. */
 .meanwhile {
   display: flex; flex-direction: column; align-items: center; gap: 0.625rem;

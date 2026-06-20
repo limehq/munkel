@@ -10,34 +10,29 @@ import { DISCUSSIONS_URL } from '@/lib/constants'
 
 const FAQS: { q: string; a: ReactNode }[] = [
   {
-    q: 'Apple Silicon or Intel?',
-    a: 'Both. The app and the CLI ship as one universal binary — arm64 and x86_64.',
+    q: 'Which chips does the app run on?',
+    a: 'Both Apple Silicon and Intel, in one universal binary.',
   },
   {
-    q: 'Signed and notarized?',
-    a: 'Yes. Every release is Developer ID-signed and notarized by Apple, so Gatekeeper opens it without warnings.',
+    q: 'What is it built with?',
+    a: 'Native Swift and SwiftUI, a small menu-bar app that stays light.',
   },
   {
-    q: 'Electron or native?',
-    a: 'Native Swift and SwiftUI. One small menu-bar binary, no embedded browser.',
+    q: 'Is it signed and notarized?',
+    a: 'Yes, every release, so Gatekeeper opens it without warnings.',
   },
   {
     q: 'Can I reply from the notch?',
     a: (
       <>
-        Yes — click a munkel and reply right there; the notch closes again after you send. You can
-        also reply from the menu-bar popover or the <span className="code">munkel</span> CLI.
+        Yes. Click a munkel, reply, and it tucks away when you send. The popover and{' '}
+        <span className="code">munkel</span> CLI work too.
       </>
     ),
   },
   {
-    q: 'How do I update?',
-    a: (
-      <>
-        Installed with Homebrew: <span className="code">brew upgrade munkel</span>. Grabbed the zip:
-        download the latest release and swap the app. There is no auto-updater.
-      </>
-    ),
+    q: 'What if my laptop has no notch?',
+    a: 'Munkels float in a tidy panel instead. Same munkel, different spot.',
   },
 ]
 
@@ -48,7 +43,7 @@ export function Faq() {
         <div className="faq-head">
           <div className="section-kicker">FAQ</div>
           <h2>Quick answers.</h2>
-          <p>The practical details — how Munkel ships, runs, and updates on your Mac.</p>
+          <p>The practical bits about how it runs on your Mac.</p>
         </div>
         <Accordion type="single" collapsible className="faq">
           {FAQS.map((item, i) => (
@@ -59,7 +54,7 @@ export function Faq() {
           ))}
         </Accordion>
         <div className="faq-foot">
-          Still curious? <a href={DISCUSSIONS_URL}>Open a discussion on GitHub →</a>
+          Still curious? <a href={DISCUSSIONS_URL}>Start a discussion on GitHub.</a>
         </div>
       </div>
     </section>

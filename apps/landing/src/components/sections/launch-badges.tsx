@@ -56,10 +56,7 @@ export function LaunchBadgeTrack({ liveOnly = false }: { liveOnly?: boolean }) {
       <div className="container">
         <div className="section-kicker">Launch</div>
         <h2>Out in the wild.</h2>
-        <p>
-          Munkel is out across the platforms where people hunt for new tools. Find us there — and
-          an upvote is always welcome.
-        </p>
+        <p>Spotted us on a launch board? An upvote is always welcome.</p>
       </div>
       <div className="badge-marquee">
         <div className="badge-marquee-row">

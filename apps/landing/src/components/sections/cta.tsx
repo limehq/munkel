@@ -35,20 +35,13 @@ export function Cta() {
   return (
     <section className="cta">
       <div className="container">
-        <div className="founder-note">
-          <p>
-            "Munkel exists because group chats kept turning into obligations. It is meant for the
-            kind of note you would say across a table: brief, visible, and easy to let go."
-          </p>
-          <span className="founder-sig">Built for lightweight, low-pressure messages.</span>
-        </div>
         <div className="app-icon app-icon-sm">
           <img src="/app-icon.png" alt="" width={84} height={84} />
         </div>
-        <h2>Start Munkeling.</h2>
+        <h2>Start munkeling.</h2>
         <p>
-          Open source, MIT licensed. A native Swift app — no Electron — one signed &amp; notarized
-          binary in your menu bar.
+          Free and open source. Read the code, open an issue, send a pull request. We'd love the
+          company.
         </p>
         <div className="hero-ctas">
           <Button asChild variant="primary">

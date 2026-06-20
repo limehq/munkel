@@ -18,7 +18,7 @@ type Msg = {
 }
 
 const MESSAGES: Msg[] = [
-  { name: 'Alex', text: 'coffee?', direct: true, circle: 'inner-circle', color: '#0a84ff' },
+  { name: 'Alex', text: 'coffee?', direct: true, circle: 'inner-loop', color: '#0a84ff' },
   { name: 'Sam', text: 'on my way', direct: false, circle: 'roomies', color: '#bf5af2' },
   { name: 'Taylor', text: 'deploy is live, go look', direct: false, circle: 'eng', color: '#ff375f' },
   { name: 'Morgan', text: 'same table as last time', direct: true, circle: 'lunch-crew', color: '#40c8e0' },
@@ -233,13 +233,12 @@ export function Hero() {
             <div className="app-icon">
               <img src="/app-icon.png" alt="The Munkel meerkat, paws to its mouth" width={112} height={112} />
             </div>
-            <div className="hero-kicker">Ephemeral circle messages for macOS</div>
+            <div className="hero-kicker">Quiet little messages</div>
             <h1>
-              Psst, your <span className="notch-word">notch</span> has something to tell&nbsp;you.
+              Psst. Your <span className="notch-word">notch</span> is whispering.
             </h1>
             <p className="lead">
-              Quick pings between friends, end-to-end encrypted — they slide out of the notch,
-              linger a moment, and vanish. Nothing is ever stored.
+              The kind of note you'd say across a table. It slips into your notch, then it's gone.
             </p>
             <div className="hero-ctas">
               <Button asChild variant="primary">
@@ -255,10 +254,7 @@ export function Hero() {
                 </a>
               </Button>
             </div>
-            <div className="hero-meta">
-              Free &amp; open source · macOS 14+ · Apple Silicon &amp; Intel · Signed &amp;
-              notarized · works without a notch, too
-            </div>
+            <div className="hero-meta">Free and open source · macOS 14+</div>
           </motion.div>
           <motion.div
             className="mockup-wrap"
@@ -280,7 +276,7 @@ export function Hero() {
                     <div className="mb-menu">
                       <span className="mb-apple" aria-hidden>&#xF8FF;</span>
                       <span className="mb-app"><MeerkatGlyph className="mb-glyph" />munkel</span>
-                      <span>Circles</span>
+                      <span>Channels</span>
                       <span>Identity</span>
                       <span>Help</span>
                     </div>
