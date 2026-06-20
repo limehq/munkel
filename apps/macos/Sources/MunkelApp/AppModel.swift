@@ -199,6 +199,37 @@ final class AppModel: ObservableObject {
         #endif
     }
 
+    #if DEBUG
+    /// Dev aid: seed the notch with a synthetic backlog of text + image messages
+    /// and show a current message on top, so the expanded-history image hover
+    /// preview can be exercised without sending real messages back and forth.
+    /// Triggered from the menu's DEBUG section; the rows live the usual 60 s
+    /// history window, then expire — re-run the item to refresh them. The heavy
+    /// lifting (render + AVIF transcode) is in `DemoHistory`.
+    func debugShowDemoHistory() {
+        let code = groupCodes.first ?? "demo"
+        let index = max(0, groupCodes.firstIndex(of: code) ?? 0)
+        // `build` owns the SwiftUI `Color` (computed from the index) and hands it
+        // back in the bundle, so this model never has to name a SwiftUI type.
+        let demo = DemoHistory.build(group: code, colorIndex: index)
+
+        // Inject the backlog straight into the history buffer, then show the
+        // current message above it — the same path a real arrival takes.
+        notch.debugSeedHistory(demo.backlog)
+        notch.show(
+            sender: "Sebil",
+            avatarData: Identity.avatarData,
+            text: demo.currentText,
+            isDirect: false,
+            group: code,
+            groupColor: demo.color,
+            inMultipleGroups: groupCodes.count > 1,
+            images: demo.currentImages,
+            loadFull: { [fulls = demo.fulls] id in fulls[id] }
+        ) { _, _, _ in }
+    }
+    #endif
+
     /// Opens the quick-send command palette (also bound to the global hotkey).
     func openCommandPalette() {
         palette?.show()

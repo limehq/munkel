@@ -164,6 +164,13 @@ struct MenuView: View {
             Divider()
             Toggle("Echo my broadcasts to me", isOn: $devEchoBroadcasts)
             Toggle("Allow in screenshots", isOn: $allowInScreenshots)
+            // Seed a demo backlog (text + image messages) into the notch so the
+            // expanded-history hover preview can be tested without real traffic.
+            Button {
+                model.debugShowDemoHistory()
+            } label: {
+                Label("Demo image history", systemImage: "photo.stack")
+            }
             #endif
             Divider()
             Button {
