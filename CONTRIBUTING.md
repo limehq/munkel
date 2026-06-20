@@ -10,7 +10,8 @@ Requirements:
 
 - Bun
 - Xcode command line tools
-- Wrangler login only if you deploy Workers
+- A `wrangler login` with access to the `limehq` account, only if you deploy
+  Workers
 
 ```sh
 bun install
@@ -22,10 +23,18 @@ bun run build
 Useful local commands:
 
 ```sh
-bunx turbo dev --filter=@munkel/server
-bunx turbo dev --filter=@munkel/landing
-cd apps/macos && ./make-bundle.sh && open .build/Munkel.app
+bunx turbo dev --filter=@munkel/server     # relay on ws://127.0.0.1:8787
+bunx turbo dev --filter=@munkel/landing    # landing on http://localhost:3000
+cd apps/macos && bun run dev               # builds & runs the Munkel Dev app
 ```
+
+The root `bun run dev` deliberately excludes the macOS app, which needs the
+Swift toolchain; run the per-app command above for it. `cd apps/macos && bun
+run dev` builds the **Munkel Dev** variant (a separate identity that runs side
+by side with an installed release) and launches it. For a release-style local
+bundle instead, run `cd apps/macos && ./make-bundle.sh release && open
+.build/Munkel.app`. See [`README.md`](README.md) for the full development
+workflow.
 
 ## Pull requests
 
@@ -35,7 +44,55 @@ cd apps/macos && ./make-bundle.sh && open .build/Munkel.app
 - Use Conventional Commits (`feat:`, `fix:`, `docs:`, `chore:`). Release
   Please uses those commits to maintain `CHANGELOG.md` and releases.
 
+## Developer Certificate of Origin (DCO)
+
+All contributions must be signed off. Every commit needs a `Signed-off-by`
+trailer in its message:
+
+```
+Signed-off-by: Your Name <your.email@example.com>
+```
+
+The easiest way to add it is the `-s` flag:
+
+```sh
+git commit -s -m "fix: correct circle-code derivation"
+```
+
+To fix a commit that is missing the trailer:
+
+```sh
+git commit --amend -s        # amend the most recent commit
+git rebase --signoff main    # add sign-off to every commit on the branch
+```
+
+Signing off certifies that you wrote the change, or otherwise have the right
+to submit it under the project's [MIT license](LICENSE), as described by the
+[Developer Certificate of Origin 1.1](https://developercertificate.org/). The
+name and email in the trailer must be real.
+
+CI enforces sign-off on pull requests: the DCO check
+(`.github/workflows/dco.yml`) fails any PR whose non-merge commits lack a
+`Signed-off-by` trailer. Re-push after amending or rebasing to clear it.
+
+## Keeping documentation current
+
+Documentation lives next to the code and is expected to match it. When a change
+affects behavior, update the relevant docs in the same pull request:
+
+- [`README.md`](README.md) — overview, install, security summary.
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — components and data flow.
+- [`SECURITY.md`](SECURITY.md) — security model and reporting.
+- [`PRIVACY.md`](PRIVACY.md) — what the relay can and cannot see.
+- [`ROADMAP.md`](ROADMAP.md) — planned and in-progress work.
+- Any other affected file (`GOVERNANCE.md`, `MAINTAINERS.md`, `RELEASING.md`,
+  `docs/ACCESSIBILITY.md`, `docs/INTERNATIONALIZATION.md`, and so on).
+
+Documentation that drifts from the code is treated as a bug: it is tracked in
+the issue tracker and fixed like any other defect. Reviewers check that the
+docs in a PR match the behavior it ships. CI runs `bun run typecheck` and
+`bun run test` on every pull request, so keep both green alongside the docs.
+
 ## Security reports
 
 Do not report vulnerabilities in public issues. Follow [SECURITY.md](SECURITY.md).
-

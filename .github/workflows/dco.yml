@@ -1,0 +1,88 @@
+name: DCO
+
+# Verifies that every non-merge commit in a pull request carries a
+# Signed-off-by trailer (Developer Certificate of Origin 1.1). Automated
+# authors (Dependabot, the Actions bot, Release Please) are skipped so their
+# PRs do not break. See CONTRIBUTING.md for how to sign off.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+
+jobs:
+  dco:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Check Signed-off-by on every commit
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+
+          # Non-merge commits in the PR range, oldest first.
+          commits=$(git rev-list --no-merges --reverse "${BASE_SHA}..${HEAD_SHA}")
+
+          if [ -z "${commits}" ]; then
+            echo "No non-merge commits to check."
+            exit 0
+          fi
+
+          failed=0
+
+          for sha in ${commits}; do
+            author_name=$(git log -1 --format='%an' "${sha}")
+            author_email=$(git log -1 --format='%ae' "${sha}")
+            subject=$(git log -1 --format='%s' "${sha}")
+            identity="${author_name} <${author_email}>"
+
+            # Skip known automation authors so their PRs do not break.
+            case "${identity}" in
+              *dependabot\[bot\]*|*github-actions\[bot\]*|*release-please*)
+                echo "skip ${sha} (bot author: ${identity})"
+                continue
+                ;;
+            esac
+
+            # Look for the trailer anywhere in the commit body.
+            if git log -1 --format='%B' "${sha}" \
+                | grep -Eiq '^Signed-off-by: .+ <.+@.+>'; then
+              echo "ok   ${sha} ${subject}"
+            else
+              echo "FAIL ${sha} ${subject}"
+              echo "       missing Signed-off-by from ${identity}"
+              failed=1
+            fi
+          done
+
+          if [ "${failed}" -ne 0 ]; then
+            echo ""
+            echo "DCO check failed: one or more commits are not signed off."
+            echo ""
+            echo "Sign off your commits and re-push:"
+            echo ""
+            echo "  # newest commit only"
+            echo "  git commit --amend -s --no-edit"
+            echo ""
+            echo "  # every commit on this branch"
+            echo "  git rebase --signoff ${BASE_SHA}"
+            echo ""
+            echo "  git push --force-with-lease"
+            echo ""
+            echo "Each commit needs a trailer like:"
+            echo "  Signed-off-by: Your Name <your.email@example.com>"
+            echo ""
+            echo "See CONTRIBUTING.md and https://developercertificate.org/"
+            exit 1
+          fi
+
+          echo ""
+          echo "All commits are signed off."
