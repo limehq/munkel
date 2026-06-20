@@ -1,0 +1,3 @@
+# Generated homeserver state (config, signing keys, SQLite db, media store).
+# Recreated by scripts/up.sh; never commit it.
+data/

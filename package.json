@@ -9,7 +9,12 @@
 		"test": "turbo test",
 		"typecheck": "turbo typecheck",
 		"deploy": "turbo deploy",
-		"build:release": "scripts/build-release.sh"
+		"build:release": "scripts/build-release.sh",
+		"matrix:up": "bash infra/matrix/scripts/up.sh",
+		"matrix:down": "bash infra/matrix/scripts/down.sh",
+		"matrix:gateway": "bash scripts/matrix-gateway.sh",
+		"matrix:dev": "bash infra/matrix/scripts/up.sh && bash scripts/matrix-gateway.sh",
+		"matrix:test": "bash scripts/matrix-test.sh"
 	},
 	"overrides": {
 		"esbuild": "0.28.1"

@@ -1,0 +1,62 @@
+# Munkel PoC overrides — deep-merged into the generated homeserver.yaml by
+# scripts/up.sh on first setup. Everything here exists to make Synapse behave as
+# close to Munkel's philosophy as a real homeserver honestly can:
+# closed island · invisible auto-provisioning · near-ephemeral · un-throttled dev.
+
+## --- Listeners: client API on 8008 only. No federation listener (closed island). ---
+listeners:
+  - port: 8008
+    tls: false
+    type: http
+    x_forwarded: true
+    bind_addresses: ["0.0.0.0"]
+    resources:
+      - names: [client] # deliberately NO 'federation'
+        compress: false
+
+## --- Private island: no outbound federation, no external key servers. ---
+federation_domain_whitelist: [] # whitelist nothing => federate with no one
+allow_public_rooms_over_federation: false
+trusted_key_servers: [] # trust no external key server (we are alone)
+suppress_key_server_warning: true
+
+## --- Accountless provisioning via the shared-secret admin register API. ---
+## The gateway derives a deterministic per-install user from memberId and registers
+## it through this secret — the human never signs up. Keep MAS/MSC3861 OFF or this
+## password path breaks (see README). The secret itself is INJECTED by up.sh from
+## infra/matrix/dev.env (single source of truth), so it is not duplicated here.
+enable_registration: false # public signup stays off; we provision via the admin API
+
+## --- Near-ephemeral retention (MSC1763). Cannot reach literal zero (see README). ---
+retention:
+  enabled: true
+  default_policy:
+    min_lifetime: 1m
+    max_lifetime: 10m # messages older than this become purge-eligible
+  allowed_lifetime_min: 1m
+  allowed_lifetime_max: 1d
+  purge_jobs:
+    - interval: 5m # how often expired events are actually deleted
+redaction_retention_period: 1d
+forgotten_room_retention_period: 1h
+
+## --- Media (image blob) retention. Message-event retention above does NOT cover
+## uploaded media, so without this the sealed image ciphertext would outlive the
+## messages pointing at it. Purge local media not accessed within the window. ---
+media_retention:
+  local_media_lifetime: 10m
+
+## --- Dev rate-limit relaxation so a scripted PoC is never throttled. ---
+rc_message: { per_second: 1000, burst_count: 10000 }
+rc_registration: { per_second: 1000, burst_count: 10000 }
+rc_login:
+  address: { per_second: 1000, burst_count: 10000 }
+  account: { per_second: 1000, burst_count: 10000 }
+  failed_attempts: { per_second: 1000, burst_count: 10000 }
+rc_joins:
+  local: { per_second: 1000, burst_count: 10000 }
+  remote: { per_second: 1000, burst_count: 10000 }
+rc_invites:
+  per_room: { per_second: 1000, burst_count: 10000 }
+  per_user: { per_second: 1000, burst_count: 10000 }
+  per_issuer: { per_second: 1000, burst_count: 10000 }

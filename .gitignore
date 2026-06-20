@@ -32,3 +32,6 @@ xcuserdata/
 # Turborepo
 .turbo/
 .gstack/
+
+# Matrix spike scratch (design dossiers, drafts — not part of the deliverable)
+.spike/

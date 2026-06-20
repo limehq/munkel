@@ -1,0 +1,23 @@
+{
+  "name": "@munkel/matrix-gateway",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Bridges Munkel's WebSocket relay protocol onto a Matrix backend. Run on Node 24. Point the app/CLI at it via MUNKEL_RELAY_URL.",
+  "scripts": {
+    "start": "node src/index.ts",
+    "test": "echo '@munkel/matrix-gateway e2e test needs a live Synapse — run: bun run test:e2e (after infra/matrix/scripts/up.sh)' && exit 0",
+    "test:e2e": "node --test --test-force-exit 'test/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@munkel/matrix": "workspace:*",
+    "ws": "^8.19.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "@types/ws": "^8.18.1",
+    "typescript": "^6.0.3"
+  }
+}

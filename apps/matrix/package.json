@@ -1,0 +1,23 @@
+{
+  "name": "@munkel/matrix",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Munkel's Matrix backend: a real matrix-js-sdk client mapping circles<->rooms, runs on Node 24 (rust-crypto WASM).",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "echo '@munkel/matrix integration test needs a live Synapse — run: bun run test:integration (after infra/matrix/scripts/up.sh)' && exit 0",
+    "test:integration": "node --test --test-force-exit 'test/**/*.test.ts'",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "matrix-js-sdk": "41.7.0",
+    "@matrix-org/matrix-sdk-crypto-wasm": "^18.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.3",
+    "typescript": "^6.0.3"
+  }
+}

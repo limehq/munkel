@@ -1,0 +1,25 @@
+# Munkel PoC dev homeserver — a closed, single-server Matrix island.
+#
+# Brought up by scripts/up.sh (which runs the one-shot `generate` + config merge
+# the first time). Bound to loopback only; no TLS; no federation. This exists to
+# prove the Matrix backend bridge in development — it is NOT a production setup.
+# See README.md for the SERVER_NAME-is-permanent and MAS-must-stay-off caveats.
+services:
+  synapse:
+    image: ghcr.io/element-hq/synapse:v1.151.0 # maintained Element HQ image; tag pinned for reproducibility
+    container_name: munkel-synapse
+    restart: unless-stopped
+    environment:
+      SYNAPSE_SERVER_NAME: munkel.localhost
+      SYNAPSE_REPORT_STATS: "no"
+      # SYNAPSE_CONFIG_PATH defaults to /data/homeserver.yaml.
+    volumes:
+      - ./data:/data # bind mount so the generated config is inspectable + wipeable from the host
+    ports:
+      - "127.0.0.1:8008:8008" # loopback only — dev island, no inbound from the network
+    healthcheck:
+      test: ["CMD", "curl", "-fSs", "http://localhost:8008/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
