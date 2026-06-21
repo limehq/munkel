@@ -584,9 +584,14 @@ struct MessageNotchContainer: View {
                 .font(.system(size: 13))
                 .foregroundStyle(.white)
                 .tint(.white)
+                // Single line that scrolls internally; clipped to the field so a
+                // long reply can't spill out past the box's rounded edge.
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                .clipShape(RoundedRectangle(cornerRadius: 7))
                 .focused($replyFocused)
                 .onChange(of: draft) { _, new in
                     if new.count > MessageLimits.maxCharacters {

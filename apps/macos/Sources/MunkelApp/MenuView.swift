@@ -469,9 +469,16 @@ private struct FrostedField: ViewModifier {
     func body(content: Content) -> some View {
         content
             .textFieldStyle(.plain)
+            // Single line that scrolls internally — without this a long draft
+            // grows the field editor and spills the text past the box.
+            .lineLimit(1)
             .focused($focused)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
+            // Clip the (already single-line) field to its box so a long draft
+            // that overruns the field editor can't spill past the rounded edge.
+            .clipShape(RoundedRectangle(cornerRadius: 7))
             // White tint over the material lightens it while keeping the
             // translucency — gently in dark mode, where 35% white would
             // turn the fields into gray slabs.

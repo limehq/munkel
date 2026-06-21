@@ -21,10 +21,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // Accessory: no Dock icon — menu bar item and notch are the only UI.
         NSApp.setActivationPolicy(.accessory)
 
-        // An accessory app gets no main menu, so the standard editing shortcuts
-        // (⌘X/⌘C/⌘V/⌘A) are never routed to the focused text field's responder.
-        // A minimal, never-displayed Edit menu wires them back up app-wide.
-        installEditMenu()
+        // An accessory app gets no main menu, so the standard editing actions
+        // (⌘X/⌘C/⌘V/⌘A and the emoji picker) are never routed to the focused
+        // text field's responder. A standard, never-displayed menu wires them
+        // back up app-wide.
+        installMainMenu()
 
         let model = AppModel()
         self.model = model
@@ -70,18 +71,41 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         statusItem = item
     }
 
-    /// A minimal Edit menu so Cut/Copy/Paste/Select All reach the first
-    /// responder (the focused text field).
-    private func installEditMenu() {
+    /// A standard (never-displayed) main menu so the editing actions reach the
+    /// first responder — the focused field editor. The App and Edit submenus are
+    /// both present: AppKit only routes the Edit-menu key equivalents and the
+    /// emoji picker properly when the menu is shaped the conventional way. The
+    /// "Emoji & Symbols" item (⌃⌘Space) is what makes the picker open at all.
+    private func installMainMenu() {
         let mainMenu = NSMenu()
+
+        let appItem = NSMenuItem()
+        mainMenu.addItem(appItem)
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Quit Munkel", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appItem.submenu = appMenu
+
         let editItem = NSMenuItem()
         mainMenu.addItem(editItem)
         let editMenu = NSMenu(title: "Edit")
+        editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = editMenu.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        editMenu.addItem(.separator())
         editMenu.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
         editMenu.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
         editMenu.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        editMenu.addItem(withTitle: "Delete", action: #selector(NSText.delete(_:)), keyEquivalent: "")
         editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        editMenu.addItem(.separator())
+        let emoji = editMenu.addItem(
+            withTitle: "Emoji & Symbols",
+            action: #selector(NSApplication.orderFrontCharacterPalette(_:)),
+            keyEquivalent: " "
+        )
+        emoji.keyEquivalentModifierMask = [.command, .control]
         editItem.submenu = editMenu
+
         NSApp.mainMenu = mainMenu
     }
 
