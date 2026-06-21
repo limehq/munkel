@@ -16,6 +16,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// button while open first closes the popover (outside click on
     /// mouseDown), then fires the action (mouseUp) — which would reopen it.
     private var lastClose = Date.distantPast
+    /// App-wide ⌘-key monitor that forwards the editing actions to the focused
+    /// field editor; retained for the process lifetime.
+    private var editingMonitor: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Accessory: no Dock icon — menu bar item and notch are the only UI.
@@ -26,6 +29,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // text field's responder. A standard, never-displayed menu wires them
         // back up app-wide.
         installMainMenu()
+        // The menu alone isn't enough: SwiftUI's Settings scene replaces the
+        // main menu after launch, and the non-activating Quick Send / notch
+        // panels don't route menu key equivalents anyway. Forward the shortcuts
+        // straight to the first responder so every field behaves normally.
+        installEditingShortcutMonitor()
 
         let model = AppModel()
         self.model = model
@@ -107,6 +115,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         editItem.submenu = editMenu
 
         NSApp.mainMenu = mainMenu
+    }
+
+    /// Forwards the standard editing shortcuts to whatever field editor is the
+    /// first responder, via the responder chain (`sendAction(_:to:nil)`). This
+    /// works regardless of menu ownership and even when a non-activating panel
+    /// is key but the app isn't frontmost — the cases where the menu route
+    /// silently fails. ⌘V is left to the per-field monitors when the clipboard
+    /// holds an image (they attach it); only plain-text paste is forwarded here.
+    private func installEditingShortcutMonitor() {
+        editingMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            var handled = false
+            MainActor.assumeIsolated {
+                let mods = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
+                // Emoji & Symbols picker: ⌃⌘Space (space is keyCode 49).
+                if mods == [.command, .control], event.keyCode == 49 {
+                    handled = NSApp.sendAction(
+                        #selector(NSApplication.orderFrontCharacterPalette(_:)), to: nil, from: nil)
+                    return
+                }
+                guard mods == .command, let key = event.charactersIgnoringModifiers?.lowercased()
+                else { return }
+                let selector: Selector?
+                switch key {
+                case "a": selector = #selector(NSText.selectAll(_:))
+                case "c": selector = #selector(NSText.copy(_:))
+                case "x": selector = #selector(NSText.cut(_:))
+                case "z": selector = Selector(("undo:"))
+                case "v": selector = ClipboardImage.read() == nil ? #selector(NSText.paste(_:)) : nil
+                default: selector = nil
+                }
+                if let selector {
+                    handled = NSApp.sendAction(selector, to: nil, from: nil)
+                }
+            }
+            return handled ? nil : event
+        }
     }
 
     func popoverDidClose(_ notification: Notification) {

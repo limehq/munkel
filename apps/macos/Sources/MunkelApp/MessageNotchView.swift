@@ -41,7 +41,7 @@ struct MessageNotchView: View {
                         text: message.text,
                         font: .systemFont(ofSize: 14, weight: .medium),
                         textColor: .white,
-                        lineLimit: 6
+                        lineLimit: 0
                     ) { [weak model] view in model?.registerLinkHost(view) }
                 }
                 if let url = firstURL(in: message.text) {
