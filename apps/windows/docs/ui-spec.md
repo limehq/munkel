@@ -171,8 +171,11 @@ state using the 👥 glyph on a neutral background.
 
 - Avatar + sender name + channel icon (🔒 direct / 🌐 broadcast) + circle dot +
   circle name.
-- Message text.
-- Copy button.
+- Message text. For image albums the text is the caption or a fallback like
+  "Sent 3 images".
+- Inline AVIF thumbnail row when `NotchMessage.images` is present. Each thumb
+  is rendered as a 72 × 72 px `object-fit: cover` image from a base64 data URI.
+- Copy button (copies the message text).
 - Clicking the message opens an inline reply field with a channel toggle
   (🔒/🌐) and frosted input.
 - `Enter` or the `➤` send button calls `useAppStore().sendChat`; on
@@ -196,11 +199,18 @@ state using the 👥 glyph on a neutral background.
   user to the Munkel menu; otherwise an unmatched query shows
   "No matches."
 - Selected row highlighted with accent-soft background.
-- Compose view with back arrow, target avatar/name/circle, message
-  input, and a `➤` send button. `Enter` and the button both call
-  `useAppStore().sendChat`; on `false` the field stays open with a
-  small red inline error ("Circle offline — message not sent.") and
-  the text is preserved for retry. On success the palette hides via
+- Compose view with back arrow, target avatar/name/circle, image-attach
+  button (🖼️), message/caption input, and a `➤` send button.
+- The image-attach button calls `useAppStore().selectImages()`, which opens
+  the system file picker and returns absolute paths. Up to 8 images can be
+  attached; each selected file renders as a removable chip showing its
+  filename.
+- With no images attached, `Enter` and the send button call
+  `useAppStore().sendChat`. With one or more images attached, they call
+  `useAppStore().sendImages(code, paths, caption, to)`.
+- On `false` the field stays open with a small red inline error
+  ("Circle offline — message not sent." or the codec/upload error) and
+  the text/images are preserved for retry. On success the palette hides via
   `window.electronAPI.hideWindow()`.
 
 ## Live data wiring
