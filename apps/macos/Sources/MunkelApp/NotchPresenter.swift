@@ -171,9 +171,9 @@ final class NotchPresenter {
             currentEntryID = entryID
             withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
                 configure(model, for: message, notchSize: model.notchSize, entryID: entryID, loadFull: loadFull, onReply: onReply)
-                notch.floatingOverlay = message.isImage
-                    ? AnyView(ImagePreviewOverlay(model: model, images: message.images))
-                    : nil
+                notch.floatingOverlay = AnyView(
+                    ImagePreviewOverlay(model: model, images: message.images)
+                )
                 model.mode = .message
                 model.fullyExpanded = false
                 notch.suppressBottomInset = false
