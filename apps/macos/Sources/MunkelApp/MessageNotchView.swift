@@ -153,9 +153,18 @@ struct AlbumCell: View {
 
         private let glyphDiameter: CGFloat = 20
 
+    /// The animated bytes to play, once they've loaded for an animated image;
+    /// nil keeps the still thumbnail showing.
+    private var animatedFull: Data? {
+        guard image.isAnimated, let full = model.fullImages[image.id] else { return nil }
+        return full
+    }
+
     var body: some View {
         ZStack {
-            if let decoded {
+            if let animatedFull {
+                AnimatedImageView(data: animatedFull, contentMode: .fill)
+            } else if let decoded {
                 Image(decorative: decoded, scale: 1)
                     .resizable()
                     .interpolation(.medium)
@@ -243,17 +252,44 @@ struct AlbumCell: View {
             decoded = await Task.detached { ImageCodec.decode(thumb, maxPixels: 400) }.value
         }
         // Full resolution: use the cache, else fetch once via the model's loader.
+        // An animated image plays from its raw bytes (AnimatedImageView), so a
+        // still full-res decode would just be thrown away — skip it.
         if let full = model.fullImages[image.id] {
+            if image.isAnimated { return }
             decoded = await Task.detached { ImageCodec.decode(full, maxPixels: 1400) }.value
             return
         }
         guard !didFail, let loader = model.imageLoaders[image.id] else { return }
         if let data = await loader() {
             model.fullImages[image.id] = data
+            if image.isAnimated { return }
             decoded = await Task.detached { ImageCodec.decode(data, maxPixels: 1400) }.value
         } else {
             model.failedImages.insert(image.id)
         }
+    }
+}
+
+/// Plays animated image bytes (an animated GIF) in an NSImageView, which loops
+/// the frames on its own — SwiftUI's `Image` only ever paints a still CGImage.
+/// Used for the full-resolution view once the animated bytes have loaded; the
+/// inline thumbnail keeps showing as a still frame until then.
+struct AnimatedImageView: NSViewRepresentable {
+    let data: Data
+    let contentMode: ContentMode
+
+    func makeNSView(context: Context) -> NSImageView {
+        let view = NSImageView()
+        view.imageScaling = contentMode == .fill ? .scaleProportionallyUpOrDown : .scaleProportionallyDown
+        view.animates = true
+        view.imageFrameStyle = .none
+        view.image = NSImage(data: data)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSImageView, context: Context) {
+        nsView.imageScaling = contentMode == .fill ? .scaleProportionallyUpOrDown : .scaleProportionallyDown
+        if nsView.image == nil { nsView.image = NSImage(data: data) }
     }
 }
 

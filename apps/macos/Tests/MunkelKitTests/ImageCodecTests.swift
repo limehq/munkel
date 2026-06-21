@@ -35,6 +35,36 @@ private func noisePNG(width: Int, height: Int) -> Data {
     return output as Data
 }
 
+/// A multi-frame (animated) GIF — solid color per frame, so it stays tiny.
+private func animatedGIF(width: Int, height: Int, frames: Int) -> Data {
+    let output = NSMutableData()
+    let destination = CGImageDestinationCreateWithData(
+        output, UTType.gif.identifier as CFString, frames, nil
+    )!
+    CGImageDestinationSetProperties(destination, [
+        kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0],
+    ] as CFDictionary)
+    for i in 0..<frames {
+        let context = CGContext(
+            data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        )!
+        let shade = CGFloat(i) / CGFloat(max(frames - 1, 1))
+        context.setFillColor(CGColor(srgbRed: shade, green: 0.2, blue: 0.8, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        CGImageDestinationAddImage(destination, context.makeImage()!, [
+            kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFUnclampedDelayTime: 0.1],
+        ] as CFDictionary)
+    }
+    CGImageDestinationFinalize(destination)
+    return output as Data
+}
+
+private func frameCount(of data: Data) -> Int {
+    CGImageSourceCreateWithData(data as CFData, nil).map(CGImageSourceGetCount) ?? 0
+}
+
 /// True iff `data` is a real AVIF: an ISOBMFF `ftyp` box whose MAJOR brand is
 /// avif/avis. Deliberately ignores the compatible-brand list — HEIC also lists
 /// mif1/miaf there, so accepting those would let a silent HEIC/JPEG fallback
@@ -121,6 +151,31 @@ struct ImageCodecTests {
         let png = noisePNG(width: 256, height: 256)
         let image = try! #require(ImageCodec.decode(png, maxPixels: 32))
         #expect(max(image.width, image.height) <= 32)
+    }
+
+    @Test func detectsAnimatedSource() {
+        #expect(ImageCodec.isAnimated(animatedGIF(width: 32, height: 32, frames: 4)))
+        #expect(!ImageCodec.isAnimated(noisePNG(width: 32, height: 32)))
+        #expect(!ImageCodec.isAnimated(animatedGIF(width: 32, height: 32, frames: 1)))
+    }
+
+    @Test func prepareFullKeepsSmallGIFAnimated() {
+        let gif = animatedGIF(width: 48, height: 48, frames: 6)
+        let prepared = try! #require(ImageCodec.prepareFull(from: gif))
+        #expect(prepared.mime == "image/gif")
+        // A small GIF already fits, so it rides through untouched and animated.
+        #expect(prepared.data == gif)
+        #expect(frameCount(of: prepared.data) == 6)
+    }
+
+    @Test func prepareFullReencodesOversizedGIFKeepingFrames() {
+        let gif = animatedGIF(width: 600, height: 600, frames: 12)
+        let prepared = try! #require(ImageCodec.prepareFull(from: gif, maxBytes: gif.count - 1, maxPixels: 128))
+        #expect(prepared.mime == "image/gif")
+        #expect(prepared.data.count <= gif.count - 1)
+        #expect(max(prepared.width, prepared.height) <= 128)
+        // Still animated after the downscale — every frame survives.
+        #expect(frameCount(of: prepared.data) == 12)
     }
 
     @Test func rejectsUndecodableInput() {

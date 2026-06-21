@@ -202,7 +202,7 @@ final class AppModel: ObservableObject {
                             : ImageCodec.makeThumbnail(from: data, maxBytes: perThumb)
                         guard let thumb else { continue }
                         let id = "echo-\(index)"
-                        images.append(IncomingImage(id: id, thumb: thumb, width: full.width, height: full.height))
+                        images.append(IncomingImage(id: id, thumb: thumb, width: full.width, height: full.height, mime: full.mime))
                         fulls[id] = full.data
                     }
                     return images.isEmpty ? nil : (images, fulls)
@@ -702,7 +702,7 @@ final class AppModel: ObservableObject {
         session.onImages = { [weak self] sender, items, caption, isDirect, loadFull in
             guard let self else { return }
             let images = items.map {
-                IncomingImage(id: $0.r2Key, thumb: $0.thumb, width: $0.width, height: $0.height)
+                IncomingImage(id: $0.r2Key, thumb: $0.thumb, width: $0.width, height: $0.height, mime: $0.mime)
             }
             self.notch.show(
                 sender: sender.label,

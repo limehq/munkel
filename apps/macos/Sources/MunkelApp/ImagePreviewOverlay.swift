@@ -41,11 +41,17 @@ private struct PreviewCard: View {
 
     private var didFail: Bool { model.failedImages.contains(image.id) }
     private var fullLoaded: Bool { model.fullImages[image.id] != nil }
+    private var animatedFull: Data? {
+        guard image.isAnimated, let full = model.fullImages[image.id] else { return nil }
+        return full
+    }
 
     var body: some View {
         let size = fittedSize(in: available)
         ZStack {
-            if let decoded {
+            if let animatedFull {
+                AnimatedImageView(data: animatedFull, contentMode: .fit)
+            } else if let decoded {
                 Image(decorative: decoded, scale: 1)
                     .resizable()
                     .interpolation(.high)
@@ -89,7 +95,9 @@ private struct PreviewCard: View {
     }
 
     private func decodeFull() async {
-        guard let full = model.fullImages[image.id] else { return }
+        // Animated images play from raw bytes (AnimatedImageView); a still
+        // full decode would just be replaced.
+        guard !image.isAnimated, let full = model.fullImages[image.id] else { return }
         let img = await Task.detached { ImageCodec.decode(full, maxPixels: ImageCodec.maxFullPixels) }.value
         guard !Task.isCancelled else { return }
         decoded = img

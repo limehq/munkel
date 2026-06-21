@@ -26,6 +26,12 @@ struct IncomingImage: Equatable, Identifiable, Sendable {
     let thumb: Data
     let width: Int
     let height: Int
+    /// MIME of the full image. Animated mimes (`image/gif`) render in a view
+    /// that plays them; everything else is a static decode.
+    var mime: String = "image/avif"
+
+    /// Whether the full image animates and should be shown in a playing view.
+    var isAnimated: Bool { mime == "image/gif" }
 }
 
 /// One entry of the short-lived notch history: messages stay visible in
