@@ -34,13 +34,18 @@ struct MessageNotchView: View {
         HStack(alignment: .top, spacing: 12) {
             AvatarView(name: message.sender, imageData: message.avatarData)
 
-            VStack(alignment: .leading, spacing: 2) {
-                header
-                Text(message.text)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white)
-                    .lineLimit(6)
-                    .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
+                    header
+                    Text(message.text)
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(.white)
+                        .lineLimit(6)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                if let url = firstURL(in: message.text) {
+                    LinkPreviewCard(model: model, url: url)
+                }
             }
 
             Spacer(minLength: 12)
@@ -267,6 +272,67 @@ struct ImageCopyHitTarget: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+/// A small card under a text message that links out: the page's Open Graph
+/// title and, if present, its share image. Scraped once on appear (cached on
+/// the model) and silently absent until — and unless — that succeeds, so a
+/// link with no preview just shows the bare text above. Clicking opens the URL.
+struct LinkPreviewCard: View {
+    @ObservedObject var model: MessageDisplayModel
+    let url: URL
+
+    @State private var image: CGImage?
+
+    private var preview: LinkPreviewData? {
+        // Outer optional: not yet fetched. Inner: fetched but had no OG data.
+        (model.linkPreviews[url.absoluteString] ?? nil)
+    }
+
+    var body: some View {
+        Group {
+            if let preview {
+                content(preview)
+            }
+        }
+        .task(id: url) { await model.loadLinkPreview(for: url) }
+    }
+
+    private func content(_ preview: LinkPreviewData) -> some View {
+        HStack(spacing: 8) {
+            if let image {
+                Image(decorative: image, scale: 1)
+                    .resizable()
+                    .interpolation(.medium)
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(preview.title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(preview.siteName ?? (url.host ?? url.absoluteString))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(6)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .onTapGesture { NSWorkspace.shared.open(preview.url) }
+        .task(id: preview.imageURL) { await loadImage(preview.imageURL) }
+    }
+
+    private func loadImage(_ imageURL: URL?) async {
+        guard let imageURL else { return }
+        guard let (data, _) = try? await URLSession.shared.data(from: imageURL) else { return }
+        image = await Task.detached { ImageCodec.decode(data, maxPixels: 200) }.value
+    }
 }
 
 /// A tiny thumbnail-only image (no R2 fetch) for the collapsed teaser strip.
