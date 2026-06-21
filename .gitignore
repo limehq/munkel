@@ -2,6 +2,9 @@
 node_modules/
 dist/
 *.log
+.omo
+
+**/graphify-out
 
 # Local environment and Worker secrets
 .env
