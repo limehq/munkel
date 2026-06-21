@@ -169,7 +169,8 @@ export function decodePayload(json: string): AppPayload {
       // Match macOS: "senders clamp, receivers drop extras" (AppPayload.swift).
       parsed.items = parsed.items.slice(0, 8);
     }
-    const items: ImageItem[] = parsed.items.map((raw: unknown, i: number) => {
+    const rawItems = parsed.items as unknown[];
+    const items: ImageItem[] = rawItems.map((raw: unknown, i: number) => {
       if (!isObject(raw)) {
         throw new PayloadError(`image items[${i}] must be an object`);
       }

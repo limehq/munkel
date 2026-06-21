@@ -86,9 +86,8 @@ export function buildControlHandler(
 			}
 
 			case 'send': {
-				// Image sends (`munkel image …`) are not implemented in the
-				// Windows app yet — surface an explicit error so the CLI
-				// gets a clear message instead of a silent success.
+				// Image sends (`munkel image …`) — route to sendImages with
+				// the request's imagePaths and the caption from `text`.
 				if (request.imagePaths && request.imagePaths.length > 0) {
 					if (!request.group) {
 						return { ok: false, error: 'Image sends need a circle — say `munkel <circle> image …`' };

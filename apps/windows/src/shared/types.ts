@@ -54,9 +54,13 @@ export interface IpcApi {
 	joinCircle: (code: string, relayUrl?: string) => Promise<void>;
 	leaveCircle: (code: string) => Promise<void>;
 	sendChat: (code: string, text: string, to?: string) => Promise<{ ok: boolean; error?: string }>;
+	sendImages: (code: string, paths: string[], caption: string, to?: string) => Promise<{ ok: boolean; error?: string }>;
 	updateProfile: (displayName: string, avatar?: string) => Promise<void>;
 	setRelayUrl: (code: string, relayUrl: string) => Promise<void>;
 	getState: () => Promise<StateUpdate>;
+
+	// Image picker (main-process dialog; returns file paths).
+	selectImages: () => Promise<string[] | undefined>;
 
 	// Crypto (main-process only; raw keys never cross the bridge).
 	deriveGroupId: (code: string) => Promise<string>;

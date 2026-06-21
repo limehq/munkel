@@ -671,3 +671,53 @@ select {
 	font-size: 12px;
 	color: var(--munkel-text-secondary);
 }
+
+/* Image attachments in palette */
+.image-attachments {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	padding: 0 20px 12px;
+}
+
+.image-attachment-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	background: rgba(255, 255, 255, 0.08);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 999px;
+	padding: 3px 3px 3px 10px;
+	font-size: 11px;
+	color: var(--munkel-text-secondary);
+	max-width: 180px;
+}
+
+.image-attachment-chip > span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.image-attachment-chip .icon-button {
+	width: 18px;
+	height: 18px;
+	font-size: 14px;
+}
+
+/* Inline image previews in notch */
+.image-preview-row {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	margin-top: 6px;
+}
+
+.image-preview-thumb {
+	width: 72px;
+	height: 72px;
+	object-fit: cover;
+	border-radius: var(--munkel-radius-sm);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	background: rgba(255, 255, 255, 0.05);
+}

@@ -12,11 +12,12 @@ interface Recipient {
 }
 
 export default function PaletteWindow() {
-	const { state, sendChat } = useAppStore();
+	const { state, sendChat, sendImages, selectImages } = useAppStore();
 	const [query, setQuery] = useState('');
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const [target, setTarget] = useState<Recipient | null>(null);
 	const [message, setMessage] = useState('');
+	const [imagePaths, setImagePaths] = useState<string[]>([]);
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +59,7 @@ export default function PaletteWindow() {
 			if (e.key === 'Escape') {
 				setTarget(null);
 				setMessage('');
+				setImagePaths([]);
 			}
 			return;
 		}
@@ -78,20 +80,39 @@ export default function PaletteWindow() {
 		}
 	}
 
+	async function handleAttachImages() {
+		setError(null);
+		try {
+			const paths = await selectImages();
+			if (paths && paths.length > 0) {
+				setImagePaths((prev) => [...prev, ...paths].slice(0, 8));
+			}
+		} catch (err) {
+			console.error('[palette] select images failed', err);
+		}
+	}
+
 	async function handleSend() {
 		if (!target || sending) return;
 		const text = message.trim();
-		if (!text) return;
+		if (!text && imagePaths.length === 0) return;
+
 		setSending(true);
 		setError(null);
 		try {
 			const to = target.isEveryone ? undefined : target.memberId;
-			const result = await sendChat(target.circleCode, text, to);
+			let result: { ok: boolean; error?: string };
+			if (imagePaths.length > 0) {
+				result = await sendImages(target.circleCode, imagePaths, text, to);
+			} else {
+				result = await sendChat(target.circleCode, text, to);
+			}
 			if (!result.ok) {
 				setError(result.error ?? 'Circle offline — message not sent.');
-				return; // keep the text so the user can retry
+				return; // keep the text / images so the user can retry
 			}
 			setMessage('');
+			setImagePaths([]);
 			setTarget(null);
 			setQuery('');
 			setSelectedIndex(0);
@@ -100,6 +121,8 @@ export default function PaletteWindow() {
 			setSending(false);
 		}
 	}
+
+	const canSend = (message.trim().length > 0 || imagePaths.length > 0) && !sending;
 
 	if (target) {
 		return (
@@ -114,16 +137,28 @@ export default function PaletteWindow() {
 				</div>
 				<div className="palette-divider" />
 				<div className="compose-row">
+					<button
+						className="icon-button"
+						onClick={() => void handleAttachImages()}
+						title="Attach images"
+						disabled={imagePaths.length >= 8 || sending}
+					>
+						🖼️
+					</button>
 					<input
 						className="frosted-field"
-						placeholder={`Message ${target.label}…`}
+						placeholder={
+							imagePaths.length > 0
+								? `Caption ${imagePaths.length} image${imagePaths.length === 1 ? '' : 's'}…`
+								: `Message ${target.label}…`
+						}
 						value={message}
 						onChange={(e) => {
 							setMessage(e.target.value);
 							if (error) setError(null);
 						}}
 						onKeyDown={(e) => {
-							if (e.key === 'Enter' && message.trim() && !sending) {
+							if (e.key === 'Enter' && canSend) {
 								void handleSend();
 							}
 							if (e.key === 'Escape') setTarget(null);
@@ -132,13 +167,30 @@ export default function PaletteWindow() {
 					/>
 					<button
 						className="icon-button"
-						disabled={!message.trim() || sending}
+						disabled={!canSend}
 						onClick={() => void handleSend()}
 						title="Send"
 					>
 						➤
 					</button>
 				</div>
+				{imagePaths.length > 0 && (
+					<div className="image-attachments">
+						{imagePaths.map((path, i) => (
+							<span key={`${path}-${i}`} className="image-attachment-chip">
+								{path.split(/[/\\]/).pop()}
+								<button
+									className="icon-button"
+									onClick={() => setImagePaths((prev) => prev.filter((_, idx) => idx !== i))}
+									title="Remove"
+									disabled={sending}
+								>
+									×
+								</button>
+							</span>
+						))}
+					</div>
+				)}
 				{error && <p className="compose-error">{error}</p>}
 			</div>
 		);
