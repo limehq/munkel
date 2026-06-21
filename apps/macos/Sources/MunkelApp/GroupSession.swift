@@ -9,6 +9,8 @@ final class GroupSession {
         let id: String
         var displayName: String? = nil
         var avatar: Data? = nil
+        var avatarURL: String? = nil
+        var status: PresenceStatus = .online
 
         var label: String {
             displayName ?? String(id.prefix(8))
@@ -28,6 +30,7 @@ final class GroupSession {
     let code: String
     private(set) var members: [Member] = []
     private(set) var isConnected = false
+    var localStatus: PresenceStatus = .online
 
     private let key: GroupKey
     private let client: RelayClient
@@ -73,17 +76,62 @@ final class GroupSession {
 
     @discardableResult
     func sendChat(_ text: String, to memberId: String? = nil) async -> Bool {
+        // A message that is just an image URL should arrive as a real image,
+        // not a link. Fetch it and ride the normal image path; on any failure
+        // fall through and send the text as typed.
+        if let url = Self.loneImageURL(in: text),
+           let data = await Self.fetchImage(from: url),
+           await sendImages([data], to: memberId) {
+            return true
+        }
         let payload = AppPayload.chat(text: MessageLimits.clamp(text), sentAt: Date())
         return await send(payload, to: memberId)
+    }
+
+    /// Returns the URL when `text` is nothing but a single http(s) link that
+    /// looks like an image (by extension), else nil.
+    private static func loneImageURL(in text: String) -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.contains(where: \.isWhitespace),
+              let url = URL(string: trimmed),
+              let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https"
+        else {
+            return nil
+        }
+        let exts = ["jpg", "jpeg", "png", "gif", "webp", "avif", "heic", "tiff", "bmp"]
+        return exts.contains(url.pathExtension.lowercased()) ? url : nil
+    }
+
+    /// Downloads the image bytes, capped at the same size as an inbound blob.
+    /// Returns nil on any error or non-image content type.
+    private static func fetchImage(from url: URL) async -> Data? {
+        var request = URLRequest(url: url)
+        request.setValue("image/*", forHTTPHeaderField: "Accept")
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              data.count <= maxIncomingImageBytes
+        else {
+            return nil
+        }
+        let contentType = http.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
+        guard contentType.hasPrefix("image/") else { return nil }
+        return data
     }
 
     @discardableResult
     func sendProfile(to memberId: String? = nil) async -> Bool {
         let payload = AppPayload.profile(
             displayName: Identity.displayName,
-            avatar: Identity.avatarData
+            avatar: nil,
+            avatarURL: Identity.avatarURL,
+            status: localStatus
         )
         return await send(payload, to: memberId)
+    }
+
+    @discardableResult
+    func sendPresence(to memberId: String? = nil) async -> Bool {
+        await send(.presence(status: localStatus), to: memberId)
     }
 
     /// Transcodes each image to AVIF, ALWAYS uploads the sealed ciphertext to R2
@@ -174,6 +222,15 @@ final class GroupSession {
         }
     }
 
+    private func fetchMemberAvatar(_ memberId: String, from urlString: String) async {
+        guard let bytes = await AvatarStore.shared.image(for: urlString) else { return }
+        guard let index = members.firstIndex(where: { $0.id == memberId }),
+              members[index].avatarURL == urlString
+        else { return }
+        members[index].avatar = bytes
+        onStateChange?()
+    }
+
     private func handle(_ event: RelayClient.Event) async {
         switch event {
         case .disconnected:
@@ -238,20 +295,36 @@ final class GroupSession {
         }
 
         switch decoded {
-        case let .profile(displayName, avatar):
-            // nil clears the avatar (peer logged out of GitHub).
+        case let .profile(displayName, avatar, avatarURL, status):
             let sanitizedAvatar = avatar.flatMap {
                 $0.count <= Self.maxIncomingAvatarBytes ? $0 : nil
             }
             if let index = members.firstIndex(where: { $0.id == memberId }) {
                 members[index].displayName = displayName
-                members[index].avatar = sanitizedAvatar
+                members[index].status = status
+                members[index].avatarURL = avatarURL
+                if avatarURL == nil { members[index].avatar = sanitizedAvatar }
             } else {
                 members.append(
-                    Member(id: memberId, displayName: displayName, avatar: sanitizedAvatar)
+                    Member(
+                        id: memberId,
+                        displayName: displayName,
+                        avatar: avatarURL == nil ? sanitizedAvatar : nil,
+                        avatarURL: avatarURL,
+                        status: status
+                    )
                 )
             }
             onStateChange?()
+            if let avatarURL {
+                Task { await self.fetchMemberAvatar(memberId, from: avatarURL) }
+            }
+
+        case let .presence(status):
+            if let index = members.firstIndex(where: { $0.id == memberId }) {
+                members[index].status = status
+                onStateChange?()
+            }
 
         case let .chat(text, _):
             let sender = members.first { $0.id == memberId }

@@ -8,6 +8,7 @@ struct MenuView: View {
     @State private var joinCode = ""
     @State private var userCodeCopied = false
     @State private var groupListHeight: CGFloat = 0
+    @State private var statusHovering = false
     @StateObject private var displayList = DisplayList()
     /// "Launch at Login" state that reflects intent immediately and reconciles
     /// with the real SMAppService status on foreground.
@@ -36,7 +37,7 @@ struct MenuView: View {
                 githubArea
             } else {
                 if model.groupCodes.isEmpty {
-                    Text("No circles yet. Create one or join with a code.")
+                    Text("No channels yet. Create one or join with a code.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         // Without this the popup truncates to one ellipsized
@@ -88,7 +89,7 @@ struct MenuView: View {
         .onTapGesture {
             NSApp.keyWindow?.makeFirstResponder(nil)
         }
-        // The popover shows every circle code (the sole credential — whoever
+        // The popover shows every channel code (the sole credential — whoever
         // reads one can join), the outgoing draft and the GitHub device
         // code, so it stays out of screen shares like the notch does.
         .excludedFromScreenCapture()
@@ -164,8 +165,22 @@ struct MenuView: View {
             Divider()
             Toggle("Echo my broadcasts to me", isOn: $devEchoBroadcasts)
             Toggle("Allow in screenshots", isOn: $allowInScreenshots)
+            // Seed a demo backlog (text + image messages) into the notch so the
+            // expanded-history hover preview can be tested without real traffic.
+            Button {
+                model.debugShowDemoHistory()
+            } label: {
+                Label("Demo image history", systemImage: "photo.stack")
+            }
             #endif
             Divider()
+            if model.githubUserLogin != nil {
+                Button {
+                    model.logoutGitHub()
+                } label: {
+                    Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
+                }
+            }
             Button {
                 NSApp.terminate(nil)
             } label: {
@@ -182,6 +197,37 @@ struct MenuView: View {
         .help("Settings")
     }
 
+    private var statusPicker: some View {
+        Picker(selection: Binding(get: { model.localStatus }, set: { model.chooseStatus($0) })) {
+            ForEach(PresenceStatus.allCases, id: \.self) { status in
+                Label {
+                    Text(status.menuLabel)
+                } icon: {
+                    Image(systemName: status.symbolName)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(status.dotColor)
+                        .imageScale(status == .online ? .small : .medium)
+                }
+                .tag(status)
+            }
+        } label: {
+            Text("Presence")
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .buttonStyle(.borderless)
+        .controlSize(.small)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(.primary.opacity(statusHovering ? 0.1 : 0))
+        )
+        .onHover { statusHovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: statusHovering)
+        .help("Set your presence")
+    }
+
     private func showAbout() {
         NSApp.activate(ignoringOtherApps: true)
         NSApp.orderFrontStandardAboutPanel(nil)
@@ -194,7 +240,7 @@ struct MenuView: View {
     private var joinArea: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                TextField("Your circle", text: $joinCode)
+                TextField("Your channel", text: $joinCode)
                     .frostedField()
                     .onSubmit(joinTapped)
                 Button {
@@ -206,7 +252,7 @@ struct MenuView: View {
                 Button("Join", action: joinTapped)
                     .disabled(joinCode.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            Text("If the circle doesn't exist yet, it's created.")
+            Text("If the channel doesn't exist yet, it's created.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -228,15 +274,14 @@ struct MenuView: View {
     private var githubArea: some View {
         switch model.githubLoginState {
         case .idle:
-            if let login = model.githubUserLogin {
+            if model.githubUserLogin != nil {
                 HStack(spacing: 8) {
-                    AvatarView(name: model.displayName, imageData: Identity.avatarData, size: 20)
-                    Text("Signed in as \(model.displayName) (@\(login))")
+                    AvatarView(name: model.displayName, imageData: Identity.avatarData, size: 20, status: model.effectiveStatus)
+                    Text(model.displayName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Sign out") { model.logoutGitHub() }
-                        .controlSize(.small)
+                    statusPicker
                 }
             } else {
                 Button {
@@ -424,9 +469,16 @@ private struct FrostedField: ViewModifier {
     func body(content: Content) -> some View {
         content
             .textFieldStyle(.plain)
+            // Single line that scrolls internally — without this a long draft
+            // grows the field editor and spills the text past the box.
+            .lineLimit(1)
             .focused($focused)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
+            // Clip the (already single-line) field to its box so a long draft
+            // that overruns the field editor can't spill past the rounded edge.
+            .clipShape(RoundedRectangle(cornerRadius: 7))
             // White tint over the material lightens it while keeping the
             // translucency — gently in dark mode, where 35% white would
             // turn the fields into gray slabs.
@@ -477,7 +529,7 @@ struct GroupSectionView: View {
     @FocusState private var fieldFocused: Bool
 
     private let targetSize: CGFloat = 26
-    private let cardSpace = "circleCard"
+    private let cardSpace = "channelCard"
 
     /// A target chip's tooltip text plus where to float it (card coordinates).
     struct HoverTip: Equatable {
@@ -588,7 +640,7 @@ struct GroupSectionView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Leave circle")
+            .help("Leave channel")
         }
     }
 
@@ -619,7 +671,7 @@ struct GroupSectionView: View {
                         recipient = member.id
                         fieldFocused = true
                     } label: {
-                        AvatarView(name: member.label, imageData: member.avatar, size: targetSize)
+                        AvatarView(name: member.label, imageData: member.avatar, size: targetSize, status: member.status)
                     }
                 }
 

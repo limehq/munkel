@@ -77,7 +77,7 @@ What exists today:
   SwiftUI controls. Text buttons (`Button("Join")`, `Button("Sign out")`,
   `Button("Retry")`, and so on) expose their label to VoiceOver automatically.
   Icon and status controls carry `.help(...)` tooltips ("Settings", "Copy code",
-  "Leave circle", "Connected"/"Connecting…", "Roll a random code", "Remove"),
+  "Leave channel", "Connected"/"Connecting…", "Roll a random code", "Remove"),
   which surface as VoiceOver help and as hover tooltips.
 - **Menu-bar item label.** The status-item glyph sets
   `accessibilityDescription = "Munkel"` so the menu-bar control is identified.

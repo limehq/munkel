@@ -1,5 +1,8 @@
 import AppKit
+import Combine
+import CoreGraphics
 import Foundation
+import IOKit.pwr_mgt
 import MunkelKit
 
 enum GitHubLoginState: Equatable {
@@ -41,6 +44,29 @@ final class AppModel: ObservableObject {
     /// Bumped whenever any session's presence changes, so views refresh.
     @Published private(set) var presenceVersion = 0
 
+    @Published var localStatus: PresenceStatus = Identity.presenceStatus {
+        didSet {
+            guard localStatus != oldValue else { return }
+            Identity.presenceStatus = localStatus
+            if localStatus != .online { isAutoAway = false }
+            applyPresence()
+        }
+    }
+    @Published private(set) var isAutoAway = false
+    var effectiveStatus: PresenceStatus {
+        localStatus == .online && isAutoAway ? .away : localStatus
+    }
+
+    func chooseStatus(_ status: PresenceStatus) {
+        let clearedAutoAway = isAutoAway
+        isAutoAway = false
+        if localStatus != status {
+            localStatus = status
+        } else if clearedAutoAway {
+            applyPresence()
+        }
+    }
+
     /// Sparkle bridge, injected by `AppDelegate` at launch (release build only;
     /// nil in the dev build, which doesn't auto-update).
     var updater: UpdaterController?
@@ -76,6 +102,10 @@ final class AppModel: ObservableObject {
     private var githubLoginTask: Task<Void, Never>?
     private var githubLoginGeneration = 0
     private var profileBroadcastTask: Task<Void, Never>?
+    private var idleTimer: Timer?
+    private var presenceObservers: Set<AnyCancellable> = []
+    private let awayThreshold: TimeInterval = 5 * 60
+    private let idlePollInterval: TimeInterval = 30
 
     init() {
         self.displayName = Identity.displayName
@@ -94,6 +124,7 @@ final class AppModel: ObservableObject {
         // Registers the global hotkey (default ⌃⌘M) and owns the palette
         // window — long-lived like the notch, so it survives popover churn.
         self.palette = CommandPalettePresenter(model: self)
+        startPresenceMonitoring()
     }
 
     func session(for code: String) -> GroupSession? {
@@ -171,7 +202,7 @@ final class AppModel: ObservableObject {
                             : ImageCodec.makeThumbnail(from: data, maxBytes: perThumb)
                         guard let thumb else { continue }
                         let id = "echo-\(index)"
-                        images.append(IncomingImage(id: id, thumb: thumb, width: full.width, height: full.height))
+                        images.append(IncomingImage(id: id, thumb: thumb, width: full.width, height: full.height, mime: full.mime))
                         fulls[id] = full.data
                     }
                     return images.isEmpty ? nil : (images, fulls)
@@ -198,6 +229,37 @@ final class AppModel: ObservableObject {
         }
         #endif
     }
+
+    #if DEBUG
+    /// Dev aid: seed the notch with a synthetic backlog of text + image messages
+    /// and show a current message on top, so the expanded-history image hover
+    /// preview can be exercised without sending real messages back and forth.
+    /// Triggered from the menu's DEBUG section; the rows live the usual 60 s
+    /// history window, then expire — re-run the item to refresh them. The heavy
+    /// lifting (render + AVIF transcode) is in `DemoHistory`.
+    func debugShowDemoHistory() {
+        let code = groupCodes.first ?? "demo"
+        let index = max(0, groupCodes.firstIndex(of: code) ?? 0)
+        // `build` owns the SwiftUI `Color` (computed from the index) and hands it
+        // back in the bundle, so this model never has to name a SwiftUI type.
+        let demo = DemoHistory.build(group: code, colorIndex: index)
+
+        // Inject the backlog straight into the history buffer, then show the
+        // current message above it — the same path a real arrival takes.
+        notch.debugSeedHistory(demo.backlog)
+        notch.show(
+            sender: "Sebil",
+            avatarData: Identity.avatarData,
+            text: demo.currentText,
+            isDirect: false,
+            group: code,
+            groupColor: demo.color,
+            inMultipleGroups: groupCodes.count > 1,
+            images: demo.currentImages,
+            loadFull: { [fulls = demo.fulls] id in fulls[id] }
+        ) { _, _, _ in }
+    }
+    #endif
 
     /// Opens the quick-send command palette (also bound to the global hotkey).
     func openCommandPalette() {
@@ -238,6 +300,7 @@ final class AppModel: ObservableObject {
     /// stop (the group codes stay persisted and reconnect after re-login).
     func logoutGitHub() {
         Identity.avatarData = nil
+        Identity.avatarURL = nil
         Identity.githubLogin = nil
         githubUserLogin = nil
         for session in sessions.values {
@@ -286,7 +349,7 @@ final class AppModel: ObservableObject {
             }
 
             guard generation == githubLoginGeneration else { return }
-            applyProfile(name: Self.firstName(of: user), avatar: avatar, githubLogin: user.login)
+            applyProfile(name: Self.firstName(of: user), avatar: avatar, avatarURL: user.avatarURL?.absoluteString, githubLogin: user.login)
             githubLoginState = .idle
             // Login gates everything: the persisted groups connect only now.
             for code in groupCodes where sessions[code] == nil {
@@ -306,8 +369,9 @@ final class AppModel: ObservableObject {
 
     /// Writes both identity halves before the single broadcast — a didSet
     /// broadcast would race the avatar write and send a stale profile.
-    private func applyProfile(name: String, avatar: Data?, githubLogin login: String?) {
+    private func applyProfile(name: String, avatar: Data?, avatarURL: String?, githubLogin login: String?) {
         Identity.avatarData = avatar
+        Identity.avatarURL = avatarURL
         Identity.githubLogin = login
         githubUserLogin = login
         displayName = name
@@ -328,6 +392,131 @@ final class AppModel: ObservableObject {
         for session in sessions.values {
             Task { await session.sendProfile() }
         }
+    }
+
+    private func broadcastPresence() {
+        for session in sessions.values {
+            Task { await session.sendPresence() }
+        }
+    }
+
+    private func applyPresence() {
+        let status = effectiveStatus
+        for session in sessions.values {
+            session.localStatus = status
+        }
+        broadcastPresence()
+    }
+
+    private func startPresenceMonitoring() {
+        let timer = Timer(timeInterval: idlePollInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.pollIdle() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        idleTimer = timer
+
+        let center = NSWorkspace.shared.notificationCenter
+        let goneNames: [Notification.Name] = [
+            NSWorkspace.screensDidSleepNotification,
+            NSWorkspace.willSleepNotification,
+            NSWorkspace.sessionDidResignActiveNotification,
+        ]
+        let backNames: [Notification.Name] = [
+            NSWorkspace.screensDidWakeNotification,
+            NSWorkspace.didWakeNotification,
+            NSWorkspace.sessionDidBecomeActiveNotification,
+        ]
+        for name in goneNames {
+            center.publisher(for: name)
+                .sink { [weak self] _ in self?.enterAutoAway() }
+                .store(in: &presenceObservers)
+        }
+        for name in backNames {
+            center.publisher(for: name)
+                .sink { [weak self] _ in self?.pollIdle() }
+                .store(in: &presenceObservers)
+        }
+
+        let distributed = DistributedNotificationCenter.default()
+        distributed.publisher(for: Notification.Name("com.apple.screenIsLocked"))
+            .sink { [weak self] _ in self?.enterAutoAway() }
+            .store(in: &presenceObservers)
+        distributed.publisher(for: Notification.Name("com.apple.screenIsUnlocked"))
+            .sink { [weak self] _ in self?.pollIdle() }
+            .store(in: &presenceObservers)
+    }
+
+    private func pollIdle() {
+        guard localStatus == .online else { return }
+        if Self.secondsSinceUserInput() >= awayThreshold, !Self.displayIsKeptAwake() {
+            setAutoAway(true)
+        } else {
+            setAutoAway(false)
+        }
+    }
+
+    private func enterAutoAway() {
+        guard localStatus == .online else { return }
+        setAutoAway(true)
+    }
+
+    private func setAutoAway(_ value: Bool) {
+        guard isAutoAway != value else { return }
+        isAutoAway = value
+        applyPresence()
+    }
+
+    private static func secondsSinceUserInput() -> TimeInterval {
+        CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
+    }
+
+    private static let remoteControlHolders = [
+        "rustdesk",
+        "screensharingd",
+        "screensharingag",
+        "ardagent",
+        "teamviewer",
+        "anydesk",
+        "remoting_host",
+        "chrome-remote-desktop",
+        "parsec",
+        "vncserver",
+    ]
+
+    private static func isRemoteControlHolder(_ name: String) -> Bool {
+        guard !name.isEmpty else { return false }
+        let lower = name.lowercased()
+        return remoteControlHolders.contains { lower.hasPrefix($0) || $0.hasPrefix(lower) }
+    }
+
+    private static func displayIsKeptAwake() -> Bool {
+        displaySleepHolderNames().contains { !isRemoteControlHolder($0) }
+    }
+
+    private static func displaySleepHolderNames() -> [String] {
+        var raw: Unmanaged<CFDictionary>?
+        guard IOPMCopyAssertionsByProcess(&raw) == kIOReturnSuccess,
+              let byProcess = raw?.takeRetainedValue() as? [Int: [[String: Any]]]
+        else { return [] }
+
+        let canonical = kIOPMAssertionTypePreventUserIdleDisplaySleep as String
+        let legacy = kIOPMAssertionTypeNoDisplaySleep as String
+        let typeKey = kIOPMAssertionTypeKey as String
+        let levelKey = kIOPMAssertionLevelKey as String
+
+        var names: [String] = []
+        for assertions in byProcess.values {
+            for assertion in assertions {
+                let type = assertion[typeKey] as? String ?? ""
+                let trueType = assertion["AssertionTrueType"] as? String ?? ""
+                let level = assertion[levelKey] as? Int ?? 0
+                let holdsDisplay = type == canonical || type == legacy
+                    || trueType == canonical || trueType == legacy
+                guard holdsDisplay, level != 0 else { continue }
+                names.append(assertion["Process Name"] as? String ?? "")
+            }
+        }
+        return names
     }
 
     /// The display name is always the GitHub first name — not editable.
@@ -398,11 +587,11 @@ final class AppModel: ObservableObject {
                 ? "Send failed — no connection to the relay?"
                 : "Couldn't send the image — encoding failed or no connection to the relay"
 
-            // Circle-scoped send: explicit circle code. Required for a
-            // broadcast and used to disambiguate a name across circles.
+            // Channel-scoped send: explicit channel code. Required for a
+            // broadcast and used to disambiguate a name across channels.
             if let groupQuery = request.group {
                 guard let session = resolveGroup(groupQuery) else {
-                    return ControlResponse(ok: false, error: "Unknown or ambiguous circle \"\(groupQuery)\" — munkel circles shows them all")
+                    return ControlResponse(ok: false, error: "Unknown or ambiguous channel \"\(groupQuery)\" — munkel channels shows them all")
                 }
                 var recipientId: String?
                 if let to = request.to, !isBroadcast {
@@ -420,10 +609,10 @@ final class AppModel: ObservableObject {
             }
 
             // Recipient-only send (`munkel dm <name> …` / `munkel image <name> …`):
-            // no circle given, so resolve the name across every circle. This
+            // no channel given, so resolve the name across every channel. This
             // lets an agent notify someone in a single call.
             guard let to = request.to, !isBroadcast else {
-                return ControlResponse(ok: false, error: "Broadcast needs a circle — say `munkel <circle> all …`")
+                return ControlResponse(ok: false, error: "Broadcast needs a channel — say `munkel <channel> all …`")
             }
             var hits: [(session: GroupSession, member: GroupSession.Member)] = []
             for code in groupCodes {
@@ -434,11 +623,11 @@ final class AppModel: ObservableObject {
             }
             guard hits.count == 1 else {
                 if hits.isEmpty {
-                    return ControlResponse(ok: false, error: "No online member matches \"\(to)\" — munkel circles shows who's online")
+                    return ControlResponse(ok: false, error: "No online member matches \"\(to)\" — munkel channels shows who's online")
                 }
-                // Ambiguous: name only the candidate circles (and attach them
+                // Ambiguous: name only the candidate channels (and attach them
                 // as a discovery payload) so the caller can retry with
-                // `munkel <circle> <name> …` — never the whole social graph.
+                // `munkel <channel> <name> …` — never the whole social graph.
                 var candidateCodes: [String] = []
                 for code in hits.map(\.session.code) where !candidateCodes.contains(code) {
                     candidateCodes.append(code)
@@ -450,7 +639,7 @@ final class AppModel: ObservableObject {
                 }
                 return ControlResponse(
                     ok: false,
-                    error: "\"\(to)\" is in \(candidateCodes.joined(separator: ", ")) — say `munkel <circle> \(to) …`",
+                    error: "\"\(to)\" is in \(candidateCodes.joined(separator: ", ")) — say `munkel <channel> \(to) …`",
                     groups: payload
                 )
             }
@@ -464,7 +653,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Recipient match shared by the circle-scoped and cross-circle send
+    /// Recipient match shared by the channel-scoped and cross-channel send
     /// paths: case-insensitive display-name match, or a public-key id prefix.
     private static func recipientMatches(_ member: GroupSession.Member, _ query: String) -> Bool {
         member.label.caseInsensitiveCompare(query) == .orderedSame
@@ -497,7 +686,8 @@ final class AppModel: ObservableObject {
                 isDirect: isDirect,
                 group: code,
                 groupColor: .groupColor(index: self.groupCodes.firstIndex(of: code) ?? 0),
-                inMultipleGroups: self.groupCodes.count > 1
+                inMultipleGroups: self.groupCodes.count > 1,
+                silent: self.effectiveStatus.suppressesNotchPreview
             ) { [weak self] reply, images, privately in
                 // Default mirrors how the message arrived; the toggle
                 // in the reply field can override per message.
@@ -512,7 +702,7 @@ final class AppModel: ObservableObject {
         session.onImages = { [weak self] sender, items, caption, isDirect, loadFull in
             guard let self else { return }
             let images = items.map {
-                IncomingImage(id: $0.r2Key, thumb: $0.thumb, width: $0.width, height: $0.height)
+                IncomingImage(id: $0.r2Key, thumb: $0.thumb, width: $0.width, height: $0.height, mime: $0.mime)
             }
             self.notch.show(
                 sender: sender.label,
@@ -523,6 +713,7 @@ final class AppModel: ObservableObject {
                 groupColor: .groupColor(index: self.groupCodes.firstIndex(of: code) ?? 0),
                 inMultipleGroups: self.groupCodes.count > 1,
                 images: images,
+                silent: self.effectiveStatus.suppressesNotchPreview,
                 loadFull: loadFull
             ) { [weak self] reply, images, privately in
                 let to = privately ? sender.id : nil
@@ -533,6 +724,7 @@ final class AppModel: ObservableObject {
                 }
             }
         }
+        session.localStatus = effectiveStatus
         sessions[code] = session
         session.start()
     }

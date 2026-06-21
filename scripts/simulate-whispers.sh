@@ -1,30 +1,30 @@
 #!/usr/bin/env bash
-# simulate-whispers.sh — run a simulated circle member that whispers you a
+# simulate-whispers.sh — run a simulated channel member that whispers you a
 # message on a fixed interval, so the Munkel notch lights up on a schedule.
 #
-# It acts as a second member of a circle (default blue-table-42), connects to
+# It acts as a second member of a channel (default blue-table-42), connects to
 # the same relay as the running Munkel app, and on every tick sends one
 # encrypted chat via apps/server/scripts/dev-send.ts (the protocol reference
-# sender). With the app running and joined to the circle, each whisper slides
+# sender). With the app running and joined to the channel, each whisper slides
 # out of the notch.
 #
 # Prerequisites (the script checks the first two):
 #   - bun on PATH
 #   - the relay running          (cd apps/server && bun run dev)
-#   - the Munkel app running and joined to $CIRCLE on the same relay
+#   - the Munkel app running and joined to $CHANNEL on the same relay
 #
 # Usage:
-#   scripts/simulate-whispers.sh [circle] [sender-name]
+#   scripts/simulate-whispers.sh [channel] [sender-name]
 #
 # Env overrides:
 #   INTERVAL    seconds between whispers (default 30)
 #   RELAY_URL   relay websocket          (default ws://127.0.0.1:8787)
-#   CIRCLE      circle code              (default blue-table-42)
+#   CHANNEL     channel code             (default blue-table-42)
 #   SENDER      simulated sender name    (default Sim)
 #   TO          recipient memberId for a direct whisper. When unset the script
 #               auto-discovers the local Munkel app's own memberId from its
 #               UserDefaults and whispers you directly; if that is unavailable
-#               it falls back to a circle broadcast (which you still see).
+#               it falls back to a channel broadcast (which you still see).
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -32,7 +32,7 @@ dev_send="$repo_root/apps/server/scripts/dev-send.ts"
 
 INTERVAL="${INTERVAL:-30}"
 RELAY_URL="${RELAY_URL:-ws://127.0.0.1:8787}"
-CIRCLE="${1:-${CIRCLE:-blue-table-42}}"
+CHANNEL="${1:-${CHANNEL:-blue-table-42}}"
 SENDER="${2:-${SENDER:-Sim}}"
 
 command -v bun >/dev/null 2>&1 || { echo "simulate: bun not found on PATH" >&2; exit 1; }
@@ -45,7 +45,7 @@ to="${TO:-}"
 if [[ -z "$to" ]]; then
   to="$(defaults read dev.uq.munkel memberId 2>/dev/null || true)"
 fi
-target_desc="circle broadcast"
+target_desc="channel broadcast"
 [[ -n "$to" ]] && target_desc="direct whisper → ${to}"
 
 # Rotating lines so the stream feels alive rather than a repeated ping.
@@ -69,7 +69,7 @@ trap 'exit 0' INT TERM
 trap 'printf "\nsimulate: stopped after %d whisper(s).\n" "$n"' EXIT
 
 printf 'simulate: "%s" whispers you in [%s] every %ss (%s)\n' \
-  "$SENDER" "$CIRCLE" "$INTERVAL" "$target_desc"
+  "$SENDER" "$CHANNEL" "$INTERVAL" "$target_desc"
 printf 'simulate: relay %s — Ctrl-C to stop\n' "$RELAY_URL"
 
 while true; do
@@ -77,9 +77,9 @@ while true; do
   msg="${lines[$(((n - 1) % ${#lines[@]}))]} (#$n)"
   printf '[%s] simulate -> whisper #%d: %s\n' "$(date +%H:%M:%S)" "$n" "$msg"
   if ! MEMBER_ID="sim-peer" TO="$to" RELAY_URL="$RELAY_URL" \
-       bun "$dev_send" "$CIRCLE" "$SENDER" "$msg" >/tmp/munkel-sim-last.log 2>&1; then
+       bun "$dev_send" "$CHANNEL" "$SENDER" "$msg" >/tmp/munkel-sim-last.log 2>&1; then
     printf '[%s] simulate: send failed — relay up? app joined to %s? (see /tmp/munkel-sim-last.log)\n' \
-      "$(date +%H:%M:%S)" "$CIRCLE" >&2
+      "$(date +%H:%M:%S)" "$CHANNEL" >&2
   fi
   sleep "$INTERVAL"
 done

@@ -34,13 +34,19 @@ struct MessageNotchView: View {
         HStack(alignment: .top, spacing: 12) {
             AvatarView(name: message.sender, imageData: message.avatarData)
 
-            VStack(alignment: .leading, spacing: 2) {
-                header
-                Text(message.text)
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.white)
-                    .lineLimit(6)
-                    .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 2) {
+                    header
+                    LinkText(
+                        text: message.text,
+                        font: .systemFont(ofSize: 14, weight: .medium),
+                        textColor: .white,
+                        lineLimit: 6
+                    ) { [weak model] view in model?.registerLinkHost(view) }
+                }
+                if let url = firstURL(in: message.text) {
+                    LinkPreviewCard(model: model, url: url)
+                }
             }
 
             Spacer(minLength: 12)
@@ -61,11 +67,12 @@ struct MessageNotchView: View {
             imageContent
 
             if !message.text.isEmpty {
-                Text(message.text)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white)
-                    .lineLimit(4)
-                    .fixedSize(horizontal: false, vertical: true)
+                LinkText(
+                    text: message.text,
+                    font: .systemFont(ofSize: 13, weight: .medium),
+                    textColor: .white,
+                    lineLimit: 4
+                ) { [weak model] view in model?.registerLinkHost(view) }
             }
         }
         .padding(.horizontal, hInset)
@@ -146,9 +153,18 @@ struct AlbumCell: View {
 
         private let glyphDiameter: CGFloat = 20
 
+    /// The animated bytes to play, once they've loaded for an animated image;
+    /// nil keeps the still thumbnail showing.
+    private var animatedFull: Data? {
+        guard image.isAnimated, let full = model.fullImages[image.id] else { return nil }
+        return full
+    }
+
     var body: some View {
         ZStack {
-            if let decoded {
+            if let animatedFull {
+                AnimatedImageView(data: animatedFull, contentMode: .fill)
+            } else if let decoded {
                 Image(decorative: decoded, scale: 1)
                     .resizable()
                     .interpolation(.medium)
@@ -236,13 +252,17 @@ struct AlbumCell: View {
             decoded = await Task.detached { ImageCodec.decode(thumb, maxPixels: 400) }.value
         }
         // Full resolution: use the cache, else fetch once via the model's loader.
+        // An animated image plays from its raw bytes (AnimatedImageView), so a
+        // still full-res decode would just be thrown away — skip it.
         if let full = model.fullImages[image.id] {
+            if image.isAnimated { return }
             decoded = await Task.detached { ImageCodec.decode(full, maxPixels: 1400) }.value
             return
         }
         guard !didFail, let loader = model.imageLoaders[image.id] else { return }
         if let data = await loader() {
             model.fullImages[image.id] = data
+            if image.isAnimated { return }
             decoded = await Task.detached { ImageCodec.decode(data, maxPixels: 1400) }.value
         } else {
             model.failedImages.insert(image.id)
@@ -250,11 +270,35 @@ struct AlbumCell: View {
     }
 }
 
+/// Plays animated image bytes (an animated GIF) in an NSImageView, which loops
+/// the frames on its own — SwiftUI's `Image` only ever paints a still CGImage.
+/// Used for the full-resolution view once the animated bytes have loaded; the
+/// inline thumbnail keeps showing as a still frame until then.
+struct AnimatedImageView: NSViewRepresentable {
+    let data: Data
+    let contentMode: ContentMode
+
+    func makeNSView(context: Context) -> NSImageView {
+        let view = NSImageView()
+        view.imageScaling = contentMode == .fill ? .scaleProportionallyUpOrDown : .scaleProportionallyDown
+        view.animates = true
+        view.imageFrameStyle = .none
+        view.image = NSImage(data: data)
+        return view
+    }
+
+    func updateNSView(_ nsView: NSImageView, context: Context) {
+        nsView.imageScaling = contentMode == .fill ? .scaleProportionallyUpOrDown : .scaleProportionallyDown
+        if nsView.image == nil { nsView.image = NSImage(data: data) }
+    }
+}
+
 /// Invisible NSView laid out under an album image's copy glyph. Like AreaMarker
 /// but carries the image id and a `resolve` closure (full bytes if loaded, else
 /// the thumbnail), registered into the model so the click monitor can copy the
-/// matching image (NSHostingView's hitTest can't surface it).
-private struct ImageCopyHitTarget: NSViewRepresentable {
+/// matching image (NSHostingView's hitTest can't surface it). Used by both the
+/// current message's `AlbumCell` and the history's `HistoryAlbumCell`.
+struct ImageCopyHitTarget: NSViewRepresentable {
     let id: String
     let resolve: () -> Data
     let register: (String, @escaping () -> Data, NSView) -> Void
@@ -266,6 +310,67 @@ private struct ImageCopyHitTarget: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {}
+}
+
+/// A small card under a text message that links out: the page's Open Graph
+/// title and, if present, its share image. Scraped once on appear (cached on
+/// the model) and silently absent until — and unless — that succeeds, so a
+/// link with no preview just shows the bare text above. Clicking opens the URL.
+struct LinkPreviewCard: View {
+    @ObservedObject var model: MessageDisplayModel
+    let url: URL
+
+    @State private var image: CGImage?
+
+    private var preview: LinkPreviewData? {
+        // Outer optional: not yet fetched. Inner: fetched but had no OG data.
+        (model.linkPreviews[url.absoluteString] ?? nil)
+    }
+
+    var body: some View {
+        Group {
+            if let preview {
+                content(preview)
+            }
+        }
+        .task(id: url) { await model.loadLinkPreview(for: url) }
+    }
+
+    private func content(_ preview: LinkPreviewData) -> some View {
+        HStack(spacing: 8) {
+            if let image {
+                Image(decorative: image, scale: 1)
+                    .resizable()
+                    .interpolation(.medium)
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 44, height: 44)
+                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(preview.title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.white)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text(preview.siteName ?? (url.host ?? url.absoluteString))
+                    .font(.system(size: 10))
+                    .foregroundStyle(.white.opacity(0.55))
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(6)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .onTapGesture { NSWorkspace.shared.open(preview.url) }
+        .task(id: preview.imageURL) { await loadImage(preview.imageURL) }
+    }
+
+    private func loadImage(_ imageURL: URL?) async {
+        guard let imageURL else { return }
+        guard let (data, _) = try? await URLSession.shared.data(from: imageURL) else { return }
+        image = await Task.detached { ImageCodec.decode(data, maxPixels: 200) }.value
+    }
 }
 
 /// A tiny thumbnail-only image (no R2 fetch) for the collapsed teaser strip.

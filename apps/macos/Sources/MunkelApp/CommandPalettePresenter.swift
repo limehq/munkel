@@ -52,7 +52,7 @@ final class CommandPalettePresenter {
         )
         // Hosting controller with preferredContentSize so the panel resizes
         // to the (fixed-width, content-height) SwiftUI layout — compact for
-        // a couple of circles, capped by the view's own maxHeight.
+        // a couple of channels, capped by the view's own maxHeight.
         let controller = NSHostingController(rootView: root)
         controller.sizingOptions = [.preferredContentSize]
         panel.contentViewController = controller
@@ -107,8 +107,8 @@ final class CommandPalettePresenter {
     }
 
     /// Arrow keys are a full D-pad over the target chips while the message
-    /// field keeps focus: left/right within a circle, up/down between
-    /// circles. All four are consumed (return nil) so they don't move the
+    /// field keeps focus: left/right within a channel, up/down between
+    /// channels. All four are consumed (return nil) so they don't move the
     /// text cursor. Tab/Shift+Tab cycle through all recipients. Return (onSubmit)
     /// sends and Esc (onExitCommand) closes.
     private func installKeyMonitor() {

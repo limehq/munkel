@@ -5,8 +5,33 @@ import SwiftUI
 /// Drives the in-place morph between the one-line teaser, the full message
 /// view and the inline reply field inside a single expanded notch, plus the
 /// shared copied-feedback state.
+/// Whether the notch is showing the message (teaser/expanded) or has morphed
+/// down to the small unread anchor dot. Same panel, same instance — only the
+/// mode flips, so the shape animates between the two sizes seamlessly.
+enum NotchDisplayMode { case message, indicator }
+
 @MainActor
 final class MessageDisplayModel: ObservableObject {
+    @Published var mode: NotchDisplayMode = .message
+    /// The message this notch is presenting. Model-driven so a new message can
+    /// morph the SAME panel (update + animate) instead of tearing it down.
+    @Published var message: IncomingMessage
+    /// Identity of the current message (its history-entry id). Changing it gives
+    /// the message subtree a new identity so SwiftUI slides the new message in
+    /// and the old one out, instead of silently swapping the content in place.
+    @Published var messageToken = UUID()
+    /// Hardware notch cutout size for the panel's screen; .zero on no-notch Macs.
+    @Published var notchSize: CGSize = .zero
+    /// Per-message callbacks, owned here so the persistent container always
+    /// reaches the current message's handlers after a morph (set by NotchPresenter).
+    var onReply: (_ text: String, _ images: [Data], _ privately: Bool) -> Void = { _, _, _ in }
+    var onCancelReply: () -> Void = {}
+    var onPickFile: () -> Void = {}
+    var onTeaserFinished: () -> Void = {}
+    /// Anchor-dot countdown ring: 1 when the newest message just arrived, 0 when
+    /// it is about to age out (and the whole history vanishes). Driven once a
+    /// second by NotchPresenter's prune loop; only visible in `.indicator` mode.
+    @Published var anchorProgress: Double = 1
     @Published var fullyExpanded = false
     @Published var copied = false
     /// Decrypted full-resolution bytes per album image (keyed by r2Key),
@@ -15,6 +40,11 @@ final class MessageDisplayModel: ObservableObject {
     @Published var fullImages: [String: Data] = [:]
     /// Images whose full fetch failed (expired/offline) — show a warning glyph.
     @Published var failedImages: Set<String> = []
+    /// Open Graph previews scraped for URLs in the message text, keyed by the
+    /// absolute URL string. nil while the fetch is in flight; a present-but-nil
+    /// LinkPreviewData means it resolved to nothing (no card). Filled by the
+    /// link card on appear, cleared when the model is reused for a new message.
+    @Published var linkPreviews: [String: LinkPreviewData?] = [:]
     /// `id` (r2Key) of the album image currently shown in the large hover
     /// "Quick Look" preview, or nil when none. Set by an `AlbumCell` on hover
     /// (debounced) and force-cleared on every teardown path by NotchPresenter,
@@ -91,6 +121,55 @@ final class MessageDisplayModel: ObservableObject {
     weak var historyMarker: NSView?
     weak var replyMarker: NSView?
     weak var teaserMarker: NSView?
+    /// Linked-text views (current message body and caption) registered so the
+    /// click monitor can ask "did this click land on a URL?" before opening the
+    /// reply — a link sits inside the replyMarker, so without this a tap would
+    /// both open the browser and pop the reply field.
+    var linkHosts: [LinkTextView] = []
+
+    init(message: IncomingMessage) {
+        self.message = message
+    }
+
+    /// Clear per-message transient state when the SAME model is reused for a new
+    /// message (the morph path). Animated fields (mode / fullyExpanded / the
+    /// panel's bottom inset) are flipped by NotchPresenter inside the morph
+    /// animation, not here, so the shape grows smoothly instead of snapping. The
+    /// click markers are left alone: they follow the message subtree's lifecycle
+    /// (gone in dot mode, re-registered when it reappears).
+    func resetTransient() {
+        clearPreview()
+        copied = false
+        replying = false
+        replySent = false
+        fullImages = [:]
+        failedImages = []
+        linkPreviews = [:]
+        attachedImages = []
+        historyExpanded = false
+        copiedHistoryID = nil
+        copiedImageID = nil
+        hoveredHistoryID = nil
+        hoveredImageID = nil
+        historyCopyTargets = []
+        imageCopyTargets = []
+        linkHosts = []
+    }
+
+    /// Register a linked-text view (replacing dead ones). Called by LinkText as
+    /// it appears; the click monitor walks these to resolve a URL under a click.
+    func registerLinkHost(_ view: LinkTextView) {
+        linkHosts.removeAll { $0.window == nil }
+        if !linkHosts.contains(view) { linkHosts.append(view) }
+    }
+
+    /// The URL under a window-space point, if any linked-text view has one there.
+    func linkURL(at windowPoint: NSPoint, in window: NSWindow) -> URL? {
+        for host in linkHosts where host.window === window {
+            if let url = host.url(atWindowPoint: windowPoint) { return url }
+        }
+        return nil
+    }
 
     func copy(_ text: String) {
         writePasteboard(text)
@@ -139,6 +218,18 @@ final class MessageDisplayModel: ObservableObject {
         } else {
             previewImageID = nil
         }
+    }
+
+    /// Scrape the Open Graph preview for `url` once and stash it (or nil) under
+    /// its absolute string. Already-resolved or in-flight URLs are skipped. The
+    /// fetcher caches across messages, so a repeated link is instant.
+    func loadLinkPreview(for url: URL) async {
+        let key = url.absoluteString
+        guard linkPreviews[key] == nil else { return }
+        // Mark in-flight so a re-render doesn't kick off a second fetch.
+        linkPreviews[key] = .some(nil)
+        let data = await LinkPreviewFetcher.shared.preview(for: url)
+        linkPreviews[key] = .some(data)
     }
 
     private func flashCopied() {
@@ -285,20 +376,23 @@ final class ImageCopyTarget {
 /// the notch. Hovering swells everything into the full message view.
 struct MessageNotchContainer: View {
     @ObservedObject var model: MessageDisplayModel
-    let message: IncomingMessage
+
+    // Everything below reads from the model so a new message can morph this same
+    // view in place (no rebuild). NotchPresenter sets them on display / morph.
+    private var message: IncomingMessage { model.message }
     /// Hardware notch cutout size, measured from NSScreen; .zero on Macs
     /// without a notch (the panel then uses its floating style).
-    let notchSize: CGSize
+    private var notchSize: CGSize { model.notchSize }
     /// Called with the trimmed reply text, any staged images, and whether it
-    /// goes privately to the sender (true) or to the whole circle; the
+    /// goes privately to the sender (true) or to the whole channel; the
     /// images-vs-text routing happens in AppModel.
-    var onReply: (_ text: String, _ images: [Data], _ privately: Bool) -> Void
-    var onCancelReply: () -> Void
+    private var onReply: (_ text: String, _ images: [Data], _ privately: Bool) -> Void { model.onReply }
+    private var onCancelReply: () -> Void { model.onCancelReply }
     /// Opens the file picker (NSOpenPanel) to attach image files from disk —
     /// driven by NotchPresenter so it can suspend the outside-click dismiss
     /// while the modal is up. ⌘V paste is handled in-view (see pasteMonitor).
-    var onPickFile: () -> Void
-    var onTeaserFinished: () -> Void
+    private var onPickFile: () -> Void { model.onPickFile }
+    private var onTeaserFinished: () -> Void { model.onTeaserFinished }
 
     @State private var draft = ""
     /// Local ⌘V monitor, armed only while the reply field is focused (MenuView
@@ -318,54 +412,33 @@ struct MessageNotchContainer: View {
 
     var body: some View {
         Group {
-            if model.fullyExpanded {
-                // Same width as the teaser: hovering only grows downward.
-                VStack(alignment: .leading, spacing: 6) {
-                    MessageNotchView(message: message, model: model)
-                        // Reply opens only from a click on the current
-                        // message itself, not anywhere on the shape.
-                        .background(AreaMarker { [weak model] in model?.replyMarker = $0 })
-                        // Expanded, the copy button travels down to sit on
-                        // the message it copies. It copies the text/caption;
-                        // pictures are copied per-image via the cell glyphs, so
-                        // a captionless image message hides it (see
-                        // showsMessageCopyButton).
-                        .overlay(alignment: .topTrailing) {
-                            if showsMessageCopyButton {
-                                CopyMessageButton(copied: model.copied, diameter: avatarSize) {
-                                    copyCurrent()
-                                }
-                                .padding(.top, 2)
-                                .padding(.trailing, 4)
-                            }
-                        }
-                    if model.replySent {
-                        sentConfirmation
-                    } else if model.replying {
-                        if !model.attachedImages.isEmpty {
-                            attachmentStrip
-                        }
-                        replyField
-                    }
-                    if !model.history.isEmpty {
-                        historyRows
-                    }
-                }
-                .frame(width: tickerWindow, alignment: .leading)
-            } else if notchSize.height > 0 {
-                notchedTeaser
+            if model.mode == .indicator {
+                // Morphed down to the unread anchor ring (same panel, same
+                // instance) — the shape animates from the message to this.
+                UnreadIndicatorView(notchSize: notchSize, progress: model.anchorProgress)
             } else {
-                fallbackTeaser
+                messageContent
+                    // A new message gets a new identity (messageToken), so it
+                    // slides in from the top while the previous one fades out —
+                    // a deliberate "new message" motion, not a silent swap. The
+                    // removal stays a plain fade so collapsing to the dot keeps
+                    // its smooth shrink.
+                    .id(model.messageToken)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .opacity
+                    ))
             }
         }
-        // Never narrower than the expanded state: otherwise short
-        // content can shrink the shape until it hides behind the
-        // hardware notch.
-        .frame(minWidth: tickerWindow, alignment: .leading)
+        // Pin the width constant across every state (teaser, expanded, dot) so
+        // the message<->dot morph is a pure vertical grow/shrink: with a mere
+        // minWidth the content swap briefly re-measures down to the floor and
+        // the shape flickers narrow before the new message sets its width.
+        .frame(width: tickerWindow, alignment: .leading)
         // In the teaser the copy button sits in the strip right of the
         // cutout; expanded it moves onto the message itself (see above).
         .overlay(alignment: .topTrailing) {
-            if !model.fullyExpanded, showsMessageCopyButton {
+            if model.mode == .message, !model.fullyExpanded, showsMessageCopyButton {
                 CopyMessageButton(copied: model.copied, diameter: avatarSize) {
                     copyCurrent()
                 }
@@ -375,6 +448,7 @@ struct MessageNotchContainer: View {
         // Click-anywhere-to-reply is handled by an AppKit event monitor in
         // NotchPresenter — a SwiftUI tap gesture here would lose the first
         // click to window activation.
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: model.mode)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.fullyExpanded)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.replying)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.replySent)
@@ -394,6 +468,51 @@ struct MessageNotchContainer: View {
         // their own window, which cannot inherit the exclusion and would
         // surface in a share while the notch itself is invisible.
         .excludedFromScreenCapture()
+    }
+
+    /// The message states (teaser / expanded / no-notch fallback). Extracted so
+    /// it can carry a per-message identity + slide transition, so a new message
+    /// animates in instead of swapping its content in place.
+    @ViewBuilder private var messageContent: some View {
+        if model.fullyExpanded {
+            // Same width as the teaser: hovering only grows downward.
+            VStack(alignment: .leading, spacing: 6) {
+                MessageNotchView(message: message, model: model)
+                    // Reply opens only from a click on the current
+                    // message itself, not anywhere on the shape.
+                    .background(AreaMarker { [weak model] in model?.replyMarker = $0 })
+                    // Expanded, the copy button travels down to sit on
+                    // the message it copies. It copies the text/caption;
+                    // pictures are copied per-image via the cell glyphs, so
+                    // a captionless image message hides it (see
+                    // showsMessageCopyButton).
+                    .overlay(alignment: .topTrailing) {
+                        if showsMessageCopyButton {
+                            CopyMessageButton(copied: model.copied, diameter: avatarSize) {
+                                copyCurrent()
+                            }
+                            .padding(.top, 2)
+                            .padding(.trailing, 4)
+                        }
+                    }
+                if model.replySent {
+                    sentConfirmation
+                } else if model.replying {
+                    if !model.attachedImages.isEmpty {
+                        attachmentStrip
+                    }
+                    replyField
+                }
+                if !model.history.isEmpty {
+                    historyRows
+                }
+            }
+            .frame(width: tickerWindow, alignment: .leading)
+        } else if notchSize.height > 0 {
+            notchedTeaser
+        } else {
+            fallbackTeaser
+        }
     }
 
     /// What else arrived in the last minute, dimmed and compact below the
@@ -504,9 +623,14 @@ struct MessageNotchContainer: View {
                 .font(.system(size: 13))
                 .foregroundStyle(.white)
                 .tint(.white)
+                // Single line that scrolls internally; clipped to the field so a
+                // long reply can't spill out past the box's rounded edge.
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                .clipShape(RoundedRectangle(cornerRadius: 7))
                 .focused($replyFocused)
                 .onChange(of: draft) { _, new in
                     if new.count > MessageLimits.maxCharacters {
@@ -607,7 +731,7 @@ struct MessageNotchContainer: View {
         HStack(spacing: 5) {
             Image(systemName: "checkmark.circle.fill")
             // replyPrivately still holds the channel the reply went out on.
-            // The circle name only matters when there is more than one.
+            // The channel name only matters when there is more than one.
             Text(
                 model.replyPrivately
                     ? "Sent to \(message.sender)"
@@ -851,21 +975,28 @@ private struct HistoryAlbumGrid: View {
         let images = entry.images
         if images.count == 1, let only = images.first {
             let size = fittedSize(width: only.width, height: only.height)
-            HistoryAlbumCell(model: model, image: only, loadFull: entry.loadFull, fill: false)
-                .frame(width: size.width, height: size.height)
-                .clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+            HistoryAlbumCell(model: model, image: only, loadFull: entry.loadFull,
+                             displaySize: size, cornerRadius: 7, fill: false)
         } else {
             let columnCount = min(4, images.count)
             let side = (maxWidth - CGFloat(columnCount - 1) * spacing) / CGFloat(columnCount)
-            let columns = Array(
-                repeating: GridItem(.fixed(side), spacing: spacing),
-                count: columnCount
-            )
-            LazyVGrid(columns: columns, alignment: .leading, spacing: spacing) {
-                ForEach(images) { img in
-                    HistoryAlbumCell(model: model, image: img, loadFull: entry.loadFull, fill: true)
-                        .frame(width: side, height: side)
-                        .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
+            // Non-lazy rows (not LazyVGrid): an album is ≤8 cells so laziness
+            // buys nothing, and LazyVGrid's per-cell `.onHover` only fires
+            // reliably for the first cell — which would break the hover preview on
+            // every other history picture (same reason the current message's grid
+            // is non-lazy, see MessageNotchView.imageContent).
+            let rows = stride(from: 0, to: images.count, by: columnCount).map { start in
+                Array(images[start..<min(start + columnCount, images.count)])
+            }
+            VStack(alignment: .leading, spacing: spacing) {
+                ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
+                    HStack(spacing: spacing) {
+                        ForEach(row) { img in
+                            HistoryAlbumCell(model: model, image: img, loadFull: entry.loadFull,
+                                             displaySize: CGSize(width: side, height: side),
+                                             cornerRadius: 6, fill: true)
+                        }
+                    }
                 }
             }
             .frame(width: maxWidth, alignment: .leading)
@@ -886,9 +1017,11 @@ private struct HistoryAlbumGrid: View {
 /// One history image cell: paints its inline thumbnail at once, then upgrades to
 /// full resolution via the entry's loader, caching the bytes on the shared model
 /// (keyed by the unique r2Key) so a collapse→expand toggle re-decodes from cache
-/// instead of re-fetching from R2. A self-contained sibling of `AlbumCell`
-/// WITHOUT the per-image copy glyph or hover preview — those belong to the
-/// current message; the history echo is a read-only thumbnail.
+/// instead of re-fetching from R2. A self-contained sibling of `AlbumCell` with
+/// the same affordances: a hover pops the large free-floating Quick-Look preview
+/// (resolved from the model's history, see ImagePreviewOverlay) AND reveals a
+/// per-image copy glyph — click it, or press "C" while hovering, to copy the
+/// picture, through the exact same hit-target path as the current message.
 ///
 /// Cells mount — and so fetch — only when the history is actually expanded, and
 /// only the FIRST expand fetches (later ones hit the cache). The resulting burst
@@ -899,17 +1032,33 @@ private struct HistoryAlbumCell: View {
     @ObservedObject var model: MessageDisplayModel
     let image: IncomingImage
     let loadFull: (@Sendable (String) async -> Data?)?
+    /// Final on-screen size of the picture. Sized + clipped HERE (not by the
+    /// caller) so the copy glyph can sit OUTSIDE the rounded clip — mirrors AlbumCell.
+    let displaySize: CGSize
+    let cornerRadius: CGFloat
     /// Grid cells fill+crop to a square; a lone image fits its aspect.
     let fill: Bool
 
     @State private var decoded: CGImage?
+    @State private var hovering = false
 
     private var isLoaded: Bool { model.fullImages[image.id] != nil }
     private var didFail: Bool { model.failedImages.contains(image.id) }
 
+    /// Smaller than the current message's 20pt glyph — history cells are compact.
+    private let glyphDiameter: CGFloat = 18
+
+    /// Animated bytes to play once loaded; nil keeps the still thumbnail.
+    private var animatedFull: Data? {
+        guard image.isAnimated, let full = model.fullImages[image.id] else { return nil }
+        return full
+    }
+
     var body: some View {
         ZStack {
-            if let decoded {
+            if let animatedFull {
+                AnimatedImageView(data: animatedFull, contentMode: fill ? .fill : .fit)
+            } else if let decoded {
                 Image(decorative: decoded, scale: 1)
                     .resizable()
                     .interpolation(.medium)
@@ -925,8 +1074,49 @@ private struct HistoryAlbumCell: View {
                     .foregroundStyle(.white.opacity(0.5))
             }
         }
-        .clipped()
+        // Size + clip HERE (before the glyph overlay) so a `.fill` cell's overflow
+        // can't spill onto neighbours, and the glyph — added next — sits outside
+        // the rounded clip. Mirrors AlbumCell.
+        .frame(width: displaySize.width, height: displaySize.height)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        .overlay(alignment: .topTrailing) { copyGlyph }
+        // Hover pops the large preview (resolved from history) and, via `hovering`,
+        // the copy glyph. contentShape so a `.fill` cell's overflow can't steal the
+        // hover from a neighbour (mirrors AlbumCell).
+        .contentShape(Rectangle())
+        .onHover { inside in
+            hovering = inside
+            if inside {
+                model.requestPreview(image.id)
+            } else {
+                model.endPreview(forCell: image.id)
+            }
+        }
         .task { await load() }
+    }
+
+    /// Per-image copy, mirroring AlbumCell: hidden until hover (or while its
+    /// checkmark lingers). The hit target exists only while hovered — NotchPresenter
+    /// copies the image whose target a click lands in, and the bare-"C" hotkey
+    /// copies the hovered one via the same target; the bytes resolve full-vs-thumb
+    /// at copy time.
+    private var copyGlyph: some View {
+        let isCopied = model.copiedImageID == image.id
+        let show = hovering || isCopied
+        return CopyGlyph(copied: isCopied, diameter: glyphDiameter)
+            .opacity(show ? 1 : 0)
+            .background {
+                if hovering {
+                    ImageCopyHitTarget(
+                        id: image.id,
+                        resolve: { [weak model] in model?.fullImages[image.id] ?? image.thumb }
+                    ) { [weak model] id, resolve, view in
+                        model?.registerImageCopy(id: id, resolve: resolve, view: view)
+                    }
+                }
+            }
+            .padding(3)
+            .animation(.easeInOut(duration: 0.12), value: show)
     }
 
     private func load() async {
@@ -935,12 +1125,14 @@ private struct HistoryAlbumCell: View {
             decoded = await Task.detached { ImageCodec.decode(thumb, maxPixels: 300) }.value
         }
         if let full = model.fullImages[image.id] {
+            if image.isAnimated { return }
             decoded = await Task.detached { ImageCodec.decode(full, maxPixels: 900) }.value
             return
         }
         guard !didFail, let loadFull else { return }
         if let data = await loadFull(image.id) {
             model.fullImages[image.id] = data
+            if image.isAnimated { return }
             decoded = await Task.detached { ImageCodec.decode(data, maxPixels: 900) }.value
         } else {
             model.failedImages.insert(image.id)

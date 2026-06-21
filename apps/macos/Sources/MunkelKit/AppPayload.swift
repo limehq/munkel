@@ -27,7 +27,8 @@ public struct ImageItem: Codable, Sendable, Equatable {
 /// What lives inside the encrypted blob — the relay never sees these.
 public enum AppPayload: Sendable, Equatable {
     case chat(text: String, sentAt: Date)
-    case profile(displayName: String, avatar: Data?)
+    case profile(displayName: String, avatar: Data?, avatarURL: String?, status: PresenceStatus)
+    case presence(status: PresenceStatus)
     /// One or more images (an album) sent together, with an optional shared
     /// `caption` ("" if none). Each `ImageItem` is a pointer to an R2 blob plus
     /// a tiny inline preview thumbnail.
@@ -49,7 +50,7 @@ public enum AppPayload: Sendable, Equatable {
 
 extension AppPayload: Codable {
     private enum CodingKeys: String, CodingKey {
-        case kind, text, sentAt, displayName, avatar
+        case kind, text, sentAt, displayName, avatar, avatarURL, status
         case items, caption
     }
 
@@ -68,10 +69,16 @@ extension AppPayload: Codable {
             }
             self = try .chat(text: container.decode(String.self, forKey: .text), sentAt: sentAt)
         case "profile":
+            let statusRaw = try container.decodeIfPresent(String.self, forKey: .status)
             self = try .profile(
                 displayName: container.decode(String.self, forKey: .displayName),
-                avatar: container.decodeIfPresent(Data.self, forKey: .avatar)
+                avatar: container.decodeIfPresent(Data.self, forKey: .avatar),
+                avatarURL: container.decodeIfPresent(String.self, forKey: .avatarURL),
+                status: statusRaw.flatMap(PresenceStatus.init(rawValue:)) ?? .online
             )
+        case "presence":
+            let statusRaw = try container.decodeIfPresent(String.self, forKey: .status)
+            self = .presence(status: statusRaw.flatMap(PresenceStatus.init(rawValue:)) ?? .online)
         case "image":
             let sentAtRaw = try container.decode(String.self, forKey: .sentAt)
             guard let sentAt = Self.parseISO8601(sentAtRaw) else {
@@ -117,10 +124,15 @@ extension AppPayload: Codable {
             try container.encode("chat", forKey: .kind)
             try container.encode(text, forKey: .text)
             try container.encode(ISO8601DateFormatter().string(from: sentAt), forKey: .sentAt)
-        case let .profile(displayName, avatar):
+        case let .profile(displayName, avatar, avatarURL, status):
             try container.encode("profile", forKey: .kind)
             try container.encode(displayName, forKey: .displayName)
             try container.encodeIfPresent(avatar, forKey: .avatar)
+            try container.encodeIfPresent(avatarURL, forKey: .avatarURL)
+            try container.encode(status.rawValue, forKey: .status)
+        case let .presence(status):
+            try container.encode("presence", forKey: .kind)
+            try container.encode(status.rawValue, forKey: .status)
         case let .image(items, caption, sentAt):
             try container.encode("image", forKey: .kind)
             try container.encode(items, forKey: .items)
