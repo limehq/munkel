@@ -9,6 +9,7 @@ import { DOWNLOAD_URL, GITHUB_URL } from '@/lib/constants'
 const NAV_LINKS = [
   ['#how', 'How it works'],
   ['#features', 'Features'],
+  ['#screenshots', 'Screenshots'],
   ['#cli', 'CLI'],
   ['#agents', 'Agents'],
   ['#privacy', 'Privacy'],

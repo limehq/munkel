@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
-import { motion } from 'motion/react'
+import { useEffect, useRef } from 'react'
 
 import { sleep } from '@/lib/utils'
 
@@ -9,11 +8,11 @@ const TERM_SCRIPT: TermStep[] = [
   { type: 'cmd', text: 'munkel channels' },
   {
     type: 'out',
-    html: '<span class="tdot-live">●</span> blue-table-42  <span class="tdim">—</span>  Alex, Sam, Morgan',
+    html: '<span class="tdot-live">●</span> blue-table-42  <span class="tdim">·</span>  Alex, Sam, Morgan',
   },
   {
     type: 'out',
-    html: '<span class="tdot-live">●</span> project-7  <span class="tdim">—</span>  Sam, Alex',
+    html: '<span class="tdot-live">●</span> project-7  <span class="tdim">·</span>  Sam, Alex',
   },
   { type: 'cmd', text: 'munkel blue-table-42 all "table\'s free, come down"' },
   { type: 'out', html: '<span class="tdim">munkeled ✓</span>' },
@@ -122,26 +121,9 @@ function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
 }
 
 function CliShowcase() {
-  const [sent, setSent] = useState(false)
   return (
     <div className="cli-stage">
-      <TerminalDemo onFirstSend={() => setSent(true)} />
-      <motion.div
-        className="meanwhile"
-        aria-hidden={!sent}
-        initial={{ opacity: 0, y: 6 }}
-        animate={sent ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-      >
-        <div className="meanwhile-caption">meanwhile, on Alex's Mac</div>
-        <div className="mini-notch">
-          <img src="/avatars/03.png" alt="" />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span className="mn-name">Taylor</span>
-            <span>table's free, come down</span>
-          </div>
-        </div>
-      </motion.div>
+      <TerminalDemo />
     </div>
   )
 }
@@ -155,13 +137,8 @@ export function Cli() {
             <div className="section-kicker">CLI</div>
             <h2>Munkel from the shell.</h2>
             <p>
-              <span className="code">munkel</span> is a thin client over the app's Unix domain
-              socket. The app owns all crypto and relay connections, the CLI just talks. Recipients
-              by display name, channels by code prefix.
-            </p>
-            <p>
-              Newline-delimited JSON over <span className="code">control.sock</span> makes it an
-              ideal substrate for scripts and agents.
+              <span className="code">munkel</span> is a thin client that talks to the app over a
+              local socket. The app handles the crypto and the connection, the CLI just sends.
             </p>
           </div>
           <CliShowcase />

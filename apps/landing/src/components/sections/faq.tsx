@@ -10,34 +10,28 @@ import { DISCUSSIONS_URL } from '@/lib/constants'
 
 const FAQS: { q: string; a: ReactNode }[] = [
   {
-    q: 'Apple Silicon or Intel?',
-    a: 'Both. The app and the CLI ship as one universal binary — arm64 and x86_64.',
+    q: 'Can anyone else read my messages?',
+    a: 'Only the people you share the channel name with. Munkels are end-to-end encrypted, the name doubles as the key, the relay cannot read them, and nothing is stored on the server.',
   },
   {
-    q: 'Signed and notarized?',
-    a: 'Yes. Every release is Developer ID-signed and notarized by Apple, so Gatekeeper opens it without warnings.',
+    q: 'Is Munkel free?',
+    a: "Yes, completely. It's free and open source under the MIT license, with no paid tier and no catch.",
   },
   {
-    q: 'Electron or native?',
-    a: 'Native Swift and SwiftUI. One small menu-bar binary, no embedded browser.',
+    q: 'Do I have to create an account?',
+    a: 'Nope. You name a channel, share the name so friends can join, and sign in with GitHub once just for your name and picture. The token is never stored.',
   },
   {
-    q: 'Can I reply from the notch?',
-    a: (
-      <>
-        Yes — click a munkel and reply right there; the notch closes again after you send. You can
-        also reply from the menu-bar popover or the <span className="code">munkel</span> CLI.
-      </>
-    ),
+    q: 'Do my messages get saved anywhere?',
+    a: "They don't. A munkel shows in the notch for a few seconds and fades, a local history keeps it about a minute, then it's gone. Nothing is stored on the server, and there's no telemetry.",
   },
   {
-    q: 'How do I update?',
-    a: (
-      <>
-        Installed with Homebrew: <span className="code">brew upgrade munkel</span>. Grabbed the zip:
-        download the latest release and swap the app. There is no auto-updater.
-      </>
-    ),
+    q: 'Will my Mac warn me when I install it?',
+    a: "It won't. Every release is signed and notarized by Apple, so Gatekeeper opens it cleanly. It's a small native Swift menu-bar app, not Electron, so it stays light.",
+  },
+  {
+    q: 'Will friends on older or non-notch Macs miss out?',
+    a: 'Not at all. One universal binary covers Apple Silicon and Intel, and without a notch your munkels fall back to a tidy floating panel. Windows is coming soon.',
   },
 ]
 
@@ -48,7 +42,7 @@ export function Faq() {
         <div className="faq-head">
           <div className="section-kicker">FAQ</div>
           <h2>Quick answers.</h2>
-          <p>The practical details — how Munkel ships, runs, and updates on your Mac.</p>
+          <p>The things people ask before downloading.</p>
         </div>
         <Accordion type="single" collapsible className="faq">
           {FAQS.map((item, i) => (
@@ -59,7 +53,7 @@ export function Faq() {
           ))}
         </Accordion>
         <div className="faq-foot">
-          Still curious? <a href={DISCUSSIONS_URL}>Open a discussion on GitHub →</a>
+          Still curious? <a href={DISCUSSIONS_URL}>Start a discussion on GitHub.</a>
         </div>
       </div>
     </section>

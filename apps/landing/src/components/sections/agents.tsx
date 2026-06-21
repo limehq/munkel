@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Bot, Check, Copy, Package } from 'lucide-react'
+import { Check, Copy, Sparkles } from 'lucide-react'
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 
@@ -53,37 +53,38 @@ export function Agents() {
   return (
     <section id="agents">
       <div className="container">
-        <div className="section-head">
-          <div className="section-kicker">Agents</div>
-          <h2>LLM ready.</h2>
-          <p>
-            The CLI is plain text in, plain text out. Anything that can run a shell can munkel,
-            including the agent you already use.
-          </p>
-        </div>
-        <InstallCmd />
-        <div className="features cols-2">
-          <div className="feature">
-            <div className="feature-icon">
-              <Bot aria-hidden />
-            </div>
-            <h3>Agents can send for real</h3>
+        <div className="agents-grid">
+          <div className="agents-copy">
+            <div className="section-kicker">Agents</div>
+            <h2>LLM ready.</h2>
             <p>
-              An LLM with shell access uses <span className="code">munkel</span> exactly like you
-              do: pick a person or a channel, send the message. "Tell blue-table-42 I'm running
-              late" becomes one command.
+              Plain text in, plain text out. Anything that runs a shell can munkel, including the
+              agent you already use.
             </p>
+            <InstallCmd />
           </div>
-          <div className="feature">
-            <div className="feature-icon">
-              <Package aria-hidden />
-            </div>
-            <h3>Skills, ready to install</h3>
-            <p>
-              Prepared skills teach your agent munkel's commands in one step. Install once and your
-              assistant knows how to munkel.
-            </p>
-          </div>
+          <ul className="agent-examples">
+            <li className="agent-example">
+              <Sparkles aria-hidden />
+              <span>
+                "Run the tests, then munkel <code className="ae-chan">eng</code> when they pass."
+              </span>
+            </li>
+            <li className="agent-example">
+              <Sparkles aria-hidden />
+              <span>
+                "When the deploy finishes, munkel the release notes to{' '}
+                <code className="ae-chan">blue-table-42</code>."
+              </span>
+            </li>
+            <li className="agent-example">
+              <Sparkles aria-hidden />
+              <span>
+                "Summarize today's pull requests and munkel them to{' '}
+                <code className="ae-chan">team</code>."
+              </span>
+            </li>
+          </ul>
         </div>
       </div>
     </section>

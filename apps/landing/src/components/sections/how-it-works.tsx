@@ -2,65 +2,54 @@ export function HowItWorks() {
   return (
     <section id="how">
       <div className="container">
-        <div className="how-grid">
-          <div className="how-head">
-            <div className="section-kicker">How it works</div>
-            <h2>A channel is born from a code.</h2>
-            <p>
-              Group chats want your attention — badges to clear, threads to catch up on. Munkel
-              doesn't: a message glances past in the notch and is gone.
-            </p>
-            <p>
-              No invites, no server-side channel state. Sign in with GitHub once, then three steps
-              and you're Munkeling.
-            </p>
-          </div>
-          <div className="timeline">
-            <div className="tl-step">
-              <span className="tl-node">01</span>
-              <h3>Create a channel</h3>
-              <p>
-                The app mints a human-readable code. Say it across the table or paste it in a
-                chat. That's the whole onboarding.
-              </p>
-              <div className="tl-visual">
-                <span className="code-chip">blue-table-42</span>
-              </div>
+        <div className="section-head how-head-center">
+          <div className="section-kicker">How it works</div>
+          <h2>Name a channel, start munkeling.</h2>
+          <p>Pick a name, share it, and you're whispering.</p>
+        </div>
+        <div className="how-steps">
+          <figure className="how-step">
+            <div className="shot-frame crossfade">
+              <img
+                src="/shots/join.png"
+                alt="Munkel menu bar popover: type a channel name to join or create one"
+                loading="lazy"
+              />
+              <img src="/shots/join-2.png" alt="" className="frame-b" loading="lazy" aria-hidden />
             </div>
-            <div className="tl-step">
-              <span className="tl-node">02</span>
-              <h3>Friends join</h3>
-              <p>
-                Anyone with the code is in. The code doubles as the AES-256-GCM key, so the relay
-                only ever routes opaque blobs.
-              </p>
-              <div className="tl-visual">
-                <div className="avatar-stack">
-                  <img src="/avatars/01.png" alt="Alex" />
-                  <img src="/avatars/02.png" alt="Sam" />
-                  <img src="/avatars/05.png" alt="Morgan" />
-                  <span className="joined">3 joined</span>
-                </div>
-              </div>
+            <figcaption>
+              <span className="how-step-label">Join a channel</span>
+              Pick a name, you're in.
+            </figcaption>
+          </figure>
+          <figure className="how-step">
+            <div className="shot-frame crossfade">
+              <img
+                src="/shots/compose.png"
+                alt="Munkel floating compose window sending a quick note to a channel"
+                loading="lazy"
+              />
+              <img src="/shots/compose-2.png" alt="" className="frame-b" loading="lazy" aria-hidden />
             </div>
-            <div className="tl-step">
-              <span className="tl-node">03</span>
-              <h3>Read the notch</h3>
-              <p>
-                Messages slide out, linger, disappear. Hover to hold one open, click to reply
-                right in the notch — it closes again after you send.
-              </p>
-              <div className="tl-visual">
-                <div className="mini-notch">
-                  <img src="/avatars/01.png" alt="" />
-                  <div style={{ display: 'flex', flexDirection: 'column' }}>
-                    <span className="mn-name">Alex</span>
-                    <span>down in 5</span>
-                  </div>
-                </div>
-              </div>
+            <figcaption>
+              <span className="how-step-label">Whisper a quick note</span>
+              A floating box. Send and forget.
+            </figcaption>
+          </figure>
+          <figure className="how-step">
+            <div className="shot-frame crossfade">
+              <img
+                src="/shots/notch.png"
+                alt="A munkel in the MacBook notch with the recent replies"
+                loading="lazy"
+              />
+              <img src="/shots/notch-2.png" alt="" className="frame-b" loading="lazy" aria-hidden />
             </div>
-          </div>
+            <figcaption>
+              <span className="how-step-label">Read it in the notch</span>
+              It slides out, then it's gone.
+            </figcaption>
+          </figure>
         </div>
       </div>
     </section>

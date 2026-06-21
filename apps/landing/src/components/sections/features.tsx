@@ -9,7 +9,7 @@ export function Features() {
         <div className="section-head">
           <div className="section-kicker">Features</div>
           <h2>Small surface. Sharp edges.</h2>
-          <p>Everything Munkel does, and the things it refuses to do.</p>
+          <p>Everything it does, and the things it refuses to.</p>
         </div>
         <div className="features bento">
           <div className="feature b-a">
@@ -18,8 +18,8 @@ export function Features() {
             </div>
             <h3>Ephemeral by design</h3>
             <p>
-              The relay holds zero state: no database, no logs of content. Messages exist only in
-              flight — offline means missed, like a real munkel. Nothing is ever written down.
+              Messages live only in the moment. Nothing logged, nothing stored. Miss one and it's
+              gone, like a real whisper.
             </p>
             <div className="bento-visual">
               <div className="vanish">
@@ -44,8 +44,8 @@ export function Features() {
             </div>
             <h3>End-to-end encrypted</h3>
             <p>
-              AES-256-GCM, key derived from the channel code on-device. The relay routes ciphertext
-              it cannot open — by construction, not by promise.
+              Encrypted on your Mac, with the channel name as the key. Our relay only ever sees
+              sealed envelopes it can't open.
             </p>
             <div className="cipher" aria-hidden>
               <span className="blob">a9f2·c41</span>
@@ -64,14 +64,14 @@ export function Features() {
               <UserRoundX aria-hidden />
             </div>
             <h3>No accounts of our own</h3>
-            <p>No email, no phone, no password. Munkel runs no identity service and keeps nothing server-side.</p>
+            <p>No email, no phone, no password. Munkel keeps no accounts and stores nothing about you.</p>
           </div>
           <div className="feature b-d">
             <div className="feature-icon">
               <GithubIcon />
             </div>
             <h3>GitHub identity</h3>
-            <p>Name and avatar via GitHub device flow — one login, token discarded.</p>
+            <p>Sign in with GitHub once, for your name and face. The token is never stored.</p>
           </div>
           <div className="feature b-e">
             <div className="feature-icon">
@@ -79,8 +79,8 @@ export function Features() {
             </div>
             <h3>munkel CLI</h3>
             <p>
-              Send from your shell, script it, or wire it into agents over the app's control
-              socket. An MCP server is on the way.
+              Send straight from your shell, script it, or hand it to an agent. An MCP server is on
+              the way.
             </p>
             <div className="cli-line" aria-hidden>
               <div className="line">
@@ -95,8 +95,8 @@ export function Features() {
             </div>
             <h3>Works without a notch</h3>
             <p>
-              Older MacBook or external display? Messages fall back to an elegant floating panel —
-              same munkel, different hardware.
+              No notch on your laptop? Munkels slide into a tidy floating panel instead. Same munkel,
+              different spot.
             </p>
             <div className="float-panel" aria-hidden>
               <div className="panel">
