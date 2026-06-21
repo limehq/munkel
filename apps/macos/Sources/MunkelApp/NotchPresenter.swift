@@ -362,6 +362,7 @@ final class NotchPresenter {
                     await self.tearDownNotch(notch)
                     return
                 }
+                self.pruneImageCache(of: model)
                 if let id = self.currentEntryID {
                     let visible = self.visibleHistory(excluding: id)
                     if model.history != visible {
@@ -398,6 +399,17 @@ final class NotchPresenter {
 
     private func pruneHistory() {
         history.removeAll { Date().timeIntervalSince($0.receivedAt) > historyWindow }
+    }
+
+    private func pruneImageCache(of model: MessageDisplayModel) {
+        let liveIDs = Set(model.imageLoaders.keys)
+            .union(history.flatMap { $0.images.map(\.id) })
+        if model.fullImages.contains(where: { !liveIDs.contains($0.key) }) {
+            model.fullImages = model.fullImages.filter { liveIDs.contains($0.key) }
+        }
+        if model.failedImages.contains(where: { !liveIDs.contains($0) }) {
+            model.failedImages = model.failedImages.intersection(liveIDs)
+        }
     }
 
     /// Click-anywhere-to-reply, at the AppKit level: the panel is not key
