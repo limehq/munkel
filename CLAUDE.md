@@ -113,6 +113,12 @@ bunx turbo deploy --filter=@munkel/landing    # munkel.app
 One-time before the first relay deploy that includes the R2 binding (the deploy
 fails otherwise): `cd apps/server && bunx wrangler r2 bucket create munkel-blobs`.
 
+## Working on an issue
+
+Follow the **`github-issue-workflow`** skill: check the issue isn't already taken
+(open/draft PR or an assignee) before starting, then claim it and open a draft PR
+linked with `Closes #N`.
+
 ## Conventions
 
 - **No comments in source code (Swift/TS).** Zero — code must be fully
