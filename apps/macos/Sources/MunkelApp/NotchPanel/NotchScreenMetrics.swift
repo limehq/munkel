@@ -21,10 +21,11 @@ enum NotchScreenMetrics {
         return (cutout, true, menubarHeight)
     }
 
-    /// Top-centered half-width frame spanning the full screen height.
+    /// Top-centered frame spanning the full screen height — half-width by default,
+    /// or full screen width when `wide` (for the near-fullscreen image preview).
     @MainActor
-    static func panelFrame(for screen: NSScreen) -> NSRect {
-        let width = screen.frame.width / 2
+    static func panelFrame(for screen: NSScreen, wide: Bool = false) -> NSRect {
+        let width = wide ? screen.frame.width : screen.frame.width / 2
         let origin = NSPoint(x: screen.frame.midX - width / 2, y: screen.frame.minY)
         return NSRect(x: origin.x, y: origin.y, width: width, height: screen.frame.height)
     }

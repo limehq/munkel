@@ -253,8 +253,9 @@ struct AlbumCell: View {
 /// Invisible NSView laid out under an album image's copy glyph. Like AreaMarker
 /// but carries the image id and a `resolve` closure (full bytes if loaded, else
 /// the thumbnail), registered into the model so the click monitor can copy the
-/// matching image (NSHostingView's hitTest can't surface it).
-private struct ImageCopyHitTarget: NSViewRepresentable {
+/// matching image (NSHostingView's hitTest can't surface it). Used by both the
+/// current message's `AlbumCell` and the history's `HistoryAlbumCell`.
+struct ImageCopyHitTarget: NSViewRepresentable {
     let id: String
     let resolve: () -> Data
     let register: (String, @escaping () -> Data, NSView) -> Void

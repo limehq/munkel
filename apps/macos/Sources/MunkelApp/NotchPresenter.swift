@@ -185,9 +185,9 @@ final class NotchPresenter {
             currentEntryID = entryID
             withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
                 configure(model, for: message, notchSize: model.notchSize, entryID: entryID, loadFull: loadFull, onReply: onReply)
-                notch.floatingOverlay = message.isImage
-                    ? AnyView(ImagePreviewOverlay(model: model, images: message.images))
-                    : nil
+                notch.floatingOverlay = AnyView(
+                    ImagePreviewOverlay(model: model, images: message.images)
+                )
                 model.mode = .message
                 model.fullyExpanded = false
                 notch.suppressBottomInset = false
@@ -217,14 +217,18 @@ final class NotchPresenter {
             openingAnimation: .spring(response: 0.6, dampingFraction: 0.7),
             skipIntermediateHides: true
         )
-        // Image messages get a free-floating Quick-Look preview that pops below
-        // the notch on cell hover (see ImagePreviewOverlay / AlbumCell). It
-        // renders inside this same capture-excluded panel window.
-        if message.isImage {
-            notch.floatingOverlay = AnyView(
-                ImagePreviewOverlay(model: model, images: message.images)
-            )
-        }
+        // Every message notch carries the free-floating Quick-Look preview: it
+        // pops below the notch when an image cell is hovered — the current
+        // message's grid (AlbumCell) OR a past picture in the expanded history
+        // (HistoryAlbumCell), resolved live from the model. Attached
+        // unconditionally, not just for image messages, because a text message
+        // can carry image history and a live image can drop into history while a
+        // text message is showing. It's inert and click-through until a cell is
+        // hovered, so attaching it always only widens the capture-excluded,
+        // mask-sized canvas — nothing visible changes for a text-only notch.
+        notch.floatingOverlay = AnyView(
+            ImagePreviewOverlay(model: model, images: message.images)
+        )
         currentNotch = notch
 
         hoverObservation = notch.$isHovering
@@ -667,4 +671,16 @@ final class NotchPresenter {
             self.authCodeNotch = nil
         }
     }
+
+    #if DEBUG
+    /// Dev aid: inject synthetic rows straight into the history buffer (no
+    /// arrival animation), so the very next `show` renders them as the expanded
+    /// history backlog. Lets the expanded-history image hover preview be
+    /// exercised without sending real messages back and forth. They live the
+    /// usual 60 s window, then prune. See `AppModel.debugShowDemoHistory`.
+    func debugSeedHistory(_ entries: [HistoryEntry]) {
+        pruneHistory()
+        history.append(contentsOf: entries)
+    }
+    #endif
 }

@@ -146,7 +146,7 @@ final class NotchPanel<Content: View>: ObservableObject {
     private func buildPanel(on screen: NSScreen) {
         let window = NotchPanelWindow()
         window.contentView = NSHostingView(rootView: NotchHostingContent(owner: self))
-        window.setFrame(NotchScreenMetrics.panelFrame(for: screen), display: false)
+        window.setFrame(panelFrame(on: screen), display: false)
         window.layoutIfNeeded()
         window.applyCaptureExclusion()
         panelWindow = window
@@ -154,10 +154,16 @@ final class NotchPanel<Content: View>: ObservableObject {
 
     private func reposition(on screen: NSScreen) {
         guard let window = panelWindow else { return }
-        window.setFrame(NotchScreenMetrics.panelFrame(for: screen), display: true)
+        window.setFrame(panelFrame(on: screen), display: true)
         window.applyCaptureExclusion()
         window.level = .screenSaver
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
+    }
+
+    /// Panels carrying a `floatingOverlay` (the image preview) get the full-width
+    /// canvas so it can grow to near-fullscreen; others keep the half-width frame.
+    private func panelFrame(on screen: NSScreen) -> NSRect {
+        NotchScreenMetrics.panelFrame(for: screen, wide: floatingOverlay != nil)
     }
 
     private func showWindow() {
