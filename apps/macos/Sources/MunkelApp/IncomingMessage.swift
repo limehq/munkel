@@ -8,7 +8,7 @@ struct IncomingMessage: Equatable {
     let isDirect: Bool
     let group: String
     let groupColor: Color
-    /// Whether the user is in more than one circle — below that, group
+    /// Whether the user is in more than one channel — below that, group
     /// labels are noise and partially hidden.
     let inMultipleGroups: Bool
     /// Images of an album (empty for a plain text message). Each carries its

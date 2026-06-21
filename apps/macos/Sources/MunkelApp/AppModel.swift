@@ -587,11 +587,11 @@ final class AppModel: ObservableObject {
                 ? "Send failed — no connection to the relay?"
                 : "Couldn't send the image — encoding failed or no connection to the relay"
 
-            // Circle-scoped send: explicit circle code. Required for a
-            // broadcast and used to disambiguate a name across circles.
+            // Channel-scoped send: explicit channel code. Required for a
+            // broadcast and used to disambiguate a name across channels.
             if let groupQuery = request.group {
                 guard let session = resolveGroup(groupQuery) else {
-                    return ControlResponse(ok: false, error: "Unknown or ambiguous circle \"\(groupQuery)\" — munkel circles shows them all")
+                    return ControlResponse(ok: false, error: "Unknown or ambiguous channel \"\(groupQuery)\" — munkel channels shows them all")
                 }
                 var recipientId: String?
                 if let to = request.to, !isBroadcast {
@@ -609,10 +609,10 @@ final class AppModel: ObservableObject {
             }
 
             // Recipient-only send (`munkel dm <name> …` / `munkel image <name> …`):
-            // no circle given, so resolve the name across every circle. This
+            // no channel given, so resolve the name across every channel. This
             // lets an agent notify someone in a single call.
             guard let to = request.to, !isBroadcast else {
-                return ControlResponse(ok: false, error: "Broadcast needs a circle — say `munkel <circle> all …`")
+                return ControlResponse(ok: false, error: "Broadcast needs a channel — say `munkel <channel> all …`")
             }
             var hits: [(session: GroupSession, member: GroupSession.Member)] = []
             for code in groupCodes {
@@ -623,11 +623,11 @@ final class AppModel: ObservableObject {
             }
             guard hits.count == 1 else {
                 if hits.isEmpty {
-                    return ControlResponse(ok: false, error: "No online member matches \"\(to)\" — munkel circles shows who's online")
+                    return ControlResponse(ok: false, error: "No online member matches \"\(to)\" — munkel channels shows who's online")
                 }
-                // Ambiguous: name only the candidate circles (and attach them
+                // Ambiguous: name only the candidate channels (and attach them
                 // as a discovery payload) so the caller can retry with
-                // `munkel <circle> <name> …` — never the whole social graph.
+                // `munkel <channel> <name> …` — never the whole social graph.
                 var candidateCodes: [String] = []
                 for code in hits.map(\.session.code) where !candidateCodes.contains(code) {
                     candidateCodes.append(code)
@@ -639,7 +639,7 @@ final class AppModel: ObservableObject {
                 }
                 return ControlResponse(
                     ok: false,
-                    error: "\"\(to)\" is in \(candidateCodes.joined(separator: ", ")) — say `munkel <circle> \(to) …`",
+                    error: "\"\(to)\" is in \(candidateCodes.joined(separator: ", ")) — say `munkel <channel> \(to) …`",
                     groups: payload
                 )
             }
@@ -653,7 +653,7 @@ final class AppModel: ObservableObject {
         }
     }
 
-    /// Recipient match shared by the circle-scoped and cross-circle send
+    /// Recipient match shared by the channel-scoped and cross-channel send
     /// paths: case-insensitive display-name match, or a public-key id prefix.
     private static func recipientMatches(_ member: GroupSession.Member, _ query: String) -> Bool {
         member.label.caseInsensitiveCompare(query) == .orderedSame

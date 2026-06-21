@@ -481,7 +481,7 @@ nav.floating .nav-inner {
 .nx-chan.is-globe { width: 8.5px; height: 8.5px; }
 .nx-sep { font-size: 12px; }
 .nx-cdot { flex: none; width: 6px; height: 6px; border-radius: 50%; }
-.nx-circle {
+.nx-channel {
   /* .monospaced design in the app → SF Mono (ui-monospace on macOS). */
   font-size: 10px; font-family: ui-monospace, monospace;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;

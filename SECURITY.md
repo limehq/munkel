@@ -37,14 +37,14 @@ with anything sensitive.
 - **Payloads are encrypted on-device.** Message content is sealed with
   AES-256-GCM before it reaches the relay (`payload = base64(nonce[12] ‖
   ciphertext ‖ tag[16])`, random 12-byte nonce per message, empty AAD). The
-  key is derived on-device via HKDF-SHA256 from the circle code, with salt
+  key is derived on-device via HKDF-SHA256 from the channel code, with salt
   `munkel-v1` and info `message-key` (32-byte key). See
   `apps/macos/Sources/MunkelKit/GroupKey.swift`,
   `apps/macos/Sources/MunkelKit/MessageCrypto.swift`, and the canonical wire
   spec `apps/server/src/protocol.ts`. AES-256-GCM was chosen for CryptoKit /
   WebCrypto interop; the Swift↔TypeScript derivation is pinned in
   `CryptoTests.swift`.
-- **The relay stores no messages.** One Durable Object per circle
+- **The relay stores no messages.** One Durable Object per channel
   (`idFromName(groupId)`) uses the WebSocket Hibernation API and persists no
   message data — messages are routed between live connections and never
   stored (`apps/server/src/group-room.ts`, `apps/server/src/protocol.ts`). The
@@ -53,11 +53,11 @@ with anything sensitive.
   and swept by a per-minute cron; the relay never holds the key
   (`apps/server/src/blob.ts`).
 - **No accounts.** There is nothing to register, no password, and no server-
-  side identity. A circle is born from a shared human-readable code
+  side identity. A channel is born from a shared human-readable code
   (`blue-table-42`); the code never leaves the clients, and the relay only ever
   sees the derived `groupId`.
 - **On-screen surfaces are excluded from screen capture.** Every window that
-  shows message content or circle codes (notch panel, menu popover, command
+  shows message content or channel codes (notch panel, menu popover, command
   palette) is excluded from screen capture by setting `NSWindow.sharingType =
   .none`, applied by the `CaptureExclusion` view
   (`apps/macos/Sources/MunkelApp/CaptureExclusion.swift`). They stay visible on
@@ -73,14 +73,14 @@ with anything sensitive.
 
 ### What you CANNOT expect
 
-- **No protection from anyone who has the circle code.** The circle code is a
-  shared symmetric secret: every current circle member derives the same
+- **No protection from anyone who has the channel code.** The channel code is a
+  shared symmetric secret: every current channel member derives the same
   `messageKey`. Anyone who knows the code can read and send messages for that
-  circle. Treat generated codes as convenience-grade secrets and use a longer
+  channel. Treat generated codes as convenience-grade secrets and use a longer
   custom code for more sensitive conversations.
 - **No pairwise or forward-secret direct messages in v1.** Direct messages
   (`to`) are relay-targeted: the server enforces delivery to one member, but
-  they are encrypted under the same shared circle key, not a pairwise key.
+  they are encrypted under the same shared channel key, not a pairwise key.
   Pairwise keys and forward secrecy are deliberately deferred to a later
   version (see `apps/server/src/protocol.ts` and [ROADMAP.md](ROADMAP.md)).
 - **No cryptographic proof of identity from GitHub login.** "Sign in with
@@ -106,10 +106,10 @@ followed by adversaries that are explicitly out of scope.
 
 | Adversary | Mitigation |
 |---|---|
-| **Passive network or relay observer** (anyone watching the wire or running the relay) | Payloads are end-to-end encrypted with AES-256-GCM on-device; the relay only sees the derived `groupId`, member IDs, sizes, and timing — never plaintext or the circle code. Image blobs in R2 are opaque ciphertext with a short TTL. |
-| **Screen capture / screen sharing** (Zoom, Teams, screenshots, recorders) | Notch panel, menu popover, and command palette set `NSWindow.sharingType = .none` via `CaptureExclusion`, so message content and circle codes are hidden from captured frames while staying visible on the physical display. This is reliable on the legacy capture path and on ScreenCaptureKit through macOS 15.3; full-display SCK capture on macOS 15.4+ can bypass it. |
-| **A malicious or curious circle member** | Limited by design: the message key is shared, so a member can read circle traffic. The relay enforces targeted delivery for direct messages, and there is no message history for a member to exfiltrate after the fact. To exclude someone, rotate to a new circle code. |
-| **A lost or unlocked device** | No message history is stored and no GitHub token is persisted (the token is RAM-only and discarded after one profile fetch). What remains locally is settings in the `dev.uq.munkel` defaults domain — joined circle codes, member ID, display name, GitHub login, a downscaled avatar, and the chosen presence status; ephemerality limits what can be recovered from the device. |
+| **Passive network or relay observer** (anyone watching the wire or running the relay) | Payloads are end-to-end encrypted with AES-256-GCM on-device; the relay only sees the derived `groupId`, member IDs, sizes, and timing — never plaintext or the channel code. Image blobs in R2 are opaque ciphertext with a short TTL. |
+| **Screen capture / screen sharing** (Zoom, Teams, screenshots, recorders) | Notch panel, menu popover, and command palette set `NSWindow.sharingType = .none` via `CaptureExclusion`, so message content and channel codes are hidden from captured frames while staying visible on the physical display. This is reliable on the legacy capture path and on ScreenCaptureKit through macOS 15.3; full-display SCK capture on macOS 15.4+ can bypass it. |
+| **A malicious or curious channel member** | Limited by design: the message key is shared, so a member can read channel traffic. The relay enforces targeted delivery for direct messages, and there is no message history for a member to exfiltrate after the fact. To exclude someone, rotate to a new channel code. |
+| **A lost or unlocked device** | No message history is stored and no GitHub token is persisted (the token is RAM-only and discarded after one profile fetch). What remains locally is settings in the `dev.uq.munkel` defaults domain — joined channel codes, member ID, display name, GitHub login, a downscaled avatar, and the chosen presence status; ephemerality limits what can be recovered from the device. |
 
 ### Out of scope
 

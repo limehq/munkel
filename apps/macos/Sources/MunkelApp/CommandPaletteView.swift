@@ -1,7 +1,7 @@
 import AppKit
 import SwiftUI
 
-/// Compact, app-like quick-send palette: circle sections with globe/avatar
+/// Compact, app-like quick-send palette: channel sections with globe/avatar
 /// target chips, a message field pinned at the bottom. ↑↓ or click picks the
 /// target, typing composes, Return sends, Esc closes.
 struct CommandPaletteView: View {
@@ -34,7 +34,7 @@ struct CommandPaletteView: View {
                 .strokeBorder(.white.opacity(0.08), lineWidth: 1)
         )
         // Capture-proof root (backup to the panel's sharingType): the palette
-        // shows circle codes, names and the draft.
+        // shows channel codes, names and the draft.
         .excludedFromScreenCapture()
         .onAppear {
             // The panel is mid makeKey on first show; a synchronous focus
@@ -64,8 +64,8 @@ struct CommandPaletteView: View {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {
-                        ForEach(sections, id: \.circle) { section in
-                            circleSection(section)
+                        ForEach(sections, id: \.channel) { section in
+                            channelSection(section)
                         }
                     }
                     // Without full-width leading, the VStack shrinks to its
@@ -82,7 +82,7 @@ struct CommandPaletteView: View {
                 }
                 // Height nil until measured: a 0 would collapse the list to
                 // an invisible strip inside the preferredContentSize panel
-                // (same trick as the in-app menu's circle list).
+                // (same trick as the in-app menu's channel list).
                 .frame(height: listHeight == 0 ? nil : min(listHeight, maxListHeight))
                 .onPreferenceChange(ListHeightKey.self) { listHeight = $0 }
                 .onChange(of: state.selectedIndex) {
@@ -94,13 +94,13 @@ struct CommandPaletteView: View {
         }
     }
 
-    private func circleSection(_ section: Section) -> some View {
+    private func channelSection(_ section: Section) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 6) {
                 Circle()
-                    .fill(model.session(for: section.circle)?.isConnected == true ? Color.green : Color.orange)
+                    .fill(model.session(for: section.channel)?.isConnected == true ? Color.green : Color.orange)
                     .frame(width: 7, height: 7)
-                Text(section.circle)
+                Text(section.channel)
                     .font(.system(.caption, design: .monospaced).weight(.semibold))
                     .foregroundStyle(.secondary)
             }
@@ -246,27 +246,27 @@ struct CommandPaletteView: View {
         // Same prompt whether or not images are attached — typed text becomes
         // the caption when there are.
         guard let r = state.selectedRecipient else { return "Message…" }
-        return r.isEveryone ? "Message everyone in \(r.circle)…" : "Message \(r.label)…"
+        return r.isEveryone ? "Message everyone in \(r.channel)…" : "Message \(r.label)…"
     }
 
     private var emptyMessage: String {
         if model.githubUserLogin == nil {
             return "Sign in with GitHub to use Munkel."
         }
-        return "Join a circle to send."
+        return "Join a channel to send."
     }
 
-    /// Recipients chunked back into per-circle sections, each item carrying
+    /// Recipients chunked back into per-channel sections, each item carrying
     /// its flat index (so chips stay in sync with ↑↓ / selectedIndex).
-    private struct Section { let circle: String; var items: [(index: Int, recipient: Recipient)] }
+    private struct Section { let channel: String; var items: [(index: Int, recipient: Recipient)] }
 
     private var sections: [Section] {
         var result: [Section] = []
         for (index, recipient) in state.recipients.enumerated() {
-            if result.last?.circle == recipient.circle {
+            if result.last?.channel == recipient.channel {
                 result[result.count - 1].items.append((index, recipient))
             } else {
-                result.append(Section(circle: recipient.circle, items: [(index, recipient)]))
+                result.append(Section(channel: recipient.channel, items: [(index, recipient)]))
             }
         }
         return result
@@ -277,13 +277,13 @@ struct CommandPaletteView: View {
         if !state.attachedImages.isEmpty {
             // Any typed text rides along as the album's shared caption.
             let caption = state.message.trimmingCharacters(in: .whitespaces)
-            model.send(images: state.attachedImages, caption: caption, group: r.circle, to: r.memberId)
+            model.send(images: state.attachedImages, caption: caption, group: r.channel, to: r.memberId)
             onClose()
             return
         }
         let text = state.message.trimmingCharacters(in: .whitespaces)
         guard !text.isEmpty else { return }
-        model.send(text: text, group: r.circle, to: r.memberId)
+        model.send(text: text, group: r.channel, to: r.memberId)
         onClose()
     }
 }

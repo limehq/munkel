@@ -73,10 +73,10 @@ const version = typeof MUNKEL_BUILD_VERSION === "string" ? MUNKEL_BUILD_VERSION 
 
 const usage = `munkel — munkel into your friends' notches
 
-  munkel dm <recipient> <message…>                Notify one person (resolved across circles)
+  munkel dm <recipient> <message…>                Notify one person (resolved across channels)
   munkel image <recipient> <path…> [--caption <t>] Send image(s) (optional shared caption)
-  munkel <circle> <recipient|all> <message…>      Send within a circle, or broadcast with 'all'
-  munkel circles [--json]                         Show your circles & members
+  munkel <channel> <recipient|all> <message…>     Send within a channel, or broadcast with 'all'
+  munkel channels [--json]                        Show your channels & members
 
 Examples:
   munkel dm sebil "deploy is green"
@@ -101,15 +101,15 @@ if (["-v", "--version", "version"].includes(args[0])) {
 
 let request: ControlRequest
 let jsonOutput = false
-// `circles` is the documented command; `groups` stays as a back-compat
-// alias. The wire action remains "groups" (see ControlProtocol.swift).
-if (args[0] === "circles" || args[0] === "groups") {
+// `channels` is the documented command; `circles` and `groups` stay as
+// back-compat aliases. The wire action remains "groups" (see ControlProtocol.swift).
+if (args[0] === "channels" || args[0] === "circles" || args[0] === "groups") {
   request = { action: "groups" }
   jsonOutput = args.includes("--json")
 } else if (args[0] === "dm") {
   // `munkel dm <recipient> <message…>` — recipient-only send. The app
-  // resolves the name across every circle, so an agent can notify someone in
-  // a single call without first listing circles.
+  // resolves the name across every channel, so an agent can notify someone in
+  // a single call without first listing channels.
   if (args.length < 3) {
     fail("usage: munkel dm <recipient> <message…>", 64)
   }
@@ -147,10 +147,10 @@ if (args[0] === "circles" || args[0] === "groups") {
   }
   request = { action: "send", to: args[1], imagePaths, ...(caption ? { text: caption } : {}) }
 } else {
-  // `munkel <circle> <recipient|all> <message…>` — circle-scoped send;
-  // required for broadcasts and to disambiguate a name across circles.
+  // `munkel <channel> <recipient|all> <message…>` — channel-scoped send;
+  // required for broadcasts and to disambiguate a name across channels.
   if (args.length < 3) {
-    fail("usage: munkel <circle> <recipient|all> <message…>", 64)
+    fail("usage: munkel <channel> <recipient|all> <message…>", 64)
   }
   request = {
     action: "send",
@@ -265,7 +265,7 @@ try {
 socket.end()
 
 if (!response.ok) {
-  // An error can carry the candidate circles (e.g. an ambiguous `dm`
+  // An error can carry the candidate channels (e.g. an ambiguous `dm`
   // recipient) so a single failed call is self-correcting — surface them.
   for (const group of response.groups ?? []) {
     console.error(`  ${formatGroup(group)}`)
@@ -280,7 +280,7 @@ if (jsonOutput) {
 
 if (response.groups) {
   if (response.groups.length === 0) {
-    console.log("No circles yet — create one in the Munkel app")
+    console.log("No channels yet — create one in the Munkel app")
   }
   for (const group of response.groups) {
     console.log(formatGroup(group))

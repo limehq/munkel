@@ -345,7 +345,7 @@ struct MessageNotchContainer: View {
     /// without a notch (the panel then uses its floating style).
     private var notchSize: CGSize { model.notchSize }
     /// Called with the trimmed reply text, any staged images, and whether it
-    /// goes privately to the sender (true) or to the whole circle; the
+    /// goes privately to the sender (true) or to the whole channel; the
     /// images-vs-text routing happens in AppModel.
     private var onReply: (_ text: String, _ images: [Data], _ privately: Bool) -> Void { model.onReply }
     private var onCancelReply: () -> Void { model.onCancelReply }
@@ -687,7 +687,7 @@ struct MessageNotchContainer: View {
         HStack(spacing: 5) {
             Image(systemName: "checkmark.circle.fill")
             // replyPrivately still holds the channel the reply went out on.
-            // The circle name only matters when there is more than one.
+            // The channel name only matters when there is more than one.
             Text(
                 model.replyPrivately
                     ? "Sent to \(message.sender)"

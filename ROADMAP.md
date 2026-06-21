@@ -5,7 +5,7 @@ over roughly the next year (2026 H2 through 2027 H1). It exists so that users,
 contributors, and downstream packagers can see where the project is heading and
 whether a given idea is in scope before they invest effort.
 
-Munkel is ephemeral, end-to-end-encrypted messages between friends ("circles")
+Munkel is ephemeral, end-to-end-encrypted messages between friends ("channels")
 that slide out of the MacBook notch: no accounts, no message history, no message
 storage. The roadmap below is grounded in the project's current state — the
 shipped work in [CHANGELOG.md](CHANGELOG.md), the security model in
@@ -25,7 +25,7 @@ disagree.
 Hardening the foundations of the current product and the things people touch
 every day.
 
-- **Harden the circle-code / invite format.** Generated circle codes are
+- **Harden the channel-code / invite format.** Generated channel codes are
   documented today as convenience-grade shared secrets (see
   [SECURITY.md](SECURITY.md) and [PRIVACY.md](PRIVACY.md)). The near-term goal
   is a stronger, still human-shareable invite path — for example higher-entropy
@@ -59,10 +59,10 @@ Larger pieces that change the protocol or the user model, plus accessibility
 and internationalization groundwork.
 
 - **Pairwise-encrypted direct messages.** Direct messages in v1 are
-  relay-targeted but share the circle's message key; pairwise keys are
+  relay-targeted but share the channel's message key; pairwise keys are
   explicitly deferred to v2 in `apps/server/src/protocol.ts` and called out in
   [SECURITY.md](SECURITY.md). The intent is that a direct message becomes
-  readable only by its intended recipient, not by every current circle member
+  readable only by its intended recipient, not by every current channel member
   who knows the code. This is a wire-protocol change and will be versioned and
   documented as such.
 - **Forward secrecy (investigation, then design).** Once pairwise keys exist,
@@ -96,7 +96,7 @@ Directionally intended, lower certainty, and most subject to change.
   above from design to a shipped, documented, interop-tested release across the
   Swift app, the relay, and the reference TypeScript sender.
 - **Invite-format v2 at rest.** Build on the near-term invite hardening with a
-  more complete sharing story (e.g. revocation/rotation semantics for a circle)
+  more complete sharing story (e.g. revocation/rotation semantics for a channel)
   if real usage shows it is needed.
 - **Deeper agent / CLI ergonomics.** The `munkel` CLI and the
   `skills/munkel/SKILL.md` agent skill are send-only by design. Later work may
@@ -112,11 +112,11 @@ not missing features, and we do not intend to pursue them for the foreseeable
 future.
 
 - **No message history or storage.** Ephemerality is enforced by design: one
-  Durable Object per circle with no DO storage, and image blobs expire on a
+  Durable Object per channel with no DO storage, and image blobs expire on a
   short (~66 s) TTL swept by cron. We will not add server-side message history,
   a searchable archive, sync-across-devices of past messages, or message
   backup. Offline means missed, on purpose.
-- **No accounts.** A circle is born from a shared human-readable code, which is
+- **No accounts.** A channel is born from a shared human-readable code, which is
   the only credential and never leaves the clients. We will not add account
   registration, passwords, server-side identity, or a contact directory.
   GitHub login remains display-only identity, not authentication of peers.

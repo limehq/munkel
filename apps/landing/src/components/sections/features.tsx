@@ -44,7 +44,7 @@ export function Features() {
             </div>
             <h3>End-to-end encrypted</h3>
             <p>
-              AES-256-GCM, key derived from the circle code on-device. The relay routes ciphertext
+              AES-256-GCM, key derived from the channel code on-device. The relay routes ciphertext
               it cannot open — by construction, not by promise.
             </p>
             <div className="cipher" aria-hidden>
