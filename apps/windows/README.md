@@ -21,6 +21,12 @@ processes in watch mode, and launches Electron.
 - `bun run build` — typecheck and build the main, preload, and renderer
 - `bun run typecheck` — run TypeScript checks for main and renderer
 - `bun run test` — run Bun tests
+- `bun run test:interop` — **from repo root**: wire-level two-peer
+  round-trip against the live relay. Requires the relay to be running
+  (`cd apps/server && bun run dev`). Exits non-zero on any failed
+  assertion. Override the code or URL with `CODE=…` / `RELAY_URL=…`.
+  See `scripts/interop.ts` for details; this is a manual run, not part
+  of `bun run test`.
 
 ## Entry points
 

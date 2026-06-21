@@ -2,15 +2,16 @@ import { describe, it, expect } from 'bun:test';
 import { buildControlHandler, type ControlAppState } from '../control-handlers';
 import type { CircleState } from '../../shared/types';
 import type { ControlRequest, ControlResponse } from '../../core/control';
+import type { SendResult } from '../group-session';
 
 function fakeState(opts: {
 	circles?: CircleState[];
-	sendChat?: (code: string, text: string, to?: string) => Promise<boolean>;
+	sendChat?: (code: string, text: string, to?: string) => Promise<SendResult>;
 }): ControlAppState {
 	return {
 		getState: () => ({ circles: opts.circles ?? [] }),
 		sendChat:
-			opts.sendChat ?? (async () => true),
+			opts.sendChat ?? (async () => ({ ok: true })),
 	};
 }
 
@@ -72,7 +73,7 @@ describe('control-handlers', () => {
 				circles: [circle('blue-table-42', [{ memberId: 'a1', displayName: 'Alex' }])],
 				sendChat: async (code, text, to) => {
 					captured = { code, text, to };
-					return true;
+					return { ok: true };
 				},
 			});
 			const response = await call(state, {
@@ -94,7 +95,7 @@ describe('control-handlers', () => {
 				circles: [circle('blue-table-42')],
 				sendChat: async (code) => {
 					expect(code).toBe('blue-table-42');
-					return true;
+					return { ok: true };
 				},
 			});
 			const response = await call(state, {
@@ -135,7 +136,7 @@ describe('control-handlers', () => {
 				circles: [circle('blue-table-42', [{ memberId: 'a1', displayName: 'Alex' }])],
 				sendChat: async (_code, _text, to) => {
 					captured = { to };
-					return true;
+					return { ok: true };
 				},
 			});
 			const response = await call(state, {
@@ -184,7 +185,7 @@ describe('control-handlers', () => {
 		it('surfaces sendChat failures as an error envelope', async () => {
 			const state = fakeState({
 				circles: [circle('blue-table-42')],
-				sendChat: async () => false,
+				sendChat: async () => ({ ok: false }),
 			});
 			const response = await call(state, {
 				action: 'send',
@@ -194,6 +195,22 @@ describe('control-handlers', () => {
 			expect(response).toEqual({
 				ok: false,
 				error: 'Send failed — no connection to the relay?',
+			});
+		});
+
+		it('passes through the sendChat error message verbatim when provided', async () => {
+			const state = fakeState({
+				circles: [circle('blue-table-42')],
+				sendChat: async () => ({ ok: false, error: 'Message too long (49500 chars; max 49152).' }),
+			});
+			const response = await call(state, {
+				action: 'send',
+				group: 'blue-table-42',
+				text: '...'.repeat(15_000),
+			});
+			expect(response).toEqual({
+				ok: false,
+				error: 'Message too long (49500 chars; max 49152).',
 			});
 		});
 	});
@@ -208,7 +225,7 @@ describe('control-handlers', () => {
 				],
 				sendChat: async (code, _text, to) => {
 					captured = { code, to };
-					return true;
+					return { ok: true };
 				},
 			});
 			const response = await call(state, {

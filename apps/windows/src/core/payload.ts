@@ -19,6 +19,16 @@ export class PayloadError extends Error {
   }
 }
 
+/**
+ * Thrown by `assertPayloadFits` when a sealed payload exceeds
+ * `MAX_PAYLOAD_CHARS`. The renderer surfaces the `.message` to the user
+ * via the inline-error pattern, so the wording is user-facing.
+ *
+ * Subclass of `PayloadError` so callers that catch the base class still
+ * see it.
+ */
+export class PayloadTooLargeError extends PayloadError {}
+
 function bytesToBase64(data: Uint8Array): string {
   return Buffer.from(data).toString('base64');
 }
@@ -35,6 +45,29 @@ export function encodeChat(text: string, sentAt: Date = new Date()): ChatPayload
  */
 export function encodeProfile(displayName: string, avatar?: Uint8Array | string): ProfilePayload {
   return { kind: 'profile', displayName, avatar: avatar === undefined ? undefined : typeof avatar === 'string' ? avatar : bytesToBase64(avatar) };
+}
+
+/**
+ * Re-export the wire-format cap so callers don't have to import from
+ * `./protocol.js` for the size guard. Mirrors `apps/server/src/protocol.ts:92`
+ * and `apps/windows/src/core/protocol.ts:84` — drift across these three
+ * is a silent wire-format bug; flagged in the branch plan.
+ */
+import { MAX_PAYLOAD_CHARS } from './protocol.js';
+export { MAX_PAYLOAD_CHARS };
+
+/**
+ * Throw `PayloadTooLargeError` if the (already-sealed or pre-seal)
+ * JSON payload exceeds the wire-format cap. Called from
+ * `GroupSession.sendChat` / `sendProfile` so the renderer can surface a
+ * clear "Message too long" error instead of a generic "Send failed".
+ */
+export function assertPayloadFits(json: string): void {
+  if (json.length > MAX_PAYLOAD_CHARS) {
+    throw new PayloadTooLargeError(
+      `Message too long (${json.length} chars; max ${MAX_PAYLOAD_CHARS}).`,
+    );
+  }
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {

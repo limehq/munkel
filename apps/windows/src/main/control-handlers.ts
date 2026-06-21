@@ -12,6 +12,7 @@
 import { normalizeCircleCode } from '../core';
 import type { CircleState } from '../shared/types';
 import type { ControlGroupInfo, ControlRequest, ControlResponse } from '../core/control';
+import type { SendResult } from './group-session';
 
 /**
  * Minimal `AppState` surface this module depends on. Keeps the handlers
@@ -20,7 +21,7 @@ import type { ControlGroupInfo, ControlRequest, ControlResponse } from '../core/
  */
 export interface ControlAppState {
 	getState(): { circles: CircleState[] };
-	sendChat(code: string, text: string, to?: string): Promise<boolean>;
+	sendChat(code: string, text: string, to?: string): Promise<SendResult>;
 }
 
 const BROADCAST_ALIASES = new Set(['all', '*']);
@@ -128,9 +129,9 @@ export function buildControlHandler(
 						recipientId = matches[0].memberId;
 					}
 					const sent = await appState.sendChat(circle.code, text, recipientId);
-					return sent
+					return sent.ok
 						? { ok: true }
-						: { ok: false, error: 'Send failed — no connection to the relay?' };
+						: { ok: false, error: sent.error ?? 'Send failed — no connection to the relay?' };
 				}
 
 				// Recipient-only send (`munkel dm <name> …`): no circle given,
@@ -176,9 +177,9 @@ export function buildControlHandler(
 					};
 				}
 				const sent = await appState.sendChat(hits[0].circle.code, text, hits[0].member.memberId);
-				return sent
+				return sent.ok
 					? { ok: true }
-					: { ok: false, error: 'Send failed — no connection to the relay?' };
+					: { ok: false, error: sent.error ?? 'Send failed — no connection to the relay?' };
 			}
 
 			default:

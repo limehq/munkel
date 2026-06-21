@@ -31,6 +31,7 @@ const session = await GroupSession.create(
 		onNotch: (message) => {
 			console.log('[interop] notch:', message.text);
 		},
+		getColorIndex: () => 0,
 	},
 );
 

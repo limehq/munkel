@@ -47,14 +47,14 @@ export default function MenuWindow() {
 		const text = messages[code]?.trim();
 		if (!text) return;
 		const to = recipients[code] || undefined;
-		const sent = await sendChat(code, text, to);
-		if (sent) {
+		const result = await sendChat(code, text, to);
+		if (result.ok) {
 			setMessages((prev) => ({ ...prev, [code]: '' }));
 			setSendErrors((prev) => ({ ...prev, [code]: '' }));
 		} else {
 			setSendErrors((prev) => ({
 				...prev,
-				[code]: 'Circle offline — message not sent.',
+				[code]: result.error ?? 'Circle offline — message not sent.',
 			}));
 		}
 	}
@@ -121,10 +121,11 @@ export default function MenuWindow() {
 			)}
 
 			<div className="circle-list">
-				{state.circles.map((circle) => (
+				{state.circles.map((circle, i) => (
 					<CircleSection
 						key={circle.code}
 						circle={circle}
+						colorIndex={i}
 						message={messages[circle.code] ?? ''}
 						recipient={recipients[circle.code] ?? ''}
 						sendError={sendErrors[circle.code] ?? ''}
@@ -196,6 +197,7 @@ export default function MenuWindow() {
 
 interface CircleSectionProps {
 	circle: CircleState;
+	colorIndex: number;
 	message: string;
 	recipient: string;
 	sendError: string;
@@ -207,6 +209,7 @@ interface CircleSectionProps {
 
 function CircleSection({
 	circle,
+	colorIndex,
 	message,
 	recipient,
 	sendError,
@@ -215,7 +218,7 @@ function CircleSection({
 	onSend,
 	onLeave,
 }: CircleSectionProps) {
-	const color = useMemo(() => getCircleColor(circle.code), [circle.code]);
+	const color = useMemo(() => getCircleColor(colorIndex), [colorIndex]);
 
 	return (
 		<div className="circle-section">
