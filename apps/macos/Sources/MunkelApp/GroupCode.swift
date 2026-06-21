@@ -1,14 +1,14 @@
 import Foundation
 
-/// Generates human-readable group codes like `nebel-quarz-42`.
+/// Generates human-readable group codes like `coffee-falcon-42`.
 /// ~21 bits of spoken-word entropy is fine: the unguessable part is the
 /// derived 128-bit groupId; the code only needs to be easy to say out loud.
 enum GroupCode {
     private static let words = [
-        "kaffee", "falke", "tiger", "luchs", "espresso", "matcha",
-        "nebel", "fluss", "anker", "komet", "pinie", "quarz",
-        "salbei", "tundra", "vulkan", "wal", "zeder", "ahorn",
-        "biber", "dachs", "eule", "fichte", "gecko", "hummel",
+        "coffee", "falcon", "tiger", "lynx", "espresso", "matcha",
+        "mist", "river", "anchor", "comet", "pine", "quartz",
+        "sage", "tundra", "volcano", "whale", "cedar", "maple",
+        "beaver", "badger", "owl", "spruce", "gecko", "bumblebee",
     ]
 
     static func generate() -> String {
