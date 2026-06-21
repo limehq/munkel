@@ -1,5 +1,8 @@
 import AppKit
+import Combine
+import CoreGraphics
 import Foundation
+import IOKit.pwr_mgt
 import MunkelKit
 
 enum GitHubLoginState: Equatable {
@@ -41,6 +44,29 @@ final class AppModel: ObservableObject {
     /// Bumped whenever any session's presence changes, so views refresh.
     @Published private(set) var presenceVersion = 0
 
+    @Published var localStatus: PresenceStatus = Identity.presenceStatus {
+        didSet {
+            guard localStatus != oldValue else { return }
+            Identity.presenceStatus = localStatus
+            if localStatus != .online { isAutoAway = false }
+            applyPresence()
+        }
+    }
+    @Published private(set) var isAutoAway = false
+    var effectiveStatus: PresenceStatus {
+        localStatus == .online && isAutoAway ? .away : localStatus
+    }
+
+    func chooseStatus(_ status: PresenceStatus) {
+        let clearedAutoAway = isAutoAway
+        isAutoAway = false
+        if localStatus != status {
+            localStatus = status
+        } else if clearedAutoAway {
+            applyPresence()
+        }
+    }
+
     /// Sparkle bridge, injected by `AppDelegate` at launch (release build only;
     /// nil in the dev build, which doesn't auto-update).
     var updater: UpdaterController?
@@ -76,6 +102,10 @@ final class AppModel: ObservableObject {
     private var githubLoginTask: Task<Void, Never>?
     private var githubLoginGeneration = 0
     private var profileBroadcastTask: Task<Void, Never>?
+    private var idleTimer: Timer?
+    private var presenceObservers: Set<AnyCancellable> = []
+    private let awayThreshold: TimeInterval = 5 * 60
+    private let idlePollInterval: TimeInterval = 30
 
     init() {
         self.displayName = Identity.displayName
@@ -94,6 +124,7 @@ final class AppModel: ObservableObject {
         // Registers the global hotkey (default ⌃⌘M) and owns the palette
         // window — long-lived like the notch, so it survives popover churn.
         self.palette = CommandPalettePresenter(model: self)
+        startPresenceMonitoring()
     }
 
     func session(for code: String) -> GroupSession? {
@@ -238,6 +269,7 @@ final class AppModel: ObservableObject {
     /// stop (the group codes stay persisted and reconnect after re-login).
     func logoutGitHub() {
         Identity.avatarData = nil
+        Identity.avatarURL = nil
         Identity.githubLogin = nil
         githubUserLogin = nil
         for session in sessions.values {
@@ -286,7 +318,7 @@ final class AppModel: ObservableObject {
             }
 
             guard generation == githubLoginGeneration else { return }
-            applyProfile(name: Self.firstName(of: user), avatar: avatar, githubLogin: user.login)
+            applyProfile(name: Self.firstName(of: user), avatar: avatar, avatarURL: user.avatarURL?.absoluteString, githubLogin: user.login)
             githubLoginState = .idle
             // Login gates everything: the persisted groups connect only now.
             for code in groupCodes where sessions[code] == nil {
@@ -306,8 +338,9 @@ final class AppModel: ObservableObject {
 
     /// Writes both identity halves before the single broadcast — a didSet
     /// broadcast would race the avatar write and send a stale profile.
-    private func applyProfile(name: String, avatar: Data?, githubLogin login: String?) {
+    private func applyProfile(name: String, avatar: Data?, avatarURL: String?, githubLogin login: String?) {
         Identity.avatarData = avatar
+        Identity.avatarURL = avatarURL
         Identity.githubLogin = login
         githubUserLogin = login
         displayName = name
@@ -328,6 +361,131 @@ final class AppModel: ObservableObject {
         for session in sessions.values {
             Task { await session.sendProfile() }
         }
+    }
+
+    private func broadcastPresence() {
+        for session in sessions.values {
+            Task { await session.sendPresence() }
+        }
+    }
+
+    private func applyPresence() {
+        let status = effectiveStatus
+        for session in sessions.values {
+            session.localStatus = status
+        }
+        broadcastPresence()
+    }
+
+    private func startPresenceMonitoring() {
+        let timer = Timer(timeInterval: idlePollInterval, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.pollIdle() }
+        }
+        RunLoop.main.add(timer, forMode: .common)
+        idleTimer = timer
+
+        let center = NSWorkspace.shared.notificationCenter
+        let goneNames: [Notification.Name] = [
+            NSWorkspace.screensDidSleepNotification,
+            NSWorkspace.willSleepNotification,
+            NSWorkspace.sessionDidResignActiveNotification,
+        ]
+        let backNames: [Notification.Name] = [
+            NSWorkspace.screensDidWakeNotification,
+            NSWorkspace.didWakeNotification,
+            NSWorkspace.sessionDidBecomeActiveNotification,
+        ]
+        for name in goneNames {
+            center.publisher(for: name)
+                .sink { [weak self] _ in self?.enterAutoAway() }
+                .store(in: &presenceObservers)
+        }
+        for name in backNames {
+            center.publisher(for: name)
+                .sink { [weak self] _ in self?.pollIdle() }
+                .store(in: &presenceObservers)
+        }
+
+        let distributed = DistributedNotificationCenter.default()
+        distributed.publisher(for: Notification.Name("com.apple.screenIsLocked"))
+            .sink { [weak self] _ in self?.enterAutoAway() }
+            .store(in: &presenceObservers)
+        distributed.publisher(for: Notification.Name("com.apple.screenIsUnlocked"))
+            .sink { [weak self] _ in self?.pollIdle() }
+            .store(in: &presenceObservers)
+    }
+
+    private func pollIdle() {
+        guard localStatus == .online else { return }
+        if Self.secondsSinceUserInput() >= awayThreshold, !Self.displayIsKeptAwake() {
+            setAutoAway(true)
+        } else {
+            setAutoAway(false)
+        }
+    }
+
+    private func enterAutoAway() {
+        guard localStatus == .online else { return }
+        setAutoAway(true)
+    }
+
+    private func setAutoAway(_ value: Bool) {
+        guard isAutoAway != value else { return }
+        isAutoAway = value
+        applyPresence()
+    }
+
+    private static func secondsSinceUserInput() -> TimeInterval {
+        CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
+    }
+
+    private static let remoteControlHolders = [
+        "rustdesk",
+        "screensharingd",
+        "screensharingag",
+        "ardagent",
+        "teamviewer",
+        "anydesk",
+        "remoting_host",
+        "chrome-remote-desktop",
+        "parsec",
+        "vncserver",
+    ]
+
+    private static func isRemoteControlHolder(_ name: String) -> Bool {
+        guard !name.isEmpty else { return false }
+        let lower = name.lowercased()
+        return remoteControlHolders.contains { lower.hasPrefix($0) || $0.hasPrefix(lower) }
+    }
+
+    private static func displayIsKeptAwake() -> Bool {
+        displaySleepHolderNames().contains { !isRemoteControlHolder($0) }
+    }
+
+    private static func displaySleepHolderNames() -> [String] {
+        var raw: Unmanaged<CFDictionary>?
+        guard IOPMCopyAssertionsByProcess(&raw) == kIOReturnSuccess,
+              let byProcess = raw?.takeRetainedValue() as? [Int: [[String: Any]]]
+        else { return [] }
+
+        let canonical = kIOPMAssertionTypePreventUserIdleDisplaySleep as String
+        let legacy = kIOPMAssertionTypeNoDisplaySleep as String
+        let typeKey = kIOPMAssertionTypeKey as String
+        let levelKey = kIOPMAssertionLevelKey as String
+
+        var names: [String] = []
+        for assertions in byProcess.values {
+            for assertion in assertions {
+                let type = assertion[typeKey] as? String ?? ""
+                let trueType = assertion["AssertionTrueType"] as? String ?? ""
+                let level = assertion[levelKey] as? Int ?? 0
+                let holdsDisplay = type == canonical || type == legacy
+                    || trueType == canonical || trueType == legacy
+                guard holdsDisplay, level != 0 else { continue }
+                names.append(assertion["Process Name"] as? String ?? "")
+            }
+        }
+        return names
     }
 
     /// The display name is always the GitHub first name — not editable.
@@ -497,7 +655,8 @@ final class AppModel: ObservableObject {
                 isDirect: isDirect,
                 group: code,
                 groupColor: .groupColor(index: self.groupCodes.firstIndex(of: code) ?? 0),
-                inMultipleGroups: self.groupCodes.count > 1
+                inMultipleGroups: self.groupCodes.count > 1,
+                silent: self.effectiveStatus.suppressesNotchPreview
             ) { [weak self] reply, images, privately in
                 // Default mirrors how the message arrived; the toggle
                 // in the reply field can override per message.
@@ -523,6 +682,7 @@ final class AppModel: ObservableObject {
                 groupColor: .groupColor(index: self.groupCodes.firstIndex(of: code) ?? 0),
                 inMultipleGroups: self.groupCodes.count > 1,
                 images: images,
+                silent: self.effectiveStatus.suppressesNotchPreview,
                 loadFull: loadFull
             ) { [weak self] reply, images, privately in
                 let to = privately ? sender.id : nil
@@ -533,6 +693,7 @@ final class AppModel: ObservableObject {
                 }
             }
         }
+        session.localStatus = effectiveStatus
         sessions[code] = session
         session.start()
     }

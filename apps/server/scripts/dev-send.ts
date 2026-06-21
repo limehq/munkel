@@ -9,6 +9,9 @@
 //
 // Set TO=<memberId> to direct the chat at a single member (a "whisper")
 // instead of broadcasting to the whole group; unset means broadcast.
+// Set PRESENCE=<online|dnd|away> to send a presence-only status delta
+// (the `presence` payload kind) in place of the chat, then exit.
+// Set AVATAR_URL=<url> to include a GitHub avatar URL in the profile.
 
 const listenMode = process.argv[2] === '--listen';
 const positional = process.argv.slice(listenMode ? 3 : 2);
@@ -107,19 +110,25 @@ ws.onmessage = async (event) => {
 };
 
 ws.onopen = async () => {
-  ws.send(JSON.stringify({ type: 'send', payload: await seal({ kind: 'profile', displayName: sender }) }));
+  ws.send(JSON.stringify({ type: 'send', payload: await seal({ kind: 'profile', displayName: sender, ...(process.env.AVATAR_URL ? { avatarURL: process.env.AVATAR_URL } : {}), status: process.env.STATUS ?? 'online' }) }));
   if (listenMode) {
     process.stdout.write(`listening as "${sender}" (${memberId})…\n`);
     setInterval(() => ws.send(JSON.stringify({ type: 'ping' })), 30_000);
     return;
   }
-  const to = process.env.TO;
-  ws.send(JSON.stringify({
-    type: 'send',
-    ...(to ? { to } : {}),
-    payload: await seal({ kind: 'chat', text, sentAt: new Date().toISOString() }),
-  }));
-  process.stdout.write(`sent profile + chat as "${sender}"${to ? ` → ${to}` : ''}\n`);
+  const presence = process.env.PRESENCE;
+  if (presence) {
+    ws.send(JSON.stringify({ type: 'send', payload: await seal({ kind: 'presence', status: presence }) }));
+    process.stdout.write(`sent presence status=${presence} as "${sender}"\n`);
+  } else {
+    const to = process.env.TO;
+    ws.send(JSON.stringify({
+      type: 'send',
+      ...(to ? { to } : {}),
+      payload: await seal({ kind: 'chat', text, sentAt: new Date().toISOString() }),
+    }));
+    process.stdout.write(`sent profile + chat as "${sender}"${to ? ` → ${to}` : ''}\n`);
+  }
   setTimeout(() => {
     ws.close();
     process.exit(0);

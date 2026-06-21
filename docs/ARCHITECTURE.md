@@ -62,11 +62,17 @@ and relay connections; the CLI and the UI are clients of it. Source layout under
   app state, and the CLI control socket.
   - [`AppModel.swift`](../apps/macos/Sources/MunkelApp/AppModel.swift) — central
     state: joined circles, identity, and the `handleControl` entry point that
-    resolves circle/recipient names for the CLI.
+    resolves circle/recipient names for the CLI. It also computes the local
+    presence status, overlaying **Away** on an Online base after five minutes
+    without keyboard or mouse input (or on screen lock, screen sleep, system
+    sleep, or fast user switch). The idle guard ignores `PreventUserIdleDisplaySleep`
+    assertions held *solely* by remote-desktop daemons (RustDesk, Screen Sharing,
+    ARD, …) so a remote session no longer pins you Online, while genuine
+    fullscreen video still suppresses auto-Away.
   - [`GroupSession.swift`](../apps/macos/Sources/MunkelApp/GroupSession.swift) —
     one joined circle: holds its `RelayClient`, seals/opens payloads, tracks
-    presence, and exchanges `profile` payloads. This is where send and receive
-    are wired end-to-end.
+    presence and each member's status, and exchanges `profile` payloads. This is
+    where send and receive are wired end-to-end.
   - [`NotchPanel/`](../apps/macos/Sources/MunkelApp/NotchPanel) +
     [`NotchPresenter.swift`](../apps/macos/Sources/MunkelApp/NotchPresenter.swift)
     — the notch display: a borderless `NotchPanelWindow` shaped to the physical
@@ -210,8 +216,13 @@ and [`blob.ts`](../apps/server/src/blob.ts)).
    payload that fails to decrypt or decode is dropped, not surfaced.
 3. The decoded `AppPayload` is dispatched: `chat` text and `image` albums are
    shown in the notch via `NotchPanel` / `NotchPresenter`; `profile` payloads
-   update the sender's display name and avatar locally. Full-resolution images
-   are fetched and decrypted from R2 lazily, on demand, keyed by `r2Key`.
+   update the sender's display name and presence status locally, and the avatar
+   is fetched from the sender's GitHub avatar URL directly (not via the relay).
+   When
+   the local user's own status is Do Not Disturb or Away, the proactive notch
+   preview is suppressed and the message lands silently in the 60 s history.
+   Full-resolution images are fetched and decrypted from R2 lazily, on demand,
+   keyed by `r2Key`.
 4. Messages live only in memory and only for the notch-survival window
    (~60 s); there is no history and nothing is written to disk. See
    [`GroupSession.handleIncoming`](../apps/macos/Sources/MunkelApp/GroupSession.swift).
@@ -246,9 +257,12 @@ TypeScript reference sender is
   closes connections idle for more than 120 s.
 - **Application payloads** (inside the encrypted blob, invisible to the relay):
   a `kind`-discriminated JSON object — `chat` (`text`, `sentAt`), `profile`
-  (`displayName`, optional base64 `avatar`), or `image` (1–8 `items`, shared
-  `caption`, `sentAt`; each item is an `r2Key` pointer plus an inline AVIF
-  `thumb`). See
+  (`displayName`, optional `avatarURL` that peers fetch from GitHub directly —
+  not via the relay, optional `status` of
+  `online` | `dnd` | `away`), `presence` (`status` only — a lightweight delta
+  sent when a member's status changes, so a flip needn't re-send the avatar),
+  or `image` (1–8 `items`, shared `caption`, `sentAt`; each item is an `r2Key`
+  pointer plus an inline AVIF `thumb`). See
   [`AppPayload.swift`](../apps/macos/Sources/MunkelKit/AppPayload.swift).
 
 ### Image blobs (R2)

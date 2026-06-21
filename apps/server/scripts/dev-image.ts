@@ -166,13 +166,13 @@ if (listenMode) {
     }
   };
   ws.onopen = async () => {
-    ws.send(JSON.stringify({ type: 'send', payload: await sealJSON({ kind: 'profile', displayName: name }) }));
+    ws.send(JSON.stringify({ type: 'send', payload: await sealJSON({ kind: 'profile', displayName: name, status: 'online' }) }));
     process.stdout.write(`listening as "${name}" (${memberId})… send an image to me from the app or another client\n`);
     setInterval(() => ws.send(JSON.stringify({ type: 'ping' })), 30_000);
   };
 } else {
   ws.onopen = async () => {
-    ws.send(JSON.stringify({ type: 'send', payload: await sealJSON({ kind: 'profile', displayName: name }) }));
+    ws.send(JSON.stringify({ type: 'send', payload: await sealJSON({ kind: 'profile', displayName: name, status: 'online' }) }));
 
     const selected = paths.slice(0, MAX_IMAGES);
     const perThumb = Math.max(1_200, Math.floor(ALBUM_THUMB_BUDGET / selected.length));

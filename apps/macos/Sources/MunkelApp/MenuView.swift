@@ -8,6 +8,7 @@ struct MenuView: View {
     @State private var joinCode = ""
     @State private var userCodeCopied = false
     @State private var groupListHeight: CGFloat = 0
+    @State private var statusHovering = false
     @StateObject private var displayList = DisplayList()
     /// "Launch at Login" state that reflects intent immediately and reconciles
     /// with the real SMAppService status on foreground.
@@ -166,6 +167,13 @@ struct MenuView: View {
             Toggle("Allow in screenshots", isOn: $allowInScreenshots)
             #endif
             Divider()
+            if model.githubUserLogin != nil {
+                Button {
+                    model.logoutGitHub()
+                } label: {
+                    Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
+                }
+            }
             Button {
                 NSApp.terminate(nil)
             } label: {
@@ -180,6 +188,37 @@ struct MenuView: View {
         .menuIndicator(.hidden)
         .fixedSize()
         .help("Settings")
+    }
+
+    private var statusPicker: some View {
+        Picker(selection: Binding(get: { model.localStatus }, set: { model.chooseStatus($0) })) {
+            ForEach(PresenceStatus.allCases, id: \.self) { status in
+                Label {
+                    Text(status.menuLabel)
+                } icon: {
+                    Image(systemName: status.symbolName)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(status.dotColor)
+                        .imageScale(status == .online ? .small : .medium)
+                }
+                .tag(status)
+            }
+        } label: {
+            Text("Presence")
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .buttonStyle(.borderless)
+        .controlSize(.small)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(.primary.opacity(statusHovering ? 0.1 : 0))
+        )
+        .onHover { statusHovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: statusHovering)
+        .help("Set your presence")
     }
 
     private func showAbout() {
@@ -228,15 +267,14 @@ struct MenuView: View {
     private var githubArea: some View {
         switch model.githubLoginState {
         case .idle:
-            if let login = model.githubUserLogin {
+            if model.githubUserLogin != nil {
                 HStack(spacing: 8) {
-                    AvatarView(name: model.displayName, imageData: Identity.avatarData, size: 20)
-                    Text("Signed in as \(model.displayName) (@\(login))")
+                    AvatarView(name: model.displayName, imageData: Identity.avatarData, size: 20, status: model.effectiveStatus)
+                    Text(model.displayName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Sign out") { model.logoutGitHub() }
-                        .controlSize(.small)
+                    statusPicker
                 }
             } else {
                 Button {
@@ -619,7 +657,7 @@ struct GroupSectionView: View {
                         recipient = member.id
                         fieldFocused = true
                     } label: {
-                        AvatarView(name: member.label, imageData: member.avatar, size: targetSize)
+                        AvatarView(name: member.label, imageData: member.avatar, size: targetSize, status: member.status)
                     }
                 }
 

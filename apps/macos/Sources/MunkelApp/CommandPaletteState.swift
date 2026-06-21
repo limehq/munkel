@@ -11,6 +11,7 @@ struct Recipient: Identifiable, Equatable {
     let memberId: String?    // nil = broadcast to the whole circle
     let label: String        // display name, or "Everyone"
     let avatar: Data?
+    let status: PresenceStatus?
 
     var isEveryone: Bool { memberId == nil }
 }
@@ -65,7 +66,8 @@ final class CommandPaletteState: ObservableObject {
                 circle: code,
                 memberId: nil,
                 label: "Everyone",
-                avatar: nil
+                avatar: nil,
+                status: nil
             )
             let people = members.map { member in
                 Recipient(
@@ -73,7 +75,8 @@ final class CommandPaletteState: ObservableObject {
                     circle: code,
                     memberId: member.id,
                     label: member.label,
-                    avatar: member.avatar
+                    avatar: member.avatar,
+                    status: member.status
                 )
             }
             return [everyone] + people

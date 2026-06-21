@@ -81,6 +81,7 @@ final class NotchPresenter {
         groupColor: Color,
         inMultipleGroups: Bool,
         images: [IncomingImage] = [],
+        silent: Bool = false,
         loadFull: (@Sendable (String) async -> Data?)? = nil,
         onReply: @escaping (_ text: String, _ images: [Data], _ privately: Bool) -> Void
     ) {
@@ -131,6 +132,18 @@ final class NotchPresenter {
             return
         }
 
+        if silent, currentNotch != nil {
+            if currentModel?.mode == .indicator {
+                withAnimation(.spring(duration: 0.3)) {
+                    if let id = currentEntryID {
+                        currentModel?.history = visibleHistory(excluding: id)
+                    }
+                    currentModel?.anchorProgress = anchorFraction()
+                }
+            }
+            return
+        }
+
         // Strictly serialized, collapsing display chain: messages display one
         // after another, and a newer one supersedes an older still-pending one
         // (it survives only as a history row). This keeps two near-simultaneous
@@ -141,7 +154,7 @@ final class NotchPresenter {
         pendingShow = Task { [weak self] in
             await previous?.value
             guard let self, generation == self.showGeneration else { return }
-            await self.display(message, entryID: entry.id, generation: generation, loadFull: loadFull, onReply: onReply)
+            await self.display(message, entryID: entry.id, generation: generation, silent: silent, loadFull: loadFull, onReply: onReply)
         }
     }
 
@@ -149,6 +162,7 @@ final class NotchPresenter {
         _ message: IncomingMessage,
         entryID: UUID,
         generation: Int,
+        silent: Bool = false,
         loadFull: (@Sendable (String) async -> Data?)?,
         onReply: @escaping (_ text: String, _ images: [Data], _ privately: Bool) -> Void
     ) async {
@@ -189,12 +203,16 @@ final class NotchPresenter {
         let notchSize = NotchScreenMetrics.metrics(for: targetScreen()).notchSize
         let model = MessageDisplayModel(message: message)
         configure(model, for: message, notchSize: notchSize, entryID: entryID, loadFull: loadFull, onReply: onReply)
+        if silent {
+            model.mode = .indicator
+        }
         currentEntryID = entryID
         currentModel = model
 
         let notch = NotchPanel(hoverBehavior: .all, targetScreen: targetScreen) {
             MessageNotchContainer(model: model)
         }
+        notch.suppressBottomInset = silent
         notch.transitionConfiguration = .init(
             openingAnimation: .spring(response: 0.6, dampingFraction: 0.7),
             skipIntermediateHides: true
@@ -275,7 +293,9 @@ final class NotchPresenter {
         // Album images load lazily per grid cell (see AlbumCell) once the
         // notch is expanded — no eager fetch here.
 
-        scheduleHide(of: notch, after: displayDuration(for: message))
+        if !silent {
+            scheduleHide(of: notch, after: displayDuration(for: message))
+        }
     }
 
     /// Point a (new or reused) model at `message`: its handlers, loaders,
