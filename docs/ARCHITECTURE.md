@@ -1,8 +1,8 @@
 # Architecture
 
 Munkel is a system for ephemeral, end-to-end-encrypted messages between
-friends ("circles") that slide out of the MacBook notch. There are no
-accounts and no message storage: a circle is born from a shared,
+friends ("channels") that slide out of the MacBook notch. There are no
+accounts and no message storage: a channel is born from a shared,
 human-readable code (for example `blue-table-42`); each client derives the
 relay group ID and the message key from that code on-device, and a deliberately
 dumb Cloudflare Worker relay routes opaque ciphertext between the members of a
@@ -26,7 +26,7 @@ files that are authoritative for each claim, rather than restating the code.
   │  │  RelayClient   │   │       │  │                           ▼            │ │
   │  │  BlobClient    │   │  HTTPS│  │   ┌──────────────────────────────┐ │ │
   │  │  AppPayload    │◄──┼──────►│  │   │  Durable Object  GroupRoom       │ │ │
-  │  │  GitHubDevice… │   │ /blob │  │   │  one per circle:                 │ │ │
+  │  │  GitHubDevice… │   │ /blob │  │   │  one per channel:                 │ │ │
   │  └────────────────┘   │       │  │   │  idFromName(groupId)             │ │ │
   │                       │       │  │   │  WebSocket Hibernation, NO storage│ │ │
   │  MenuBarExtra UI      │       │  │   └────────────────────────────────┘ │ │
@@ -44,7 +44,7 @@ files that are authoritative for each claim, rather than restating the code.
 ```
 
 Solid arrows are network or IPC links. The relay and R2 see only ciphertext and
-derived identifiers; the human-readable circle code and message plaintext never
+derived identifiers; the human-readable channel code and message plaintext never
 leave the macOS app.
 
 ## Components
@@ -61,8 +61,8 @@ and relay connections; the CLI and the UI are clients of it. Source layout under
 - **`MunkelApp`** — the application module: menu-bar UI, notch presentation,
   app state, and the CLI control socket.
   - [`AppModel.swift`](../apps/macos/Sources/MunkelApp/AppModel.swift) — central
-    state: joined circles, identity, and the `handleControl` entry point that
-    resolves circle/recipient names for the CLI. It also computes the local
+    state: joined channels, identity, and the `handleControl` entry point that
+    resolves channel/recipient names for the CLI. It also computes the local
     presence status, overlaying **Away** on an Online base after five minutes
     without keyboard or mouse input (or on screen lock, screen sleep, system
     sleep, or fast user switch). The idle guard ignores `PreventUserIdleDisplaySleep`
@@ -70,7 +70,7 @@ and relay connections; the CLI and the UI are clients of it. Source layout under
     ARD, …) so a remote session no longer pins you Online, while genuine
     fullscreen video still suppresses auto-Away.
   - [`GroupSession.swift`](../apps/macos/Sources/MunkelApp/GroupSession.swift) —
-    one joined circle: holds its `RelayClient`, seals/opens payloads, tracks
+    one joined channel: holds its `RelayClient`, seals/opens payloads, tracks
     presence and each member's status, and exchanges `profile` payloads. This is
     where send and receive are wired end-to-end.
   - [`NotchPanel/`](../apps/macos/Sources/MunkelApp/NotchPanel) +
@@ -81,11 +81,11 @@ and relay connections; the CLI and the UI are clients of it. Source layout under
     — the Unix-domain-socket server that backs the CLI.
   - [`CaptureExclusion.swift`](../apps/macos/Sources/MunkelApp/CaptureExclusion.swift)
     — the screen-capture exclusion used by every surface that shows message
-    content or circle codes.
+    content or channel codes.
 - **`MunkelKit`** — the reusable library (crypto, protocol, relay/blob clients,
   GitHub login):
   - [`GroupKey.swift`](../apps/macos/Sources/MunkelKit/GroupKey.swift) — HKDF
-    derivation of `groupId` and `messageKey` from the circle code.
+    derivation of `groupId` and `messageKey` from the channel code.
   - [`MessageCrypto.swift`](../apps/macos/Sources/MunkelKit/MessageCrypto.swift)
     — AES-256-GCM seal/open (base64 for relay frames, raw bytes for R2 blobs).
   - [`AppPayload.swift`](../apps/macos/Sources/MunkelKit/AppPayload.swift) — the
@@ -118,11 +118,11 @@ running, it launches it in the background and waits for the socket. See
 ### Cloudflare Worker relay (`apps/server`)
 
 A Cloudflare Worker (Hono router, Worker name `munkel-relay`) fronting one
-Durable Object per circle:
+Durable Object per channel:
 
 - [`index.ts`](../apps/server/src/index.ts) — the router. Mounts `/health`, the
   blob routes, and `GET /ws`, which validates the `group`/`member` query
-  parameters and forwards the WebSocket upgrade to the circle's Durable Object
+  parameters and forwards the WebSocket upgrade to the channel's Durable Object
   via `GROUP_ROOM.idFromName(group)`. It also exports the `scheduled` handler
   for the per-minute blob sweep.
 - [`group-room.ts`](../apps/server/src/group-room.ts) — the `GroupRoom` Durable
@@ -163,14 +163,14 @@ and documentation only — it has no access to relay traffic, R2, or any keys.
 ## Identity, keys, and groups
 
 There are no accounts. Everything derives on-device from the human-readable
-circle code, which never leaves the client. Derivation is pinned identically in
+channel code, which never leaves the client. Derivation is pinned identically in
 Swift ([`GroupKey.swift`](../apps/macos/Sources/MunkelKit/GroupKey.swift)) and
 documented in [`protocol.ts`](../apps/server/src/protocol.ts):
 
 1. **Normalize** the code: Unicode NFC, trim, lowercase.
 2. **`groupId`** = `hex(HKDF-SHA256(ikm = utf8(code), salt = "munkel-v1",
    info = "group-id", 16 bytes))` → a 32-hex-char, 128-bit identifier. This is
-   the only thing the relay ever sees for a circle.
+   the only thing the relay ever sees for a channel.
 3. **`messageKey`** = `HKDF-SHA256(ikm = utf8(code), salt = "munkel-v1",
    info = "message-key", 32 bytes)` → the AES-256-GCM key.
 
@@ -191,7 +191,7 @@ stable per installation
 2. It seals the JSON with `messageKey`:
    `payload = base64(nonce[12] ‖ ciphertext ‖ tag[16])`, random 12-byte nonce,
    empty AAD ([`MessageCrypto.swift`](../apps/macos/Sources/MunkelKit/MessageCrypto.swift)).
-3. It sends a `{"type":"send", payload, to?}` frame over the circle's WebSocket
+3. It sends a `{"type":"send", payload, to?}` frame over the channel's WebSocket
    (`GET /ws?group=<32-hex>&member=<uuid>`). With `to` set to a `memberId` the
    relay delivers to that member only; without it the relay broadcasts to the
    rest of the group
@@ -301,15 +301,15 @@ dispatched by
 - `ControlResponse`: `ok`, optional `error`, optional `groups`
   (`code` / `connected` / `members`).
 
-The app resolves circle-code prefixes and recipient display names (or `memberId`
+The app resolves channel-code prefixes and recipient display names (or `memberId`
 prefixes) before sending, which is what makes the one-call `munkel dm <name>`
 path and agent skills possible. The socket path can be overridden with
 `MUNKEL_SOCKET` (used by the tests). The CLI is **send-only** by design; it can
-list circles and send, but cannot read message history (there is none).
+list channels and send, but cannot read message history (there is none).
 
 ## Capture-proof UI surfaces
 
-Every window that shows message content or a circle code is excluded from screen
+Every window that shows message content or a channel code is excluded from screen
 capture by setting `NSWindow.sharingType` (`.none` in release builds), applied
 by the `CaptureExclusion` view in the same SwiftUI update pass that mounts the
 content. This makes those surfaces invisible in Teams/Zoom shares and
@@ -340,14 +340,14 @@ builds have no such path.
 
 ## Trust boundaries
 
-The circle code is the only credential. It never leaves the client, and the
+The channel code is the only credential. It never leaves the client, and the
 relay cannot derive the `messageKey` from anything it sees.
 
 **What the relay can see:** the derived `groupId` (a random-looking 128-bit
 hash), `memberId` UUIDs, message sizes, and timing. For blobs it additionally
 sees ciphertext size and the `groupId`/`key` pair used to address an object.
 
-**What the relay cannot see:** the circle code, the message key, message
+**What the relay cannot see:** the channel code, the message key, message
 content, display names, avatars, image bytes (all ciphertext), or which human a
 `memberId` belongs to. Joining requires no server round-trip — knowing the code
 is knowing the group — so unguessable 128-bit group IDs are the only access
@@ -358,7 +358,7 @@ Honest non-goals and limitations (see also
 [`SECURITY.md`](../SECURITY.md), and
 [`PRIVACY.md`](../PRIVACY.md)):
 
-- **Generated circle codes are convenience-grade shared secrets**, optimized
+- **Generated channel codes are convenience-grade shared secrets**, optimized
   for being spoken at a table. Any current member with the code shares the same
   message key.
 - **Direct messages are relay-targeted in v1, not pairwise-encrypted.** Pairwise

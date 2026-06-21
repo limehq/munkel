@@ -37,7 +37,7 @@ struct MenuView: View {
                 githubArea
             } else {
                 if model.groupCodes.isEmpty {
-                    Text("No circles yet. Create one or join with a code.")
+                    Text("No channels yet. Create one or join with a code.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         // Without this the popup truncates to one ellipsized
@@ -89,7 +89,7 @@ struct MenuView: View {
         .onTapGesture {
             NSApp.keyWindow?.makeFirstResponder(nil)
         }
-        // The popover shows every circle code (the sole credential — whoever
+        // The popover shows every channel code (the sole credential — whoever
         // reads one can join), the outgoing draft and the GitHub device
         // code, so it stays out of screen shares like the notch does.
         .excludedFromScreenCapture()
@@ -240,7 +240,7 @@ struct MenuView: View {
     private var joinArea: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                TextField("Your circle", text: $joinCode)
+                TextField("Your channel", text: $joinCode)
                     .frostedField()
                     .onSubmit(joinTapped)
                 Button {
@@ -252,7 +252,7 @@ struct MenuView: View {
                 Button("Join", action: joinTapped)
                     .disabled(joinCode.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            Text("If the circle doesn't exist yet, it's created.")
+            Text("If the channel doesn't exist yet, it's created.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -469,9 +469,16 @@ private struct FrostedField: ViewModifier {
     func body(content: Content) -> some View {
         content
             .textFieldStyle(.plain)
+            // Single line that scrolls internally — without this a long draft
+            // grows the field editor and spills the text past the box.
+            .lineLimit(1)
             .focused($focused)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
+            // Clip the (already single-line) field to its box so a long draft
+            // that overruns the field editor can't spill past the rounded edge.
+            .clipShape(RoundedRectangle(cornerRadius: 7))
             // White tint over the material lightens it while keeping the
             // translucency — gently in dark mode, where 35% white would
             // turn the fields into gray slabs.
@@ -522,7 +529,7 @@ struct GroupSectionView: View {
     @FocusState private var fieldFocused: Bool
 
     private let targetSize: CGFloat = 26
-    private let cardSpace = "circleCard"
+    private let cardSpace = "channelCard"
 
     /// A target chip's tooltip text plus where to float it (card coordinates).
     struct HoverTip: Equatable {
@@ -633,7 +640,7 @@ struct GroupSectionView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Leave circle")
+            .help("Leave channel")
         }
     }
 

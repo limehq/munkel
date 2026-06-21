@@ -98,14 +98,15 @@ private struct PreviewCard: View {
     /// The picture's aspect, scaled to fill the screen as far as it goes WITHOUT
     /// growing past its own native pixel size: a large screenshot spans nearly
     /// the whole display, a small image shows crisp at 1:1 instead of blowing up
-    /// blurry. Both axes are bounded by the (centered) screen minus a slim gutter,
-    /// so the result is "as wide as the image, up to 100% of the screen, aspect
-    /// preserved". The full image is itself capped at `ImageCodec.maxFullPixels`
+    /// blurry. Both axes are bounded by the (centered) screen minus a notch-height
+    /// gutter, so a tall image clears the camera notch / menu bar instead of
+    /// running behind it; the result is "as wide as the image, up to that bound,
+    /// aspect preserved". The full image is itself capped at `ImageCodec.maxFullPixels`
     /// on the wire, which bounds the crispest result.
     private func fittedSize(in available: CGSize) -> CGSize {
         let w = CGFloat(max(image.width, 1))
         let h = CGFloat(max(image.height, 1))
-        let gutter: CGFloat = 24
+        let gutter = max(model.notchSize.height, 24)
         let maxW = max(80, available.width - 2 * gutter)
         let maxH = max(80, available.height - 2 * gutter)
         // Cap at 1: grow to fill the screen but never upscale beyond the image's

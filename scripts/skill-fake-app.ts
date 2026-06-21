@@ -14,38 +14,38 @@ if (!socketPath || !logPath) {
 }
 if (existsSync(socketPath)) unlinkSync(socketPath)
 
-const circles = (members: Record<string, string[]>) =>
+const channels = (members: Record<string, string[]>) =>
   Object.entries(members).map(([code, m]) => ({ code, connected: true, members: m }))
 
 function respond(req: { action?: string; group?: string; to?: string }): unknown | undefined {
   if (scenario === "silent") return undefined
 
   if (req.action === "groups") {
-    if (scenario === "unknown") return { ok: true, groups: circles({ "blue-table-42": ["Alex"] }) }
+    if (scenario === "unknown") return { ok: true, groups: channels({ "blue-table-42": ["Alex"] }) }
     return {
       ok: true,
-      groups: circles({ "blue-table-42": ["Sim", "Alex"], "green-room-17": ["Sam"] }),
+      groups: channels({ "blue-table-42": ["Sim", "Alex"], "green-room-17": ["Sam"] }),
     }
   }
 
   if (req.action === "send") {
     const to = (req.to ?? "").toLowerCase()
     const isBroadcast = to === "all" || to === "*"
-    // Circle-scoped sends (explicit group) and broadcasts always succeed —
+    // Channel-scoped sends (explicit group) and broadcasts always succeed —
     // this is the disambiguation path the agent should fall back to.
     if (req.group || isBroadcast) return { ok: true }
 
     if (scenario === "ambiguous") {
       return {
         ok: false,
-        error: `"${req.to}" is in blue-table-42, green-room-17 — say \`munkel <circle> ${req.to} …\``,
-        groups: circles({ "blue-table-42": ["Sim", "Alex"], "green-room-17": ["Sim", "Sam"] }),
+        error: `"${req.to}" is in blue-table-42, green-room-17 — say \`munkel <channel> ${req.to} …\``,
+        groups: channels({ "blue-table-42": ["Sim", "Alex"], "green-room-17": ["Sim", "Sam"] }),
       }
     }
     if (scenario === "unknown") {
       return {
         ok: false,
-        error: `No online member matches "${req.to}" — munkel circles shows who's online`,
+        error: `No online member matches "${req.to}" — munkel channels shows who's online`,
       }
     }
     return { ok: true }

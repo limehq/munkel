@@ -37,11 +37,12 @@ struct MessageNotchView: View {
             VStack(alignment: .leading, spacing: 6) {
                 VStack(alignment: .leading, spacing: 2) {
                     header
-                    Text(message.text)
-                        .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(.white)
-                        .lineLimit(6)
-                        .fixedSize(horizontal: false, vertical: true)
+                    LinkText(
+                        text: message.text,
+                        font: .systemFont(ofSize: 14, weight: .medium),
+                        textColor: .white,
+                        lineLimit: 6
+                    ) { [weak model] view in model?.registerLinkHost(view) }
                 }
                 if let url = firstURL(in: message.text) {
                     LinkPreviewCard(model: model, url: url)
@@ -66,11 +67,12 @@ struct MessageNotchView: View {
             imageContent
 
             if !message.text.isEmpty {
-                Text(message.text)
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.white)
-                    .lineLimit(4)
-                    .fixedSize(horizontal: false, vertical: true)
+                LinkText(
+                    text: message.text,
+                    font: .systemFont(ofSize: 13, weight: .medium),
+                    textColor: .white,
+                    lineLimit: 4
+                ) { [weak model] view in model?.registerLinkHost(view) }
             }
         }
         .padding(.horizontal, hInset)

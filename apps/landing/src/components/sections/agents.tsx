@@ -70,7 +70,7 @@ export function Agents() {
             <h3>Agents can send for real</h3>
             <p>
               An LLM with shell access uses <span className="code">munkel</span> exactly like you
-              do: pick a person or a circle, send the message. "Tell blue-table-42 I'm running
+              do: pick a person or a channel, send the message. "Tell blue-table-42 I'm running
               late" becomes one command.
             </p>
           </div>

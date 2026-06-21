@@ -6,7 +6,7 @@ import { sleep } from '@/lib/utils'
 type TermStep = { type: 'cmd'; text: string } | { type: 'out'; html: string }
 
 const TERM_SCRIPT: TermStep[] = [
-  { type: 'cmd', text: 'munkel circles' },
+  { type: 'cmd', text: 'munkel channels' },
   {
     type: 'out',
     html: '<span class="tdot-live">●</span> blue-table-42  <span class="tdim">—</span>  Alex, Sam, Morgan',
@@ -157,7 +157,7 @@ export function Cli() {
             <p>
               <span className="code">munkel</span> is a thin client over the app's Unix domain
               socket. The app owns all crypto and relay connections, the CLI just talks. Recipients
-              by display name, circles by code prefix.
+              by display name, channels by code prefix.
             </p>
             <p>
               Newline-delimited JSON over <span className="code">control.sock</span> makes it an

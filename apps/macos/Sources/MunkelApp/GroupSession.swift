@@ -76,8 +76,46 @@ final class GroupSession {
 
     @discardableResult
     func sendChat(_ text: String, to memberId: String? = nil) async -> Bool {
+        // A message that is just an image URL should arrive as a real image,
+        // not a link. Fetch it and ride the normal image path; on any failure
+        // fall through and send the text as typed.
+        if let url = Self.loneImageURL(in: text),
+           let data = await Self.fetchImage(from: url),
+           await sendImages([data], to: memberId) {
+            return true
+        }
         let payload = AppPayload.chat(text: MessageLimits.clamp(text), sentAt: Date())
         return await send(payload, to: memberId)
+    }
+
+    /// Returns the URL when `text` is nothing but a single http(s) link that
+    /// looks like an image (by extension), else nil.
+    private static func loneImageURL(in text: String) -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.contains(where: \.isWhitespace),
+              let url = URL(string: trimmed),
+              let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https"
+        else {
+            return nil
+        }
+        let exts = ["jpg", "jpeg", "png", "gif", "webp", "avif", "heic", "tiff", "bmp"]
+        return exts.contains(url.pathExtension.lowercased()) ? url : nil
+    }
+
+    /// Downloads the image bytes, capped at the same size as an inbound blob.
+    /// Returns nil on any error or non-image content type.
+    private static func fetchImage(from url: URL) async -> Data? {
+        var request = URLRequest(url: url)
+        request.setValue("image/*", forHTTPHeaderField: "Accept")
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              data.count <= maxIncomingImageBytes
+        else {
+            return nil
+        }
+        let contentType = http.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
+        guard contentType.hasPrefix("image/") else { return nil }
+        return data
     }
 
     @discardableResult

@@ -362,6 +362,7 @@ final class NotchPresenter {
                     await self.tearDownNotch(notch)
                     return
                 }
+                self.pruneImageCache(of: model)
                 if let id = self.currentEntryID {
                     let visible = self.visibleHistory(excluding: id)
                     if model.history != visible {
@@ -400,6 +401,17 @@ final class NotchPresenter {
         history.removeAll { Date().timeIntervalSince($0.receivedAt) > historyWindow }
     }
 
+    private func pruneImageCache(of model: MessageDisplayModel) {
+        let liveIDs = Set(model.imageLoaders.keys)
+            .union(history.flatMap { $0.images.map(\.id) })
+        if model.fullImages.contains(where: { !liveIDs.contains($0.key) }) {
+            model.fullImages = model.fullImages.filter { liveIDs.contains($0.key) }
+        }
+        if model.failedImages.contains(where: { !liveIDs.contains($0) }) {
+            model.failedImages = model.failedImages.intersection(liveIDs)
+        }
+    }
+
     /// Click-anywhere-to-reply, at the AppKit level: the panel is not key
     /// until clicked, so the first click would normally be swallowed as
     /// window activation (acceptsFirstMouse). A local monitor sees the
@@ -433,6 +445,10 @@ final class NotchPresenter {
                         model.copyImage(id: target.id, data: target.resolve())
                     } else if let target = model.historyCopyTargets.first(where: { Self.click(event, lands: $0.view) }) {
                         model.copyHistory(id: target.id, text: target.text)
+                    } else if let url = model.linkURL(at: event.locationInWindow, in: panel) {
+                        // A URL in the message body: open it, and stop here so the
+                        // same click doesn't also pop the reply field underneath.
+                        NSWorkspace.shared.open(url)
                     } else if Self.click(event, lands: model.historyMarker) {
                         withAnimation(.spring(duration: 0.3)) {
                             model.historyExpanded.toggle()

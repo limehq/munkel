@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Munkel: ephemeral, end-to-end-encrypted messages between friends ("circles") that
+Munkel: ephemeral, end-to-end-encrypted messages between friends ("channels") that
 slide out of the MacBook notch. No accounts, no message storage. The repo
 directory is `fluesterung` but the product/brand is **Munkel**.
 
@@ -23,7 +23,7 @@ Bun workspaces + Turborepo. Four apps under `apps/`:
 - `apps/cli` — the `munkel` CLI (Bun/TS). Thin and **send-only**: no crypto, no
   relay connection; serializes one JSON request over the app's Unix socket.
 - `apps/server` — Cloudflare Worker relay (`munkel-relay`, Hono router) + one
-  Durable Object per circle (partyserver, WebSocket hibernation, **no storage**).
+  Durable Object per channel (partyserver, WebSocket hibernation, **no storage**).
 - `apps/landing` — TanStack Start (React + Tailwind v4) on a Worker; marketing
   only, no access to relay traffic or keys.
 
@@ -62,7 +62,7 @@ Single tests:
 - The build goes through **Swift Bundler** via `make-bundle.sh` (not raw `swift
   build`): it assembles the `.app` from `Bundler.toml`, injecting version and
   archs. `scripts/ensure-swift-bundler.sh` builds the pinned bundler on demand.
-- Drive the dev app from CLI source: `MUNKEL_DEV=1 bun apps/cli/src/munkel.ts circles`.
+- Drive the dev app from CLI source: `MUNKEL_DEV=1 bun apps/cli/src/munkel.ts channels`.
 - Point a dev build at the local relay: `MUNKEL_RELAY_URL=ws://127.0.0.1:8787 bun run dev`
   (read once at launch, never persisted).
 - **Requires Xcode 26** (Swift toolchain ≥ 6.2): the KeyboardShortcuts 3.x
@@ -83,14 +83,14 @@ Single tests:
   `CryptoTests.swift` — a derivation tweak that breaks that test breaks live
   Swift↔TS messaging.
 - **CLI ↔ app contract**: `MunkelKit/ControlProtocol.swift` is mirrored in
-  `apps/cli/src/munkel.ts`. The app resolves circle-code prefixes and recipient
+  `apps/cli/src/munkel.ts`. The app resolves channel-code prefixes and recipient
   display names (`AppModel.handleControl`); the CLI stays dumb. `MUNKEL_SOCKET`
   overrides the socket path (the tests use it).
 - **Ephemerality is structural, not policy**: the `GroupRoom` Durable Object uses
   **no DO storage for messages** (only a `setAlarm` to reap stale connections).
   Don't add message buffering/persistence — an offline member is meant to miss
   the message.
-- **Capture-proof surfaces**: every window showing message content or a circle
+- **Capture-proof surfaces**: every window showing message content or a channel
   code sets `NSWindow.sharingType = .none` via the `CaptureExclusion` view.
   Corollary the code relies on: **no `.help()` tooltips in notch content** (AppKit
   draws tooltips in a separate, capturable window). See `CaptureExclusion.swift`.
@@ -134,7 +134,7 @@ linked with `Closes #N`.
   changes, update the relevant docs (`README.md`, `docs/ARCHITECTURE.md`,
   `SECURITY.md`, `PRIVACY.md`, …) in the same PR — drift is treated as a tracked
   bug.
-- **Terminology**: "circle" is the human-facing term for a group; `group` /
+- **Terminology**: "channel" is the human-facing term for a group; `group` /
   `groupId` is its derived machine identifier. "Whisper" is legacy (it survives in
   the repo name and a couple of scripts like `simulate-whispers.sh`); prefer
-  "message" / "circle" in new code and docs.
+  "message" / "channel" in new code and docs.

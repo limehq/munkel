@@ -121,6 +121,11 @@ final class MessageDisplayModel: ObservableObject {
     weak var historyMarker: NSView?
     weak var replyMarker: NSView?
     weak var teaserMarker: NSView?
+    /// Linked-text views (current message body and caption) registered so the
+    /// click monitor can ask "did this click land on a URL?" before opening the
+    /// reply — a link sits inside the replyMarker, so without this a tap would
+    /// both open the browser and pop the reply field.
+    var linkHosts: [LinkTextView] = []
 
     init(message: IncomingMessage) {
         self.message = message
@@ -148,6 +153,22 @@ final class MessageDisplayModel: ObservableObject {
         hoveredImageID = nil
         historyCopyTargets = []
         imageCopyTargets = []
+        linkHosts = []
+    }
+
+    /// Register a linked-text view (replacing dead ones). Called by LinkText as
+    /// it appears; the click monitor walks these to resolve a URL under a click.
+    func registerLinkHost(_ view: LinkTextView) {
+        linkHosts.removeAll { $0.window == nil }
+        if !linkHosts.contains(view) { linkHosts.append(view) }
+    }
+
+    /// The URL under a window-space point, if any linked-text view has one there.
+    func linkURL(at windowPoint: NSPoint, in window: NSWindow) -> URL? {
+        for host in linkHosts where host.window === window {
+            if let url = host.url(atWindowPoint: windowPoint) { return url }
+        }
+        return nil
     }
 
     func copy(_ text: String) {
@@ -363,7 +384,7 @@ struct MessageNotchContainer: View {
     /// without a notch (the panel then uses its floating style).
     private var notchSize: CGSize { model.notchSize }
     /// Called with the trimmed reply text, any staged images, and whether it
-    /// goes privately to the sender (true) or to the whole circle; the
+    /// goes privately to the sender (true) or to the whole channel; the
     /// images-vs-text routing happens in AppModel.
     private var onReply: (_ text: String, _ images: [Data], _ privately: Bool) -> Void { model.onReply }
     private var onCancelReply: () -> Void { model.onCancelReply }
@@ -602,9 +623,14 @@ struct MessageNotchContainer: View {
                 .font(.system(size: 13))
                 .foregroundStyle(.white)
                 .tint(.white)
+                // Single line that scrolls internally; clipped to the field so a
+                // long reply can't spill out past the box's rounded edge.
+                .lineLimit(1)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 8)
                 .padding(.vertical, 5)
                 .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 7))
+                .clipShape(RoundedRectangle(cornerRadius: 7))
                 .focused($replyFocused)
                 .onChange(of: draft) { _, new in
                     if new.count > MessageLimits.maxCharacters {
@@ -705,7 +731,7 @@ struct MessageNotchContainer: View {
         HStack(spacing: 5) {
             Image(systemName: "checkmark.circle.fill")
             // replyPrivately still holds the channel the reply went out on.
-            // The circle name only matters when there is more than one.
+            // The channel name only matters when there is more than one.
             Text(
                 model.replyPrivately
                     ? "Sent to \(message.sender)"
