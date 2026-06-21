@@ -27,6 +27,13 @@ final class GroupSession {
     /// the server's per-blob cap (apps/server/src/blob.ts) plus envelope.
     private static let maxIncomingImageBytes = 3 * 1024 * 1024 + 4_096
 
+    private static let imageURLSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 10
+        config.timeoutIntervalForResource = 30
+        return URLSession(configuration: config)
+    }()
+
     let code: String
     private(set) var members: [Member] = []
     private(set) var isConnected = false
@@ -107,7 +114,7 @@ final class GroupSession {
     private static func fetchImage(from url: URL) async -> Data? {
         var request = URLRequest(url: url)
         request.setValue("image/*", forHTTPHeaderField: "Accept")
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
+        guard let (data, response) = try? await imageURLSession.data(for: request),
               let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
               data.count <= maxIncomingImageBytes
         else {
