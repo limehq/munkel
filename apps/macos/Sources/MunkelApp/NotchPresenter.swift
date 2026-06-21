@@ -445,6 +445,10 @@ final class NotchPresenter {
                         model.copyImage(id: target.id, data: target.resolve())
                     } else if let target = model.historyCopyTargets.first(where: { Self.click(event, lands: $0.view) }) {
                         model.copyHistory(id: target.id, text: target.text)
+                    } else if let url = model.linkURL(at: event.locationInWindow, in: panel) {
+                        // A URL in the message body: open it, and stop here so the
+                        // same click doesn't also pop the reply field underneath.
+                        NSWorkspace.shared.open(url)
                     } else if Self.click(event, lands: model.historyMarker) {
                         withAnimation(.spring(duration: 0.3)) {
                             model.historyExpanded.toggle()
