@@ -17,4 +17,12 @@ extension PresenceStatus {
         case .away: "Away"
         }
     }
+
+    var symbolName: String {
+        switch self {
+        case .online: "circle.fill"
+        case .doNotDisturb: "moon.fill"
+        case .away: "clock.fill"
+        }
+    }
 }

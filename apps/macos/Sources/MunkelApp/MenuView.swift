@@ -190,29 +190,23 @@ struct MenuView: View {
     }
 
     private var statusPicker: some View {
-        Menu {
+        Picker(selection: $model.localStatus) {
             ForEach(PresenceStatus.allCases, id: \.self) { status in
-                Button {
-                    model.localStatus = status
-                } label: {
-                    if model.localStatus == status {
-                        Label(status.menuLabel, systemImage: "checkmark")
-                    } else {
-                        Text(status.menuLabel)
-                    }
+                Label {
+                    Text(status.menuLabel)
+                } icon: {
+                    Image(systemName: status.symbolName)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(status.dotColor)
                 }
+                .tag(status)
             }
         } label: {
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(model.localStatus.dotColor)
-                    .frame(width: 8, height: 8)
-                Text(model.localStatus.menuLabel)
-                    .font(.caption)
-            }
+            Text("Presence")
         }
-        .menuStyle(.borderlessButton)
-        .fixedSize()
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .buttonStyle(.borderless)
         .controlSize(.small)
         .help("Set your presence")
     }
