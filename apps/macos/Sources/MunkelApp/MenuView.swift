@@ -8,6 +8,7 @@ struct MenuView: View {
     @State private var joinCode = ""
     @State private var userCodeCopied = false
     @State private var groupListHeight: CGFloat = 0
+    @State private var statusHovering = false
     @StateObject private var displayList = DisplayList()
     /// "Launch at Login" state that reflects intent immediately and reconciles
     /// with the real SMAppService status on foreground.
@@ -198,6 +199,7 @@ struct MenuView: View {
                     Image(systemName: status.symbolName)
                         .symbolRenderingMode(.palette)
                         .foregroundStyle(status.dotColor)
+                        .imageScale(status == .online ? .small : .medium)
                 }
                 .tag(status)
             }
@@ -208,6 +210,14 @@ struct MenuView: View {
         .labelsHidden()
         .buttonStyle(.borderless)
         .controlSize(.small)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(.primary.opacity(statusHovering ? 0.1 : 0))
+        )
+        .onHover { statusHovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: statusHovering)
         .help("Set your presence")
     }
 
