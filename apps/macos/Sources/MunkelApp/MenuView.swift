@@ -191,7 +191,7 @@ struct MenuView: View {
     }
 
     private var statusPicker: some View {
-        Picker(selection: $model.localStatus) {
+        Picker(selection: Binding(get: { model.localStatus }, set: { model.chooseStatus($0) })) {
             ForEach(PresenceStatus.allCases, id: \.self) { status in
                 Label {
                     Text(status.menuLabel)

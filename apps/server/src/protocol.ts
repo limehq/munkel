@@ -62,6 +62,10 @@ import { z } from 'zod';
  *   — broadcast after joining and whenever a `peer-joined` arrives, so
  *   newcomers learn who everyone is. Sending `profile` without `avatar` clears
  *   it. Byte budgets live with the codec: AvatarCodec.swift (MunkelKit).
+ * - `presence`: `status` (`online` | `dnd` | `away`) only — a lightweight
+ *   delta broadcast when a member's status changes, so a status flip needn't
+ *   re-send the avatar bytes. The initial status still rides on `profile` for
+ *   the join snapshot; clients without presence support ignore this kind.
  * - `image`:   `items` (1–8), shared `caption`, `sentAt`. Each item is
  *   `{r2Key, mime, width, height, byteLen, thumb (inline AVIF, base64)}`.
  *   The full-resolution image is AVIF, always sealed and PUT to R2 (blob.ts);

@@ -135,6 +135,25 @@ struct AppPayloadTests {
         #expect(json["status"] as? String == "dnd")
     }
 
+    @Test func presenceRoundtrip() throws {
+        let payload = AppPayload.presence(status: .away)
+        #expect(try AppPayload.decoded(from: payload.encoded()) == payload)
+    }
+
+    @Test func presenceEncodesKindAndStatusOnly() throws {
+        let data = try AppPayload.presence(status: .doNotDisturb).encoded()
+        let json = try JSONSerialization.jsonObject(with: data) as! [String: Any]
+        #expect(json["kind"] as? String == "presence")
+        #expect(json["status"] as? String == "dnd")
+        #expect(json["displayName"] == nil)
+        #expect(json["avatar"] == nil)
+    }
+
+    @Test func presenceDecodesMissingStatusAsOnline() throws {
+        let decoded = try AppPayload.decoded(from: Data(#"{"kind":"presence"}"#.utf8))
+        #expect(decoded == .presence(status: .online))
+    }
+
     @Test func profileDecodesMissingStatusAsOnline() throws {
         let decoded = try AppPayload.decoded(
             from: Data(#"{"kind":"profile","displayName":"Alex"}"#.utf8)

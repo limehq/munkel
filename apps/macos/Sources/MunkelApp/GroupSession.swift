@@ -89,6 +89,11 @@ final class GroupSession {
         return await send(payload, to: memberId)
     }
 
+    @discardableResult
+    func sendPresence(to memberId: String? = nil) async -> Bool {
+        await send(.presence(status: localStatus), to: memberId)
+    }
+
     /// Transcodes each image to AVIF, ALWAYS uploads the sealed ciphertext to R2
     /// (in parallel), then relays ONE pointer listing all of them with their
     /// inline AVIF thumbnails. Encoding + crypto run off the main actor. The
@@ -256,6 +261,12 @@ final class GroupSession {
                 )
             }
             onStateChange?()
+
+        case let .presence(status):
+            if let index = members.firstIndex(where: { $0.id == memberId }) {
+                members[index].status = status
+                onStateChange?()
+            }
 
         case let .chat(text, _):
             let sender = members.first { $0.id == memberId }

@@ -62,7 +62,13 @@ and relay connections; the CLI and the UI are clients of it. Source layout under
   app state, and the CLI control socket.
   - [`AppModel.swift`](../apps/macos/Sources/MunkelApp/AppModel.swift) — central
     state: joined circles, identity, and the `handleControl` entry point that
-    resolves circle/recipient names for the CLI.
+    resolves circle/recipient names for the CLI. It also computes the local
+    presence status, overlaying **Away** on an Online base after five minutes
+    without keyboard or mouse input (or on screen lock, screen sleep, system
+    sleep, or fast user switch). The idle guard ignores `PreventUserIdleDisplaySleep`
+    assertions held *solely* by remote-desktop daemons (RustDesk, Screen Sharing,
+    ARD, …) so a remote session no longer pins you Online, while genuine
+    fullscreen video still suppresses auto-Away.
   - [`GroupSession.swift`](../apps/macos/Sources/MunkelApp/GroupSession.swift) —
     one joined circle: holds its `RelayClient`, seals/opens payloads, tracks
     presence and each member's status, and exchanges `profile` payloads. This is
@@ -250,8 +256,10 @@ TypeScript reference sender is
 - **Application payloads** (inside the encrypted blob, invisible to the relay):
   a `kind`-discriminated JSON object — `chat` (`text`, `sentAt`), `profile`
   (`displayName`, optional base64 `avatar`, optional `status` of
-  `online` | `dnd` | `away`), or `image` (1–8 `items`, shared `caption`,
-  `sentAt`; each item is an `r2Key` pointer plus an inline AVIF `thumb`). See
+  `online` | `dnd` | `away`), `presence` (`status` only — a lightweight delta
+  sent when a member's status changes, so a flip needn't re-send the avatar),
+  or `image` (1–8 `items`, shared `caption`, `sentAt`; each item is an `r2Key`
+  pointer plus an inline AVIF `thumb`). See
   [`AppPayload.swift`](../apps/macos/Sources/MunkelKit/AppPayload.swift).
 
 ### Image blobs (R2)

@@ -57,6 +57,16 @@ final class AppModel: ObservableObject {
         localStatus == .online && isAutoAway ? .away : localStatus
     }
 
+    func chooseStatus(_ status: PresenceStatus) {
+        let clearedAutoAway = isAutoAway
+        isAutoAway = false
+        if localStatus != status {
+            localStatus = status
+        } else if clearedAutoAway {
+            applyPresence()
+        }
+    }
+
     /// Sparkle bridge, injected by `AppDelegate` at launch (release build only;
     /// nil in the dev build, which doesn't auto-update).
     var updater: UpdaterController?
@@ -351,12 +361,18 @@ final class AppModel: ObservableObject {
         }
     }
 
+    private func broadcastPresence() {
+        for session in sessions.values {
+            Task { await session.sendPresence() }
+        }
+    }
+
     private func applyPresence() {
         let status = effectiveStatus
         for session in sessions.values {
             session.localStatus = status
         }
-        broadcastProfile()
+        broadcastPresence()
     }
 
     private func startPresenceMonitoring() {
@@ -387,12 +403,20 @@ final class AppModel: ObservableObject {
                 .sink { [weak self] _ in self?.pollIdle() }
                 .store(in: &presenceObservers)
         }
+
+        let distributed = DistributedNotificationCenter.default()
+        distributed.publisher(for: Notification.Name("com.apple.screenIsLocked"))
+            .sink { [weak self] _ in self?.enterAutoAway() }
+            .store(in: &presenceObservers)
+        distributed.publisher(for: Notification.Name("com.apple.screenIsUnlocked"))
+            .sink { [weak self] _ in self?.pollIdle() }
+            .store(in: &presenceObservers)
     }
 
     private func pollIdle() {
         guard localStatus == .online else { return }
-        if Self.secondsSinceUserInput() >= awayThreshold {
-            if !Self.displayIsKeptAwake() { setAutoAway(true) }
+        if Self.secondsSinceUserInput() >= awayThreshold, !Self.displayIsKeptAwake() {
+            setAutoAway(true)
         } else {
             setAutoAway(false)
         }
@@ -413,12 +437,53 @@ final class AppModel: ObservableObject {
         CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: CGEventType(rawValue: ~0)!)
     }
 
+    private static let remoteControlHolders = [
+        "rustdesk",
+        "screensharingd",
+        "screensharingag",
+        "ardagent",
+        "teamviewer",
+        "anydesk",
+        "remoting_host",
+        "chrome-remote-desktop",
+        "parsec",
+        "vncserver",
+    ]
+
+    private static func isRemoteControlHolder(_ name: String) -> Bool {
+        guard !name.isEmpty else { return false }
+        let lower = name.lowercased()
+        return remoteControlHolders.contains { lower.hasPrefix($0) || $0.hasPrefix(lower) }
+    }
+
     private static func displayIsKeptAwake() -> Bool {
-        var assertions: Unmanaged<CFDictionary>?
-        guard IOPMCopyAssertionsStatus(&assertions) == kIOReturnSuccess,
-              let counts = assertions?.takeRetainedValue() as? [String: Int]
-        else { return false }
-        return (counts[kIOPMAssertionTypePreventUserIdleDisplaySleep as String] ?? 0) > 0
+        displaySleepHolderNames().contains { !isRemoteControlHolder($0) }
+    }
+
+    private static func displaySleepHolderNames() -> [String] {
+        var raw: Unmanaged<CFDictionary>?
+        guard IOPMCopyAssertionsByProcess(&raw) == kIOReturnSuccess,
+              let byProcess = raw?.takeRetainedValue() as? [Int: [[String: Any]]]
+        else { return [] }
+
+        let canonical = kIOPMAssertionTypePreventUserIdleDisplaySleep as String
+        let legacy = kIOPMAssertionTypeNoDisplaySleep as String
+        let typeKey = kIOPMAssertionTypeKey as String
+        let levelKey = kIOPMAssertionLevelKey as String
+
+        var names: [String] = []
+        for assertions in byProcess.values {
+            for assertion in assertions {
+                let type = assertion[typeKey] as? String ?? ""
+                let trueType = assertion["AssertionTrueType"] as? String ?? ""
+                let level = assertion[levelKey] as? Int ?? 0
+                let holdsDisplay = type == canonical || type == legacy
+                    || trueType == canonical || trueType == legacy
+                guard holdsDisplay, level != 0 else { continue }
+                names.append(assertion["Process Name"] as? String ?? "")
+            }
+        }
+        return names
     }
 
     /// The display name is always the GitHub first name — not editable.

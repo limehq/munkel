@@ -28,6 +28,7 @@ public struct ImageItem: Codable, Sendable, Equatable {
 public enum AppPayload: Sendable, Equatable {
     case chat(text: String, sentAt: Date)
     case profile(displayName: String, avatar: Data?, status: PresenceStatus)
+    case presence(status: PresenceStatus)
     /// One or more images (an album) sent together, with an optional shared
     /// `caption` ("" if none). Each `ImageItem` is a pointer to an R2 blob plus
     /// a tiny inline preview thumbnail.
@@ -74,6 +75,9 @@ extension AppPayload: Codable {
                 avatar: container.decodeIfPresent(Data.self, forKey: .avatar),
                 status: statusRaw.flatMap(PresenceStatus.init(rawValue:)) ?? .online
             )
+        case "presence":
+            let statusRaw = try container.decodeIfPresent(String.self, forKey: .status)
+            self = .presence(status: statusRaw.flatMap(PresenceStatus.init(rawValue:)) ?? .online)
         case "image":
             let sentAtRaw = try container.decode(String.self, forKey: .sentAt)
             guard let sentAt = Self.parseISO8601(sentAtRaw) else {
@@ -123,6 +127,9 @@ extension AppPayload: Codable {
             try container.encode("profile", forKey: .kind)
             try container.encode(displayName, forKey: .displayName)
             try container.encodeIfPresent(avatar, forKey: .avatar)
+            try container.encode(status.rawValue, forKey: .status)
+        case let .presence(status):
+            try container.encode("presence", forKey: .kind)
             try container.encode(status.rawValue, forKey: .status)
         case let .image(items, caption, sentAt):
             try container.encode("image", forKey: .kind)
