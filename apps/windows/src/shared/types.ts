@@ -26,12 +26,20 @@ export interface StateUpdate {
 	circles: CircleState[];
 }
 
+export interface IncomingImage {
+	id: string;       // = r2Key
+	thumb: string;    // base64 AVIF
+	width: number;
+	height: number;
+}
+
 export interface NotchMessage {
 	sender: string;
 	text: string;
 	isDirect: boolean;
 	group: string;
 	groupColor: string;
+	images?: IncomingImage[];
 }
 
 export interface IpcApi {
