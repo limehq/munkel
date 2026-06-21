@@ -40,6 +40,11 @@ final class MessageDisplayModel: ObservableObject {
     @Published var fullImages: [String: Data] = [:]
     /// Images whose full fetch failed (expired/offline) — show a warning glyph.
     @Published var failedImages: Set<String> = []
+    /// Open Graph previews scraped for URLs in the message text, keyed by the
+    /// absolute URL string. nil while the fetch is in flight; a present-but-nil
+    /// LinkPreviewData means it resolved to nothing (no card). Filled by the
+    /// link card on appear, cleared when the model is reused for a new message.
+    @Published var linkPreviews: [String: LinkPreviewData?] = [:]
     /// `id` (r2Key) of the album image currently shown in the large hover
     /// "Quick Look" preview, or nil when none. Set by an `AlbumCell` on hover
     /// (debounced) and force-cleared on every teardown path by NotchPresenter,
@@ -139,6 +144,7 @@ final class MessageDisplayModel: ObservableObject {
         replySent = false
         fullImages = [:]
         failedImages = []
+        linkPreviews = [:]
         attachedImages = []
         historyExpanded = false
         copiedHistoryID = nil
@@ -212,6 +218,18 @@ final class MessageDisplayModel: ObservableObject {
         } else {
             previewImageID = nil
         }
+    }
+
+    /// Scrape the Open Graph preview for `url` once and stash it (or nil) under
+    /// its absolute string. Already-resolved or in-flight URLs are skipped. The
+    /// fetcher caches across messages, so a repeated link is instant.
+    func loadLinkPreview(for url: URL) async {
+        let key = url.absoluteString
+        guard linkPreviews[key] == nil else { return }
+        // Mark in-flight so a re-render doesn't kick off a second fetch.
+        linkPreviews[key] = .some(nil)
+        let data = await LinkPreviewFetcher.shared.preview(for: url)
+        linkPreviews[key] = .some(data)
     }
 
     private func flashCopied() {
