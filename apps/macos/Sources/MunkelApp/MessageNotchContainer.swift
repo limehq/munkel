@@ -642,6 +642,7 @@ struct MessageNotchContainer: View {
                     // Allow an image-only reply (mirrors CommandPaletteView.canSend).
                     guard !text.isEmpty || !model.attachedImages.isEmpty else { return }
                     onReply(text, model.attachedImages, model.replyPrivately)
+                    draft = ""
                 }
                 .onExitCommand(perform: onCancelReply)
                 .onAppear {
