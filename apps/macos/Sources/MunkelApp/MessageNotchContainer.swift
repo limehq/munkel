@@ -1004,9 +1004,17 @@ private struct HistoryAlbumCell: View {
     /// Smaller than the current message's 20pt glyph — history cells are compact.
     private let glyphDiameter: CGFloat = 18
 
+    /// Animated bytes to play once loaded; nil keeps the still thumbnail.
+    private var animatedFull: Data? {
+        guard image.isAnimated, let full = model.fullImages[image.id] else { return nil }
+        return full
+    }
+
     var body: some View {
         ZStack {
-            if let decoded {
+            if let animatedFull {
+                AnimatedImageView(data: animatedFull, contentMode: fill ? .fill : .fit)
+            } else if let decoded {
                 Image(decorative: decoded, scale: 1)
                     .resizable()
                     .interpolation(.medium)
@@ -1073,12 +1081,14 @@ private struct HistoryAlbumCell: View {
             decoded = await Task.detached { ImageCodec.decode(thumb, maxPixels: 300) }.value
         }
         if let full = model.fullImages[image.id] {
+            if image.isAnimated { return }
             decoded = await Task.detached { ImageCodec.decode(full, maxPixels: 900) }.value
             return
         }
         guard !didFail, let loadFull else { return }
         if let data = await loadFull(image.id) {
             model.fullImages[image.id] = data
+            if image.isAnimated { return }
             decoded = await Task.detached { ImageCodec.decode(data, maxPixels: 900) }.value
         } else {
             model.failedImages.insert(image.id)
