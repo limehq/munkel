@@ -57,11 +57,13 @@ import { z } from 'zod';
  * discriminator:
  *
  * - `chat`:    `text`, `sentAt` (ISO-8601) — the actual message.
- * - `profile`: `displayName`, `avatar?` (base64 JPEG/PNG), `status?`
- *   (`online` | `dnd` | `away`; an absent or unknown value reads as `online`)
- *   — broadcast after joining and whenever a `peer-joined` arrives, so
- *   newcomers learn who everyone is. Sending `profile` without `avatar` clears
- *   it. Byte budgets live with the codec: AvatarCodec.swift (MunkelKit).
+ * - `profile`: `displayName`, `avatarURL?` (the sender's GitHub avatar URL),
+ *   `avatar?` (legacy inline base64 JPEG/PNG — no longer sent, still decoded
+ *   for older peers), `status?` (`online` | `dnd` | `away`; an absent or
+ *   unknown value reads as `online`) — broadcast after joining and whenever a
+ *   `peer-joined` arrives, so newcomers learn who everyone is. Clients fetch
+ *   the avatar directly from `avatarURL` (GitHub's CDN), so avatar bytes never
+ *   transit the relay.
  * - `presence`: `status` (`online` | `dnd` | `away`) only — a lightweight
  *   delta broadcast when a member's status changes, so a status flip needn't
  *   re-send the avatar bytes. The initial status still rides on `profile` for

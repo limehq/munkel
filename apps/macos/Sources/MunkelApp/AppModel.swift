@@ -269,6 +269,7 @@ final class AppModel: ObservableObject {
     /// stop (the group codes stay persisted and reconnect after re-login).
     func logoutGitHub() {
         Identity.avatarData = nil
+        Identity.avatarURL = nil
         Identity.githubLogin = nil
         githubUserLogin = nil
         for session in sessions.values {
@@ -317,7 +318,7 @@ final class AppModel: ObservableObject {
             }
 
             guard generation == githubLoginGeneration else { return }
-            applyProfile(name: Self.firstName(of: user), avatar: avatar, githubLogin: user.login)
+            applyProfile(name: Self.firstName(of: user), avatar: avatar, avatarURL: user.avatarURL?.absoluteString, githubLogin: user.login)
             githubLoginState = .idle
             // Login gates everything: the persisted groups connect only now.
             for code in groupCodes where sessions[code] == nil {
@@ -337,8 +338,9 @@ final class AppModel: ObservableObject {
 
     /// Writes both identity halves before the single broadcast — a didSet
     /// broadcast would race the avatar write and send a stale profile.
-    private func applyProfile(name: String, avatar: Data?, githubLogin login: String?) {
+    private func applyProfile(name: String, avatar: Data?, avatarURL: String?, githubLogin login: String?) {
         Identity.avatarData = avatar
+        Identity.avatarURL = avatarURL
         Identity.githubLogin = login
         githubUserLogin = login
         displayName = name

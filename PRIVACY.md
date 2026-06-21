@@ -22,11 +22,18 @@ The token is requested with empty scope, used to fetch the profile once, and not
 stored by Munkel. GitHub still records the OAuth authorization in the user's
 GitHub account settings.
 
+Avatars are shared with circle members as the GitHub avatar URL, not as image
+bytes through the relay: each member's app fetches the avatar directly from
+GitHub's avatar CDN. GitHub's CDN therefore sees, for each viewer, their IP
+address and which account's avatar is being loaded, and circle members can see
+each other's GitHub user id (it is embedded in the URL). The relay never carries
+avatar image bytes. Avatar URLs are only fetched from `*.githubusercontent.com`.
+
 ## Local data
 
 The app stores local settings in the `dev.uq.munkel` defaults domain, including
 joined circle codes, relay URL, member ID, display name, GitHub login, the
-downscaled avatar image, and the chosen presence status.
+downscaled avatar image, the GitHub avatar URL, and the chosen presence status.
 
 ## Presence
 

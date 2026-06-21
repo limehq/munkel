@@ -9,6 +9,7 @@ final class GroupSession {
         let id: String
         var displayName: String? = nil
         var avatar: Data? = nil
+        var avatarURL: String? = nil
         var status: PresenceStatus = .online
 
         var label: String {
@@ -83,7 +84,8 @@ final class GroupSession {
     func sendProfile(to memberId: String? = nil) async -> Bool {
         let payload = AppPayload.profile(
             displayName: Identity.displayName,
-            avatar: Identity.avatarData,
+            avatar: nil,
+            avatarURL: Identity.avatarURL,
             status: localStatus
         )
         return await send(payload, to: memberId)
@@ -182,6 +184,15 @@ final class GroupSession {
         }
     }
 
+    private func fetchMemberAvatar(_ memberId: String, from urlString: String) async {
+        guard let bytes = await AvatarStore.shared.image(for: urlString) else { return }
+        guard let index = members.firstIndex(where: { $0.id == memberId }),
+              members[index].avatarURL == urlString
+        else { return }
+        members[index].avatar = bytes
+        onStateChange?()
+    }
+
     private func handle(_ event: RelayClient.Event) async {
         switch event {
         case .disconnected:
@@ -246,21 +257,30 @@ final class GroupSession {
         }
 
         switch decoded {
-        case let .profile(displayName, avatar, status):
-            // nil clears the avatar (peer logged out of GitHub).
+        case let .profile(displayName, avatar, avatarURL, status):
             let sanitizedAvatar = avatar.flatMap {
                 $0.count <= Self.maxIncomingAvatarBytes ? $0 : nil
             }
             if let index = members.firstIndex(where: { $0.id == memberId }) {
                 members[index].displayName = displayName
-                members[index].avatar = sanitizedAvatar
                 members[index].status = status
+                members[index].avatarURL = avatarURL
+                if avatarURL == nil { members[index].avatar = sanitizedAvatar }
             } else {
                 members.append(
-                    Member(id: memberId, displayName: displayName, avatar: sanitizedAvatar, status: status)
+                    Member(
+                        id: memberId,
+                        displayName: displayName,
+                        avatar: avatarURL == nil ? sanitizedAvatar : nil,
+                        avatarURL: avatarURL,
+                        status: status
+                    )
                 )
             }
             onStateChange?()
+            if let avatarURL {
+                Task { await self.fetchMemberAvatar(memberId, from: avatarURL) }
+            }
 
         case let .presence(status):
             if let index = members.firstIndex(where: { $0.id == memberId }) {

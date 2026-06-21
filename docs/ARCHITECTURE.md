@@ -216,7 +216,9 @@ and [`blob.ts`](../apps/server/src/blob.ts)).
    payload that fails to decrypt or decode is dropped, not surfaced.
 3. The decoded `AppPayload` is dispatched: `chat` text and `image` albums are
    shown in the notch via `NotchPanel` / `NotchPresenter`; `profile` payloads
-   update the sender's display name, avatar, and presence status locally. When
+   update the sender's display name and presence status locally, and the avatar
+   is fetched from the sender's GitHub avatar URL directly (not via the relay).
+   When
    the local user's own status is Do Not Disturb or Away, the proactive notch
    preview is suppressed and the message lands silently in the 60 s history.
    Full-resolution images are fetched and decrypted from R2 lazily, on demand,
@@ -255,7 +257,8 @@ TypeScript reference sender is
   closes connections idle for more than 120 s.
 - **Application payloads** (inside the encrypted blob, invisible to the relay):
   a `kind`-discriminated JSON object — `chat` (`text`, `sentAt`), `profile`
-  (`displayName`, optional base64 `avatar`, optional `status` of
+  (`displayName`, optional `avatarURL` that peers fetch from GitHub directly —
+  not via the relay, optional `status` of
   `online` | `dnd` | `away`), `presence` (`status` only — a lightweight delta
   sent when a member's status changes, so a flip needn't re-send the avatar),
   or `image` (1–8 `items`, shared `caption`, `sentAt`; each item is an `r2Key`

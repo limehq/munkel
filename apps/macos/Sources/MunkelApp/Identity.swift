@@ -8,6 +8,7 @@ enum Identity {
     private static let memberIdKey = "memberId"
     private static let displayNameKey = "displayName"
     private static let avatarDataKey = "avatarData"
+    private static let avatarURLKey = "avatarURL"
     private static let githubLoginKey = "githubLogin"
     private static let presenceStatusKey = "presenceStatus"
 
@@ -26,11 +27,18 @@ enum Identity {
         set { UserDefaults.standard.set(newValue, forKey: displayNameKey) }
     }
 
-    /// Downscaled JPEG from GitHub, ≤ AvatarCodec.maxEncodedBytes — travels
-    /// only inside encrypted profile payloads.
+    /// Downscaled JPEG of the local user's GitHub avatar, kept for local
+    /// display only — peers receive `avatarURL`, never these bytes.
     static var avatarData: Data? {
         get { UserDefaults.standard.data(forKey: avatarDataKey) }
         set { UserDefaults.standard.set(newValue, forKey: avatarDataKey) }
+    }
+
+    /// The GitHub avatar URL, broadcast to peers in profile payloads in place
+    /// of inline bytes; peers fetch it directly from GitHub. nil after logout.
+    static var avatarURL: String? {
+        get { UserDefaults.standard.string(forKey: avatarURLKey) }
+        set { UserDefaults.standard.set(newValue, forKey: avatarURLKey) }
     }
 
     /// GitHub login while signed in; nil after logout. Purely informational —

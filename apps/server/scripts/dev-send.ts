@@ -11,6 +11,7 @@
 // instead of broadcasting to the whole group; unset means broadcast.
 // Set PRESENCE=<online|dnd|away> to send a presence-only status delta
 // (the `presence` payload kind) in place of the chat, then exit.
+// Set AVATAR_URL=<url> to include a GitHub avatar URL in the profile.
 
 const listenMode = process.argv[2] === '--listen';
 const positional = process.argv.slice(listenMode ? 3 : 2);
@@ -109,7 +110,7 @@ ws.onmessage = async (event) => {
 };
 
 ws.onopen = async () => {
-  ws.send(JSON.stringify({ type: 'send', payload: await seal({ kind: 'profile', displayName: sender, status: process.env.STATUS ?? 'online' }) }));
+  ws.send(JSON.stringify({ type: 'send', payload: await seal({ kind: 'profile', displayName: sender, ...(process.env.AVATAR_URL ? { avatarURL: process.env.AVATAR_URL } : {}), status: process.env.STATUS ?? 'online' }) }));
   if (listenMode) {
     process.stdout.write(`listening as "${sender}" (${memberId})…\n`);
     setInterval(() => ws.send(JSON.stringify({ type: 'ping' })), 30_000);
