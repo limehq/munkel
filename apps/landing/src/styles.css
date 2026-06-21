@@ -1087,6 +1087,10 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
   .mb-notch { transform: translateX(-50%) scale(0.58); }
   .mb-menubar { height: 16px; font-size: 9px; }
   .mb-apple { font-size: 11px; }
+  /* Phone: wrap the footer link cluster instead of clipping it off-screen;
+     each link stays whole and gets a roomier hit area. */
+  .footer-links { flex-wrap: wrap; row-gap: 0.25rem; column-gap: 1.25rem; }
+  .footer-links a { padding: 0.4rem 0; font-size: var(--text-sm); white-space: nowrap; }
 }
 @media (prefers-reduced-motion: reduce) {
   .pulse, .cursor { animation: none; }

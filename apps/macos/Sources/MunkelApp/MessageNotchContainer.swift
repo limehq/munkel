@@ -5,8 +5,33 @@ import SwiftUI
 /// Drives the in-place morph between the one-line teaser, the full message
 /// view and the inline reply field inside a single expanded notch, plus the
 /// shared copied-feedback state.
+/// Whether the notch is showing the message (teaser/expanded) or has morphed
+/// down to the small unread anchor dot. Same panel, same instance — only the
+/// mode flips, so the shape animates between the two sizes seamlessly.
+enum NotchDisplayMode { case message, indicator }
+
 @MainActor
 final class MessageDisplayModel: ObservableObject {
+    @Published var mode: NotchDisplayMode = .message
+    /// The message this notch is presenting. Model-driven so a new message can
+    /// morph the SAME panel (update + animate) instead of tearing it down.
+    @Published var message: IncomingMessage
+    /// Identity of the current message (its history-entry id). Changing it gives
+    /// the message subtree a new identity so SwiftUI slides the new message in
+    /// and the old one out, instead of silently swapping the content in place.
+    @Published var messageToken = UUID()
+    /// Hardware notch cutout size for the panel's screen; .zero on no-notch Macs.
+    @Published var notchSize: CGSize = .zero
+    /// Per-message callbacks, owned here so the persistent container always
+    /// reaches the current message's handlers after a morph (set by NotchPresenter).
+    var onReply: (_ text: String, _ images: [Data], _ privately: Bool) -> Void = { _, _, _ in }
+    var onCancelReply: () -> Void = {}
+    var onPickFile: () -> Void = {}
+    var onTeaserFinished: () -> Void = {}
+    /// Anchor-dot countdown ring: 1 when the newest message just arrived, 0 when
+    /// it is about to age out (and the whole history vanishes). Driven once a
+    /// second by NotchPresenter's prune loop; only visible in `.indicator` mode.
+    @Published var anchorProgress: Double = 1
     @Published var fullyExpanded = false
     @Published var copied = false
     /// Decrypted full-resolution bytes per album image (keyed by r2Key),
@@ -91,6 +116,33 @@ final class MessageDisplayModel: ObservableObject {
     weak var historyMarker: NSView?
     weak var replyMarker: NSView?
     weak var teaserMarker: NSView?
+
+    init(message: IncomingMessage) {
+        self.message = message
+    }
+
+    /// Clear per-message transient state when the SAME model is reused for a new
+    /// message (the morph path). Animated fields (mode / fullyExpanded / the
+    /// panel's bottom inset) are flipped by NotchPresenter inside the morph
+    /// animation, not here, so the shape grows smoothly instead of snapping. The
+    /// click markers are left alone: they follow the message subtree's lifecycle
+    /// (gone in dot mode, re-registered when it reappears).
+    func resetTransient() {
+        clearPreview()
+        copied = false
+        replying = false
+        replySent = false
+        fullImages = [:]
+        failedImages = []
+        attachedImages = []
+        historyExpanded = false
+        copiedHistoryID = nil
+        copiedImageID = nil
+        hoveredHistoryID = nil
+        hoveredImageID = nil
+        historyCopyTargets = []
+        imageCopyTargets = []
+    }
 
     func copy(_ text: String) {
         writePasteboard(text)
@@ -285,20 +337,23 @@ final class ImageCopyTarget {
 /// the notch. Hovering swells everything into the full message view.
 struct MessageNotchContainer: View {
     @ObservedObject var model: MessageDisplayModel
-    let message: IncomingMessage
+
+    // Everything below reads from the model so a new message can morph this same
+    // view in place (no rebuild). NotchPresenter sets them on display / morph.
+    private var message: IncomingMessage { model.message }
     /// Hardware notch cutout size, measured from NSScreen; .zero on Macs
     /// without a notch (the panel then uses its floating style).
-    let notchSize: CGSize
+    private var notchSize: CGSize { model.notchSize }
     /// Called with the trimmed reply text, any staged images, and whether it
     /// goes privately to the sender (true) or to the whole circle; the
     /// images-vs-text routing happens in AppModel.
-    var onReply: (_ text: String, _ images: [Data], _ privately: Bool) -> Void
-    var onCancelReply: () -> Void
+    private var onReply: (_ text: String, _ images: [Data], _ privately: Bool) -> Void { model.onReply }
+    private var onCancelReply: () -> Void { model.onCancelReply }
     /// Opens the file picker (NSOpenPanel) to attach image files from disk —
     /// driven by NotchPresenter so it can suspend the outside-click dismiss
     /// while the modal is up. ⌘V paste is handled in-view (see pasteMonitor).
-    var onPickFile: () -> Void
-    var onTeaserFinished: () -> Void
+    private var onPickFile: () -> Void { model.onPickFile }
+    private var onTeaserFinished: () -> Void { model.onTeaserFinished }
 
     @State private var draft = ""
     /// Local ⌘V monitor, armed only while the reply field is focused (MenuView
@@ -318,54 +373,33 @@ struct MessageNotchContainer: View {
 
     var body: some View {
         Group {
-            if model.fullyExpanded {
-                // Same width as the teaser: hovering only grows downward.
-                VStack(alignment: .leading, spacing: 6) {
-                    MessageNotchView(message: message, model: model)
-                        // Reply opens only from a click on the current
-                        // message itself, not anywhere on the shape.
-                        .background(AreaMarker { [weak model] in model?.replyMarker = $0 })
-                        // Expanded, the copy button travels down to sit on
-                        // the message it copies. It copies the text/caption;
-                        // pictures are copied per-image via the cell glyphs, so
-                        // a captionless image message hides it (see
-                        // showsMessageCopyButton).
-                        .overlay(alignment: .topTrailing) {
-                            if showsMessageCopyButton {
-                                CopyMessageButton(copied: model.copied, diameter: avatarSize) {
-                                    copyCurrent()
-                                }
-                                .padding(.top, 2)
-                                .padding(.trailing, 4)
-                            }
-                        }
-                    if model.replySent {
-                        sentConfirmation
-                    } else if model.replying {
-                        if !model.attachedImages.isEmpty {
-                            attachmentStrip
-                        }
-                        replyField
-                    }
-                    if !model.history.isEmpty {
-                        historyRows
-                    }
-                }
-                .frame(width: tickerWindow, alignment: .leading)
-            } else if notchSize.height > 0 {
-                notchedTeaser
+            if model.mode == .indicator {
+                // Morphed down to the unread anchor ring (same panel, same
+                // instance) — the shape animates from the message to this.
+                UnreadIndicatorView(notchSize: notchSize, progress: model.anchorProgress)
             } else {
-                fallbackTeaser
+                messageContent
+                    // A new message gets a new identity (messageToken), so it
+                    // slides in from the top while the previous one fades out —
+                    // a deliberate "new message" motion, not a silent swap. The
+                    // removal stays a plain fade so collapsing to the dot keeps
+                    // its smooth shrink.
+                    .id(model.messageToken)
+                    .transition(.asymmetric(
+                        insertion: .move(edge: .top).combined(with: .opacity),
+                        removal: .opacity
+                    ))
             }
         }
-        // Never narrower than the expanded state: otherwise short
-        // content can shrink the shape until it hides behind the
-        // hardware notch.
-        .frame(minWidth: tickerWindow, alignment: .leading)
+        // Pin the width constant across every state (teaser, expanded, dot) so
+        // the message<->dot morph is a pure vertical grow/shrink: with a mere
+        // minWidth the content swap briefly re-measures down to the floor and
+        // the shape flickers narrow before the new message sets its width.
+        .frame(width: tickerWindow, alignment: .leading)
         // In the teaser the copy button sits in the strip right of the
         // cutout; expanded it moves onto the message itself (see above).
         .overlay(alignment: .topTrailing) {
-            if !model.fullyExpanded, showsMessageCopyButton {
+            if model.mode == .message, !model.fullyExpanded, showsMessageCopyButton {
                 CopyMessageButton(copied: model.copied, diameter: avatarSize) {
                     copyCurrent()
                 }
@@ -375,6 +409,7 @@ struct MessageNotchContainer: View {
         // Click-anywhere-to-reply is handled by an AppKit event monitor in
         // NotchPresenter — a SwiftUI tap gesture here would lose the first
         // click to window activation.
+        .animation(.spring(response: 0.4, dampingFraction: 0.8), value: model.mode)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.fullyExpanded)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.replying)
         .animation(.spring(response: 0.35, dampingFraction: 0.75), value: model.replySent)
@@ -394,6 +429,51 @@ struct MessageNotchContainer: View {
         // their own window, which cannot inherit the exclusion and would
         // surface in a share while the notch itself is invisible.
         .excludedFromScreenCapture()
+    }
+
+    /// The message states (teaser / expanded / no-notch fallback). Extracted so
+    /// it can carry a per-message identity + slide transition, so a new message
+    /// animates in instead of swapping its content in place.
+    @ViewBuilder private var messageContent: some View {
+        if model.fullyExpanded {
+            // Same width as the teaser: hovering only grows downward.
+            VStack(alignment: .leading, spacing: 6) {
+                MessageNotchView(message: message, model: model)
+                    // Reply opens only from a click on the current
+                    // message itself, not anywhere on the shape.
+                    .background(AreaMarker { [weak model] in model?.replyMarker = $0 })
+                    // Expanded, the copy button travels down to sit on
+                    // the message it copies. It copies the text/caption;
+                    // pictures are copied per-image via the cell glyphs, so
+                    // a captionless image message hides it (see
+                    // showsMessageCopyButton).
+                    .overlay(alignment: .topTrailing) {
+                        if showsMessageCopyButton {
+                            CopyMessageButton(copied: model.copied, diameter: avatarSize) {
+                                copyCurrent()
+                            }
+                            .padding(.top, 2)
+                            .padding(.trailing, 4)
+                        }
+                    }
+                if model.replySent {
+                    sentConfirmation
+                } else if model.replying {
+                    if !model.attachedImages.isEmpty {
+                        attachmentStrip
+                    }
+                    replyField
+                }
+                if !model.history.isEmpty {
+                    historyRows
+                }
+            }
+            .frame(width: tickerWindow, alignment: .leading)
+        } else if notchSize.height > 0 {
+            notchedTeaser
+        } else {
+            fallbackTeaser
+        }
     }
 
     /// What else arrived in the last minute, dimmed and compact below the
