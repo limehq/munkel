@@ -22,6 +22,7 @@ import type { SendResult } from './group-session';
 export interface ControlAppState {
 	getState(): { circles: CircleState[] };
 	sendChat(code: string, text: string, to?: string): Promise<SendResult>;
+	sendImages(code: string, paths: string[], caption: string, to?: string): Promise<SendResult>;
 }
 
 const BROADCAST_ALIASES = new Set(['all', '*']);
@@ -89,10 +90,18 @@ export function buildControlHandler(
 				// Windows app yet — surface an explicit error so the CLI
 				// gets a clear message instead of a silent success.
 				if (request.imagePaths && request.imagePaths.length > 0) {
-					return {
-						ok: false,
-						error: 'image sends are not yet supported on the Windows app',
-					};
+					if (!request.group) {
+						return { ok: false, error: 'Image sends need a circle — say `munkel <circle> image …`' };
+					}
+					const sent = await appState.sendImages(
+						request.group,
+						request.imagePaths,
+						request.text ?? '',
+						request.to,
+					);
+					return sent.ok
+						? { ok: true }
+						: { ok: false, error: sent.error ?? 'Image send failed.' };
 				}
 				const text = request.text ?? '';
 				if (text.length === 0) {

@@ -2,13 +2,22 @@ import {
 	deriveGroupKeys,
 	seal,
 	open,
+	sealRaw,
 	encodeChat,
 	encodeProfile,
+	encodeImage,
 	decodePayload,
 	assertPayloadFits,
 	PayloadError,
 	normalizeCircleCode,
+	imageCodec,
+	perThumbBudget,
+	MAX_IMAGES_PER_MESSAGE,
+	uploadBlob,
+	generateBlobKey,
 } from '../core';
+import type { ImageItem } from '../core';
+import { readFile } from 'node:fs/promises';
 import { RelayClient } from './relay-client';
 import { getCircleColor } from '../shared/group-color';
 import type { CircleState, Member, NotchMessage } from '../shared/types';
@@ -103,7 +112,76 @@ export class GroupSession {
 		return this.sendPayload(encodeProfile(this.identity.displayName, this.identity.avatar), to);
 	}
 
-	private async sendPayload(payload: ChatPayload | ProfilePayload, to?: string): Promise<SendResult> {
+	/**
+	 * Send an image album (1–MAX_IMAGES_PER_MESSAGE images). Mirrors
+	 * `MunkelKit/GroupSession.swift:sendImages(_:caption:to:)`:
+	 *
+	 * For each path:
+	 *   1. Read + AVIF-transcode the source via `imageCodec.prepareFull`
+	 *      (downsample to MAX_FULL_PIXELS, encode to fit MAX_FULL_BYTES).
+	 *   2. Seal the AVIF bytes with `messageKey`.
+	 *   3. PUT sealed bytes to `<relay>/blob/<groupId>/<r2Key>`.
+	 *   4. Make an inline thumbnail via `imageCodec.makeThumbnail`
+	 *      (fits `perThumbBudget(imageCount)` bytes).
+	 *   5. Assemble the `ImageItem` (r2Key, mime, dims, byteLen, thumb).
+	 *
+	 * Then seal the `ImagePayload` JSON with `messageKey`, clamp, and
+	 * relay. Returns the standard `SendResult`.
+	 */
+	async sendImages(imagePaths: string[], caption: string = '', to?: string): Promise<SendResult> {
+		if (imagePaths.length === 0) {
+			return { ok: false, error: 'No images provided' };
+		}
+		if (imagePaths.length > MAX_IMAGES_PER_MESSAGE) {
+			imagePaths = imagePaths.slice(0, MAX_IMAGES_PER_MESSAGE);
+		}
+
+		// Pre-clamp so per-thumb budget accounts for the final album size.
+		const perThumb = perThumbBudget(imagePaths.length);
+		const items: ImageItem[] = [];
+
+		for (const path of imagePaths) {
+			let source: Uint8Array;
+			try {
+				source = await readFile(path);
+			} catch (err) {
+				return {
+					ok: false,
+					error: `Could not read ${path}: ${err instanceof Error ? err.message : String(err)}`,
+				};
+			}
+
+			const full = await imageCodec.prepareFull(source);
+			if (!full) {
+				return { ok: false, error: `Could not encode ${path}` };
+			}
+
+			const sealedFull = await sealRaw(full.data, this.messageKey);
+			const r2Key = generateBlobKey();
+			const upload = await uploadBlob(this.relayUrl, this.groupId, r2Key, sealedFull);
+			if (!upload.ok) {
+				return { ok: false, error: upload.error ?? 'Blob upload failed' };
+			}
+
+			const thumb = await imageCodec.makeThumbnail(source, perThumb);
+			if (!thumb) {
+				return { ok: false, error: `Could not thumbnail ${path}` };
+			}
+
+			items.push({
+				r2Key,
+				mime: 'image/avif',
+				width: full.width,
+				height: full.height,
+				byteLen: sealedFull.byteLength,
+				thumb: Buffer.from(thumb.data).toString('base64'),
+			});
+		}
+
+		return this.sendPayload(encodeImage(items, caption), to);
+	}
+
+	private async sendPayload(payload: ChatPayload | ProfilePayload | { kind: 'image'; items: ImageItem[]; caption: string; sentAt: string }, to?: string): Promise<SendResult> {
 		let sealed: string;
 		try {
 			const json = JSON.stringify(payload);
