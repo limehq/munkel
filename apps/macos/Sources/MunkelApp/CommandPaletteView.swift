@@ -161,6 +161,11 @@ struct CommandPaletteView: View {
                 TextField(placeholder, text: $state.message)
                     .textFieldStyle(.plain)
                     .font(.system(size: 15))
+                    // Single line that scrolls internally, clipped to its slot,
+                    // so a long draft can't push the field editor past the box.
+                    .lineLimit(1)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .clipped()
                     .focused($focused)
                     .onSubmit(send)
                     .onExitCommand(perform: onClose)
