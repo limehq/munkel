@@ -110,7 +110,7 @@ ws.onmessage = async (event) => {
 };
 
 ws.onopen = async () => {
-  ws.send(JSON.stringify({ type: 'send', payload: await seal({ kind: 'profile', displayName: sender, ...(process.env.AVATAR_URL ? { avatarURL: process.env.AVATAR_URL } : {}), status: process.env.STATUS ?? 'online' }) }));
+  ws.send(JSON.stringify({ type: 'send', payload: await seal({ kind: 'profile', displayName: sender, ...(process.env.AVATAR_URL ? { avatarURL: process.env.AVATAR_URL } : {}), status: process.env.PRESENCE ?? 'online' }) }));
   if (listenMode) {
     process.stdout.write(`listening as "${sender}" (${memberId})…\n`);
     setInterval(() => ws.send(JSON.stringify({ type: 'ping' })), 30_000);
