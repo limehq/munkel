@@ -6,8 +6,8 @@ export function Screenshots() {
           <div className="section-kicker">Screenshots</div>
           <h2>Slide a screenshot across the table.</h2>
           <p>
-            Drop a screenshot or image into a channel and it pops into the notch like any other
-            munkel. Great for a quick "look at this" without spinning your laptop around.
+            Drop an image into a channel and it pops into the notch. A quick "look at this",
+            without spinning your laptop around.
           </p>
         </div>
         <div className="shot-demo" aria-hidden>

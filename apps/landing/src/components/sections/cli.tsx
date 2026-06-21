@@ -191,16 +191,19 @@ export function Cli() {
       <div className="container">
         <div className="cli-grid">
           <div className="cli-copy">
-            <div className="section-kicker">CLI &amp; agents</div>
+            <div className="section-kicker">CLI</div>
             <h2>Munkel from your terminal.</h2>
-            <p>
-              One line sends to a person or a channel. Plain text in and out, so your agents can
-              munkel too.
-            </p>
-            <p className="muted">Teach your agent in one step:</p>
-            <InstallCmd />
+            <p>One line sends to a person or a channel. Plain text in, plain text out.</p>
           </div>
           <CliShowcase />
+        </div>
+        <div className="agents-row">
+          <div className="agents-copy">
+            <div className="section-kicker">Agents</div>
+            <h3>Your agents can munkel too.</h3>
+            <p>Anything that runs a shell can send a munkel. Teach yours in one step.</p>
+          </div>
+          <InstallCmd />
         </div>
       </div>
     </section>
