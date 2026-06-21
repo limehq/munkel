@@ -2,13 +2,13 @@ import Combine
 import Foundation
 import MunkelKit
 
-/// A target the palette can send to: one member, or a whole circle.
+/// A target the palette can send to: one member, or a whole channel.
 struct Recipient: Identifiable, Equatable {
-    /// Stable across circles: a member who is in two circles is two distinct
+    /// Stable across channels: a member who is in two channels is two distinct
     /// send targets. `\u{1}` can't appear in a code or member id.
     let id: String
-    let circle: String       // join code
-    let memberId: String?    // nil = broadcast to the whole circle
+    let channel: String       // join code
+    let memberId: String?    // nil = broadcast to the whole channel
     let label: String        // display name, or "Everyone"
     let avatar: Data?
     let status: PresenceStatus?
@@ -18,10 +18,10 @@ struct Recipient: Identifiable, Equatable {
 
 /// Transient palette state, owned by the presenter so it survives the
 /// SwiftUI view being rebuilt and can be mutated from the AppKit key
-/// monitor. Reads live circle/member data straight from AppModel.
+/// monitor. Reads live channel/member data straight from AppModel.
 ///
 /// Single phase: pick a target chip (↑↓ or click) and type in the message
-/// field — both live in one compact view, mirroring the in-app circle card.
+/// field — both live in one compact view, mirroring the in-app channel card.
 @MainActor
 final class CommandPaletteState: ObservableObject {
     @Published var selectedIndex = 0
@@ -54,8 +54,8 @@ final class CommandPaletteState: ObservableObject {
         return true
     }
 
-    /// Every send target across all joined circles, in circle order: a
-    /// broadcast entry per circle, then its online members. The flat order
+    /// Every send target across all joined channels, in channel order: a
+    /// broadcast entry per channel, then its online members. The flat order
     /// is what ↑↓ navigates and what `selectedIndex` points into.
     var recipients: [Recipient] {
         guard let app else { return [] }
@@ -63,7 +63,7 @@ final class CommandPaletteState: ObservableObject {
             let members = app.session(for: code)?.members ?? []
             let everyone = Recipient(
                 id: "\(code)\u{1}*",
-                circle: code,
+                channel: code,
                 memberId: nil,
                 label: "Everyone",
                 avatar: nil,
@@ -72,7 +72,7 @@ final class CommandPaletteState: ObservableObject {
             let people = members.map { member in
                 Recipient(
                     id: "\(code)\u{1}\(member.id)",
-                    circle: code,
+                    channel: code,
                     memberId: member.id,
                     label: member.label,
                     avatar: member.avatar,
@@ -97,26 +97,26 @@ final class CommandPaletteState: ObservableObject {
 
     enum Direction { case left, right, up, down }
 
-    /// Flat-index ranges, one per circle, in display order.
-    private var circleRanges: [Range<Int>] {
+    /// Flat-index ranges, one per channel, in display order.
+    private var channelRanges: [Range<Int>] {
         var ranges: [Range<Int>] = []
         let r = recipients
         var i = 0
         while i < r.count {
-            let circle = r[i].circle
+            let channel = r[i].channel
             var j = i
-            while j < r.count, r[j].circle == circle { j += 1 }
+            while j < r.count, r[j].channel == channel { j += 1 }
             ranges.append(i..<j)
             i = j
         }
         return ranges
     }
 
-    /// Left/right move within the current circle; up/down jump to the
-    /// adjacent circle keeping the column (clamped). With a single circle
+    /// Left/right move within the current channel; up/down jump to the
+    /// adjacent channel keeping the column (clamped). With a single channel
     /// all four arrows move within it.
     func move(_ dir: Direction) {
-        let ranges = circleRanges
+        let ranges = channelRanges
         guard !ranges.isEmpty,
               let row = ranges.firstIndex(where: { $0.contains(selectedIndex) })
         else { return }
@@ -146,7 +146,7 @@ final class CommandPaletteState: ObservableObject {
         }
     }
 
-    /// Tab navigation: cycle forward/backward through recipients, skipping within-circle
+    /// Tab navigation: cycle forward/backward through recipients, skipping within-channel
     /// navigation for a streamlined flow. Forward wraps globally; backward does likewise.
     func moveTab(backward: Bool) {
         let r = recipients

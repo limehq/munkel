@@ -10,7 +10,7 @@ export function Privacy() {
           <div className="section-kicker">Privacy</div>
           <h2>What the relay sees.</h2>
           <p>
-            One Durable Object per circle, WebSocket hibernation, no storage. Ephemerality is
+            One Durable Object per channel, WebSocket hibernation, no storage. Ephemerality is
             enforced by architecture, not policy. The relay knows nothing.
           </p>
         </div>
@@ -102,7 +102,7 @@ export function Privacy() {
             no analytics, no crash reporting.
           </p>
           <p>
-            On your Mac, circle codes and your profile live in the app's local settings — a code is
+            On your Mac, channel codes and your profile live in the app's local settings — a code is
             never transmitted, to the relay or anyone else. The GitHub token exists only in memory
             for one profile fetch and is never written to disk.
           </p>

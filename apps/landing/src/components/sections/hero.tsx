@@ -13,15 +13,15 @@ type Msg = {
   name: string
   text: string
   direct: boolean
-  circle: string
+  channel: string
   color: string
 }
 
 const MESSAGES: Msg[] = [
-  { name: 'Alex', text: 'coffee?', direct: true, circle: 'inner-circle', color: '#0a84ff' },
-  { name: 'Sam', text: 'on my way', direct: false, circle: 'roomies', color: '#bf5af2' },
-  { name: 'Taylor', text: 'deploy is live, go look', direct: false, circle: 'eng', color: '#ff375f' },
-  { name: 'Morgan', text: 'same table as last time', direct: true, circle: 'lunch-crew', color: '#40c8e0' },
+  { name: 'Alex', text: 'coffee?', direct: true, channel: 'blue-table', color: '#0a84ff' },
+  { name: 'Sam', text: 'on my way', direct: false, channel: 'roomies', color: '#bf5af2' },
+  { name: 'Taylor', text: 'deploy is live, go look', direct: false, channel: 'eng', color: '#ff375f' },
+  { name: 'Morgan', text: 'same table as last time', direct: true, channel: 'lunch-crew', color: '#40c8e0' },
 ]
 
 const DOCK_AT = 0.78
@@ -233,7 +233,7 @@ export function Hero() {
             <div className="app-icon">
               <img src="/app-icon.png" alt="The Munkel meerkat, paws to its mouth" width={112} height={112} />
             </div>
-            <div className="hero-kicker">Ephemeral circle messages for macOS</div>
+            <div className="hero-kicker">Ephemeral channel messages for macOS</div>
             <h1>
               Psst, your <span className="notch-word">notch</span> has something to tell&nbsp;you.
             </h1>
@@ -280,7 +280,7 @@ export function Hero() {
                     <div className="mb-menu">
                       <span className="mb-apple" aria-hidden>&#xF8FF;</span>
                       <span className="mb-app"><MeerkatGlyph className="mb-glyph" />munkel</span>
-                      <span>Circles</span>
+                      <span>Channels</span>
                       <span>Identity</span>
                       <span>Help</span>
                     </div>
@@ -339,7 +339,7 @@ export function Hero() {
                             />
                             <span className="nx-sep">·</span>
                             <span className="nx-cdot" style={{ background: msg.color }} />
-                            <span className="nx-circle">{msg.circle}</span>
+                            <span className="nx-channel">{msg.channel}</span>
                           </div>
                           <div className="nx-text">{msg.text}</div>
                         </div>

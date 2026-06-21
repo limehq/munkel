@@ -5,7 +5,7 @@ import SwiftUI
 /// This reliably removes the window from the legacy CoreGraphics path —
 /// `CGWindowListCreateImage`, the system screenshot tools (⌘⇧3/4/5) and older
 /// recorders — and from ScreenCaptureKit on macOS ≤ 15.3. Incoming messages,
-/// circle codes and drafts must never leak into a screen share.
+/// channel codes and drafts must never leak into a screen share.
 ///
 /// Known limitation: on macOS 15.4+ Apple changed display compositing so that
 /// ScreenCaptureKit *full-display* capture can ignore `sharingType = .none` and

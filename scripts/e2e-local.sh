@@ -4,7 +4,7 @@
 #
 # The release app and the dev app have distinct bundle ids, identities, and
 # control sockets, so they run side by side as TWO peers. Point both at a local
-# relay and join them to the same circle and you can watch `munkel dm <name>`
+# relay and join them to the same channel and you can watch `munkel dm <name>`
 # light up the other app's notch — no second machine needed.
 #
 # Usage:
@@ -12,9 +12,9 @@
 #   scripts/e2e-local.sh up         # relay + both apps, pointed at the local relay
 #   scripts/e2e-local.sh down       # tear it all down
 #
-# After `up`: join both apps to the same circle (e.g. blue-table-42) in their
+# After `up`: join both apps to the same channel (e.g. blue-table-42) in their
 # menus, then:
-#   munkel circles                         # release app sees the dev app as a member
+#   munkel channels                        # release app sees the dev app as a member
 #   munkel dm <dev-app-name> "hi"          # dev app's notch lights up
 #   MUNKEL_DEV=1 bun apps/cli/src/munkel.ts dm <release-app-name> "yo"
 #   scripts/simulate-whispers.sh blue-table-42 Sim   # a third, simulated member
@@ -74,8 +74,8 @@ cmd_up() {
   cat <<EOF
 
 Next:
-  1. In BOTH menu-bar apps, join the same circle (e.g. blue-table-42).
-  2. munkel circles                          # should list the other app as a member
+  1. In BOTH menu-bar apps, join the same channel (e.g. blue-table-42).
+  2. munkel channels                         # should list the other app as a member
   3. munkel dm <other-display-name> "hi"     # the other app's notch slides out
   4. scripts/simulate-whispers.sh blue-table-42 Sim   # optional simulated member
 Tear down with: scripts/e2e-local.sh down

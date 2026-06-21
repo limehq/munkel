@@ -14,7 +14,7 @@ enum DemoHistory {
         var backlog: [HistoryEntry]
         var currentText: String
         var currentImages: [IncomingImage]
-        /// The circle's color, computed here so callers (AppModel) needn't name a
+        /// The channel's color, computed here so callers (AppModel) needn't name a
         /// SwiftUI type — passed straight through to `notch.show`.
         var color: Color
         /// Full-resolution AVIF per r2Key — the per-image loader returns these,
