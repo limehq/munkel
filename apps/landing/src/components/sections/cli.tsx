@@ -1,64 +1,24 @@
-import { useEffect, useRef, useState } from 'react'
-import { Check, Copy } from 'lucide-react'
-import { motion } from 'motion/react'
+import { useEffect, useRef } from 'react'
 
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { sleep } from '@/lib/utils'
 
 type TermStep = { type: 'cmd'; text: string } | { type: 'out'; html: string }
 
 const TERM_SCRIPT: TermStep[] = [
+  { type: 'cmd', text: 'munkel channels' },
+  {
+    type: 'out',
+    html: '<span class="tdot-live">●</span> blue-table-42  <span class="tdim">·</span>  Alex, Sam, Morgan',
+  },
+  {
+    type: 'out',
+    html: '<span class="tdot-live">●</span> project-7  <span class="tdim">·</span>  Sam, Alex',
+  },
   { type: 'cmd', text: 'munkel blue-table-42 all "table\'s free, come down"' },
   { type: 'out', html: '<span class="tdim">munkeled ✓</span>' },
   { type: 'cmd', text: 'munkel project-7 Sam "package for you downstairs"' },
   { type: 'out', html: '<span class="tdim">munkeled ✓</span>' },
 ]
-
-const INSTALL_CMDS = {
-  npx: 'npx skills add limehq/munkel',
-  pnpm: 'pnpm dlx skills add limehq/munkel',
-  yarn: 'yarn dlx skills add limehq/munkel',
-  bun: 'bunx skills add limehq/munkel',
-} as const
-
-type Pm = keyof typeof INSTALL_CMDS
-
-function InstallCmd() {
-  const [pm, setPm] = useState<Pm>('npx')
-  const [copied, setCopied] = useState(false)
-
-  const copy = () => {
-    if (navigator.clipboard) navigator.clipboard.writeText(INSTALL_CMDS[pm]).catch(() => {})
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1400)
-  }
-
-  return (
-    <Tabs value={pm} onValueChange={(v) => setPm(v as Pm)} className="install-cmd">
-      <div className="install-bar">
-        <TabsList className="install-tabs">
-          {(Object.keys(INSTALL_CMDS) as Pm[]).map((key) => (
-            <TabsTrigger key={key} value={key}>
-              {key}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        <button
-          className={`install-copy${copied ? ' copied' : ''}`}
-          onClick={copy}
-          aria-label="Copy command"
-        >
-          <Copy className="ic-copy" strokeWidth={2} aria-hidden />
-          <Check className="ic-check" strokeWidth={2.5} aria-hidden />
-        </button>
-      </div>
-      <div className="install-body">
-        <span className="prompt">$</span>
-        <span>{INSTALL_CMDS[pm]}</span>
-      </div>
-    </Tabs>
-  )
-}
 
 function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
   const termRef = useRef<HTMLDivElement>(null)
@@ -161,26 +121,9 @@ function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
 }
 
 function CliShowcase() {
-  const [sent, setSent] = useState(false)
   return (
     <div className="cli-stage">
-      <TerminalDemo onFirstSend={() => setSent(true)} />
-      <motion.div
-        className="meanwhile"
-        aria-hidden={!sent}
-        initial={{ opacity: 0, y: 6 }}
-        animate={sent ? { opacity: 1, y: 0 } : { opacity: 0, y: 6 }}
-        transition={{ duration: 0.5, ease: 'easeOut' }}
-      >
-        <div className="meanwhile-caption">meanwhile, on Alex's Mac</div>
-        <div className="mini-notch">
-          <img src="/avatars/03.png" alt="" />
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <span className="mn-name">Taylor</span>
-            <span>table's free, come down</span>
-          </div>
-        </div>
-      </motion.div>
+      <TerminalDemo />
     </div>
   )
 }
@@ -192,18 +135,13 @@ export function Cli() {
         <div className="cli-grid">
           <div className="cli-copy">
             <div className="section-kicker">CLI</div>
-            <h2>Munkel from your terminal.</h2>
-            <p>One line sends to a person or a channel. Plain text in, plain text out.</p>
+            <h2>Munkel from the shell.</h2>
+            <p>
+              <span className="code">munkel</span> is a thin client that talks to the app over a
+              local socket. The app handles the crypto and the connection, the CLI just sends.
+            </p>
           </div>
           <CliShowcase />
-        </div>
-        <div className="agents-row">
-          <div className="agents-copy">
-            <div className="section-kicker">Agents</div>
-            <h3>Your agents can munkel too.</h3>
-            <p>Anything that runs a shell can send a munkel. Teach yours in one step.</p>
-          </div>
-          <InstallCmd />
         </div>
       </div>
     </section>

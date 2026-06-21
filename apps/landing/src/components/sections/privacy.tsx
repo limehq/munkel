@@ -1,7 +1,5 @@
 import { MonitorOff } from 'lucide-react'
 
-import { PROTOCOL_URL } from '@/lib/constants'
-
 export function Privacy() {
   return (
     <section id="privacy">
@@ -19,8 +17,8 @@ export function Privacy() {
             <div>
               <h3>Invisible to screen sharing</h3>
               <p>
-                Sharing your screen on Zoom or Meet? Your munkels stay on yours and out of what
-                everyone sees.
+                Sharing your screen on a call? Your munkels stay on yours and out of what everyone
+                else sees.
               </p>
             </div>
           </div>
@@ -38,20 +36,10 @@ export function Privacy() {
             <figure className="share-panel">
               <div className="share-screen">
                 <div className="share-menubar"></div>
-                <div className="share-notch"></div>
               </div>
-              <figcaption>What Zoom sees</figcaption>
+              <figcaption>What everyone else sees</figcaption>
             </figure>
           </div>
-        </div>
-        <div className="honest">
-          <p>
-            <strong>GitHub, just for your face.</strong> Sign in with GitHub once for your name and
-            picture. That's the only profile munkel needs.
-          </p>
-          <p>
-            Want the deep version? The whole protocol is <a href={PROTOCOL_URL}>public</a>.
-          </p>
         </div>
       </div>
     </section>

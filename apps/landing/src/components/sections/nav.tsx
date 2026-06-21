@@ -8,8 +8,10 @@ import { DOWNLOAD_URL, GITHUB_URL } from '@/lib/constants'
 
 const NAV_LINKS = [
   ['#how', 'How it works'],
-  ['#features', 'Why munkel'],
+  ['#features', 'Features'],
+  ['#screenshots', 'Screenshots'],
   ['#cli', 'CLI'],
+  ['#agents', 'Agents'],
   ['#privacy', 'Privacy'],
   ['#faq', 'FAQ'],
 ] as const

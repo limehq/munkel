@@ -9,12 +9,13 @@ export function HowItWorks() {
         </div>
         <div className="how-steps">
           <figure className="how-step">
-            <div className="shot-frame">
+            <div className="shot-frame crossfade">
               <img
                 src="/shots/join.png"
                 alt="Munkel menu bar popover: type a channel name to join or create one"
                 loading="lazy"
               />
+              <img src="/shots/join-2.png" alt="" className="frame-b" loading="lazy" aria-hidden />
             </div>
             <figcaption>
               <span className="how-step-label">Join a channel</span>
@@ -22,12 +23,13 @@ export function HowItWorks() {
             </figcaption>
           </figure>
           <figure className="how-step">
-            <div className="shot-frame">
+            <div className="shot-frame crossfade">
               <img
                 src="/shots/compose.png"
                 alt="Munkel floating compose window sending a quick note to a channel"
                 loading="lazy"
               />
+              <img src="/shots/compose-2.png" alt="" className="frame-b" loading="lazy" aria-hidden />
             </div>
             <figcaption>
               <span className="how-step-label">Whisper a quick note</span>
@@ -35,12 +37,13 @@ export function HowItWorks() {
             </figcaption>
           </figure>
           <figure className="how-step">
-            <div className="shot-frame">
+            <div className="shot-frame crossfade">
               <img
                 src="/shots/notch.png"
-                alt="A munkel arriving in the MacBook notch with a reply field"
+                alt="A munkel in the MacBook notch with the recent replies"
                 loading="lazy"
               />
+              <img src="/shots/notch-2.png" alt="" className="frame-b" loading="lazy" aria-hidden />
             </div>
             <figcaption>
               <span className="how-step-label">Read it in the notch</span>

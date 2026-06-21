@@ -6,18 +6,24 @@ export function Screenshots() {
           <div className="section-kicker">Screenshots</div>
           <h2>Slide a screenshot across the table.</h2>
           <p>
-            Drop an image into a channel and it pops into the notch. A quick "look at this",
-            without spinning your laptop around.
+            Drop an image into a channel and it pops into the notch. A quick "look at this", without
+            spinning your laptop around.
           </p>
         </div>
-        <div className="shot-demo" aria-hidden>
-          <div className="shot-notch">
-            <img className="shot-from" src="/avatars/02.png" alt="" />
-            <div className="shot-thumbs">
-              <span className="shot-thumb st-1"></span>
-              <span className="shot-thumb st-2"></span>
-              <span className="shot-thumb st-3"></span>
-            </div>
+        <div className="shot-single">
+          <div className="shot-frame crossfade">
+            <img
+              src="/shots/shot-collapsed.png"
+              alt="A munkel with image attachments tucked into the notch"
+              loading="lazy"
+            />
+            <img
+              src="/shots/shot-expanded.png"
+              alt=""
+              className="frame-b"
+              loading="lazy"
+              aria-hidden
+            />
           </div>
         </div>
       </div>
