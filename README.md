@@ -49,7 +49,8 @@ The cask installs `Munkel.app` and symlinks the bundled `munkel` CLI onto your
 [latest release](https://github.com/limehq/munkel/releases/latest) and drag
 `Munkel.app` into Applications. The `munkel` CLI ships inside the app. To put it
 on your `PATH`, open Munkel and choose **Install Command Line Tool…** from the
-menu-bar gear menu: it links into the first writable directory on your `PATH`
+menu-bar gear menu — an item that shows only while the CLI isn't already on your
+`PATH`. It links into the first writable directory on your `PATH`
 (e.g. Homebrew's `bin`) with no admin password, or falls back to `~/.local/bin`
 and adds it to `~/.zshrc` when Homebrew is absent (reopen your terminal
 afterward). Either way the CLI needs the running app, which it talks to over a

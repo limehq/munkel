@@ -15,6 +15,9 @@ struct MenuView: View {
     @StateObject private var loginItem = LoginItemModel()
     /// Empty = automatic (active display); otherwise a display's stable UUID.
     @AppStorage(DisplayPreference.key) private var preferredDisplayID = ""
+    #if !DEBUG
+    @State private var cliInstalled = CLIInstaller.isInstalled
+    #endif
     #if DEBUG
     @AppStorage("devEchoBroadcasts") private var devEchoBroadcasts = true
     @AppStorage(CaptureScreenshotPreference.defaultsKey) private var allowInScreenshots = false
@@ -93,6 +96,9 @@ struct MenuView: View {
         // reads one can join), the outgoing draft and the GitHub device
         // code, so it stays out of screen shares like the notch does.
         .excludedFromScreenCapture()
+        #if !DEBUG
+        .onAppear { cliInstalled = CLIInstaller.isInstalled }
+        #endif
         #if DEBUG
         // Re-apply the sharing type to every on-screen surface the moment the
         // "Allow in screenshots" toggle flips, so it takes effect without a
@@ -141,10 +147,13 @@ struct MenuView: View {
             // Release only: the dev build doesn't embed the CLI (run it from
             // source with `MUNKEL_DEV=1 bun apps/cli/src/munkel.ts`).
             #if !DEBUG
-            Button {
-                CLIInstaller.installFromMenu()
-            } label: {
-                Label("Install Command Line Tool…", systemImage: "terminal")
+            if !cliInstalled {
+                Button {
+                    CLIInstaller.installFromMenu()
+                    cliInstalled = CLIInstaller.isInstalled
+                } label: {
+                    Label("Install Command Line Tool…", systemImage: "terminal")
+                }
             }
             #endif
             Divider()
