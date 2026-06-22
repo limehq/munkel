@@ -1,4 +1,38 @@
+import { useRef, useState } from 'react'
+import { Globe } from 'lucide-react'
+
+import { Avatar, MacScreen } from './mac-screen'
+
+// Placeholder album "images" — gradient tiles for now. Swap each `grad` for a
+// real url(/shots/...) once we have product images.
+type Shot = { id: string; grad: string }
+const ALBUM: Shot[] = [
+  { id: 'a1', grad: 'linear-gradient(135deg, #6aa0ff, #3857eb)' },
+  { id: 'a2', grad: 'linear-gradient(135deg, #f6a44f, #eb6b2e)' },
+  { id: 'a3', grad: 'linear-gradient(135deg, #bf85fa, #7a40e0)' },
+]
+const HIST_ALBUM: Shot[] = [
+  { id: 'h1', grad: 'linear-gradient(135deg, #66d99e, #1a9475)' },
+  { id: 'h2', grad: 'linear-gradient(135deg, #57d6db, #2980b8)' },
+]
+
+/**
+ * A still (non-scroll) MacBook display showing the notch already expanded with
+ * an image album. Hovering any thumbnail pops the picture full-screen on the
+ * display, mirroring the app's Quick Look hover.
+ */
 export function Screenshots() {
+  const [preview, setPreview] = useState<Shot | null>(null)
+  const hideTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  const show = (img: Shot) => {
+    if (hideTimer.current) clearTimeout(hideTimer.current)
+    setPreview(img)
+  }
+  const hide = () => {
+    hideTimer.current = setTimeout(() => setPreview(null), 140)
+  }
+
   return (
     <section id="screenshots">
       <div className="container">
@@ -10,21 +44,75 @@ export function Screenshots() {
             spinning your laptop around.
           </p>
         </div>
-        <div className="shot-single">
-          <div className="shot-frame crossfade">
-            <img
-              src="/shots/shot-collapsed.png"
-              alt="A munkel with image attachments tucked into the notch"
-              loading="lazy"
-            />
-            <img
-              src="/shots/shot-expanded.png"
-              alt=""
-              className="frame-b"
-              loading="lazy"
-              aria-hidden
-            />
-          </div>
+
+        <div className="shot-stage">
+          <MacScreen className="macbook-static">
+            <div className="mb-notch docked expanded shot-notch">
+              <span className="notch-cam"></span>
+              <div className="nx" onMouseLeave={hide}>
+                <div className="nx-msg">
+                  <Avatar name="Jurij" className="nx-avatar" />
+                  <div className="nx-col">
+                    <div className="nx-head">
+                      <span className="nx-sender">Jurij</span>
+                      <Globe className="nx-chan is-globe" strokeWidth={1.8} aria-hidden />
+                      <span className="nx-sep">·</span>
+                      <span className="nx-cdot" style={{ background: '#bf5af2' }} />
+                      <span className="nx-circle">espresso-gang-03</span>
+                    </div>
+                    <div className="nx-album">
+                      {ALBUM.map((img) => (
+                        <button
+                          key={img.id}
+                          type="button"
+                          className="nx-thumb"
+                          style={{ backgroundImage: img.grad }}
+                          onMouseEnter={() => show(img)}
+                          aria-label="Preview image"
+                        />
+                      ))}
+                    </div>
+                    <div className="nx-text">how do you like these? 👀</div>
+                  </div>
+                </div>
+
+                <div className="nx-history">
+                  <div className="nx-rule" />
+                  <div className="nx-row nx-row-img">
+                    <span className="nx-rhead">
+                      <span className="nx-rdot" style={{ background: '#0a84ff' }} />
+                      <span className="nx-rsender">Sam</span>
+                      <Globe className="nx-rchan is-globe" strokeWidth={1.8} aria-hidden />
+                    </span>
+                    <span className="nx-ralbum">
+                      {HIST_ALBUM.map((img) => (
+                        <button
+                          key={img.id}
+                          type="button"
+                          className="nx-rthumb"
+                          style={{ backgroundImage: img.grad }}
+                          onMouseEnter={() => show(img)}
+                          aria-label="Preview image"
+                        />
+                      ))}
+                    </span>
+                  </div>
+                  <div className="nx-row">
+                    <span className="nx-rhead">
+                      <span className="nx-rdot" style={{ background: '#ff375f' }} />
+                      <span className="nx-rsender">Taylor</span>
+                      <Globe className="nx-rchan is-globe" strokeWidth={1.8} aria-hidden />
+                    </span>
+                    <span className="nx-rtext">ship it 🚀</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={`mb-preview${preview ? ' show' : ''}`} aria-hidden>
+              {preview && <span className="mb-preview-img" style={{ backgroundImage: preview.grad }} />}
+            </div>
+          </MacScreen>
         </div>
       </div>
     </section>

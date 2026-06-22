@@ -4,7 +4,7 @@ import { BatteryMedium, Check, ChevronDown, ChevronUp, Copy, Download, Globe, Wi
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
-import { GithubIcon, MeerkatGlyph } from '@/components/icons'
+import { GithubIcon } from '@/components/icons'
 import { DOWNLOAD_URL, GITHUB_URL } from '@/lib/constants'
 import { easeInOutQuad } from '@/lib/motion'
 import { sleep } from '@/lib/utils'
@@ -275,10 +275,6 @@ export function Hero() {
                   <div className="mb-menubar">
                     <div className="mb-menu">
                       <span className="mb-apple" aria-hidden>&#xF8FF;</span>
-                      <span className="mb-app"><MeerkatGlyph className="mb-glyph" />munkel</span>
-                      <span>Channels</span>
-                      <span>Identity</span>
-                      <span>Help</span>
                     </div>
                     <div className="mb-menu-right">
                       <BatteryMedium aria-hidden />
