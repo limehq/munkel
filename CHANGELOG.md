@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.12.0](https://github.com/limehq/munkel/compare/v0.11.0...v0.12.0) (2026-06-22)
+
+
+### Features
+
+* **landing:** leaner, calmer copy rewrite ([#113](https://github.com/limehq/munkel/issues/113)) ([3e8eef8](https://github.com/limehq/munkel/commit/3e8eef86c8ca83ef949eeb2ec22651ce3ae8fec8))
+* **macos:** english words for circle codes ([#119](https://github.com/limehq/munkel/issues/119)) ([56f9fab](https://github.com/limehq/munkel/commit/56f9fabc5458047aa6d7f93bc91ceeb4a3296b92))
+* **macos:** full-screen centered image hover preview (current + history) ([#102](https://github.com/limehq/munkel/issues/102)) ([3108e13](https://github.com/limehq/munkel/commit/3108e1348b97e4d4c8a4278aa2b712db7511af6b))
+* **macos:** keep animated gifs animated ([#124](https://github.com/limehq/munkel/issues/124)) ([4ecd6ad](https://github.com/limehq/munkel/commit/4ecd6ad8a88263ffeb51b6fab7d063c50eb9002a))
+* **macos:** make urls in messages clickable ([#121](https://github.com/limehq/munkel/issues/121)) ([6826412](https://github.com/limehq/munkel/commit/6826412c920702f12ac9a4a46fe0cd04f6b698f1))
+* **macos:** member presence modes — Online / Do Not Disturb / Away ([#111](https://github.com/limehq/munkel/issues/111)) ([4611af6](https://github.com/limehq/munkel/commit/4611af63421b47bc0d431e899905ac3bb11123a0))
+* **macos:** morph notch into unread anchor ([#114](https://github.com/limehq/munkel/issues/114)) ([5183ffb](https://github.com/limehq/munkel/commit/5183ffb90a654f82c49d2d4ad766541b7ff4adcd))
+* **macos:** rename circles to channels ([#125](https://github.com/limehq/munkel/issues/125)) ([2877173](https://github.com/limehq/munkel/commit/28771732099c8cbf4f98f2a793aef1c0711517df))
+* **macos:** send image url as a real image ([#120](https://github.com/limehq/munkel/issues/120)) ([dd80d04](https://github.com/limehq/munkel/commit/dd80d047120259f17a786a97572805d081bc4f71))
+* **macos:** show link previews in messages ([#123](https://github.com/limehq/munkel/issues/123)) ([f1d23a0](https://github.com/limehq/munkel/commit/f1d23a02db408d8949fae18fb2a2614e3f811346))
+
+
+### Bug Fixes
+
+* **landing:** wrap footer links on mobile to prevent overflow ([#110](https://github.com/limehq/munkel/issues/110)) ([7575574](https://github.com/limehq/munkel/commit/75755745edf87bb4a89272db68db07ea20cdb1a3))
+* **macos:** bound notch history image cache to the 60s ephemerality window ([#118](https://github.com/limehq/munkel/issues/118)) ([1487e80](https://github.com/limehq/munkel/commit/1487e8076b3adf94fda88b75b7adf7e0d78e57af)), closes [#94](https://github.com/limehq/munkel/issues/94)
+* **macos:** clear reply draft after sending ([#132](https://github.com/limehq/munkel/issues/132)) ([719ac52](https://github.com/limehq/munkel/commit/719ac528f3df809577122ea03de944fe19bfb446))
+* **macos:** expand main message to full height ([#133](https://github.com/limehq/munkel/issues/133)) ([e88460d](https://github.com/limehq/munkel/commit/e88460d8a00a06a277cc9e5b4a50c6f7adcd5f66))
+* **macos:** keep the full-screen image preview clear of the notch ([#126](https://github.com/limehq/munkel/issues/126)) ([368e6e1](https://github.com/limehq/munkel/commit/368e6e1422ceffd6df7ae46d7b73d20f622f2a74))
+* **macos:** paste and edit keys in all inputs ([#131](https://github.com/limehq/munkel/issues/131)) ([5349349](https://github.com/limehq/munkel/commit/5349349d86d65dadeb75ddb87b40826b292d6a80))
+* **macos:** paste, select all, emoji in inputs ([#122](https://github.com/limehq/munkel/issues/122)) ([791a2be](https://github.com/limehq/munkel/commit/791a2be37594fc7d91516a9fe7ca8e20d20a4778))
+* **macos:** stop caching fetched image-url bytes to disk ([#128](https://github.com/limehq/munkel/issues/128)) ([74839f5](https://github.com/limehq/munkel/commit/74839f53ffd965577a7301947a7b4ee38c37a499))
+* **server:** drive dev-send profile status from PRESENCE, not STATUS ([#127](https://github.com/limehq/munkel/issues/127)) ([ac0c335](https://github.com/limehq/munkel/commit/ac0c335d09ee1d63d38cae20ba86625aa11b06df))
+
 ## [0.11.0](https://github.com/limehq/munkel/compare/v0.10.0...v0.11.0) (2026-06-20)
 
 
