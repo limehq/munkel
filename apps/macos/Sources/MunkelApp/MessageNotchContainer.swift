@@ -495,6 +495,7 @@ struct MessageNotchContainer: View {
                             .padding(.trailing, 4)
                         }
                     }
+                    .fixedSize(horizontal: false, vertical: true)
                 if model.replySent {
                     sentConfirmation
                 } else if model.replying {
@@ -547,6 +548,9 @@ struct MessageNotchContainer: View {
         .background(AreaMarker { [weak model] in model?.historyMarker = $0 })
         .animation(.spring(duration: 0.3), value: model.history)
         .animation(.spring(duration: 0.3), value: model.historyExpanded)
+        .onChange(of: model.historyExpanded) { _, expanded in
+            if !expanded { historyHeight = 0 }
+        }
     }
 
     /// Expanded history: full text per row, bounded to ~⅓ of the screen and
@@ -554,7 +558,7 @@ struct MessageNotchContainer: View {
     /// Explicit (measured) height — a bare ScrollView collapses inside the
     /// notch's fixedSize layout.
     private var expandedHistory: some View {
-        let cap = (NSScreen.main?.frame.height ?? 900) / 3
+        let cap = historyCap
         return ScrollView {
             // Zero spacing for the same reason as the collapsed list: contiguous,
             // glyph-tall hover zones with no dead gap (each expanded row adds its
@@ -572,7 +576,16 @@ struct MessageNotchContainer: View {
             )
         }
         .frame(height: historyHeight == 0 ? nil : min(historyHeight, cap))
-        .onPreferenceChange(HistoryHeightKey.self) { historyHeight = $0 }
+        .frame(maxHeight: cap)
+        .onPreferenceChange(HistoryHeightKey.self) { height in
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { historyHeight = height }
+        }
+    }
+
+    private var historyCap: CGFloat {
+        (DisplayPreference.resolvedScreen()?.frame.height ?? 900) / 3
     }
 
     /// Inline reply. Return sends, Escape dismisses; focus lands here as
