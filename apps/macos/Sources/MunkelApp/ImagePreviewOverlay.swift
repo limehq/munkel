@@ -20,6 +20,8 @@ struct ImagePreviewOverlay: View {
             ZStack {
                 if let id = model.previewImageID,
                    let image = resolvedImages.first(where: { $0.id == id }) {
+                    PreviewBackdrop()
+                        .transition(.opacity)
                     PreviewCard(model: model, image: image, available: proxy.size)
                         .id(id)
                         .transition(.opacity.combined(with: .scale(scale: 0.92, anchor: .center)))
@@ -29,6 +31,14 @@ struct ImagePreviewOverlay: View {
         }
         .colorScheme(.dark)
         .excludedFromScreenCapture()
+    }
+}
+
+private struct PreviewBackdrop: View {
+    var body: some View {
+        VisualEffectView(material: .hudWindow, blendingMode: .behindWindow)
+            .overlay(Color.black.opacity(0.25))
+            .ignoresSafeArea()
     }
 }
 
