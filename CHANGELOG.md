@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.12.1](https://github.com/limehq/munkel/compare/v0.12.0...v0.12.1) (2026-06-22)
+
+
+### Bug Fixes
+
+* **macos:** make automatic update checks actually surface ([#144](https://github.com/limehq/munkel/issues/144)) ([52606ac](https://github.com/limehq/munkel/commit/52606ac9c7d96e745253a1dfa219e2fef7736bce)), closes [#143](https://github.com/limehq/munkel/issues/143)
+* **macos:** stop the expanded history leaving a gap above it ([#136](https://github.com/limehq/munkel/issues/136)) ([56c7db6](https://github.com/limehq/munkel/commit/56c7db619c2bd3ccf403314c29edd972354c50c7)), closes [#135](https://github.com/limehq/munkel/issues/135)
+
 ## [0.12.0](https://github.com/limehq/munkel/compare/v0.11.0...v0.12.0) (2026-06-22)
 
 
