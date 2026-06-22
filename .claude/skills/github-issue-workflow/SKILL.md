@@ -1,6 +1,8 @@
 ---
 name: github-issue-workflow
 description: How to start work on a GitHub issue in the munkel repo — check for an existing draft PR and the issue's assignee first to avoid duplicating work someone already owns, claim the issue by assigning it, then open a draft PR linked with "Closes #N" so ownership and in-flight work are visible to everyone. Use whenever asked to work on, start, pick up, take, or implement a GitHub issue (e.g. "arbeite an Issue #N", "work on issue 42", "pick up #99").
+metadata:
+  internal: true
 ---
 
 # Starting work on a GitHub issue
