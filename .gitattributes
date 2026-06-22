@@ -1,0 +1,7 @@
+# graphify-out is fully generated: collapse in GitHub diffs + exclude from language stats
+graphify-out/** linguist-generated=true
+
+# large opaque blobs: skip textual diffs entirely (treat as binary)
+graphify-out/graph.json           -diff
+graphify-out/graph.html           -diff
+graphify-out/munkel-callflow.html -diff

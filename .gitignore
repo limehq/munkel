@@ -4,7 +4,9 @@ dist/
 *.log
 .omo
 
-**/graphify-out
+# graphify knowledge graph: commit graphify-out/ (the map); cost.json and cache/ are local-only.
+graphify-out/cost.json
+graphify-out/cache/
 
 # Local environment and Worker secrets
 .env

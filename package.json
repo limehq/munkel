@@ -2,19 +2,23 @@
 	"name": "munkel",
 	"private": true,
 	"packageManager": "bun@1.3.9",
-	"workspaces": ["apps/*"],
+	"workspaces": [
+		"apps/*"
+	],
 	"scripts": {
 		"dev": "turbo dev --filter=!@munkel/macos",
 		"build": "turbo build",
 		"test": "turbo test",
 		"typecheck": "turbo typecheck",
 		"deploy": "turbo deploy",
-		"build:release": "scripts/build-release.sh"
+		"build:release": "scripts/build-release.sh",
+		"prepare": "husky"
 	},
 	"overrides": {
 		"esbuild": "0.28.1"
 	},
 	"devDependencies": {
+		"husky": "^9.1.7",
 		"turbo": "^2.5.0"
 	}
 }

@@ -1,0 +1,19 @@
+# .graphifyignore
+node_modules/
+dist/
+*.generated.py
+
+# only index src/, ignore everything else
+*
+!apps/
+!apps/**
+!packages/
+!packages/**
+
+# re-exclude build artifacts and vendored dependency checkouts
+.build/
+**/.build/
+**/node_modules/
+**/dist/
+**/.turbo/
+**/DerivedData/
