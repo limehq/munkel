@@ -197,7 +197,7 @@
   a { color: inherit; text-decoration: none; }
   button { font-family: inherit; cursor: pointer; }
 }
-.container { max-width: 1100px; margin: 0 auto; padding: 0 2rem; }
+.container { max-width: 1400px; margin: 0 auto; padding: 0 2rem; }
 svg.lucide { width: 16px; height: 16px; stroke-width: 1.5; }
 
 /* ---------- Nav (doubles as the Mac menu bar) ---------- */
@@ -664,6 +664,9 @@ h1 .notch-word {
 
 /* ---------- Sections ---------- */
 section { padding: 7.5rem 0; border-top: 1px solid var(--border); }
+/* Subtle alternating section background (zebra) for rhythm down the page,
+   starting with How it works. */
+section:nth-of-type(odd) { background: color-mix(in oklab, var(--foreground) 4%, var(--background)); }
 .section-head { max-width: 620px; margin-bottom: 4rem; }
 .section-kicker { font-family: var(--font-mono); font-size: var(--text-xs); color: var(--brand); letter-spacing: 0.06em; text-transform: uppercase; }
 .section-head h2 { font-size: var(--text-4xl); font-weight: 600; letter-spacing: var(--tracking-tight); margin-top: 1rem; text-wrap: balance; }
@@ -948,10 +951,70 @@ html:not(.dark) .terminal { background: oklch(0.205 0 0); }
 .agent-example svg.lucide { width: 18px; height: 18px; color: var(--brand); flex: none; margin-top: 0.3em; }
 .ae-chan { font-family: var(--font-mono); font-size: 0.9em; color: var(--brand); }
 
-/* Screenshots section: one centered frame that cross-fades between the
-   collapsed notch (image thumbnails) and the expanded preview. */
+/* Screenshots section: a still MacBook display with the notch already expanded
+   showing an image album; hovering a thumbnail previews it over the display. */
 .shot-head { max-width: 640px; margin-left: auto; margin-right: auto; text-align: center; }
-.shot-single { max-width: 760px; margin: 0 auto; }
+/* The device can break out past the 1100px container, full-bleed and centered. */
+#screenshots { overflow-x: clip; }
+.shot-stage {
+  display: flex; justify-content: center;
+  margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw);
+}
+.macbook-static { width: min(1560px, 94vw); max-width: none; transform: none; }
+
+/* A taller/wider expanded notch for the album showcase (override the 310x180). */
+.mb-notch.docked.expanded.shot-notch {
+  width: 420px; height: 310px;
+  clip-path: path('M0 0 Q15 0 15 15 L15 290 Q15 310 35 310 L385 310 Q405 310 405 290 L405 15 Q405 0 420 0 Z');
+}
+.shot-notch .nx { padding: 38px 26px 18px; gap: 9px; }
+.shot-notch .nx-text { margin-top: 2px; }
+
+/* Album grid in the current message. */
+.nx-album { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 4px; }
+.nx-thumb {
+  aspect-ratio: 1; border-radius: 9px; border: 1px solid oklch(1 0 0 / 0.16);
+  background-size: cover; background-position: center; padding: 0; cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.nx-thumb:hover, .nx-thumb:focus-visible {
+  transform: translateY(-1px) scale(1.02); outline: none;
+  box-shadow: 0 0 0 2px oklch(1 0 0 / 0.4);
+}
+
+/* History row carrying a small album. */
+.nx-row-img { align-items: center; }
+.nx-ralbum { display: flex; gap: 5px; margin-left: auto; }
+.nx-rthumb {
+  width: 34px; height: 26px; border-radius: 5px; border: 1px solid oklch(1 0 0 / 0.16);
+  background-size: cover; background-position: center; padding: 0; cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.nx-rthumb:hover, .nx-rthumb:focus-visible {
+  transform: scale(1.04); outline: none; box-shadow: 0 0 0 2px oklch(1 0 0 / 0.4);
+}
+
+/* Full-screen image preview over the laptop display (mirrors the app's Quick Look hover). */
+.mb-preview {
+  position: absolute; inset: 0; z-index: 6;
+  display: grid; place-items: center; padding: 46px 26px 26px;
+  background: oklch(0 0 0 / 0.5); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+  opacity: 0; visibility: hidden; transition: opacity 0.22s ease, visibility 0s linear 0.22s;
+  pointer-events: none;
+}
+.mb-preview.show { opacity: 1; visibility: visible; transition: opacity 0.22s ease, visibility 0s; }
+.mb-preview-img {
+  width: min(78%, 520px); aspect-ratio: 3 / 2; max-height: 100%;
+  border-radius: 16px; border: 1px solid oklch(1 0 0 / 0.14);
+  background-size: cover; background-position: center;
+  box-shadow: 0 28px 60px -12px oklch(0 0 0 / 0.6);
+  transform: scale(0.92); transition: transform 0.22s ease;
+}
+.mb-preview.show .mb-preview-img { transform: scale(1); }
+@media (prefers-reduced-motion: reduce) {
+  .mb-preview-img, .mb-preview.show .mb-preview-img { transform: none; transition: none; }
+  .nx-thumb, .nx-rthumb { transition: none; }
+}
 /* Reveal (opacity + y) is driven by Motion (see cli.tsx); this rule is layout only. */
 .meanwhile {
   display: flex; flex-direction: column; align-items: center; gap: 0.625rem;
@@ -970,34 +1033,105 @@ html:not(.dark) .terminal { background: oklch(0.205 0 0); }
 .privacy-banner-head { display: flex; align-items: flex-start; gap: 1.25rem; }
 .privacy-banner .feature-icon { margin-bottom: 0; flex-shrink: 0; }
 /* Two-panel proof: the same moment, with and without capture exclusion */
-.share-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+/* Privacy: two real MacBook screens — your screen has the notch, the shared one doesn't. */
+.share-compare { display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; align-items: start; }
 .share-panel { margin: 0; }
-.share-screen {
-  position: relative; aspect-ratio: 16 / 5;
-  border-radius: 10px; overflow: hidden;
-  border: 1px solid oklch(1 0 0 / 0.1);
-  background:
-    radial-gradient(80% 90% at 50% 0%, color-mix(in oklab, var(--brand) 26%, oklch(0.15 0.01 250)), transparent 85%),
-    linear-gradient(180deg, oklch(0.14 0.008 250), oklch(0.1 0.005 260));
-}
-.share-menubar { position: absolute; top: 0; left: 0; right: 0; height: 16px; background: oklch(0 0 0 / 0.26); }
-.share-notch {
-  position: absolute; top: 0; left: 50%; transform: translateX(-50%);
-  width: 64px; height: 13px;
-  background: #000; border-radius: 0 0 6px 6px;
-}
-.share-notch.open {
-  width: auto; min-width: 170px; height: 34px;
-  border-radius: 0 0 12px 12px;
-  display: flex; align-items: center; justify-content: center; gap: 8px;
-  padding: 0 16px;
-}
-.share-notch.open img { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; }
-.share-notch.open span { font-size: 11px; font-weight: 600; color: #fff; white-space: nowrap; }
+.mac-mini { max-width: none; width: 100%; }
+/* Minimized notch, scaled to sit proportionally on the smaller screen. */
+.mb-notch.docked.notch-mini { transform: translateX(-50%) scale(0.66); transform-origin: top center; }
 .share-panel figcaption {
-  margin-top: 0.625rem; text-align: center;
+  margin-top: 0.9rem; text-align: center;
   font-family: var(--font-mono); font-size: var(--text-xs); color: var(--muted-foreground);
 }
+
+/* Screen-share scene: the shared window + call tiles show on both screens; the
+   share-controls toolbar and the notch are local-only and show on the left. */
+.pv-window {
+  position: absolute; top: 42px; left: 9%; right: 9%; bottom: 56px;
+  display: flex; flex-direction: column; overflow: hidden;
+  border-radius: 10px; border: 1px solid oklch(1 0 0 / 0.12);
+  box-shadow: 0 18px 44px -14px oklch(0 0 0 / 0.55);
+}
+.pv-winbar {
+  flex: none; height: 24px; display: flex; align-items: center; gap: 6px; padding: 0 10px;
+  background: oklch(0.24 0.008 260); border-bottom: 1px solid oklch(1 0 0 / 0.08);
+}
+.pv-dot { width: 8px; height: 8px; border-radius: 50%; background: #c4c8cf; }
+.pv-dot:nth-child(1) { background: #ff5f57; }
+.pv-dot:nth-child(2) { background: #febc2e; }
+.pv-dot:nth-child(3) { background: #28c840; }
+.pv-wintitle { margin-left: 4px; font-size: 9px; color: oklch(1 0 0 / 0.55); }
+.pv-winbody { flex: 1; display: flex; flex-direction: column; gap: 14px; padding: 18px 22px; background: oklch(0.17 0.008 260); }
+.pv-headline {
+  height: 13px; width: 46%; border-radius: 4px;
+  background: linear-gradient(90deg, var(--brand), color-mix(in oklab, var(--brand) 50%, #e0556b));
+}
+.pv-chart { flex: 1; display: flex; align-items: flex-end; gap: 10px; }
+.pv-chart span { flex: 1; border-radius: 4px 4px 0 0; background: oklch(0.5 0.06 255); }
+.pv-chart span:nth-child(even) { background: color-mix(in oklab, var(--brand) 60%, oklch(0.5 0.06 255)); }
+
+.pv-people {
+  position: absolute; top: 44px; right: 16px;
+  display: flex; gap: 6px; padding: 6px;
+  border-radius: 12px; border: 1px solid oklch(1 0 0 / 0.12);
+  background: oklch(0.14 0.01 260 / 0.85); -webkit-backdrop-filter: blur(6px); backdrop-filter: blur(6px);
+}
+.pv-tile { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.pv-face {
+  width: 34px; height: 30px; border-radius: 7px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: ui-rounded, system-ui, sans-serif; font-weight: 700; font-size: 12px; color: #fff;
+}
+.pv-name { font-size: 8px; color: oklch(1 0 0 / 0.65); }
+
+.pv-sharebar {
+  position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 9px; padding: 6px 8px 6px 12px;
+  border-radius: 999px; border: 1px solid oklch(1 0 0 / 0.12);
+  background: oklch(0.16 0.01 260 / 0.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  box-shadow: 0 10px 24px oklch(0 0 0 / 0.45);
+  font-size: 10px; color: oklch(1 0 0 / 0.9); white-space: nowrap;
+}
+.pv-rec { width: 8px; height: 8px; border-radius: 50%; background: #ff453a; box-shadow: 0 0 0 3px rgb(255 69 58 / 0.25); }
+.pv-divider { width: 1px; height: 14px; background: oklch(1 0 0 / 0.18); }
+.pv-cicon { width: 13px; height: 13px; color: oklch(1 0 0 / 0.8); }
+.pv-stop { padding: 2px 9px; border-radius: 999px; background: #ff453a; color: #fff; font-weight: 600; }
+
+/* Right panel = a viewer's machine: different wallpaper, a meeting app with the
+   participant grid and the shared screen mirrored below it (note: no notch). */
+.mac-alt .mb-wallpaper {
+  background:
+    radial-gradient(70% 55% at 50% 0%, oklch(0.4 0.13 300), transparent 80%),
+    radial-gradient(55% 50% at 82% 82%, oklch(0.36 0.11 190), transparent 72%),
+    linear-gradient(180deg, oklch(0.17 0.035 300), oklch(0.12 0.02 280));
+}
+.pv-meet {
+  position: absolute; inset: 38px 6% 6%;
+  display: flex; flex-direction: row; gap: 10px; padding: 10px;
+  border-radius: 12px; border: 1px solid oklch(1 0 0 / 0.1);
+  background: oklch(0.12 0.01 270 / 0.94); box-shadow: 0 22px 54px -18px oklch(0 0 0 / 0.6);
+}
+.pv-meet-people { flex: none; display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.pv-mtile { width: 92px; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.pv-mface {
+  width: 100%; height: 48px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-family: ui-rounded, system-ui, sans-serif; font-weight: 700; font-size: 16px; color: #fff;
+}
+.pv-mname { font-size: 9px; color: oklch(1 0 0 / 0.7); }
+.pv-meet-stage {
+  flex: 1; position: relative; overflow: hidden; border-radius: 8px;
+  border: 1px solid oklch(1 0 0 / 0.08);
+  background:
+    radial-gradient(70% 55% at 50% 0%, color-mix(in oklab, var(--brand) 32%, oklch(0.15 0.01 250)), transparent 80%),
+    linear-gradient(180deg, oklch(0.14 0.008 250), oklch(0.1 0.005 260));
+}
+.pv-stage-bar {
+  position: absolute; top: 0; left: 0; right: 0; height: 15px;
+  display: flex; align-items: center; padding: 0 7px; background: oklch(0 0 0 / 0.3);
+}
+.pv-sdot { width: 5px; height: 5px; border-radius: 50%; background: oklch(1 0 0 / 0.5); }
+.pv-meet-stage .pv-window { top: 26px; left: 8%; right: 8%; bottom: 12%; box-shadow: 0 10px 24px -10px oklch(0 0 0 / 0.5); }
 .privacy-banner h3 { font-size: var(--text-base); font-weight: 600; }
 .privacy-banner p { margin-top: 0.375rem; font-size: var(--text-sm); color: var(--muted-foreground); line-height: var(--leading-relaxed); max-width: 70ch; text-wrap: pretty; }
 .privacy-card {

@@ -30,8 +30,8 @@ function LandingPage() {
       <Agents />
       <Privacy />
       <Faq />
-      <Cta />
       <LaunchBadgeTrack />
+      <Cta />
       <SiteFooter />
     </MotionConfig>
   )
