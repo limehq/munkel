@@ -56,7 +56,8 @@ open apps/macos/.build/Munkel.app
 
 The Windows client can be built from the integration branch with
 `bunx turbo build --filter=@munkel/windows`; see `apps/windows/README.md` for
-dev mode and current limitations.
+dev mode. It currently supports text chat, image albums, and the `munkel` CLI
+over a named pipe.
 
 ## Components
 
@@ -65,8 +66,8 @@ Bun workspaces + [Turborepo](https://turborepo.dev):
 | Path | Tech |
 |---|---|
 | `apps/macos/` | Swift menu-bar app: `MunkelKit` (crypto, protocol, relay client, GitHub login) + MenuBarExtra UI + notch display |
-| `apps/windows/` | Electron Windows client: TypeScript core + React UI shell (in development on the Windows integration branch) |
-| `apps/cli/` | `munkel` CLI (Bun/TypeScript, talks to the macOS app via Unix domain socket; Windows named-pipe support in development) |
+| `apps/windows/` | Electron Windows client: TypeScript core + React UI shell (text chat, image albums, named-pipe CLI) |
+| `apps/cli/` | `munkel` CLI (Bun/TypeScript; Unix domain socket on macOS, named pipe on Windows) |
 | `apps/server/` | Relay: Cloudflare Workers + **Durable Objects** (Hono + partyserver, TypeScript) |
 | `apps/landing/` | Landing page: TanStack Start (React) on Cloudflare Workers, [munkel.app](https://munkel.app) |
 | `skills/` | Agent skills (`SKILL.md`), installable via the [skills CLI](https://skills.sh) |
@@ -272,6 +273,7 @@ munkel dm sebil "deploy is green"   # notify one person — resolves the name ac
 munkel circles                      # ● blue-table-42  —  Alex, Sam
 munkel blue-table-42 Alex hey       # circle-scoped direct delivery (disambiguates a name)
 munkel blue-table-42 all "coffee?"  # circle broadcast
+munkel blue-table-42 image ./pic.png ./pic2.png --caption "weekend"  # image album (macOS + Windows)
 ```
 
 `munkel dm <name> …` is the one-call path: the app resolves `<name>` (display
@@ -288,10 +290,10 @@ registers itself as a login item on first launch (toggle under the menu's
 gear) so it stays resident and the first send skips cold-start. The
 socket path can be overridden via `MUNKEL_SOCKET` (used by the tests).
 
-Windows named-pipe IPC (`\\.\pipe\Munkel-<user>-Control`) is implemented in
-`apps/windows/src/core/transport.ts` and is the next integration milestone;
-until it is wired end-to-end the CLI on Windows does not yet talk to the
-Windows app.
+On Windows the CLI talks to the running app over a named pipe at
+`\\.\pipe\Munkel-<user>-Control` (`apps/windows/src/core/transport.ts`). If the
+app is not running, the CLI launches it and waits for the pipe, matching the
+macOS auto-launch behavior.
 
 The app resolves circle-code prefixes and recipient display names, and owns all
 crypto and relay connections, an ideal substrate for scripting and agent
