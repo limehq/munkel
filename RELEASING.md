@@ -156,6 +156,20 @@ in-place update.
   the release workflow uploads as a release asset. Keep its `SPARKLE_VERSION` in
   sync with the Sparkle SPM version in `apps/macos/Package.swift`.
 
+- **Surfacing & scheduling**: `UpdaterController` forces one background check on
+  launch (gated on the user's *Check Automatically* preference) on top of
+  Sparkle's interval timer — without it, every manual *Check for Updates*
+  rewrites `SULastCheckTime` and pushes the next scheduled check a full
+  `SUScheduledCheckInterval` (1 day) out, so the automatic path effectively never
+  surfaces. A scheduled find is a Sparkle "gentle reminder": Munkel has no Dock
+  icon, so it shows as an accent dot on the menu-bar item (`AppDelegate`) plus the
+  *Update to <version>…* menu entry, never an unprompted window.
+- **Testing the automatic path** (release build only — the dev build never
+  creates `UpdaterController`): point the app at an appcast advertising a version
+  newer than the local `CFBundleShortVersionString`, then
+  `defaults delete dev.uq.munkel SULastCheckTime` and relaunch. The menu-bar dot
+  should appear within a couple of seconds, with no manual click.
+
 First-release note: the release that introduces Sparkle produces the first
 appcast, but existing users run a build without an updater: they update once
 manually, and auto-updates take over from the next release onward.

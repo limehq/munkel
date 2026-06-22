@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 /// Owns the status item and the popover. MenuBarExtra(.window) can't draw
@@ -19,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     /// App-wide ⌘-key monitor that forwards the editing actions to the focused
     /// field editor; retained for the process lifetime.
     private var editingMonitor: Any?
+    private var updateBadgeCancellable: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Accessory: no Dock icon — menu bar item and notch are the only UI.
@@ -77,6 +79,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         item.button?.target = self
         item.button?.action = #selector(togglePopover(_:))
         statusItem = item
+
+        #if !DEBUG
+        if let button = item.button {
+            installUpdateBadge(on: button, updater: updater)
+        }
+        #endif
+    }
+
+    private func installUpdateBadge(on button: NSStatusBarButton, updater: UpdaterController) {
+        let badge = NSImageView()
+        badge.image = NSImage(systemSymbolName: "circle.fill", accessibilityDescription: "Update available")
+        badge.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 7, weight: .bold)
+        badge.contentTintColor = .controlAccentColor
+        badge.translatesAutoresizingMaskIntoConstraints = false
+        badge.isHidden = true
+        button.addSubview(badge)
+        NSLayoutConstraint.activate([
+            badge.trailingAnchor.constraint(equalTo: button.trailingAnchor, constant: -1),
+            badge.topAnchor.constraint(equalTo: button.topAnchor, constant: 2),
+        ])
+        updateBadgeCancellable = updater.$availableUpdateVersion.sink { version in
+            badge.isHidden = version == nil
+        }
     }
 
     /// A standard (never-displayed) main menu so the editing actions reach the
