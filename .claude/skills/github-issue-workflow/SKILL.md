@@ -33,13 +33,23 @@ Assignment is the ownership signal:
 gh issue edit N --add-assignee @me      # or the relevant GitHub login
 ```
 
-## 3. Open a draft PR immediately
+## 3. Set up an isolated worktree, then open a draft PR immediately
+
+Work in a dedicated **git worktree**, never the shared root checkout: another
+Claude session may drive this checkout concurrently, and a stray `checkout`
+between two of your commands silently moves HEAD — your commit then lands on
+`main` instead of your branch. Branching from a freshly fetched `origin/main`
+into a new worktree also gives you a clean, up-to-date starting point in one move.
 
 Open the PR *before* the work is finished, so the issue↔PR link exists from the
 start. GitHub needs at least one commit on the branch to open a PR:
 
 ```sh
-git checkout -b <type>/<short-slug> origin/main   # feat/ fix/ docs/ chore/ refactor/
+git fetch origin
+git branch <type>/<short-slug> origin/main                            # feat/ fix/ docs/ chore/ refactor/
+git worktree add .claude/worktrees/<type>+<slug> <type>/<short-slug>  # slug = branch with / → +
+cd .claude/worktrees/<type>+<slug>
+
 git commit --allow-empty -m "chore: start #N"     # or your first real commit
 git push -u origin <type>/<short-slug>
 gh pr create --draft --base main \
@@ -61,6 +71,10 @@ gh pr ready <PR>
 
 ## Notes
 
+- Do **all** edits, commits, and pushes from inside the worktree — never the shared
+  root. Concurrent sessions share one HEAD; the worktree is your isolation. After the
+  PR merges, drop it with `git worktree remove .claude/worktrees/<type>+<slug>`
+  (`.claude/worktrees/` is gitignored).
 - Branch from `main`. This repo **squash-merges**, so intermediate commits on the
   branch never reach `main` history — the PR title becomes the squash commit.
 - Use Conventional Commit types for both the branch prefix and the PR title

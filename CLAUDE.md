@@ -115,8 +115,8 @@ fails otherwise): `cd apps/server && bunx wrangler r2 bucket create munkel-blobs
 ## Working on an issue
 
 Follow the **`github-issue-workflow`** skill: check the issue isn't already taken
-(open/draft PR or an assignee) before starting, then claim it and open a draft PR
-linked with `Closes #N`.
+(open/draft PR or an assignee) before starting, then claim it, work in a dedicated
+`.claude/worktrees/` worktree, and open a draft PR linked with `Closes #N`.
 
 ## Conventions
 
