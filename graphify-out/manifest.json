@@ -1,0 +1,677 @@
+{
+  "/Users/jurij/dev/munkel/apps/cli/build-release.sh": {
+    "mtime": 1781308574.3922713,
+    "ast_hash": "3dc912aa842295fadc78572e390c325f",
+    "semantic_hash": "3dc912aa842295fadc78572e390c325f"
+  },
+  "/Users/jurij/dev/munkel/apps/cli/package.json": {
+    "mtime": 1781561611.1814964,
+    "ast_hash": "e0bd83398305c9670fa56fcae17f1e53",
+    "semantic_hash": "e0bd83398305c9670fa56fcae17f1e53"
+  },
+  "/Users/jurij/dev/munkel/apps/cli/src/munkel.ts": {
+    "mtime": 1782058970.416595,
+    "ast_hash": "69b8e5e0d922957e7ccf9c2965fc58f3",
+    "semantic_hash": "69b8e5e0d922957e7ccf9c2965fc58f3"
+  },
+  "/Users/jurij/dev/munkel/apps/cli/test/munkel.test.ts": {
+    "mtime": 1782058970.416922,
+    "ast_hash": "1dacf7b434af73b8f193e8c591d66c69",
+    "semantic_hash": "1dacf7b434af73b8f193e8c591d66c69"
+  },
+  "/Users/jurij/dev/munkel/apps/cli/tsconfig.json": {
+    "mtime": 1781304841.3965304,
+    "ast_hash": "702eb5b3889338cb2abbdaf89e37908e",
+    "semantic_hash": "702eb5b3889338cb2abbdaf89e37908e"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/.cta.json": {
+    "mtime": 1781304841.3992786,
+    "ast_hash": "a300256cd1be8d329a0e3cffb1c2cc2b",
+    "semantic_hash": "a300256cd1be8d329a0e3cffb1c2cc2b"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/.vscode/settings.json": {
+    "mtime": 1781304841.4053466,
+    "ast_hash": "58d7babaea94f37ca911b84be639ad5a",
+    "semantic_hash": "58d7babaea94f37ca911b84be639ad5a"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/.wrangler/deploy/config.json": {
+    "mtime": 1782060119.6623404,
+    "ast_hash": "9d663abcd158c67f171c437cb71f9503",
+    "semantic_hash": "9d663abcd158c67f171c437cb71f9503"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/components.json": {
+    "mtime": 1781561611.1823976,
+    "ast_hash": "5205ae095a0cd2e552a06f19d17b869e",
+    "semantic_hash": "5205ae095a0cd2e552a06f19d17b869e"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/package.json": {
+    "mtime": 1781561611.1827447,
+    "ast_hash": "3c6e6c4ef499a95fc91eae34f39643e6",
+    "semantic_hash": "3c6e6c4ef499a95fc91eae34f39643e6"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/icons.tsx": {
+    "mtime": 1781915474.398044,
+    "ast_hash": "796f3ab365b9c1ff46f1c4aa666a60fb",
+    "semantic_hash": "796f3ab365b9c1ff46f1c4aa666a60fb"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/legal/legal-header.tsx": {
+    "mtime": 1781959379.2657137,
+    "ast_hash": "5b5e7ea04be17fb6b1fe36297940d80a",
+    "semantic_hash": "5b5e7ea04be17fb6b1fe36297940d80a"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/legal/legal-page.tsx": {
+    "mtime": 1781959379.265983,
+    "ast_hash": "9f84e2021acfbcbaa27ae70915436205",
+    "semantic_hash": "9f84e2021acfbcbaa27ae70915436205"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/sections/agents.tsx": {
+    "mtime": 1782058970.4173274,
+    "ast_hash": "36860203fb1d5ca2cc3d876b08df5981",
+    "semantic_hash": "36860203fb1d5ca2cc3d876b08df5981"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/sections/announce-bar.tsx": {
+    "mtime": 1781959379.2666302,
+    "ast_hash": "01f364ef90609d9cc4329a5142036680",
+    "semantic_hash": "01f364ef90609d9cc4329a5142036680"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/sections/cli.tsx": {
+    "mtime": 1782058970.4175386,
+    "ast_hash": "68933a2788a341500c7f8f8009d47981",
+    "semantic_hash": "68933a2788a341500c7f8f8009d47981"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/sections/cta.tsx": {
+    "mtime": 1781959379.2674315,
+    "ast_hash": "4da5c3aacda83f4e8094a6df4df15ebf",
+    "semantic_hash": "4da5c3aacda83f4e8094a6df4df15ebf"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/sections/faq.tsx": {
+    "mtime": 1781959379.2677124,
+    "ast_hash": "9ab2e32232c82d83ed0318963305f815",
+    "semantic_hash": "9ab2e32232c82d83ed0318963305f815"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/sections/features.tsx": {
+    "mtime": 1782058970.4177976,
+    "ast_hash": "b039b4692e367ffb031855cf7b522e0f",
+    "semantic_hash": "b039b4692e367ffb031855cf7b522e0f"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/sections/hero.tsx": {
+    "mtime": 1782058970.4180694,
+    "ast_hash": "a92148f5baf9090e70a9656fc729a9ff",
+    "semantic_hash": "a92148f5baf9090e70a9656fc729a9ff"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/sections/how-it-works.tsx": {
+    "mtime": 1782058970.4182756,
+    "ast_hash": "8e848d12aac09bbfdd64c270410bbcae",
+    "semantic_hash": "8e848d12aac09bbfdd64c270410bbcae"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/sections/launch-badges.tsx": {
+    "mtime": 1781959379.2688396,
+    "ast_hash": "1a1858562e8b7f094a2995e0394a3f78",
+    "semantic_hash": "1a1858562e8b7f094a2995e0394a3f78"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/sections/nav.tsx": {
+    "mtime": 1781959379.2691367,
+    "ast_hash": "36a4388a9d2f7d918d6723083d96c890",
+    "semantic_hash": "36a4388a9d2f7d918d6723083d96c890"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/sections/privacy.tsx": {
+    "mtime": 1782058970.418495,
+    "ast_hash": "573b9ffcf01ec1a68cc43f6ce5c6fd5b",
+    "semantic_hash": "573b9ffcf01ec1a68cc43f6ce5c6fd5b"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/sections/site-footer.tsx": {
+    "mtime": 1781915474.3989415,
+    "ast_hash": "e44654be9a100d0210516bf2eb813472",
+    "semantic_hash": "e44654be9a100d0210516bf2eb813472"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/ui/accordion.tsx": {
+    "mtime": 1781561611.1853716,
+    "ast_hash": "7fafa1cd6c749b2e83366638bc2f1bea",
+    "semantic_hash": "7fafa1cd6c749b2e83366638bc2f1bea"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/ui/button.tsx": {
+    "mtime": 1781959379.2697487,
+    "ast_hash": "3f7eb30c6f803588fee1acdc770b0143",
+    "semantic_hash": "3f7eb30c6f803588fee1acdc770b0143"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/components/ui/tabs.tsx": {
+    "mtime": 1781959379.269973,
+    "ast_hash": "170c981c401da01406c78ec2def0addf",
+    "semantic_hash": "170c981c401da01406c78ec2def0addf"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/lib/constants.ts": {
+    "mtime": 1781959379.270228,
+    "ast_hash": "1879f0c069b85e56342b907e398c55ec",
+    "semantic_hash": "1879f0c069b85e56342b907e398c55ec"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/lib/motion.ts": {
+    "mtime": 1781561611.1858988,
+    "ast_hash": "b7439a9fbded57296e498332a85d5517",
+    "semantic_hash": "b7439a9fbded57296e498332a85d5517"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/lib/utils.ts": {
+    "mtime": 1781561611.1860254,
+    "ast_hash": "a2eb257ba5adb35dfc0217250ab26b4f",
+    "semantic_hash": "a2eb257ba5adb35dfc0217250ab26b4f"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/routeTree.gen.ts": {
+    "mtime": 1781882540.4885767,
+    "ast_hash": "24bbfda8ae357214801fe6054c9ce42c",
+    "semantic_hash": "24bbfda8ae357214801fe6054c9ce42c"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/router.tsx": {
+    "mtime": 1781959379.270734,
+    "ast_hash": "8192860c45ebec17d35754b74d12655e",
+    "semantic_hash": "8192860c45ebec17d35754b74d12655e"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/routes/__root.tsx": {
+    "mtime": 1781959379.2710578,
+    "ast_hash": "f3dfad1ccce33887352065637e15a3dc",
+    "semantic_hash": "f3dfad1ccce33887352065637e15a3dc"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/routes/appcast[.]xml.ts": {
+    "mtime": 1781959379.271461,
+    "ast_hash": "b023cc8ab3afae762e364e213f4407cf",
+    "semantic_hash": "b023cc8ab3afae762e364e213f4407cf"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/routes/contact.tsx": {
+    "mtime": 1781882540.488661,
+    "ast_hash": "c378782762a22d792ab5a24dd31f830c",
+    "semantic_hash": "c378782762a22d792ab5a24dd31f830c"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/routes/imprint.tsx": {
+    "mtime": 1781882540.488743,
+    "ast_hash": "0529068d1ecc65089b252d9e245ab152",
+    "semantic_hash": "0529068d1ecc65089b252d9e245ab152"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/routes/index.tsx": {
+    "mtime": 1781561611.1862564,
+    "ast_hash": "15b804dfe584273126baa196c62251e5",
+    "semantic_hash": "15b804dfe584273126baa196c62251e5"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/src/routes/privacy.tsx": {
+    "mtime": 1781882540.4888594,
+    "ast_hash": "d29e56497439892765292eaae5e6699c",
+    "semantic_hash": "d29e56497439892765292eaae5e6699c"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/tsconfig.json": {
+    "mtime": 1781304841.4375498,
+    "ast_hash": "59c492e2c8bcb48cf3e4090ea1ffba07",
+    "semantic_hash": "59c492e2c8bcb48cf3e4090ea1ffba07"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/tsr.config.json": {
+    "mtime": 1781304841.4403074,
+    "ast_hash": "4dc291441d5d099fab16c9a82306f4d1",
+    "semantic_hash": "4dc291441d5d099fab16c9a82306f4d1"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/vite.config.ts": {
+    "mtime": 1781561611.186908,
+    "ast_hash": "4ff3acc7f9627100076e32f810927d3a",
+    "semantic_hash": "4ff3acc7f9627100076e32f810927d3a"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/worker-configuration.d.ts": {
+    "mtime": 1781304841.4527252,
+    "ast_hash": "789f65e09af057e9b5e53cfd6edbe120",
+    "semantic_hash": "789f65e09af057e9b5e53cfd6edbe120"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Package.swift": {
+    "mtime": 1781959379.271601,
+    "ast_hash": "43f787453e64bb8aa0450ec37c9385fa",
+    "semantic_hash": "43f787453e64bb8aa0450ec37c9385fa"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/AppModel.swift": {
+    "mtime": 1782069897.6972938,
+    "ast_hash": "b4d26af676febd766cd7e89a8ff537af",
+    "semantic_hash": "b4d26af676febd766cd7e89a8ff537af"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/AuthCodeNotchView.swift": {
+    "mtime": 1781959379.2719624,
+    "ast_hash": "428d36d3456e3ac94826e76e6b1f1c6f",
+    "semantic_hash": "428d36d3456e3ac94826e76e6b1f1c6f"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/AvatarStore.swift": {
+    "mtime": 1782052480.0922823,
+    "ast_hash": "dc1b78c981bf934138e2ca3b2bee5ac1",
+    "semantic_hash": "dc1b78c981bf934138e2ca3b2bee5ac1"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/AvatarView.swift": {
+    "mtime": 1782052480.0927866,
+    "ast_hash": "30ba31fb48493c63e78a8ee933240ec8",
+    "semantic_hash": "30ba31fb48493c63e78a8ee933240ec8"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/BrandGlyph.swift": {
+    "mtime": 1781959379.2726064,
+    "ast_hash": "0c7b35c3ffaa41ec442cca9a105aca2d",
+    "semantic_hash": "0c7b35c3ffaa41ec442cca9a105aca2d"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/CLIInstaller.swift": {
+    "mtime": 1781959379.2729096,
+    "ast_hash": "7bceb90e99b0ffaa4f7dd1dbf1e073c2",
+    "semantic_hash": "7bceb90e99b0ffaa4f7dd1dbf1e073c2"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/CaptureExclusion.swift": {
+    "mtime": 1782058970.419372,
+    "ast_hash": "9632b44f77d82cb3f4cb28cfa6cc5e48",
+    "semantic_hash": "9632b44f77d82cb3f4cb28cfa6cc5e48"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/ClipboardImage.swift": {
+    "mtime": 1782069897.6980474,
+    "ast_hash": "28c9228221c30fc43bc8dac50d2ae94b",
+    "semantic_hash": "28c9228221c30fc43bc8dac50d2ae94b"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/CommandPalettePanel.swift": {
+    "mtime": 1781959379.2733066,
+    "ast_hash": "a6c45322042a2d1b6c76475f6835e487",
+    "semantic_hash": "a6c45322042a2d1b6c76475f6835e487"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/CommandPalettePresenter.swift": {
+    "mtime": 1782058970.4196043,
+    "ast_hash": "d9c1d49c45a56f721b970ef1ac0c4439",
+    "semantic_hash": "d9c1d49c45a56f721b970ef1ac0c4439"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/CommandPaletteState.swift": {
+    "mtime": 1782058970.4199345,
+    "ast_hash": "9b37466a67c0fbd6260790adc39e32f3",
+    "semantic_hash": "9b37466a67c0fbd6260790adc39e32f3"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/CommandPaletteView.swift": {
+    "mtime": 1782058970.4201918,
+    "ast_hash": "9ce725b084e0aab5134c1e239a5b220a",
+    "semantic_hash": "9ce725b084e0aab5134c1e239a5b220a"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/CompactAvatarView.swift": {
+    "mtime": 1781304841.3050692,
+    "ast_hash": "b9011f753dc9fa8e84c47b1051bfaf2d",
+    "semantic_hash": "b9011f753dc9fa8e84c47b1051bfaf2d"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/ControlServer.swift": {
+    "mtime": 1781354873.8778405,
+    "ast_hash": "a7855805a02dd0ca0b4ff470a563e1a9",
+    "semantic_hash": "a7855805a02dd0ca0b4ff470a563e1a9"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/CopyMessageButton.swift": {
+    "mtime": 1781797550.578842,
+    "ast_hash": "809a105d14814edd778f7afce912b192",
+    "semantic_hash": "809a105d14814edd778f7afce912b192"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/DebugDemoHistory.swift": {
+    "mtime": 1782058970.4203143,
+    "ast_hash": "93cb3c53d7d4fb599adb6b76aa6556bb",
+    "semantic_hash": "93cb3c53d7d4fb599adb6b76aa6556bb"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/DisplayPreference.swift": {
+    "mtime": 1781959379.274282,
+    "ast_hash": "9c35d5e3213fda9e0e0cf43a84040630",
+    "semantic_hash": "9c35d5e3213fda9e0e0cf43a84040630"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/GitHubConfig.swift": {
+    "mtime": 1781305150.497441,
+    "ast_hash": "c4402513f15dd3fab5b75dbdadea7841",
+    "semantic_hash": "c4402513f15dd3fab5b75dbdadea7841"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/GroupCode.swift": {
+    "mtime": 1782058970.420703,
+    "ast_hash": "c7f4cbce1759091f572594bb83379e2c",
+    "semantic_hash": "c7f4cbce1759091f572594bb83379e2c"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/GroupColor.swift": {
+    "mtime": 1782058970.4209318,
+    "ast_hash": "9762ae77d4546851b0f7db6d6f39c3eb",
+    "semantic_hash": "9762ae77d4546851b0f7db6d6f39c3eb"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/GroupSession.swift": {
+    "mtime": 1782069897.6985927,
+    "ast_hash": "4ddb454dc3c09fd9d7171b56f43077f9",
+    "semantic_hash": "4ddb454dc3c09fd9d7171b56f43077f9"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/Identity.swift": {
+    "mtime": 1782052480.0943854,
+    "ast_hash": "efb58166ba1d202ee70dd09be9933afd",
+    "semantic_hash": "efb58166ba1d202ee70dd09be9933afd"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/ImagePreviewOverlay.swift": {
+    "mtime": 1782069897.6990008,
+    "ast_hash": "bf1cf532454c36752841572671468e40",
+    "semantic_hash": "bf1cf532454c36752841572671468e40"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/IncomingMessage.swift": {
+    "mtime": 1782069897.6991742,
+    "ast_hash": "6511d569fc22eaa9e8fe6ea67e0121c0",
+    "semantic_hash": "6511d569fc22eaa9e8fe6ea67e0121c0"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/LinkText.swift": {
+    "mtime": 1782058970.421426,
+    "ast_hash": "d38de60cb8a425f863be702a5f81095e",
+    "semantic_hash": "d38de60cb8a425f863be702a5f81095e"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/LoginItem.swift": {
+    "mtime": 1781959379.2752793,
+    "ast_hash": "6f543c7c9f2f30e702b42fbcf0701e19",
+    "semantic_hash": "6f543c7c9f2f30e702b42fbcf0701e19"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/MenuView.swift": {
+    "mtime": 1782058970.4216807,
+    "ast_hash": "8863c0c63ae666982eb30bc1f8e2fb3b",
+    "semantic_hash": "8863c0c63ae666982eb30bc1f8e2fb3b"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/MessageLimits.swift": {
+    "mtime": 1781959379.2757533,
+    "ast_hash": "98576eefd39ff4e7f6a73fde207256f1",
+    "semantic_hash": "98576eefd39ff4e7f6a73fde207256f1"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/MessageNotchContainer.swift": {
+    "mtime": 1782069897.6994393,
+    "ast_hash": "9ed82f5e8febe18138b59183480b55f5",
+    "semantic_hash": "9ed82f5e8febe18138b59183480b55f5"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/MessageNotchView.swift": {
+    "mtime": 1782069897.699638,
+    "ast_hash": "99c88fd18b014ca622947dd7a1cbcbaf",
+    "semantic_hash": "99c88fd18b014ca622947dd7a1cbcbaf"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/MunkelApp.swift": {
+    "mtime": 1782069897.699886,
+    "ast_hash": "cf0d9cba3477088319a07358a7bdc975",
+    "semantic_hash": "cf0d9cba3477088319a07358a7bdc975"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/NotchPanel/NotchHostingContent.swift": {
+    "mtime": 1782052480.096163,
+    "ast_hash": "183be1e881436c02f8fee0fa172492b9",
+    "semantic_hash": "183be1e881436c02f8fee0fa172492b9"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/NotchPanel/NotchPanel.swift": {
+    "mtime": 1782052480.0963707,
+    "ast_hash": "eeaf503607301d1a952678c31bb2f008",
+    "semantic_hash": "eeaf503607301d1a952678c31bb2f008"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/NotchPanel/NotchPanelWindow.swift": {
+    "mtime": 1781959379.2777333,
+    "ast_hash": "13fbaf72d33fc30327419cfb0d31be10",
+    "semantic_hash": "13fbaf72d33fc30327419cfb0d31be10"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/NotchPanel/NotchScreenMetrics.swift": {
+    "mtime": 1782052480.0967762,
+    "ast_hash": "d07f7a4e6bc1f514f34d3cd3d3d75777",
+    "semantic_hash": "d07f7a4e6bc1f514f34d3cd3d3d75777"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/NotchPanel/NotchShape.swift": {
+    "mtime": 1781370660.893105,
+    "ast_hash": "fe3e472e030865eee4dc86b43ebdff09",
+    "semantic_hash": "fe3e472e030865eee4dc86b43ebdff09"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/NotchPresenter.swift": {
+    "mtime": 1782058970.4225783,
+    "ast_hash": "40a7916c0a13ee6fbdd7da505196815a",
+    "semantic_hash": "40a7916c0a13ee6fbdd7da505196815a"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/PresenceStatus+UI.swift": {
+    "mtime": 1782052480.0972695,
+    "ast_hash": "db0d3fdee7531c6d98f379b85dbd2cb6",
+    "semantic_hash": "db0d3fdee7531c6d98f379b85dbd2cb6"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/Shortcuts.swift": {
+    "mtime": 1781959379.2786577,
+    "ast_hash": "d3cbd5e2b4a9a17ff36de53446b2ff1a",
+    "semantic_hash": "d3cbd5e2b4a9a17ff36de53446b2ff1a"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/TickerText.swift": {
+    "mtime": 1781959379.278771,
+    "ast_hash": "c72cf5564a8e6841924399a619ae485d",
+    "semantic_hash": "c72cf5564a8e6841924399a619ae485d"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/UnreadIndicatorView.swift": {
+    "mtime": 1782034742.1959064,
+    "ast_hash": "57700cf9e67828c3dcc2640b01df9a50",
+    "semantic_hash": "57700cf9e67828c3dcc2640b01df9a50"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/UpdaterController.swift": {
+    "mtime": 1781643546.365536,
+    "ast_hash": "2d3c927b74af08610f5a575dbfc207e4",
+    "semantic_hash": "2d3c927b74af08610f5a575dbfc207e4"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelKit/AppPayload.swift": {
+    "mtime": 1782052480.097473,
+    "ast_hash": "9859fae9969559563ca295e1e4cd86b4",
+    "semantic_hash": "9859fae9969559563ca295e1e4cd86b4"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelKit/AvatarCodec.swift": {
+    "mtime": 1781882540.4941561,
+    "ast_hash": "b07c08f5260ab3a6fa487d5c2475956c",
+    "semantic_hash": "b07c08f5260ab3a6fa487d5c2475956c"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelKit/BlobClient.swift": {
+    "mtime": 1781882540.494232,
+    "ast_hash": "07b481aa3185101053ed807038d9cba8",
+    "semantic_hash": "07b481aa3185101053ed807038d9cba8"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelKit/ControlProtocol.swift": {
+    "mtime": 1781882540.4943357,
+    "ast_hash": "23b295c911ecf425d71ccab64607602f",
+    "semantic_hash": "23b295c911ecf425d71ccab64607602f"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelKit/GitHubDeviceAuth.swift": {
+    "mtime": 1781959379.278974,
+    "ast_hash": "45a6b8cd7cf7281e0b808538108f3262",
+    "semantic_hash": "45a6b8cd7cf7281e0b808538108f3262"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelKit/GroupKey.swift": {
+    "mtime": 1781308083.6471999,
+    "ast_hash": "06aab39cc80361946518b630bac5730f",
+    "semantic_hash": "06aab39cc80361946518b630bac5730f"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelKit/ImageCodec.swift": {
+    "mtime": 1782069897.7003875,
+    "ast_hash": "ba8a7261b7e812042da1d898dafa65af",
+    "semantic_hash": "ba8a7261b7e812042da1d898dafa65af"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelKit/LinkPreviewFetcher.swift": {
+    "mtime": 1782069897.7005184,
+    "ast_hash": "5abbd3a155781ff6caf65ddfe5f23950",
+    "semantic_hash": "5abbd3a155781ff6caf65ddfe5f23950"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelKit/MessageCrypto.swift": {
+    "mtime": 1781882540.4945679,
+    "ast_hash": "3e04d296a677b75e6ebf4c4884da4e05",
+    "semantic_hash": "3e04d296a677b75e6ebf4c4884da4e05"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelKit/PresenceStatus.swift": {
+    "mtime": 1782052480.0976558,
+    "ast_hash": "beaea1122e829cb15e03a838d83c06bd",
+    "semantic_hash": "beaea1122e829cb15e03a838d83c06bd"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelKit/RelayClient.swift": {
+    "mtime": 1781304841.3693473,
+    "ast_hash": "bc6ee76c2a1833668d88f5f63198d7d8",
+    "semantic_hash": "bc6ee76c2a1833668d88f5f63198d7d8"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelKit/WireMessage.swift": {
+    "mtime": 1781308088.655212,
+    "ast_hash": "c2002a5020a220c15db645526bfc75c7",
+    "semantic_hash": "c2002a5020a220c15db645526bfc75c7"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Tests/MunkelKitTests/AvatarCodecTests.swift": {
+    "mtime": 1781304841.3752754,
+    "ast_hash": "e44d66c39d3d755ec478a7ab2649de89",
+    "semantic_hash": "e44d66c39d3d755ec478a7ab2649de89"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Tests/MunkelKitTests/CryptoTests.swift": {
+    "mtime": 1781314030.9986055,
+    "ast_hash": "b911459e8de936a380e2631a1cd2d9ea",
+    "semantic_hash": "b911459e8de936a380e2631a1cd2d9ea"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Tests/MunkelKitTests/GitHubDeviceAuthTests.swift": {
+    "mtime": 1781304841.3813264,
+    "ast_hash": "bade89b75a98ffaab30ed1d5cb7b961c",
+    "semantic_hash": "bade89b75a98ffaab30ed1d5cb7b961c"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Tests/MunkelKitTests/ImageCodecTests.swift": {
+    "mtime": 1782069897.7010083,
+    "ast_hash": "cfdc3da28df79dc411bd986173115c23",
+    "semantic_hash": "cfdc3da28df79dc411bd986173115c23"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Tests/MunkelKitTests/ImagePayloadTests.swift": {
+    "mtime": 1781959379.2794127,
+    "ast_hash": "5c9d307f72db0f84431990e952804ea9",
+    "semantic_hash": "5c9d307f72db0f84431990e952804ea9"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Tests/MunkelKitTests/WireMessageTests.swift": {
+    "mtime": 1782052480.0980563,
+    "ast_hash": "4bcd9fadc039516066044591b6cf49fb",
+    "semantic_hash": "4bcd9fadc039516066044591b6cf49fb"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/app.icon/icon.json": {
+    "mtime": 1781882540.4953084,
+    "ast_hash": "7d45fb3de597a02288aece05a63b6f48",
+    "semantic_hash": "7d45fb3de597a02288aece05a63b6f48"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/make-bundle.sh": {
+    "mtime": 1781639847.3336499,
+    "ast_hash": "b0d72c166c6fd61ed59b46c8f40d4499",
+    "semantic_hash": "b0d72c166c6fd61ed59b46c8f40d4499"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/package.json": {
+    "mtime": 1781561611.1934621,
+    "ast_hash": "fca1288f2d1545f4799b4c34549a02b5",
+    "semantic_hash": "fca1288f2d1545f4799b4c34549a02b5"
+  },
+  "/Users/jurij/dev/munkel/apps/server/package.json": {
+    "mtime": 1781639847.3338625,
+    "ast_hash": "e89994cd300aae8ae523abb64a60269e",
+    "semantic_hash": "e89994cd300aae8ae523abb64a60269e"
+  },
+  "/Users/jurij/dev/munkel/apps/server/scripts/dev-image.ts": {
+    "mtime": 1782052480.0985012,
+    "ast_hash": "71ce49730fa104c28af31227248c7b3a",
+    "semantic_hash": "71ce49730fa104c28af31227248c7b3a"
+  },
+  "/Users/jurij/dev/munkel/apps/server/scripts/dev-send.ts": {
+    "mtime": 1782058970.4227126,
+    "ast_hash": "7332efa23454163447e29da2b6a59521",
+    "semantic_hash": "7332efa23454163447e29da2b6a59521"
+  },
+  "/Users/jurij/dev/munkel/apps/server/src/blob.ts": {
+    "mtime": 1781959379.279811,
+    "ast_hash": "508b42975ae5c83acfbabeb111958a85",
+    "semantic_hash": "508b42975ae5c83acfbabeb111958a85"
+  },
+  "/Users/jurij/dev/munkel/apps/server/src/group-room.ts": {
+    "mtime": 1781304841.4933553,
+    "ast_hash": "d9766f9b0d4406d6a47be12d680090fb",
+    "semantic_hash": "d9766f9b0d4406d6a47be12d680090fb"
+  },
+  "/Users/jurij/dev/munkel/apps/server/src/index.ts": {
+    "mtime": 1781882540.4956822,
+    "ast_hash": "efb42059b2c41a7c8507042d67e5a855",
+    "semantic_hash": "efb42059b2c41a7c8507042d67e5a855"
+  },
+  "/Users/jurij/dev/munkel/apps/server/src/lib/logger.ts": {
+    "mtime": 1781304841.499646,
+    "ast_hash": "8fbbb17ab17ed25dd956cd9c52332951",
+    "semantic_hash": "8fbbb17ab17ed25dd956cd9c52332951"
+  },
+  "/Users/jurij/dev/munkel/apps/server/src/protocol.ts": {
+    "mtime": 1782052480.0993738,
+    "ast_hash": "35ad4b8679296cebf7ea882d3b524d75",
+    "semantic_hash": "35ad4b8679296cebf7ea882d3b524d75"
+  },
+  "/Users/jurij/dev/munkel/apps/server/test/blob.test.ts": {
+    "mtime": 1781959379.2801857,
+    "ast_hash": "2a39091ff69a39af0e622fe5a7a7b2ed",
+    "semantic_hash": "2a39091ff69a39af0e622fe5a7a7b2ed"
+  },
+  "/Users/jurij/dev/munkel/apps/server/test/e2e/relay.e2e.test.ts": {
+    "mtime": 1781304841.5054877,
+    "ast_hash": "4a3242529f942ee3f9e62a1143ff5b6b",
+    "semantic_hash": "4a3242529f942ee3f9e62a1143ff5b6b"
+  },
+  "/Users/jurij/dev/munkel/apps/server/test/protocol.prop.test.ts": {
+    "mtime": 1781959379.2805192,
+    "ast_hash": "2e461a3c41a7c75b9058187e9994fbe8",
+    "semantic_hash": "2e461a3c41a7c75b9058187e9994fbe8"
+  },
+  "/Users/jurij/dev/munkel/apps/server/test/protocol.test.ts": {
+    "mtime": 1781304841.5085816,
+    "ast_hash": "2f9738c030dc7c07ed1a29a3d2b8d964",
+    "semantic_hash": "2f9738c030dc7c07ed1a29a3d2b8d964"
+  },
+  "/Users/jurij/dev/munkel/apps/server/tsconfig.json": {
+    "mtime": 1781304841.5118964,
+    "ast_hash": "5b748320856b553cae9e668b50e18d67",
+    "semantic_hash": "5b748320856b553cae9e668b50e18d67"
+  },
+  "/Users/jurij/dev/munkel/apps/server/vitest.config.ts": {
+    "mtime": 1781304841.515053,
+    "ast_hash": "4a24db8069040db50430a9b31fd109e2",
+    "semantic_hash": "4a24db8069040db50430a9b31fd109e2"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/public/robots.txt": {
+    "mtime": 1781304841.4169822,
+    "ast_hash": "fa1ded1ed7c11438a9b0385b1e112850",
+    "semantic_hash": "fa1ded1ed7c11438a9b0385b1e112850"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/docs/own-notch-presenter-plan.md": {
+    "mtime": 1781370660.8936412,
+    "ast_hash": "c0a53780fae5585a9abd7e03d0656180",
+    "semantic_hash": "c0a53780fae5585a9abd7e03d0656180"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/public/app-icon.png": {
+    "mtime": 1781915474.3963044,
+    "ast_hash": "331a5073e5389269540cf13e34e9fcea",
+    "semantic_hash": "331a5073e5389269540cf13e34e9fcea"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/public/apple-touch-icon.png": {
+    "mtime": 1781915474.3967855,
+    "ast_hash": "92caf41d7002626a592b457f99e3122b",
+    "semantic_hash": "92caf41d7002626a592b457f99e3122b"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/public/avatars/01.png": {
+    "mtime": 1781309864.4157393,
+    "ast_hash": "03d74c93b244c53046d849902108c979",
+    "semantic_hash": "03d74c93b244c53046d849902108c979"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/public/avatars/02.png": {
+    "mtime": 1781309864.4160082,
+    "ast_hash": "e904d5847af14af9cad1ad5c92151406",
+    "semantic_hash": "e904d5847af14af9cad1ad5c92151406"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/public/avatars/03.png": {
+    "mtime": 1781309864.4162714,
+    "ast_hash": "5b8bbc5e558477202ca57eafc42882d0",
+    "semantic_hash": "5b8bbc5e558477202ca57eafc42882d0"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/public/avatars/05.png": {
+    "mtime": 1781309864.416505,
+    "ast_hash": "d655aa880718d303bb57235acc1ac516",
+    "semantic_hash": "d655aa880718d303bb57235acc1ac516"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/public/favicon-32.png": {
+    "mtime": 1781915474.3972342,
+    "ast_hash": "33e21f757a6602ad100e8bfc46c38bec",
+    "semantic_hash": "33e21f757a6602ad100e8bfc46c38bec"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/public/favicon.svg": {
+    "mtime": 1781915474.3976288,
+    "ast_hash": "fcee1e066833fb7123574b5f170cd33e",
+    "semantic_hash": "fcee1e066833fb7123574b5f170cd33e"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/public/munkel-glyph.svg": {
+    "mtime": 1781915474.3977363,
+    "ast_hash": "fcbda06c2fc51c00867506b9b9b81056",
+    "semantic_hash": "fcbda06c2fc51c00867506b9b9b81056"
+  },
+  "/Users/jurij/dev/munkel/apps/landing/public/og.png": {
+    "mtime": 1781313605.858346,
+    "ast_hash": "b0615481f18ef76e325ffca5ccae0c5f",
+    "semantic_hash": "b0615481f18ef76e325ffca5ccae0c5f"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/Sources/MunkelApp/Resources/MunkelGlyph.svg": {
+    "mtime": 1781882540.4938252,
+    "ast_hash": "fcbda06c2fc51c00867506b9b9b81056",
+    "semantic_hash": "fcbda06c2fc51c00867506b9b9b81056"
+  },
+  "/Users/jurij/dev/munkel/apps/macos/app.icon/Assets/meerkat-pixel.png": {
+    "mtime": 1781882540.4951873,
+    "ast_hash": "ac80e3f4b9cc65d6c912bb7c32354e84",
+    "semantic_hash": "ac80e3f4b9cc65d6c912bb7c32354e84"
+  }
+}
