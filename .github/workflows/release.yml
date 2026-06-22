@@ -131,14 +131,19 @@ jobs:
       - name: Upload artifact to GitHub release
         uses: softprops/action-gh-release@718ea10b132b3b2eba29c1007bb80653f286566b # v3.0.1
         with:
-          # release-please already created the release with changelog notes;
-          # this only attaches the DMG (softprops upserts by tag).
           tag_name: ${{ github.ref_name }}
+          prerelease: true
           files: |
             dist/Munkel-${{ env.VERSION }}.dmg
             dist/Munkel-${{ env.VERSION }}.dmg.sha256
             dist/Munkel-${{ env.VERSION }}.dmg.sigstore.json
             dist/appcast.xml
+
+      - name: Promote release to latest
+        if: success() && hashFiles('dist/appcast.xml') != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "${{ github.ref_name }}" --prerelease=false --latest
 
       - name: Bump cask in homebrew-tap
         env:
