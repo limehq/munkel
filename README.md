@@ -314,6 +314,10 @@ npx skills add limehq/munkel
 The skill is send-only by design, like the CLI. (Installing requires the
 repo to be public.)
 
+Only `skills/` is published this way. Contributor-only skills live under
+`.claude/skills/` — which the `skills` CLI also scans — and set
+`metadata.internal: true` in their frontmatter so `npx skills add` skips them.
+
 ## Testing without a second Mac
 
 `apps/server/scripts/dev-send.ts` acts as a second channel member: it
