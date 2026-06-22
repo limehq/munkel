@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.13.0](https://github.com/limehq/munkel/compare/v0.12.1...v0.13.0) (2026-06-22)
+
+
+### Features
+
+* **macos:** show git branch in dev menu header ([#147](https://github.com/limehq/munkel/issues/147)) ([5e44f12](https://github.com/limehq/munkel/commit/5e44f126802a0281617f043d7f5ab07f4aac2616))
+
+
+### Bug Fixes
+
+* **ci:** keep releases as prerelease until their assets are uploaded ([#146](https://github.com/limehq/munkel/issues/146)) ([6df453d](https://github.com/limehq/munkel/commit/6df453d9abce5f2e0d1812ab51e28945dde6e076))
+* **macos:** close the menu popover when opening About ([#150](https://github.com/limehq/munkel/issues/150)) ([16e2c3b](https://github.com/limehq/munkel/commit/16e2c3bbcf1b30f8dbd0f224330f46bfe9817547))
+* **macos:** only show "Install Command Line Tool" when the CLI is not installed ([#149](https://github.com/limehq/munkel/issues/149)) ([3aa75f8](https://github.com/limehq/munkel/commit/3aa75f8e548ccc3103b699be2cdea2d91ead338b))
+
 ## [0.12.1](https://github.com/limehq/munkel/compare/v0.12.0...v0.12.1) (2026-06-22)
 
 
