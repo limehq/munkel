@@ -321,16 +321,63 @@ struct LinkPreviewCard: View {
     let url: URL
 
     @State private var image: CGImage?
-
-    private var preview: LinkPreviewData? {
-        // Outer optional: not yet fetched. Inner: fetched but had no OG data.
-        (model.linkPreviews[url.absoluteString] ?? nil)
-    }
+    @State private var shimmer = false
 
     var body: some View {
-        if let preview {
-            content(preview)
+        switch model.linkPreviews[url.absoluteString] {
+        case .ready(let data?):
+            content(data)
+        case .ready(nil):
+            fallback
+        case .loading:
+            if model.loadingPreviews.contains(url.absoluteString) { skeleton }
+        case nil:
+            EmptyView()
         }
+    }
+
+    private var skeleton: some View {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(.white.opacity(0.1))
+                .frame(width: 44, height: 44)
+            VStack(alignment: .leading, spacing: 5) {
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(.white.opacity(0.1))
+                    .frame(maxWidth: .infinity, minHeight: 9, maxHeight: 9)
+                RoundedRectangle(cornerRadius: 3, style: .continuous)
+                    .fill(.white.opacity(0.1))
+                    .frame(width: 64, height: 8)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(6)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .opacity(shimmer ? 0.5 : 1)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
+                shimmer = true
+            }
+        }
+    }
+
+    private var fallback: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "globe")
+                .font(.system(size: 17))
+                .foregroundStyle(.white.opacity(0.5))
+                .frame(width: 44, height: 44)
+                .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            Text(url.host ?? url.absoluteString)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(6)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .onTapGesture { NSWorkspace.shared.open(url) }
     }
 
     private func content(_ preview: LinkPreviewData) -> some View {

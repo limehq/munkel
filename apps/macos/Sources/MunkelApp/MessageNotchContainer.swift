@@ -10,6 +10,11 @@ import SwiftUI
 /// mode flips, so the shape animates between the two sizes seamlessly.
 enum NotchDisplayMode { case message, indicator }
 
+enum LinkPreviewState: Equatable {
+    case loading
+    case ready(LinkPreviewData?)
+}
+
 @MainActor
 final class MessageDisplayModel: ObservableObject {
     @Published var mode: NotchDisplayMode = .message
@@ -40,11 +45,8 @@ final class MessageDisplayModel: ObservableObject {
     @Published var fullImages: [String: Data] = [:]
     /// Images whose full fetch failed (expired/offline) — show a warning glyph.
     @Published var failedImages: Set<String> = []
-    /// Open Graph previews scraped for URLs in the message text, keyed by the
-    /// absolute URL string. nil while the fetch is in flight; a present-but-nil
-    /// LinkPreviewData means it resolved to nothing (no card). Filled by the
-    /// link card on appear, cleared when the model is reused for a new message.
-    @Published var linkPreviews: [String: LinkPreviewData?] = [:]
+    @Published var linkPreviews: [String: LinkPreviewState] = [:]
+    @Published var loadingPreviews: Set<String> = []
     /// `id` (r2Key) of the album image currently shown in the large hover
     /// "Quick Look" preview, or nil when none. Set by an `AlbumCell` on hover
     /// (debounced) and force-cleared on every teardown path by NotchPresenter,
@@ -145,6 +147,7 @@ final class MessageDisplayModel: ObservableObject {
         fullImages = [:]
         failedImages = []
         linkPreviews = [:]
+        loadingPreviews = []
         attachedImages = []
         historyExpanded = false
         copiedHistoryID = nil
@@ -226,10 +229,15 @@ final class MessageDisplayModel: ObservableObject {
     func loadLinkPreview(for url: URL) async {
         let key = url.absoluteString
         guard linkPreviews[key] == nil else { return }
-        // Mark in-flight so a re-render doesn't kick off a second fetch.
-        linkPreviews[key] = .some(nil)
+        linkPreviews[key] = .loading
+        let skeletonDelay = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(400))
+            if !Task.isCancelled { self?.loadingPreviews.insert(key) }
+        }
         let data = await LinkPreviewFetcher.shared.preview(for: url)
-        linkPreviews[key] = .some(data)
+        skeletonDelay.cancel()
+        linkPreviews[key] = .ready(data)
+        loadingPreviews.remove(key)
     }
 
     private func flashCopied() {
@@ -868,6 +876,10 @@ private struct HistoryRow: View {
     /// sized, easy-to-hit target over maximum density.
     private let glyphDiameter: CGFloat = 20
 
+    private var linkURL: URL? {
+        entry.isImage ? nil : firstURL(in: entry.text)
+    }
+
     var body: some View {
         Group {
             if expanded {
@@ -885,7 +897,14 @@ private struct HistoryRow: View {
                             }
                         } else {
                             text.fixedSize(horizontal: false, vertical: true)
+                            if let linkURL {
+                                LinkPreviewCard(model: model, url: linkURL)
+                                    .padding(.top, 2)
+                            }
                         }
+                    }
+                    .task(id: linkURL) {
+                        if let linkURL { await model.loadLinkPreview(for: linkURL) }
                     }
                     Spacer(minLength: 4)
                     glyph
