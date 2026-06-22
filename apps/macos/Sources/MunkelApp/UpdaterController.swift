@@ -44,6 +44,9 @@ final class UpdaterController: NSObject, ObservableObject {
         let updater = controller.updater
         automaticallyChecksForUpdates = updater.automaticallyChecksForUpdates
         updater.publisher(for: \.canCheckForUpdates).assign(to: &$canCheckForUpdates)
+        if updater.automaticallyChecksForUpdates {
+            updater.checkForUpdatesInBackground()
+        }
     }
 
     /// User-initiated check (menu). Sparkle shows its standard update UI.
