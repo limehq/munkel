@@ -106,12 +106,10 @@ final class CommandPalettePresenter {
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
-    /// Arrow keys are a full D-pad over the target chips while the message
-    /// field keeps focus: left/right within a channel, up/down between
-    /// channels. Bare arrows are consumed (return nil) so they don't move the
-    /// text cursor; arrows held with an editing modifier (⌘/⌥/⌃/⇧) fall through
-    /// to the field editor for word/line/select shortcuts. Tab/Shift+Tab cycle
-    /// through all recipients. Return (onSubmit) sends and Esc (onExitCommand) closes.
+    /// ↑/↓ pick the target chip while the message field keeps focus. Bare ←/→
+    /// and any modifier+arrow fall through to the field editor for normal text
+    /// editing. Tab/Shift+Tab also cycle through all recipients. Return
+    /// (onSubmit) sends and Esc (onExitCommand) closes.
     private func installKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
@@ -134,8 +132,6 @@ final class CommandPalettePresenter {
 
                 let dir: CommandPaletteState.Direction?
                 switch event.keyCode {
-                case 123: dir = .left
-                case 124: dir = .right
                 case 125: dir = .down
                 case 126: dir = .up
                 default: dir = nil

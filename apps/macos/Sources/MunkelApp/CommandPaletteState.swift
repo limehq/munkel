@@ -93,9 +93,9 @@ final class CommandPaletteState: ObservableObject {
         attachedImages = []
     }
 
-    // MARK: - D-pad navigation
+    // MARK: - Recipient navigation
 
-    enum Direction { case left, right, up, down }
+    enum Direction { case up, down }
 
     /// Flat-index ranges, one per channel, in display order.
     private var channelRanges: [Range<Int>] {
@@ -112,9 +112,8 @@ final class CommandPaletteState: ObservableObject {
         return ranges
     }
 
-    /// Left/right move within the current channel; up/down jump to the
-    /// adjacent channel keeping the column (clamped). With a single channel
-    /// all four arrows move within it.
+    /// ↑/↓ move the selection: within one channel by a step; across several
+    /// channels they jump to the adjacent channel, keeping the column (clamped).
     func move(_ dir: Direction) {
         let ranges = channelRanges
         guard !ranges.isEmpty,
@@ -125,10 +124,6 @@ final class CommandPaletteState: ObservableObject {
         let single = ranges.count <= 1
 
         switch dir {
-        case .left:
-            selectedIndex = max(here.lowerBound, selectedIndex - 1)
-        case .right:
-            selectedIndex = min(here.upperBound - 1, selectedIndex + 1)
         case .up:
             if single {
                 selectedIndex = max(here.lowerBound, selectedIndex - 1)
