@@ -31,7 +31,8 @@ struct MessageNotchView: View {
     }
 
     private var textBody: some View {
-        HStack(alignment: .top, spacing: 12) {
+        let url = firstURL(in: message.text)
+        return HStack(alignment: .top, spacing: 12) {
             AvatarView(name: message.sender, imageData: message.avatarData)
 
             VStack(alignment: .leading, spacing: 6) {
@@ -44,9 +45,12 @@ struct MessageNotchView: View {
                         lineLimit: 0
                     ) { [weak model] view in model?.registerLinkHost(view) }
                 }
-                if let url = firstURL(in: message.text) {
+                if let url {
                     LinkPreviewCard(model: model, url: url)
                 }
+            }
+            .task(id: url) {
+                if let url { await model.loadLinkPreview(for: url) }
             }
 
             Spacer(minLength: 12)
@@ -312,10 +316,6 @@ struct ImageCopyHitTarget: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
-/// A small card under a text message that links out: the page's Open Graph
-/// title and, if present, its share image. Scraped once on appear (cached on
-/// the model) and silently absent until — and unless — that succeeds, so a
-/// link with no preview just shows the bare text above. Clicking opens the URL.
 struct LinkPreviewCard: View {
     @ObservedObject var model: MessageDisplayModel
     let url: URL
@@ -328,12 +328,9 @@ struct LinkPreviewCard: View {
     }
 
     var body: some View {
-        Group {
-            if let preview {
-                content(preview)
-            }
+        if let preview {
+            content(preview)
         }
-        .task(id: url) { await model.loadLinkPreview(for: url) }
     }
 
     private func content(_ preview: LinkPreviewData) -> some View {
