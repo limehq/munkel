@@ -229,6 +229,7 @@ struct MenuView: View {
     }
 
     private func showAbout() {
+        model.closePopover?()
         NSApp.activate(ignoringOtherApps: true)
         NSApp.orderFrontStandardAboutPanel(nil)
     }

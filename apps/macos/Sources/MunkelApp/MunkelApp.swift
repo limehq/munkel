@@ -61,6 +61,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // sluggish next to the old MenuBarExtra window.
         popover.animates = false
         popover.delegate = self
+        model.closePopover = { [weak self] in self?.popover.close() }
 
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         // Brand silhouette as a template image, sized for the menu bar;
