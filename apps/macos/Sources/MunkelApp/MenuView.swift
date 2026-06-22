@@ -109,11 +109,18 @@ struct MenuView: View {
                 .scaledToFit()
                 .frame(width: 16, height: 16)
                 .foregroundStyle(.primary)
-            Text("Munkel")
+            Text(appTitle)
                 .font(.headline)
             Spacer()
             settingsMenu
         }
+    }
+
+    private var appTitle: String {
+        if let branch = Bundle.main.infoDictionary?["MunkelGitBranch"] as? String, !branch.isEmpty {
+            return "Munkel (\(branch))"
+        }
+        return "Munkel"
     }
 
     private var settingsMenu: some View {
