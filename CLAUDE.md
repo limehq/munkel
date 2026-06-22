@@ -5,8 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Overview
 
 Munkel: ephemeral, end-to-end-encrypted messages between friends ("channels") that
-slide out of the MacBook notch. No accounts, no message storage. The repo
-directory is `fluesterung` but the product/brand is **Munkel**.
+slide out of the MacBook notch. No accounts, no message storage.
 
 `docs/ARCHITECTURE.md` is the authoritative, source-linked map of every component
 and the data flow — read it before non-trivial work instead of re-deriving the
