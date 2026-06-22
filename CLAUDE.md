@@ -58,6 +58,11 @@ Single tests:
   identity (bundle id `dev.uq.munkel.debug`, own UserDefaults, control socket,
   and menu-bar icon) that runs side by side with an installed release. It is the
   *debug* configuration; *release* is `Munkel` / `dev.uq.munkel`.
+- `./make-bundle.sh mas` (or `bun run build:mas`) builds the **GUI-only Mac App
+  Store** flavor: sandboxed via `Munkel.mas.entitlements`, with Sparkle and the
+  CLI-install/update menu items stripped (`MUNKEL_MAS=1` drops the Sparkle
+  dependency and defines `MAS` → `#if !MAS`). Same bundle id `dev.uq.munkel`.
+  See `RELEASING.md` → *Mac App Store*.
 - The build goes through **Swift Bundler** via `make-bundle.sh` (not raw `swift
   build`): it assembles the `.app` from `Bundler.toml`, injecting version and
   archs. `scripts/ensure-swift-bundler.sh` builds the pinned bundler on demand.
