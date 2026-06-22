@@ -81,7 +81,12 @@ Pushing a tag `v<version>` runs `.github/workflows/release.yml`:
 4. `scripts/build-appcast.sh` EdDSA-signs the notarized DMG and renders the
    Sparkle auto-update feed `appcast.xml` (see **Auto-updates** below).
 5. GitHub release with `Munkel-<version>.dmg` (+ `.sha256` + Sigstore bundle
-   + `appcast.xml`).
+   + `appcast.xml`). release-please creates the release as a **prerelease**
+   (`prerelease: true` in `release-please-config.json`); `release.yml` clears
+   that flag and marks it `latest` only **after** the assets are attached
+   (`gh release edit … --prerelease=false --latest`). Until then GitHub's
+   `releases/latest` skips it, so the Sparkle feed never resolves to a release
+   whose `appcast.xml` isn't uploaded yet (see **Auto-updates**).
 6. `scripts/build-brew-cask.sh` renders `Casks/munkel.rb` (with `auto_updates
    true`) with the new version + DMG sha256 and pushes it to
    `limehq/homebrew-tap`.
