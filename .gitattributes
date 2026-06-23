@@ -5,3 +5,6 @@ graphify-out/** linguist-generated=true
 graphify-out/graph.json           -diff
 graphify-out/graph.html           -diff
 graphify-out/munkel-callflow.html -diff
+
+# TanStack Router generated route tree: collapse in GitHub PRs + skip textual diffs
+apps/landing/src/routeTree.gen.ts linguist-generated=true -diff
