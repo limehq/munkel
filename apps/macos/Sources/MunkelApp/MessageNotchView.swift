@@ -321,7 +321,6 @@ struct LinkPreviewCard: View {
     let url: URL
 
     @State private var image: CGImage?
-    @State private var shimmer = false
 
     var body: some View {
         switch model.linkPreviews[url.absoluteString] {
@@ -341,24 +340,12 @@ struct LinkPreviewCard: View {
             RoundedRectangle(cornerRadius: 6, style: .continuous)
                 .fill(.white.opacity(0.1))
                 .frame(width: 44, height: 44)
-            VStack(alignment: .leading, spacing: 5) {
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(.white.opacity(0.1))
-                    .frame(maxWidth: .infinity, minHeight: 9, maxHeight: 9)
-                RoundedRectangle(cornerRadius: 3, style: .continuous)
-                    .fill(.white.opacity(0.1))
-                    .frame(width: 64, height: 8)
-            }
-            Spacer(minLength: 0)
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(.white.opacity(0.1))
+                .frame(maxWidth: .infinity, minHeight: 9, maxHeight: 9)
         }
         .padding(6)
         .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .opacity(shimmer ? 0.5 : 1)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.85).repeatForever(autoreverses: true)) {
-                shimmer = true
-            }
-        }
     }
 
     private var fallback: some View {
@@ -368,7 +355,7 @@ struct LinkPreviewCard: View {
                 .foregroundStyle(.white.opacity(0.5))
                 .frame(width: 44, height: 44)
                 .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-            Text(url.host ?? url.absoluteString)
+            Text(url.host ?? "")
                 .font(.system(size: 12, weight: .semibold))
                 .foregroundStyle(.white)
                 .lineLimit(1)

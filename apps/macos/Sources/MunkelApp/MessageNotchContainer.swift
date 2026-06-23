@@ -10,7 +10,7 @@ import SwiftUI
 /// mode flips, so the shape animates between the two sizes seamlessly.
 enum NotchDisplayMode { case message, indicator }
 
-enum LinkPreviewState: Equatable {
+enum LinkPreviewState {
     case loading
     case ready(LinkPreviewData?)
 }
