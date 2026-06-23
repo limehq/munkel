@@ -14,20 +14,15 @@ import { Faq } from '@/components/sections/faq'
 import { Cta } from '@/components/sections/cta'
 import { LaunchBadgeTrack } from '@/components/sections/launch-badges'
 import { SiteFooter } from '@/components/sections/site-footer'
-import { getLatestRelease } from '@/lib/release'
 
-export const Route = createFileRoute('/')({
-  loader: async () => ({ version: (await getLatestRelease())?.tag_name ?? null }),
-  component: LandingPage,
-})
+export const Route = createFileRoute('/')({ component: LandingPage })
 
 function LandingPage() {
-  const { version } = Route.useLoaderData()
   return (
     <MotionConfig reducedMotion="user">
       <AnnounceBar />
       <Nav />
-      <Hero version={version} />
+      <Hero />
       <HowItWorks />
       <Features />
       <Screenshots />

@@ -5,7 +5,7 @@ import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform 
 
 import { Button } from '@/components/ui/button'
 import { GithubIcon } from '@/components/icons'
-import { DOWNLOAD_URL, GITHUB_URL, RELEASES_URL } from '@/lib/constants'
+import { DOWNLOAD_URL, GITHUB_URL } from '@/lib/constants'
 import { easeInOutQuad } from '@/lib/motion'
 import { sleep } from '@/lib/utils'
 
@@ -73,7 +73,7 @@ function Avatar({ name, className }: { name: string; className?: string }) {
   )
 }
 
-export function Hero({ version }: { version?: string | null }) {
+export function Hero() {
   const prefersReduced = useReducedMotion()
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
@@ -254,16 +254,7 @@ export function Hero({ version }: { version?: string | null }) {
                 </a>
               </Button>
             </div>
-            <div className="hero-meta">
-              Free and open source
-              {version ? (
-                <>
-                  {' · '}
-                  <a href={RELEASES_URL}>{version}</a>
-                </>
-              ) : null}
-              {' · macOS 14+'}
-            </div>
+            <div className="hero-meta">Free and open source · macOS 14+</div>
           </motion.div>
           <motion.div
             className="mockup-wrap"
