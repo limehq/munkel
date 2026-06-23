@@ -95,8 +95,8 @@
     "semantic_hash": ""
   },
   "apps/landing/src/components/sections/hero.tsx": {
-    "mtime": 1782233664.2226138,
-    "ast_hash": "9486fe7ffb524c5cc8457cc0e3b24679",
+    "mtime": 1782178798.2439237,
+    "ast_hash": "fb4c9ff4ecf33efae1f6b87fe0ac7095",
     "semantic_hash": ""
   },
   "apps/landing/src/components/sections/how-it-works.tsx": {
@@ -205,9 +205,9 @@
     "semantic_hash": "4dc291441d5d099fab16c9a82306f4d1"
   },
   "apps/landing/vite.config.ts": {
-    "mtime": 1782215779.140564,
-    "ast_hash": "2cfcacf40749bfe448a351a96e607d44",
-    "semantic_hash": ""
+    "mtime": 1781561611.186908,
+    "ast_hash": "4ff3acc7f9627100076e32f810927d3a",
+    "semantic_hash": "4ff3acc7f9627100076e32f810927d3a"
   },
   "apps/landing/worker-configuration.d.ts": {
     "mtime": 1781304841.4527252,
