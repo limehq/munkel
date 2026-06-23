@@ -48,7 +48,7 @@ start. GitHub needs at least one commit on the branch to open a PR:
 git fetch origin
 git branch <type>/<short-slug> origin/main                            # feat/ fix/ docs/ chore/ refactor/
 git worktree add .claude/worktrees/<type>+<slug> <type>/<short-slug>  # slug = branch with / → +
-cd .claude/worktrees/<type>+<slug>
+cd .claude/worktrees/<type>+<slug>   # stay here: run all edits, git, and builds from inside
 
 git commit --allow-empty -m "chore: start #N"     # or your first real commit
 git push -u origin <type>/<short-slug>
@@ -71,10 +71,12 @@ gh pr ready <PR>
 
 ## Notes
 
-- Do **all** edits, commits, and pushes from inside the worktree — never the shared
-  root. Concurrent sessions share one HEAD; the worktree is your isolation. After the
-  PR merges, drop it with `git worktree remove .claude/worktrees/<type>+<slug>`
-  (`.claude/worktrees/` is gitignored).
+- **`cd` into the worktree and run *every* command — edits, `git`, builds — from
+  inside it.** A worktree isolates you only while your shell's working directory is
+  actually in it: driving it from the shared root with `git -C` or absolute paths
+  defeats the purpose, and one stray `cd` away (e.g. for an unrelated call) silently
+  puts your next commit on the root's shared HEAD. If something sends you back, `cd`
+  in again before the next `git`.
 - Branch from `main`. This repo **squash-merges**, so intermediate commits on the
   branch never reach `main` history — the PR title becomes the squash commit.
 - Use Conventional Commit types for both the branch prefix and the PR title
