@@ -417,6 +417,7 @@ struct MessageNotchContainer: View {
     /// 30pt from the shape's left side) stays clear of the camera cutout:
     /// side zone = (tickerWindow + 60 − notchWidth) / 2 ≥ 55pt for ≤200pt notches.
     private let tickerWindow: CGFloat = 250
+    private let teaserGlyphInset: CGFloat = 20
 
     var body: some View {
         Group {
@@ -807,7 +808,7 @@ struct MessageNotchContainer: View {
         if message.isImage {
             imageTeaserLine
         } else {
-            TickerText(text: message.text, windowWidth: tickerWindow, onFinished: onTeaserFinished)
+            TickerText(text: message.text, windowWidth: tickerWindow - teaserGlyphInset, onFinished: onTeaserFinished)
         }
     }
 
