@@ -191,7 +191,7 @@ final class MessageDisplayModel: ObservableObject {
         previewDebounce = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(180))
             guard !Task.isCancelled, let self else { return }
-            withAnimation(.easeOut(duration: 0.18)) { self.previewImageID = id }
+            withAnimation(.easeInOut(duration: 0.3)) { self.previewImageID = id }
         }
     }
 
@@ -202,7 +202,7 @@ final class MessageDisplayModel: ObservableObject {
         previewDebounce?.cancel()
         if hoveredImageID == id { hoveredImageID = nil }
         if previewImageID == id {
-            withAnimation(.easeOut(duration: 0.18)) { previewImageID = nil }
+            withAnimation(.easeInOut(duration: 0.24)) { previewImageID = nil }
         }
     }
 
@@ -214,7 +214,7 @@ final class MessageDisplayModel: ObservableObject {
         hoveredImageID = nil
         guard previewImageID != nil else { return }
         if animated {
-            withAnimation(.easeOut(duration: 0.18)) { previewImageID = nil }
+            withAnimation(.easeInOut(duration: 0.24)) { previewImageID = nil }
         } else {
             previewImageID = nil
         }
