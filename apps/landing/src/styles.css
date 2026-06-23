@@ -260,15 +260,14 @@ nav.floating {
   display: flex; align-items: center; justify-content: space-between; gap: 1.25rem;
   border: 1px solid transparent; border-radius: 999px;
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-    height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.4s cubic-bezier(0.4, 0, 0.2, 1),
     border-color 0.35s ease, background 0.35s ease, box-shadow 0.35s ease;
 }
 nav.floating .nav-inner {
-  width: fit-content; max-width: min(1100px, calc(100vw - 2rem));
-  height: calc(var(--nav-h) - 12px);
+  width: calc(100% - 2rem);
+  max-width: 1040px;
   transform: translateY(12px);
-  padding: 0 0.75rem 0 1.5rem;
+  padding: 0 1rem 0 1.5rem;
   border-color: var(--border);
   background: color-mix(in oklab, var(--background) 82%, transparent);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
