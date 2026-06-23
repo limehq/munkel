@@ -21,9 +21,14 @@
  * branch.
  */
 
-import encodeAvifInit, { init as initAvifEncode } from '@jsquash/avif/encode';
-import decodeAvifInit, { init as initAvifDecode } from '@jsquash/avif/decode';
 import imageSize from 'image-size';
+
+// @jsquash/avif is an ESM-only WASM package. Electron's main bundle is CJS,
+// so we lazy-load it at first use to avoid require()-of-ESM errors.
+let encodeAvifInit: (
+	data: ImageData,
+	opts: { quality: number },
+) => Promise<ArrayBuffer>;
 
 // Mirrors MunkelKit/ImageCodec.swift
 export const MAX_FULL_BYTES = 2 * 1024 * 1024;
@@ -53,8 +58,11 @@ let avifReady: Promise<void> | null = null;
 async function ensureAvifReady(): Promise<void> {
 	if (!avifReady) {
 		avifReady = (async () => {
-			await initAvifEncode();
-			await initAvifDecode();
+			const encodeMod = await import('@jsquash/avif/encode');
+			const decodeMod = await import('@jsquash/avif/decode');
+			encodeAvifInit = encodeMod.default;
+			await encodeMod.init();
+			await decodeMod.init();
 		})();
 	}
 	return avifReady;
@@ -116,10 +124,7 @@ async function encodeAvifOnce(
 	quality: number,
 ): Promise<Uint8Array | null> {
 	try {
-		const buf = await (encodeAvifInit as unknown as (
-			data: ImageData,
-			opts: { quality: number },
-		) => Promise<ArrayBuffer>)(imageData, { quality });
+		const buf = await encodeAvifInit(imageData, { quality });
 		return new Uint8Array(buf);
 	} catch {
 		return null;
@@ -240,6 +245,3 @@ function imageTypeToMime(type: string): string {
 	}
 }
 
-// Re-export to silence the "default only used as type" lint from the
-// double-import of decodeAvifInit above.
-export { decodeAvifInit as _decodeAvif };
