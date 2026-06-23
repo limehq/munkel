@@ -31,7 +31,8 @@ struct MessageNotchView: View {
     }
 
     private var textBody: some View {
-        HStack(alignment: .top, spacing: 12) {
+        let url = firstURL(in: message.text)
+        return HStack(alignment: .top, spacing: 12) {
             AvatarView(name: message.sender, imageData: message.avatarData)
 
             VStack(alignment: .leading, spacing: 6) {
@@ -44,9 +45,12 @@ struct MessageNotchView: View {
                         lineLimit: 0
                     ) { [weak model] view in model?.registerLinkHost(view) }
                 }
-                if let url = firstURL(in: message.text) {
+                if let url {
                     LinkPreviewCard(model: model, url: url)
                 }
+            }
+            .task(id: url) {
+                if let url { await model.loadLinkPreview(for: url) }
             }
 
             Spacer(minLength: 12)
@@ -312,28 +316,55 @@ struct ImageCopyHitTarget: NSViewRepresentable {
     func updateNSView(_ nsView: NSView, context: Context) {}
 }
 
-/// A small card under a text message that links out: the page's Open Graph
-/// title and, if present, its share image. Scraped once on appear (cached on
-/// the model) and silently absent until — and unless — that succeeds, so a
-/// link with no preview just shows the bare text above. Clicking opens the URL.
 struct LinkPreviewCard: View {
     @ObservedObject var model: MessageDisplayModel
     let url: URL
 
     @State private var image: CGImage?
 
-    private var preview: LinkPreviewData? {
-        // Outer optional: not yet fetched. Inner: fetched but had no OG data.
-        (model.linkPreviews[url.absoluteString] ?? nil)
+    var body: some View {
+        switch model.linkPreviews[url.absoluteString] {
+        case .ready(let data?):
+            content(data)
+        case .ready(nil):
+            fallback
+        case .loading:
+            if model.loadingPreviews.contains(url.absoluteString) { skeleton }
+        case nil:
+            EmptyView()
+        }
     }
 
-    var body: some View {
-        Group {
-            if let preview {
-                content(preview)
-            }
+    private var skeleton: some View {
+        HStack(spacing: 8) {
+            RoundedRectangle(cornerRadius: 6, style: .continuous)
+                .fill(.white.opacity(0.1))
+                .frame(width: 44, height: 44)
+            RoundedRectangle(cornerRadius: 3, style: .continuous)
+                .fill(.white.opacity(0.1))
+                .frame(maxWidth: .infinity, minHeight: 9, maxHeight: 9)
         }
-        .task(id: url) { await model.loadLinkPreview(for: url) }
+        .padding(6)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+    }
+
+    private var fallback: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "globe")
+                .font(.system(size: 17))
+                .foregroundStyle(.white.opacity(0.5))
+                .frame(width: 44, height: 44)
+                .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
+            Text(url.host ?? "")
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(.white)
+                .lineLimit(1)
+            Spacer(minLength: 0)
+        }
+        .padding(6)
+        .background(.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .contentShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+        .onTapGesture { NSWorkspace.shared.open(url) }
     }
 
     private func content(_ preview: LinkPreviewData) -> some View {
