@@ -9,10 +9,9 @@ export interface ControlRequest {
   to?: string;
   text?: string;
   /**
-   * Absolute paths to image files (an album). The Windows app reads, seals
-   * and uploads them, so the bytes never cross the pipe. The macOS app
-   * supports this end-to-end; the Windows app currently rejects it with a
-   * clear error — see `control-handlers.ts`.
+   * Absolute paths to image files (an album). The app reads, seals and
+   * uploads them, so the bytes never cross the pipe. Both macOS and Windows
+   * support this end-to-end; see `control-handlers.ts` for validation.
    */
   imagePaths?: string[];
 }

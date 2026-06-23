@@ -89,6 +89,38 @@ interface NotchMessage {
 }
 ```
 
+## Control pipe contract (CLI → Main)
+
+The `munkel` CLI connects to the Windows app over a per-user named pipe
+(`\\.\pipe\Munkel-<username>-Control`). Each connection carries one
+newline-delimited JSON request and one JSON response.
+
+### `ControlRequest`
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `action` | `string` | Command to execute, e.g. `"send"`, `"groups"`, `"image"`. |
+| `group?` | `string` | Target circle code. |
+| `to?` | `string` | Recipient display name for direct messages. |
+| `text?` | `string` | Message text or image caption. |
+| `imagePaths?` | `string[]` | Absolute paths to image files. The app reads, seals and uploads them, so the bytes never cross the pipe. Supported formats: jpg/jpeg, png, webp, avif, heic, heif. Maximum 8 images per request. |
+
+### `ControlResponse`
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ok` | `boolean` | Whether the command succeeded. |
+| `error?` | `string` | User-facing error message when `ok` is `false`. |
+| `groups?` | `ControlGroupInfo[]` | List of joined circles for the `"groups"` action. |
+
+```ts
+interface ControlGroupInfo {
+  code: string;
+  connected: boolean;
+  members: string[];
+}
+```
+
 ## Security notes
 
 - Raw `messageKey` values never leave the main process.

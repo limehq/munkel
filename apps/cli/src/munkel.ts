@@ -53,6 +53,14 @@ function fail(message: string, code = 1): never {
 // Mirrors MessageLimits.maxCharacters in the macOS app.
 const MAX_MESSAGE_CHARS = 2048
 
+// Supported image formats for the `munkel image` command. Kept in sync with
+// the Windows image codec (apps/windows/src/core/image-codec.ts) and the
+// macOS app. Extensions are compared case-insensitively.
+const SUPPORTED_IMAGE_EXTENSIONS = [".jpg", ".jpeg", ".png", ".webp", ".avif", ".heic", ".heif"]
+
+// Mirrors the album limit enforced by the receivers.
+const MAX_IMAGES = 8
+
 // Everything after the recipient is one message joined with spaces; quoting is
 // only needed for shell metacharacters.
 function joinMessage(parts: string[]): string {
@@ -144,8 +152,19 @@ if (args[0] === "circles" || args[0] === "groups") {
   if (rawPaths.length === 0) {
     fail(usageImage, 64)
   }
+  if (rawPaths.length > MAX_IMAGES) {
+    fail(`too many images (${rawPaths.length} > ${MAX_IMAGES})`, 64)
+  }
   const imagePaths: string[] = []
   for (const raw of rawPaths) {
+    const dot = raw.lastIndexOf(".")
+    const ext = dot === -1 ? "" : raw.slice(dot).toLowerCase()
+    if (!SUPPORTED_IMAGE_EXTENSIONS.includes(ext)) {
+      fail(
+        `unsupported image format: ${ext || "(none)"} — supported: ${SUPPORTED_IMAGE_EXTENSIONS.join(", ")}`,
+        64,
+      )
+    }
     const abs = resolvePath(raw)
     if (!(await Bun.file(abs).exists())) {
       fail(`no such image file: ${abs}`, 66) // EX_NOINPUT
