@@ -76,9 +76,7 @@ gh pr ready <PR>
   actually in it: driving it from the shared root with `git -C` or absolute paths
   defeats the purpose, and one stray `cd` away (e.g. for an unrelated call) silently
   puts your next commit on the root's shared HEAD. If something sends you back, `cd`
-  in again before the next `git`. After the PR merges, drop the worktree with
-  `git worktree remove .claude/worktrees/<type>+<slug>` (`.claude/worktrees/` is
-  gitignored).
+  in again before the next `git`.
 - Branch from `main`. This repo **squash-merges**, so intermediate commits on the
   branch never reach `main` history — the PR title becomes the squash commit.
 - Use Conventional Commit types for both the branch prefix and the PR title
