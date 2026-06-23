@@ -14,6 +14,7 @@ import { Route as ImprintRouteImport } from './routes/imprint'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AppcastDotxmlRouteImport } from './routes/appcast[.]xml'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DownloadLatestRouteImport } from './routes/download.latest'
 
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
@@ -40,6 +41,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DownloadLatestRoute = DownloadLatestRouteImport.update({
+  id: '/download/latest',
+  path: '/download/latest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -47,6 +53,7 @@ export interface FileRoutesByFullPath {
   '/contact': typeof ContactRoute
   '/imprint': typeof ImprintRoute
   '/privacy': typeof PrivacyRoute
+  '/download/latest': typeof DownloadLatestRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -54,6 +61,7 @@ export interface FileRoutesByTo {
   '/contact': typeof ContactRoute
   '/imprint': typeof ImprintRoute
   '/privacy': typeof PrivacyRoute
+  '/download/latest': typeof DownloadLatestRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -62,13 +70,33 @@ export interface FileRoutesById {
   '/contact': typeof ContactRoute
   '/imprint': typeof ImprintRoute
   '/privacy': typeof PrivacyRoute
+  '/download/latest': typeof DownloadLatestRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/appcast.xml' | '/contact' | '/imprint' | '/privacy'
+  fullPaths:
+    | '/'
+    | '/appcast.xml'
+    | '/contact'
+    | '/imprint'
+    | '/privacy'
+    | '/download/latest'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/appcast.xml' | '/contact' | '/imprint' | '/privacy'
-  id: '__root__' | '/' | '/appcast.xml' | '/contact' | '/imprint' | '/privacy'
+  to:
+    | '/'
+    | '/appcast.xml'
+    | '/contact'
+    | '/imprint'
+    | '/privacy'
+    | '/download/latest'
+  id:
+    | '__root__'
+    | '/'
+    | '/appcast.xml'
+    | '/contact'
+    | '/imprint'
+    | '/privacy'
+    | '/download/latest'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -77,6 +105,7 @@ export interface RootRouteChildren {
   ContactRoute: typeof ContactRoute
   ImprintRoute: typeof ImprintRoute
   PrivacyRoute: typeof PrivacyRoute
+  DownloadLatestRoute: typeof DownloadLatestRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -116,6 +145,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/download/latest': {
+      id: '/download/latest'
+      path: '/download/latest'
+      fullPath: '/download/latest'
+      preLoaderRoute: typeof DownloadLatestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -125,6 +161,7 @@ const rootRouteChildren: RootRouteChildren = {
   ContactRoute: ContactRoute,
   ImprintRoute: ImprintRoute,
   PrivacyRoute: PrivacyRoute,
+  DownloadLatestRoute: DownloadLatestRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
