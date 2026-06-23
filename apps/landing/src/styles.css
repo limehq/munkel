@@ -189,6 +189,12 @@
   body {
     font-family: var(--font-sans);
     background: var(--background);
+    /* iOS: viewport-fit=cover (see __root.tsx) bleeds the page background under
+       the status bar / home indicator so it's edge-to-edge instead of a solid
+       non-scrolling band; the env() insets below keep content clear of the
+       notch and the Safari toolbar. theme-color is ignored on iOS 26 — the bar
+       tint is sampled from this background. */
+    padding-top: env(safe-area-inset-top, 0px);
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
     transition: background 0.25s ease, color 0.25s ease;
@@ -233,7 +239,7 @@ svg.lucide { width: 16px; height: 16px; stroke-width: 1.5; }
 }
 
 nav {
-  position: sticky; top: 0; z-index: 100;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 100;
   height: var(--nav-h);
   border-bottom: 1px solid var(--border);
   background: color-mix(in oklab, var(--background) 86%, transparent);
@@ -316,13 +322,25 @@ nav.floating .nav-inner {
 
 /* ---------- MacBook mockup ---------- */
 .mockup-wrap {
+  position: relative;
+  z-index: 3;
   margin: 5vh auto 0;
-  perspective: 1600px;
-  will-change: transform;
   height: clamp(200px, 40vw, 390px);
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+}
+.mockup-backdrop { position: absolute; inset: 0; background: var(--background); }
+.mockup-fade {
+  position: absolute; inset: 0;
+  perspective: 1600px;
+  transform-origin: 50% 0%;
+  will-change: transform;
+}
+.mockup-wrap::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(46% 60% at 0% 100%, var(--background) 32%, transparent 80%),
+    radial-gradient(46% 60% at 100% 100%, var(--background) 32%, transparent 80%),
+    linear-gradient(to bottom, transparent 74%, var(--background) 100%);
 }
 .macbook { transform-origin: 50% 0%; max-width: 1000px; margin: 0 auto; }
 .mb-screen {
@@ -564,8 +582,8 @@ nav.floating .nav-inner {
    + nav push below the fold at scroll 0) so the cue is visible immediately; Motion
    fades it out over the first sliver of scroll. */
 .scroll-hint {
-  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
-  z-index: 2; pointer-events: none;
+  position: fixed; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
+  z-index: 4; pointer-events: none;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   color: var(--muted-foreground);
 }
@@ -1189,7 +1207,7 @@ html:not(.dark) .terminal { background: oklch(0.205 0 0); }
 .brew-cmd { margin: 1.75rem auto 0; max-width: fit-content; }
 .brew-cmd .install-body { display: flex; align-items: center; padding: 0.5rem 0.5rem 0.5rem 1rem; }
 .brew-cmd .install-body > span + span { margin-right: 0.75rem; }
-footer { border-top: 1px solid var(--border); padding: 2rem 0; }
+footer { border-top: 1px solid var(--border); padding: 2rem 0 calc(2rem + env(safe-area-inset-bottom, 0px)); }
 .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .footer-inner .muted { font-size: var(--text-xs); }
 .footer-links { display: flex; gap: 1.5rem; }
@@ -1256,7 +1274,7 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
   .how-grid { grid-template-columns: 1fr; gap: 2rem; }
   .how-head { position: static; }
   .cli-grid, .privacy-grid, .agents-grid { grid-template-columns: 1fr; }
-  .hero-stage { height: 200vh; }
+  .hero-stage { height: 210vh; }
   .hero-copy { padding-top: 8vh; }
   .mockup-wrap { margin-top: 3rem; }
   /* The notch is internally 1:1 with the app (310pt etc.); on narrow viewports
@@ -1312,7 +1330,7 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
 /* Slim standalone header — NOT the bespoke landing <nav>. Static, no float,
    no hash links. Same sticky height token so the layout rhythm matches. */
 .legal-header {
-  position: sticky; top: 0; z-index: 100;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 100;
   height: var(--nav-h);
   border-bottom: 1px solid var(--border);
   background: color-mix(in oklab, var(--background) 86%, transparent);

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, SVGProps } from 'react'
 import { BatteryMedium, Check, ChevronDown, ChevronUp, Copy, Download, Globe, Wifi } from 'lucide-react'
-import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react'
+import { motion, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
 import { GithubIcon } from '@/components/icons'
@@ -24,7 +24,7 @@ const MESSAGES: Msg[] = [
   { name: 'Morgan', text: 'same table as last time', direct: true, circle: 'lunch-crew', color: '#40c8e0' },
 ]
 
-const DOCK_AT = 0.78
+const DOCK_AT = 0.48
 
 function LockFill(props: SVGProps<SVGSVGElement>) {
   return (
@@ -94,16 +94,17 @@ export function Hero() {
   const hoveredRef = useRef(false)
   const dockedRef = useRef(false)
 
-  const { scrollYProgress } = useScroll({ target: stageRef, offset: ['start start', 'end end'] })
+  const { scrollY } = useScroll()
+  const scrub = useMotionValue(typeof window === 'undefined' ? 1000 : window.innerHeight * 1.2)
+  const scrollYProgress = useTransform(() => Math.min(1, Math.max(0, scrollY.get() / scrub.get())))
 
-  const pc = useTransform(scrollYProgress, [0, 0.38], [0, 1], { ease: easeInOutQuad })
-  const pm = useTransform(scrollYProgress, [0.04, 0.64], [0, 1], { ease: easeInOutQuad })
-  const pz = useTransform(scrollYProgress, [0.62, 1], [0, 1], { ease: easeInOutQuad })
-  const pr = useTransform(scrollYProgress, [0.48, 0.62], [0, 1], { ease: easeInOutQuad })
+  const pc = useTransform(scrollYProgress, [0, 0.3], [0, 1])
+  const pm = useTransform(scrollYProgress, [0, 0.34], [0, 1])
+  const pz = useTransform(scrollYProgress, [0.3, 1], [0, 1], { ease: easeInOutQuad })
+  const pr = useTransform(scrollYProgress, [0.24, 0.34], [0, 1], { ease: easeInOutQuad })
 
-  const copyOpacity = useTransform(pc, [0, 1], [1, 0])
-  const copyY = useTransform(pc, [0, 1], [0, -64])
-  const copyScale = useTransform(pc, [0, 1], [1, 0.95])
+  const copyOpacity = useTransform(pm, [0.6, 1], [1, 0])
+  const copyZ = useTransform(pc, [0, 1], [0, -140])
   const copyPointer = useTransform(pc, (v) => (v > 0.5 ? 'none' : 'auto'))
   const hintOpacity = useTransform(pc, [0, 0.25], [1, 0])
 
@@ -112,7 +113,7 @@ export function Hero() {
   const wrapScale = useTransform(pm, [0, 1], [0.94, 1.14])
 
   const macRotateX = useTransform(pm, [0, 1], [22, 0])
-  const macScale = useTransform(pz, [0, 1], [1, 1.45])
+  const macScale = useTransform(pz, [0, 1], [1, 1.42])
   const macTransform = useTransform(() => `rotateX(${macRotateX.get()}deg) scale(${macScale.get()})`)
   const macOpacity = useTransform(pm, [0, 1], [0.55, 1])
   const rimColor = useTransform(pr, (v) => `oklch(1 0 0 / ${(0.16 * (1 - v)).toFixed(3)})`)
@@ -128,6 +129,8 @@ export function Hero() {
 
   useEffect(() => {
     const measure = () => {
+      const stage = stageRef.current
+      if (stage) scrub.set(Math.max(1, stage.offsetHeight - window.innerHeight))
       const wrap = wrapRef.current
       if (!wrap) return
       wrapGeom.current = {
@@ -227,7 +230,7 @@ export function Hero() {
             style={
               reduce
                 ? undefined
-                : { opacity: copyOpacity, y: copyY, scale: copyScale, pointerEvents: copyPointer }
+                : { opacity: copyOpacity, z: copyZ, transformPerspective: 1000, pointerEvents: copyPointer }
             }
           >
             <div className="app-icon">
@@ -259,8 +262,10 @@ export function Hero() {
           <motion.div
             className="mockup-wrap"
             ref={wrapRef}
-            style={reduce ? undefined : { y: wrapY, scale: wrapScale }}
+            style={reduce ? undefined : { top: wrapY }}
           >
+            <div className="mockup-backdrop" aria-hidden />
+            <motion.div className="mockup-fade" style={reduce ? undefined : { scale: wrapScale }}>
             <motion.div
               className="macbook"
               ref={macRef}
@@ -394,6 +399,7 @@ export function Hero() {
                   </div>
                 </div>
               </motion.div>
+            </motion.div>
             </motion.div>
           </motion.div>
           <motion.div className="scroll-hint" style={reduce ? undefined : { opacity: hintOpacity }}>
