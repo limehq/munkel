@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { Check, Copy, Download } from 'lucide-react'
+import { Check, Copy } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { BREW_CMD, DOWNLOAD_URL, GITHUB_URL } from '@/lib/constants'
+import { DownloadButton } from '@/components/download-button'
+import { BREW_CMD, GITHUB_URL } from '@/lib/constants'
 
 function BrewCmd() {
   const [copied, setCopied] = useState(false)
@@ -44,12 +45,7 @@ export function Cta() {
           company.
         </p>
         <div className="hero-ctas">
-          <Button asChild variant="primary">
-            <a href={DOWNLOAD_URL}>
-              <Download aria-hidden />
-              Download for macOS
-            </a>
-          </Button>
+          <DownloadButton />
           <Button asChild variant="outline">
             <a href={GITHUB_URL}>View on GitHub</a>
           </Button>
