@@ -262,7 +262,7 @@ export function Hero() {
           <motion.div
             className="mockup-wrap"
             ref={wrapRef}
-            style={reduce ? undefined : { top: wrapY }}
+            style={reduce ? undefined : { y: wrapY }}
           >
             <div className="mockup-backdrop" aria-hidden />
             <motion.div className="mockup-fade" style={reduce ? undefined : { scale: wrapScale }}>

@@ -571,12 +571,12 @@ nav.floating .nav-inner {
 /* ---------- Hero (pinned scroll stage) ---------- */
 .hero { padding: 0; text-align: center; position: relative; overflow: clip; }
 .hero::before {
-  content: ""; position: absolute; inset: -300px -20% auto -20%; height: 110vh;
+  content: ""; position: absolute; inset: -300px -20% auto -20%; height: 110vh; height: 110lvh;
   background: radial-gradient(ellipse 50% 60% at 50% 0%, var(--brand-soft), transparent 70%);
   pointer-events: none;
 }
-.hero-stage { height: 220vh; position: relative; }
-.hero-sticky { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+.hero-stage { height: 220vh; height: 220lvh; position: relative; }
+.hero-sticky { position: sticky; top: 0; height: 100vh; height: 100lvh; overflow: hidden; }
 .hero-copy { position: relative; padding-top: 12vh; will-change: transform, opacity; z-index: 2; }
 /* Anchored to the viewport (not the 100vh sticky, which the in-flow announce bar
    + nav push below the fold at scroll 0) so the cue is visible immediately; Motion
@@ -672,7 +672,7 @@ h1 .notch-word {
 
 /* 404 — the shushing meerkat, since the message already vanished. */
 .not-found {
-  min-height: 70vh; display: flex; flex-direction: column;
+  min-height: 70vh; min-height: 70lvh; display: flex; flex-direction: column;
   align-items: center; justify-content: center; text-align: center;
   gap: 0.5rem; padding: 6rem 1.5rem;
 }
@@ -1274,7 +1274,7 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0 calc(2rem + env(sa
   .how-grid { grid-template-columns: 1fr; gap: 2rem; }
   .how-head { position: static; }
   .cli-grid, .privacy-grid, .agents-grid { grid-template-columns: 1fr; }
-  .hero-stage { height: 210vh; }
+  .hero-stage { height: 210vh; height: 210lvh; }
   .hero-copy { padding-top: 8vh; }
   .mockup-wrap { margin-top: 3rem; }
   /* The notch is internally 1:1 with the app (310pt etc.); on narrow viewports
