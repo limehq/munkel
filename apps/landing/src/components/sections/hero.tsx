@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, SVGProps } from 'react'
-import { BatteryMedium, Check, ChevronDown, ChevronUp, Copy, Download, Globe, Wifi } from 'lucide-react'
+import { BatteryMedium, Check, ChevronDown, ChevronUp, Copy, Globe, Wifi } from 'lucide-react'
 import { motion, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
+import { DownloadButton } from '@/components/download-button'
 import { GithubIcon } from '@/components/icons'
-import { DOWNLOAD_URL, GITHUB_URL } from '@/lib/constants'
+import { GITHUB_URL } from '@/lib/constants'
 import { easeInOutQuad } from '@/lib/motion'
 import { sleep } from '@/lib/utils'
 
@@ -241,12 +242,7 @@ export function Hero() {
               The kind of note you'd say across a table. It slips into your notch, then it's gone.
             </p>
             <div className="hero-ctas">
-              <Button asChild variant="primary">
-                <a href={DOWNLOAD_URL}>
-                  <Download aria-hidden />
-                  Download for macOS
-                </a>
-              </Button>
+              <DownloadButton />
               <Button asChild variant="outline">
                 <a href={GITHUB_URL}>
                   <GithubIcon />
