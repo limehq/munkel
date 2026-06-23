@@ -8,7 +8,8 @@
 		"dev": "node scripts/dev.mjs",
 		"build": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit && vite build --config vite.main.config.ts && vite build --config vite.renderer.config.ts",
 		"typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit",
-		"test": "bun test"
+		"test": "bun test",
+		"render-tray-icon": "bun scripts/render-tray-icon.mjs"
 	},
 	"dependencies": {
 		"@jsquash/avif": "^2.1.1",
@@ -24,6 +25,7 @@
 		"@types/ws": "^8.18.1",
 		"@vitejs/plugin-react": "^4.3.1",
 		"electron": "^31.0.2",
+		"sharp": "^0.35.1",
 		"typescript": "^5.4.5",
 		"vite": "^5.3.1"
 	}
