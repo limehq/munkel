@@ -1,6 +1,19 @@
 # @munkel/windows
 
-Munkel for Windows — Phase 1 scaffold (Electron + Vite + React + TypeScript).
+Munkel for Windows — Electron + Vite + React + TypeScript client.
+
+## Status
+
+Phase 1 is feature-complete for day-to-day messaging:
+
+- Join/create circles with human-readable codes (`blue-table-42`).
+- Send/receive text chats and image albums (up to 8 images per message).
+- System-tray menu, frosted quick-send palette, and top-center notch.
+- Inline notch replies (direct or broadcast).
+- `munkel` CLI integration over a Windows named pipe.
+- Cross-platform crypto interop with the macOS app and server reference.
+
+GitHub OAuth login/avatar and release packaging are still pending.
 
 ## Development
 
@@ -37,11 +50,38 @@ processes in watch mode, and launches Electron.
 
 ## Window types
 
-- **Menu** (`/menu`) — frosted tray popover, circles, join area, GitHub login
-  placeholder
-- **Notch** (`/notch`) — top-center floating pill for incoming messages
-- **Palette** (`/palette`) — centered spotlight quick-send palette
+- **Menu** (`/menu`) — frosted tray popover, circles, join area, display-name
+  editing
+- **Notch** (`/notch`) — top-center floating pill for incoming messages and
+  inline replies; image albums render as inline AVIF thumbnails
+- **Palette** (`/palette`) — centered spotlight quick-send palette with
+  recipient filtering and image attachment (up to 8 images + caption)
 
 ## Keyboard shortcuts
 
 - `Ctrl + Shift + M` — toggle the quick-send palette
+
+## CLI integration
+
+The Windows app exposes a named-pipe control server at
+`\\.\pipe\Munkel-<username>-Control`. The CLI (`apps/cli`) detects Windows
+and uses this pipe automatically:
+
+```powershell
+munkel circles
+munkel blue-table-42 Alex "hey"
+munkel blue-table-42 all "coffee?"
+munkel blue-table-42 image ./photo1.png ./photo2.png --caption "weekend"
+munkel dm Alex "ping"
+```
+
+If the app is not running, the CLI launches it and waits for the pipe.
+
+## Architecture notes
+
+- Crypto, protocol framing, and relay client live in `src/core/` and mirror
+  the macOS `MunkelKit` implementation.
+- Image albums are transcoded to AVIF, sealed with AES-256-GCM, uploaded to
+  the relay's R2-backed blob store, and delivered as a compact `image` payload.
+- The renderer ↔ main IPC contract is documented in `docs/ipc-contract.md`;
+  the UI specification is in `docs/ui-spec.md`.

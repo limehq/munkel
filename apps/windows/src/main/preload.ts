@@ -16,9 +16,12 @@ const api: IpcApi = {
 	joinCircle: (code, relayUrl) => ipcRenderer.invoke('join-circle', code, relayUrl),
 	leaveCircle: (code) => ipcRenderer.invoke('leave-circle', code),
 	sendChat: (code, text, to) => ipcRenderer.invoke('send-chat', code, text, to),
+	sendImages: (code, paths, caption, to) => ipcRenderer.invoke('send-images', code, paths, caption, to),
 	updateProfile: (displayName, avatar) => ipcRenderer.invoke('update-profile', displayName, avatar),
 	setRelayUrl: (code, relayUrl) => ipcRenderer.invoke('set-relay-url', code, relayUrl),
 	getState: () => ipcRenderer.invoke('get-state'),
+
+	selectImages: () => ipcRenderer.invoke('select-images'),
 
 	deriveGroupId: (code) => ipcRenderer.invoke('derive-group-id', code),
 	sealChat: (code, text, sentAt) => ipcRenderer.invoke('seal-chat', code, text, sentAt),

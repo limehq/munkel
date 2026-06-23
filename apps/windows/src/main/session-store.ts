@@ -78,6 +78,15 @@ export class AppState {
 		return session.sendChat(text, to);
 	}
 
+	async sendImages(code: string, paths: string[], caption: string, to?: string): Promise<SendResult> {
+		const normalized = normalizeCircleCode(code);
+		const session = this.sessions.get(normalized);
+		if (!session) {
+			return { ok: false, error: 'Circle offline — message not sent.' };
+		}
+		return session.sendImages(paths, caption, to);
+	}
+
 	updateIdentity(displayName: string, avatar?: string): void {
 		this.identity = { ...this.identity, displayName, avatar };
 		this.identityStore.patch({ displayName, avatar });

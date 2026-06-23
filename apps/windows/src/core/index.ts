@@ -3,5 +3,7 @@ export * from './normalize.js';
 export * from './crypto.js';
 export * from './payload.js';
 export * from './avatar.js';
+export * from './image-codec.js';
+export * from './blob-upload.js';
 export * from './control.js';
 export * from './transport.js';

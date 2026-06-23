@@ -2,10 +2,12 @@ import { describe, it, expect } from 'bun:test';
 import {
   encodeChat,
   encodeProfile,
+  encodeImage,
   decodePayload,
   assertPayloadFits,
   PayloadTooLargeError,
   MAX_PAYLOAD_CHARS,
+  type ImageItem,
 } from '../payload';
 
 describe('payload encoding', () => {
@@ -52,6 +54,51 @@ describe('payload encoding', () => {
     expect(() => decodePayload('not json')).toThrow('not valid JSON');
     expect(() => decodePayload('{"kind":"chat","text":"x"}')).toThrow('sentAt');
     expect(() => decodePayload('{"kind":"unknown"}')).toThrow('Unknown payload kind');
+  });
+
+  it('round-trips an image album through encodeImage + decodePayload', () => {
+    const items: ImageItem[] = [
+      { r2Key: 'abcdefghijklmnop', mime: 'image/avif', width: 800, height: 600, byteLen: 12345, thumb: 'AAAA' },
+      { r2Key: 'qrstuvwxyz012345', mime: 'image/avif', width: 1024, height: 768, byteLen: 67890, thumb: 'BBBB' },
+    ];
+    const payload = encodeImage(items, 'look at this', new Date('2025-06-01T12:00:00.000Z'));
+    const decoded = decodePayload(JSON.stringify(payload));
+    expect(decoded).toEqual(payload);
+  });
+
+  it('rejects image items with malformed r2Key', () => {
+    const bad = {
+      kind: 'image',
+      items: [{ r2Key: 'too-short', mime: 'image/avif', width: 1, height: 1, byteLen: 0, thumb: 'x' }],
+      caption: '',
+      sentAt: '2025-06-01T12:00:00.000Z',
+    };
+    expect(() => decodePayload(JSON.stringify(bad))).toThrow(/r2Key is malformed/);
+  });
+
+  it('rejects image items with non-integer width/height', () => {
+    const bad = {
+      kind: 'image',
+      items: [{ r2Key: 'abcdefghijklmnop', mime: 'image/avif', width: 1.5, height: 1, byteLen: 0, thumb: 'x' }],
+      caption: '',
+      sentAt: '2025-06-01T12:00:00.000Z',
+    };
+    expect(() => decodePayload(JSON.stringify(bad))).toThrow(/width must be a positive integer/);
+  });
+
+  it('drops extras beyond 8 items, mirroring macOS receivers', () => {
+    const items: ImageItem[] = Array.from({ length: 12 }, (_, i) => ({
+      r2Key: `abcdefghijklmnop${i}`,
+      mime: 'image/avif',
+      width: 800,
+      height: 600,
+      byteLen: 1000,
+      thumb: 't',
+    }));
+    const payload = encodeImage(items, 'overflow');
+    const decoded = decodePayload(JSON.stringify(payload));
+    if (decoded.kind !== 'image') throw new Error('expected image payload');
+    expect(decoded.items.length).toBe(8);
   });
 });
 

@@ -27,6 +27,8 @@ interface AppStore {
 	joinCircle: (code: string, relayUrl?: string) => Promise<void>;
 	leaveCircle: (code: string) => Promise<void>;
 	sendChat: (code: string, text: string, to?: string) => Promise<{ ok: boolean; error?: string }>;
+	sendImages: (code: string, paths: string[], caption: string, to?: string) => Promise<{ ok: boolean; error?: string }>;
+	selectImages: () => Promise<string[] | undefined>;
 	updateProfile: (displayName: string, avatar?: string) => Promise<void>;
 	setRelayUrl: (code: string, relayUrl: string) => Promise<void>;
 }
@@ -109,6 +111,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		return window.electronAPI.sendChat(code, text, to);
 	}, []);
 
+	const sendImages = useCallback(async (code: string, paths: string[], caption: string, to?: string) => {
+		return window.electronAPI.sendImages(code, paths, caption, to);
+	}, []);
+
+	const selectImages = useCallback(async () => {
+		return window.electronAPI.selectImages();
+	}, []);
+
 	const updateProfile = useCallback(async (displayName: string, avatar?: string) => {
 		await window.electronAPI.updateProfile(displayName, avatar);
 	}, []);
@@ -129,6 +139,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			joinCircle,
 			leaveCircle,
 			sendChat,
+			sendImages,
+			selectImages,
 			updateProfile,
 			setRelayUrl,
 		}),
@@ -143,6 +155,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			joinCircle,
 			leaveCircle,
 			sendChat,
+			sendImages,
+			selectImages,
 			updateProfile,
 			setRelayUrl,
 		],

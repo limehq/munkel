@@ -81,6 +81,8 @@ export default function NotchWidget() {
 		}
 	}
 
+	const hasImages = message && message.images && message.images.length > 0;
+
 	return (
 		<div className={`notch-widget ${visible && message ? 'notch-visible' : ''}`}>
 			{message && (
@@ -96,6 +98,19 @@ export default function NotchWidget() {
 								<span className="circle-name">{message.group}</span>
 							</div>
 							<p className="message-text">{message.text}</p>
+							{hasImages && (
+								<div className="image-preview-row">
+									{message.images!.map((img) => (
+										<img
+											key={img.id}
+											className="image-preview-thumb"
+											src={`data:image/avif;base64,${img.thumb}`}
+											alt={`${img.width}×${img.height}`}
+											title={`${img.width}×${img.height}`}
+										/>
+									))}
+								</div>
+							)}
 						</div>
 						<button className="icon-button copy-button" onClick={copyText}>
 							{copied ? '✓' : '📋'}

@@ -80,6 +80,41 @@ export async function seal(plaintext: string | Uint8Array, messageKey: CryptoKey
   }
 }
 
+export async function sealRaw(plaintext: Uint8Array, messageKey: CryptoKey): Promise<Uint8Array> {
+  try {
+    const nonce = crypto.getRandomValues(new Uint8Array(12));
+    const ciphertext = new Uint8Array(
+      await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, messageKey, plaintext as ArrayBufferView<ArrayBuffer>),
+    );
+    return concatBytes(nonce, ciphertext);
+  } catch (err) {
+    throw new CryptoError('Failed to seal payload', err);
+  }
+}
+
+/**
+ * Inverse of {@link sealRaw}: takes raw `nonce ‖ ciphertext ‖ tag` bytes
+ * and returns the decrypted plaintext bytes. Used for the R2 blob receive
+ * path.
+ */
+export async function openRaw(payload: Uint8Array, messageKey: CryptoKey): Promise<Uint8Array> {
+  if (payload.length < 12 + 16) {
+    throw new CryptoError('Payload is too short to contain a nonce and tag');
+  }
+  const nonce = payload.subarray(0, 12) as Uint8Array<ArrayBuffer>;
+  const ciphertextAndTag = payload.subarray(12) as Uint8Array<ArrayBuffer>;
+  try {
+    const plaintext = await crypto.subtle.decrypt(
+      { name: 'AES-GCM', iv: nonce },
+      messageKey,
+      ciphertextAndTag,
+    );
+    return new Uint8Array(plaintext);
+  } catch (err) {
+    throw new CryptoError('Failed to open payload (bad key or corrupted data)', err);
+  }
+}
+
 /**
  * Decrypt a sealed payload and return the UTF-8 plaintext string.
  */

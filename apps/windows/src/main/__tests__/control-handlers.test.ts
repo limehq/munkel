@@ -7,11 +7,14 @@ import type { SendResult } from '../group-session';
 function fakeState(opts: {
 	circles?: CircleState[];
 	sendChat?: (code: string, text: string, to?: string) => Promise<SendResult>;
+	sendImages?: (code: string, paths: string[], caption: string, to?: string) => Promise<SendResult>;
 }): ControlAppState {
 	return {
 		getState: () => ({ circles: opts.circles ?? [] }),
 		sendChat:
 			opts.sendChat ?? (async () => ({ ok: true })),
+		sendImages:
+			opts.sendImages ?? (async () => ({ ok: true })),
 	};
 }
 
@@ -284,18 +287,63 @@ describe('control-handlers', () => {
 		});
 	});
 
-	describe('send — generic', () => {
-		it('rejects image sends (not yet supported on Windows)', async () => {
-			const response = await call(fakeState({}), {
+	describe('send — image', () => {
+		it('routes imagePaths to sendImages with the caption as text', async () => {
+			let captured: { group: string; paths: string[]; caption: string; to?: string } | null = null;
+			const state = fakeState({
+				sendImages: async (group, paths, caption, to) => {
+					captured = { group, paths, caption, to };
+					return { ok: true };
+				},
+			});
+			const response = await call(state, {
 				action: 'send',
-				to: 'Alex',
-				text: 'shot',
+				group: 'blue-table-42',
+				text: 'look at this',
+				imagePaths: ['C:/tmp/a.png', 'C:/tmp/b.png'],
+				to: 'Alice',
+			});
+			expect(response).toEqual({ ok: true });
+			expect(captured).toEqual({
+				group: 'blue-table-42',
+				paths: ['C:/tmp/a.png', 'C:/tmp/b.png'],
+				caption: 'look at this',
+				to: 'Alice',
+			});
+		});
+
+		it('rejects an image send without a circle code', async () => {
+			const state = fakeState({});
+			const response = await call(state, {
+				action: 'send',
+				text: 'caption',
 				imagePaths: ['C:/tmp/a.png'],
 			});
 			expect(response.ok).toBe(false);
-			expect(response.error).toContain('image sends are not yet supported');
+			expect(response.error).toMatch(/Image sends need a circle/);
 		});
 
+		it('passes through sendImages errors verbatim', async () => {
+			const state = fakeState({
+				sendImages: async () => ({
+					ok: false,
+					error: 'Could not encode C:/tmp/a.png',
+				}),
+			});
+			const response = await call(state, {
+				action: 'send',
+				group: 'blue-table-42',
+				text: 'caption',
+				imagePaths: ['C:/tmp/a.png'],
+			});
+			expect(response).toEqual({
+				ok: false,
+				error: 'Could not encode C:/tmp/a.png',
+			});
+		});
+	});
+
+	describe('send — generic', () => {
 		it('rejects an empty message', async () => {
 			const response = await call(fakeState({}), {
 				action: 'send',

@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron';
+import { dialog, ipcMain } from 'electron';
 import type { AppState } from './session-store';
 
 export function registerSessionHandlers(appState: AppState): void {
@@ -14,6 +14,10 @@ export function registerSessionHandlers(appState: AppState): void {
 		return appState.sendChat(code, text, to);
 	});
 
+	ipcMain.handle('send-images', async (_event, code: string, paths: string[], caption: string, to?: string) => {
+		return appState.sendImages(code, paths, caption, to);
+	});
+
 	ipcMain.handle('update-profile', async (_event, displayName: string, avatar?: string) => {
 		appState.updateIdentity(displayName, avatar);
 	});
@@ -24,5 +28,16 @@ export function registerSessionHandlers(appState: AppState): void {
 
 	ipcMain.handle('get-state', async () => {
 		return appState.getState();
+	});
+
+	ipcMain.handle('select-images', async () => {
+		const result = await dialog.showOpenDialog({
+			properties: ['openFile', 'multiSelections'],
+			filters: [
+				{ name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'avif', 'bmp'] },
+				{ name: 'All files', extensions: ['*'] },
+			],
+		});
+		return result.canceled ? undefined : result.filePaths;
 	});
 }

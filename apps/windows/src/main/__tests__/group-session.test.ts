@@ -2,6 +2,7 @@ import { expect, test, describe, beforeEach, afterEach } from 'bun:test';
 import { WebSocketServer, WebSocket } from 'ws';
 import { deriveGroupKeys, seal, open, encodeChat, encodeProfile } from '../../core';
 import { GroupSession } from '../group-session';
+import { getCircleColor } from '../../shared/group-color';
 import type { CircleState, NotchMessage } from '../../shared/types';
 
 function getPort(server: WebSocketServer): number {
@@ -319,6 +320,54 @@ describe('GroupSession', () => {
 		const result = await session.sendChat(hugeText);
 		expect(result.ok).toBe(false);
 		expect(result.error?.toLowerCase()).toContain('too long');
+
+		session.disconnect();
+	});
+
+	test('decrypts incoming image albums and fires onNotch with images[]', async () => {
+		const wss = startServer();
+		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
+		const code = 'opal-finch';
+		const { messageKey } = await deriveGroupKeys(code);
+
+		const notches: import('../../shared/types').NotchMessage[] = [];
+		const session = await GroupSession.create(
+			code,
+			relayUrl,
+			memberId,
+			{ displayName: 'Windows User' },
+			{
+				onStateChange: () => {},
+				onChat: () => {},
+				onNotch: (message) => notches.push(message),
+				getColorIndex: () => 3,
+			},
+		);
+		session.connect();
+
+		await waitFor(() => serverSocket !== null);
+		serverSocket!.send(JSON.stringify({ type: 'welcome', members: ['peer-1'] }));
+
+		const imagePayload = {
+			kind: 'image',
+			items: [
+				{ r2Key: 'a'.repeat(16), mime: 'image/avif', width: 800, height: 600, byteLen: 12345, thumb: 'AAAA' },
+				{ r2Key: 'b'.repeat(16), mime: 'image/avif', width: 1024, height: 768, byteLen: 67890, thumb: 'BBBB' },
+			],
+			caption: 'look at this',
+			sentAt: '2025-06-01T12:00:00.000Z',
+		};
+		const sealed = await seal(JSON.stringify(imagePayload), messageKey);
+		serverSocket!.send(JSON.stringify({ type: 'message', from: 'peer-1', payload: sealed }));
+
+		await waitFor(() => notches.length >= 1);
+
+		expect(notches[0]!.images).toHaveLength(2);
+		expect(notches[0]!.images![0]!.id).toBe('a'.repeat(16));
+		expect(notches[0]!.images![0]!.width).toBe(800);
+		expect(notches[0]!.images![1]!.thumb).toBe('BBBB');
+		expect(notches[0]!.text).toBe('look at this');
+		expect(notches[0]!.groupColor).toBe(getCircleColor(3));
 
 		session.disconnect();
 	});
