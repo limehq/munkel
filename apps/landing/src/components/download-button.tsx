@@ -1,10 +1,23 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { Download, Loader2 } from 'lucide-react'
+import { type VariantProps } from 'class-variance-authority'
 
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 import { DOWNLOAD_URL } from '@/lib/constants'
 
-export function DownloadButton() {
+type DownloadButtonProps = VariantProps<typeof buttonVariants> & {
+  className?: string
+  children?: ReactNode
+  'aria-label'?: string
+}
+
+export function DownloadButton({
+  variant = 'primary',
+  size,
+  className,
+  children = 'Download for macOS',
+  'aria-label': ariaLabel,
+}: DownloadButtonProps) {
   const [loading, setLoading] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
@@ -15,10 +28,10 @@ export function DownloadButton() {
   }
 
   return (
-    <Button asChild variant="primary">
-      <a href={DOWNLOAD_URL} onClick={start} aria-busy={loading}>
+    <Button asChild variant={variant} size={size} className={className}>
+      <a href={DOWNLOAD_URL} onClick={start} aria-busy={loading} aria-label={ariaLabel}>
         {loading ? <Loader2 className="animate-spin" aria-hidden /> : <Download aria-hidden />}
-        Download for macOS
+        {children}
       </a>
     </Button>
   )
