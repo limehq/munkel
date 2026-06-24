@@ -5,6 +5,8 @@ import { PostHogProvider } from '@posthog/react'
 import { useEffect, useState, type ReactNode } from 'react'
 
 import appCss from '../styles.css?url'
+import geistLatinWoff2 from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url'
+import geistMonoLatinWoff2 from '@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2?url'
 
 const SITE_URL = 'https://munkel.app'
 const TITLE = 'Munkel · ephemeral messages from the notch'
@@ -39,6 +41,20 @@ export const Route = createRootRoute({
       { name: 'twitter:image', content: OG_IMAGE },
     ],
     links: [
+      {
+        rel: 'preload',
+        href: geistLatinWoff2,
+        as: 'font',
+        type: 'font/woff2',
+        crossOrigin: 'anonymous',
+      },
+      {
+        rel: 'preload',
+        href: geistMonoLatinWoff2,
+        as: 'font',
+        type: 'font/woff2',
+        crossOrigin: 'anonymous',
+      },
       { rel: 'stylesheet', href: appCss },
       { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
       { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png' },
