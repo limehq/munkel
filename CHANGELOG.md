@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/limehq/munkel/compare/v0.14.0...v0.15.0) (2026-06-24)
+
+
+### Features
+
+* **landing:** rework hero scroll, float mockup, fix clip hairline ([#170](https://github.com/limehq/munkel/issues/170)) ([94da614](https://github.com/limehq/munkel/commit/94da61405d355f178c70a093e1d7fac2933f02a0))
+
 ## [0.14.0](https://github.com/limehq/munkel/compare/v0.13.0...v0.14.0) (2026-06-23)
 
 
