@@ -575,7 +575,7 @@ nav.floating .nav-inner {
   background: radial-gradient(ellipse 50% 60% at 50% 0%, var(--brand-soft), transparent 70%);
   pointer-events: none;
 }
-.hero-stage { height: 220vh; height: 220lvh; position: relative; }
+.hero-stage { height: 320vh; height: 320lvh; position: relative; }
 .hero-sticky { position: sticky; top: 0; height: 100vh; height: 100lvh; overflow: hidden; }
 .hero-copy { position: relative; padding-top: 12vh; will-change: transform, opacity; z-index: 2; }
 /* Anchored to the viewport (not the 100vh sticky, which the in-flow announce bar
@@ -1274,7 +1274,7 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0 calc(2rem + env(sa
   .how-grid { grid-template-columns: 1fr; gap: 2rem; }
   .how-head { position: static; }
   .cli-grid, .privacy-grid, .agents-grid { grid-template-columns: 1fr; }
-  .hero-stage { height: 210vh; height: 210lvh; }
+  .hero-stage { height: 300vh; height: 300lvh; }
   .hero-copy { padding-top: 8vh; }
   .mockup-wrap { margin-top: 3rem; }
   /* The notch is internally 1:1 with the app (310pt etc.); on narrow viewports
