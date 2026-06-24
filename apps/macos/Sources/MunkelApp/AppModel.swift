@@ -86,16 +86,6 @@ final class AppModel: ObservableObject {
     private static let relayURLOverride: String? = ProcessInfo.processInfo
         .environment["MUNKEL_RELAY_URL"].flatMap { $0.isEmpty ? nil : $0 }
 
-    #if DEBUG
-    /// Dev-only: echo my own broadcasts into my notch (Settings toggle), so a
-    /// solo developer can see a sent message without a second member online —
-    /// the relay delivers a broadcast only to the *other* members. Default on.
-    static var devEchoBroadcasts: Bool {
-        get { (UserDefaults.standard.object(forKey: "devEchoBroadcasts") as? Bool) ?? true }
-        set { UserDefaults.standard.set(newValue, forKey: "devEchoBroadcasts") }
-    }
-    #endif
-
     private var sessions: [String: GroupSession] = [:]
     private let notch = NotchPresenter()
     private var controlServer: ControlServer?
@@ -151,12 +141,7 @@ final class AppModel: ObservableObject {
     func send(text: String, group code: String, to memberId: String? = nil) {
         guard let session = sessions[code] else { return }
         Task { await session.sendChat(text, to: memberId) }
-        #if DEBUG
-        // Dev aid: the relay delivers a broadcast only to the *other* members,
-        // so a solo developer never sees their own message. With the Settings
-        // toggle on, echo broadcasts (to: nil) into our own notch as if they
-        // had arrived — same path the live onChat handler uses.
-        if memberId == nil, Self.devEchoBroadcasts {
+        if memberId == nil {
             notch.show(
                 sender: displayName,
                 avatarData: Identity.avatarData,
@@ -173,7 +158,6 @@ final class AppModel: ObservableObject {
                 }
             }
         }
-        #endif
     }
 
     /// Send one or more images (an album), optionally with a caption. The
@@ -182,11 +166,7 @@ final class AppModel: ObservableObject {
     func send(images datas: [Data], caption: String = "", group code: String, to memberId: String? = nil) {
         guard let session = sessions[code], !datas.isEmpty else { return }
         Task { await session.sendImages(datas, caption: caption, to: memberId) }
-        #if DEBUG
-        // Dev echo (same rationale as the text path): a broadcast only reaches
-        // *other* members, so show our own album locally too. Decode off-main;
-        // the per-image loader returns the local full bytes — no R2 round trip.
-        if memberId == nil, Self.devEchoBroadcasts {
+        if memberId == nil {
             Task { [weak self] in
                 let built = await Task.detached { () -> (images: [IncomingImage], fulls: [String: Data])? in
                     let datas = Array(datas.prefix(AppPayload.maxImagesPerMessage))
@@ -195,9 +175,6 @@ final class AppModel: ObservableObject {
                     var fulls: [String: Data] = [:]
                     for (index, data) in datas.enumerated() {
                         guard let full = ImageCodec.prepareFull(from: data) else { continue }
-                        // Mirror sendImages: reuse the full AVIF as the preview
-                        // when it fits, else a small AVIF — so the local echo
-                        // matches what peers actually receive.
                         let thumb = full.data.count <= perThumb
                             ? full.data
                             : ImageCodec.makeThumbnail(from: data, maxBytes: perThumb)
@@ -228,7 +205,6 @@ final class AppModel: ObservableObject {
                 }
             }
         }
-        #endif
     }
 
     #if DEBUG

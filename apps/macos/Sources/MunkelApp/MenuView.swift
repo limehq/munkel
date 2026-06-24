@@ -19,7 +19,6 @@ struct MenuView: View {
     @State private var cliInstalled = CLIInstaller.isInstalled
     #endif
     #if DEBUG
-    @AppStorage("devEchoBroadcasts") private var devEchoBroadcasts = true
     @AppStorage(CaptureScreenshotPreference.defaultsKey) private var allowInScreenshots = false
     #endif
 
@@ -179,7 +178,6 @@ struct MenuView: View {
             }
             #if DEBUG
             Divider()
-            Toggle("Echo my broadcasts to me", isOn: $devEchoBroadcasts)
             Toggle("Allow in screenshots", isOn: $allowInScreenshots)
             // Seed a demo backlog (text + image messages) into the notch so the
             // expanded-history hover preview can be tested without real traffic.

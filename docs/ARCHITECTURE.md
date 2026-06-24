@@ -208,6 +208,11 @@ AVIF thumbnail plus an `r2Key` pointer per image (see
 [`GroupSession.sendImages`](../apps/macos/Sources/MunkelApp/GroupSession.swift)
 and [`blob.ts`](../apps/server/src/blob.ts)).
 
+The sender also surfaces its own broadcast locally: `AppModel.send` shows it in
+the sender's own notch (broadcasts only, `to` unset), so you see what you sent.
+The relay still never echoes (point 4) — this is a purely local render; direct
+messages (`to` set) are not shown back.
+
 ### Receiving a message
 
 1. On connect the relay sends a `welcome` frame listing the other members
