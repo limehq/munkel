@@ -35,7 +35,7 @@
     "semantic_hash": "58d7babaea94f37ca911b84be639ad5a"
   },
   "apps/landing/.wrangler/deploy/config.json": {
-    "mtime": 1782300511.5123372,
+    "mtime": 1782313738.0591009,
     "ast_hash": "9d663abcd158c67f171c437cb71f9503",
     "semantic_hash": "9d663abcd158c67f171c437cb71f9503"
   },
@@ -165,8 +165,8 @@
     "semantic_hash": "8192860c45ebec17d35754b74d12655e"
   },
   "apps/landing/src/routes/__root.tsx": {
-    "mtime": 1782300280.2781904,
-    "ast_hash": "950e1fafadf3c314d708f99fadd53eb3",
+    "mtime": 1782313723.2570603,
+    "ast_hash": "ab8fecb226a434fcd7f463a75f6940ca",
     "semantic_hash": ""
   },
   "apps/landing/src/routes/appcast[.]xml.ts": {
@@ -190,8 +190,8 @@
     "semantic_hash": ""
   },
   "apps/landing/src/routes/privacy.tsx": {
-    "mtime": 1782300378.1131241,
-    "ast_hash": "bfd00d7123e7aa22be60e693a9b28233",
+    "mtime": 1782312598.9042614,
+    "ast_hash": "45d1fcd6b77e2afc2d7619e0b50374f4",
     "semantic_hash": ""
   },
   "apps/landing/tsconfig.json": {
@@ -730,8 +730,8 @@
     "semantic_hash": ""
   },
   "apps/landing/src/routes/relay-Hk2p.$.ts": {
-    "mtime": 1782300268.0794568,
-    "ast_hash": "865914f4d311a7e17a3393c35767a9ed",
+    "mtime": 1782313726.8684914,
+    "ast_hash": "fbdf7298b08e8d403d48450469b81a1c",
     "semantic_hash": ""
   }
 }
