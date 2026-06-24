@@ -7,6 +7,7 @@ import SwiftUI
 struct NotchShape: Shape {
     var topRadius: CGFloat
     var bottomRadius: CGFloat
+    var cornerControlRatio: CGFloat = 0.75
 
     init(topCornerRadius: CGFloat, bottomCornerRadius: CGFloat) {
         self.topRadius = topCornerRadius
@@ -19,32 +20,29 @@ struct NotchShape: Shape {
     }
 
     func path(in rect: CGRect) -> Path {
-        // The straight side walls sit `topRadius` in from each edge; the bottom
-        // corners then bulge a further `bottomRadius` outward.
         let leftWall = rect.minX + topRadius
         let rightWall = rect.maxX - topRadius
+        let handle = bottomRadius * cornerControlRatio
 
         return Path { p in
             p.move(to: CGPoint(x: rect.minX, y: rect.minY))
-            // Concave blend: top edge → left wall.
             p.addQuadCurve(
                 to: CGPoint(x: leftWall, y: rect.minY + topRadius),
                 control: CGPoint(x: leftWall, y: rect.minY)
             )
             p.addLine(to: CGPoint(x: leftWall, y: rect.maxY - bottomRadius))
-            // Convex bottom-left corner.
-            p.addQuadCurve(
+            p.addCurve(
                 to: CGPoint(x: leftWall + bottomRadius, y: rect.maxY),
-                control: CGPoint(x: leftWall, y: rect.maxY)
+                control1: CGPoint(x: leftWall, y: rect.maxY - bottomRadius + handle),
+                control2: CGPoint(x: leftWall + bottomRadius - handle, y: rect.maxY)
             )
             p.addLine(to: CGPoint(x: rightWall - bottomRadius, y: rect.maxY))
-            // Convex bottom-right corner.
-            p.addQuadCurve(
+            p.addCurve(
                 to: CGPoint(x: rightWall, y: rect.maxY - bottomRadius),
-                control: CGPoint(x: rightWall, y: rect.maxY)
+                control1: CGPoint(x: rightWall - bottomRadius + handle, y: rect.maxY),
+                control2: CGPoint(x: rightWall, y: rect.maxY - bottomRadius + handle)
             )
             p.addLine(to: CGPoint(x: rightWall, y: rect.minY + topRadius))
-            // Concave blend: right wall → top edge.
             p.addQuadCurve(
                 to: CGPoint(x: rect.maxX, y: rect.minY),
                 control: CGPoint(x: rightWall, y: rect.minY)

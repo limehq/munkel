@@ -15,7 +15,7 @@ struct NotchHostingContent<Content: View>: View {
     @State private var floatingHeight: CGFloat = 0
 
     private let safeAreaInset: CGFloat = 15
-    private let expandedTopCornerRadius: CGFloat = 15
+    private let expandedTopCornerRadius: CGFloat = 10
     private let expandedBottomCornerRadius: CGFloat = 20
     private let floatingCornerRadius: CGFloat = 20
 
