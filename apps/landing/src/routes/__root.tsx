@@ -1,6 +1,7 @@
 import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
+import { PostHogProvider } from '@posthog/react'
 import type { ReactNode } from 'react'
 
 import appCss from '../styles.css?url'
@@ -63,6 +64,7 @@ function NotFound() {
 }
 
 function RootDocument({ children }: { children: ReactNode }) {
+  const posthogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
@@ -70,7 +72,26 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {children}
+        {posthogKey ? (
+          <PostHogProvider
+            apiKey={posthogKey}
+            options={{
+              api_host: '/relay-Hk2p',
+              ui_host: 'https://eu.posthog.com',
+              defaults: '2026-01-30',
+              person_profiles: 'identified_only',
+              cookieless_mode: 'always',
+              disable_session_recording: true,
+              autocapture: false,
+              capture_performance: false,
+              respect_dnt: true,
+            }}
+          >
+            {children}
+          </PostHogProvider>
+        ) : (
+          children
+        )}
         {/* Stripped from production builds by @tanstack/devtools-vite — do not
             wrap in a manual DEV gate; its AST transform chokes on that. */}
         <TanStackDevtools

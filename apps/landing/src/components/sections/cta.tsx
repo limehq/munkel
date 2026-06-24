@@ -45,13 +45,13 @@ export function Cta() {
           company.
         </p>
         <div className="hero-ctas">
-          <DownloadButton />
+          <DownloadButton location="footer" />
           <Button asChild variant="outline">
             <a href={GITHUB_URL}>View on GitHub</a>
           </Button>
         </div>
         <BrewCmd />
-        <div className="hero-meta">Signed &amp; notarized · no telemetry · macOS 14+</div>
+        <div className="hero-meta">Signed &amp; notarized · no app telemetry · macOS 14+</div>
       </div>
     </section>
   )

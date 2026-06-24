@@ -70,7 +70,7 @@ export function Nav() {
           </div>
         </div>
         <div className="nav-actions">
-          <DownloadButton variant="nav" size="nav" className="nav-cta" aria-label="Download">
+          <DownloadButton location="nav" variant="nav" size="nav" className="nav-cta" aria-label="Download">
             <span>Download</span>
           </DownloadButton>
           <Button asChild variant="ghost" size="icon">

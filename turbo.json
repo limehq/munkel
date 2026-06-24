@@ -3,7 +3,8 @@
 	"tasks": {
 		"build": {
 			"dependsOn": ["^build"],
-			"outputs": ["dist/**"]
+			"outputs": ["dist/**"],
+			"env": ["VITE_PUBLIC_POSTHOG_KEY"]
 		},
 		"@munkel/macos#build": {
 			"cache": false

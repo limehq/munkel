@@ -245,7 +245,7 @@ export function Hero() {
               The kind of note you'd say across a table. It slips into your notch, then it's gone.
             </p>
             <div className="hero-ctas">
-              <DownloadButton />
+              <DownloadButton location="hero" />
               <Button asChild variant="outline">
                 <a href={GITHUB_URL}>
                   <GithubIcon />
