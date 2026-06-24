@@ -64,7 +64,9 @@ function PrivacyPage() {
         The legal basis for this processing is our legitimate interest in
         providing a secure and reliable website under Art. 6(1)(f) GDPR. We have
         concluded a data processing agreement (Auftragsverarbeitungsvertrag) with
-        our hosting provider as required by Art. 28 GDPR.
+        our hosting provider as required by Art. 28 GDPR. Cloudflare, Inc. is
+        based in the USA; where connection data is processed outside the EU, this
+        is safeguarded by EU Standard Contractual Clauses.
       </p>
 
       <h2>3. Fonts</h2>
@@ -80,10 +82,12 @@ function PrivacyPage() {
       <p>
         We use PostHog to understand, in aggregate, how this website is used —
         which pages are visited, where visitors arrive from, and when the
-        download button is clicked. PostHog is hosted in the European Union
-        (<span className="code">eu.posthog.com</span>), and we have concluded a
-        data processing agreement (Auftragsverarbeitungsvertrag) with them as
-        required by Art. 28 GDPR.
+        download button is clicked. Analytics data is stored on PostHog Cloud EU
+        servers in Frankfurt, Germany. PostHog is operated by PostHog Inc. (USA),
+        which provides a data processing agreement (Auftragsverarbeitungsvertrag)
+        under Art. 28 GDPR; insofar as personal data is accessed from outside the
+        EU, it is safeguarded by the EU Standard Contractual Clauses that form
+        part of that agreement.
       </p>
       <p>This analytics is deliberately minimal and privacy-preserving:</p>
       <ul>
@@ -115,6 +119,13 @@ function PrivacyPage() {
         website under Art. 6(1)(f) GDPR. Because nothing is stored on or read from
         your device, the consent requirement of § 25 TDDDG (formerly TTDSG) does
         not apply.
+      </p>
+      <p>
+        We retain this analytics data only as long as necessary for this purpose
+        and delete it thereafter. You can object to this processing at any time
+        with effect for the future: turn on Do-Not-Track or Global Privacy
+        Control in your browser — we honour both and then collect nothing — or
+        email us at <a href="mailto:hey@munkel.app">hey@munkel.app</a>.
       </p>
 
       <h2>5. Cookies and local storage</h2>
@@ -159,7 +170,10 @@ function PrivacyPage() {
         <a href="mailto:hey@munkel.app">hey@munkel.app</a>. You also have the
         right to lodge a complaint with a supervisory authority, in particular in
         the EU member state of your habitual residence, place of work, or the
-        place of the alleged infringement.
+        place of the alleged infringement. The supervisory authority responsible
+        for us is the Hamburg Commissioner for Data Protection and Freedom of
+        Information (Der Hamburgische Beauftragte für Datenschutz und
+        Informationsfreiheit).
       </p>
 
       <h2>8. Changes to this policy</h2>
