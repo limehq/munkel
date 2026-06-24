@@ -287,12 +287,13 @@ export function Hero() {
                       <span className="mb-clock">{clock}</span>
                     </div>
                   </div>
-                  <div
-                    className={`mb-notch${teaserOpen ? ' docked' : ''}${
-                      expanded ? ' expanded' : ''
-                    }`}
-                    ref={notchRef}
-                  >
+                </div>
+                <div
+                  className={`mb-notch${teaserOpen ? ' docked' : ''}${
+                    expanded ? ' expanded' : ''
+                  }`}
+                  ref={notchRef}
+                >
                     <span className="notch-cam"></span>
 
                     <div className="nt">
@@ -397,7 +398,6 @@ export function Hero() {
                     <ChevronUp aria-hidden />
                     <span>hover for details</span>
                   </div>
-                </div>
               </motion.div>
             </motion.div>
             </motion.div>

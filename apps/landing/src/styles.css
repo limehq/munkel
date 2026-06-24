@@ -374,14 +374,15 @@ nav.floating .nav-inner {
 .mb-menu-right svg.lucide { width: 15px; height: 15px; }
 .mb-clock { font-weight: 500; }
 .mb-notch {
-  position: absolute; top: -1px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
   width: 128px; height: 25px;
   background: #000;
   z-index: 5;
-  /* Bleed 1px over the display's top edge (clipped by .mb-display's overflow)
-     so the notch's anti-aliased top — which lands on a sub-pixel row under the
-     scroll-zoom — can't leak the green wallpaper as a hairline; the visible
-     edge stays solid-black and flush. */
+  /* Child of .mb-screen, NOT .mb-display: .mb-display's overflow:hidden clip
+     AA's onto a sub-pixel row under the scroll-zoom scale, leaking the
+     wallpaper through the notch's top edge as a hairline. In .mb-screen the
+     clip-path's AA edge sits in the 8px solid-#000 bezel above .mb-display
+     (inset:8px), so it's invisible. top:7px = the old top:-1px of .mb-display. */
   /* The real NotchShape, not a rounded rectangle: concave top corners that
      blend into the menu bar, side walls inset by the top radius, convex bottom
      corners. Built as an animatable clip-path so the demo's silhouette is
@@ -590,9 +591,9 @@ nav.floating .nav-inner {
 .scroll-hint svg.lucide { width: 20px; height: 20px; animation: hint-bob 2s ease-in-out infinite; }
 @keyframes hint-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
 /* "Hover for details" cue right under the docked notch. It lives inside the
-   mockup display, so the macbook's zoom transform carries it with the notch. */
+   mockup screen, so the macbook's zoom transform carries it with the notch. */
 .notch-hint {
-  position: absolute; top: 64px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 72px; left: 50%; transform: translateX(-50%);
   z-index: 4; pointer-events: none;
   display: flex; flex-direction: column; align-items: center; gap: 1px;
   font-size: 11px; line-height: 1; white-space: nowrap;
@@ -1013,7 +1014,7 @@ html:not(.dark) .terminal { background: oklch(0.205 0 0); }
 
 /* Full-screen image preview over the laptop display (mirrors the app's Quick Look hover). */
 .mb-preview {
-  position: absolute; inset: 0; z-index: 6;
+  position: absolute; inset: 8px; z-index: 6;
   display: grid; place-items: center; padding: 46px 26px 26px;
   background: oklch(0 0 0 / 0.5); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
   opacity: 0; visibility: hidden; transition: opacity 0.22s ease, visibility 0s linear 0.22s;
