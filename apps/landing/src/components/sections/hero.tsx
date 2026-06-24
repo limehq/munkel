@@ -104,7 +104,7 @@ export function Hero() {
   const pz = useTransform(scrollYProgress, [0.3, 1], [0, 1], { ease: easeInOutQuad })
   const pr = useTransform(scrollYProgress, [0.24, 0.34], [0, 1], { ease: easeInOutQuad })
 
-  const copyOpacity = useTransform(pm, [0.6, 1], [1, 0])
+  const copyOpacity = useTransform(pm, [0.4, 0.9], [1, 0])
   const copyZ = useTransform(pc, [0, 1], [0, -140])
   const copyPointer = useTransform(pc, (v) => (v > 0.5 ? 'none' : 'auto'))
   const hintOpacity = useTransform(pc, [0, 0.25], [1, 0])
