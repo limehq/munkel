@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
-import { Download, Moon, Sun } from 'lucide-react'
+import { Moon, Sun } from 'lucide-react'
 import { motion, useMotionValueEvent, useScroll } from 'motion/react'
 
 import { Button } from '@/components/ui/button'
+import { DownloadButton } from '@/components/download-button'
 import { GithubIcon, MeerkatGlyph } from '@/components/icons'
-import { DOWNLOAD_URL, GITHUB_URL } from '@/lib/constants'
+import { GITHUB_URL } from '@/lib/constants'
 
 const NAV_LINKS = [
   ['#how', 'How it works'],
@@ -69,12 +70,9 @@ export function Nav() {
           </div>
         </div>
         <div className="nav-actions">
-          <Button asChild variant="nav" size="nav" className="nav-cta">
-            <a href={DOWNLOAD_URL} aria-label="Download">
-              <Download aria-hidden />
-              <span>Download</span>
-            </a>
-          </Button>
+          <DownloadButton variant="nav" size="nav" className="nav-cta" aria-label="Download">
+            <span>Download</span>
+          </DownloadButton>
           <Button asChild variant="ghost" size="icon">
             <a href={GITHUB_URL} aria-label="GitHub" title="GitHub">
               <GithubIcon />

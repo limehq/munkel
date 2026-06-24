@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.14.0](https://github.com/limehq/munkel/compare/v0.13.0...v0.14.0) (2026-06-23)
+
+
+### Features
+
+* dim backdrop behind the image preview ([#160](https://github.com/limehq/munkel/issues/160)) ([4dc10d7](https://github.com/limehq/munkel/commit/4dc10d78844396eb5e053073b2d60dc3628437cc))
+* **landing:** /download/latest direct DMG download ([#167](https://github.com/limehq/munkel/issues/167)) ([c70c27f](https://github.com/limehq/munkel/commit/c70c27f6a93ca48f88f8201b4b49dad7b3622ee1))
+* **landing:** loading spinner on the download buttons ([#169](https://github.com/limehq/munkel/issues/169)) ([2ddeab7](https://github.com/limehq/munkel/commit/2ddeab7259de6b13aaa686919bf5dc05832cc312))
+* **landing:** notch image showcase and screen-share privacy scene ([#151](https://github.com/limehq/munkel/issues/151)) ([19563e8](https://github.com/limehq/munkel/commit/19563e8b5212a2ad0159d3eba0c4612289df7b7b))
+* **macos:** link preview cards under messages and in history ([#155](https://github.com/limehq/munkel/issues/155)) ([d18dd41](https://github.com/limehq/munkel/commit/d18dd418868a8839d22175a1dbf6633cc92da522))
+
+
+### Bug Fixes
+
+* **macos:** free ←/→ for text editing in the Quick-Send palette ([#154](https://github.com/limehq/munkel/issues/154)) ([4f36dc4](https://github.com/limehq/munkel/commit/4f36dc4610331f8fb2f250950fef010abfcc4057))
+* **macos:** keep the teaser ticker's trailing fade inside the notch ([#165](https://github.com/limehq/munkel/issues/165)) ([6fc0772](https://github.com/limehq/munkel/commit/6fc0772660f9bf61f8d571ff18e58760f54ff711))
+* **skills:** hide internal github-issue-workflow skill from `skills add` ([#157](https://github.com/limehq/munkel/issues/157)) ([d584a44](https://github.com/limehq/munkel/commit/d584a44a133175a1f9a4099eaacfb78d064e8cc8))
+
 ## [0.13.0](https://github.com/limehq/munkel/compare/v0.12.1...v0.13.0) (2026-06-22)
 
 

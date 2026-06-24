@@ -1,5 +1,6 @@
 export const GITHUB_URL = 'https://github.com/limehq/munkel'
-export const DOWNLOAD_URL = `${GITHUB_URL}/releases/latest`
+export const RELEASES_URL = `${GITHUB_URL}/releases/latest`
+export const DOWNLOAD_URL = '/download/latest'
 export const PROTOCOL_URL = `${GITHUB_URL}/blob/main/apps/server/src/protocol.ts`
 export const CLI_URL = `${GITHUB_URL}/tree/main/apps/cli`
 export const LICENSE_URL = `${GITHUB_URL}/blob/main/LICENSE`
