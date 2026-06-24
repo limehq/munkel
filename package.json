@@ -20,8 +20,5 @@
 	"devDependencies": {
 		"husky": "^9.1.7",
 		"turbo": "^2.5.0"
-	},
-	"dependencies": {
-		"@posthog/react": "^1.10.3"
 	}
 }

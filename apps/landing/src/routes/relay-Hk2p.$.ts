@@ -11,14 +11,17 @@ async function forward(request: Request): Promise<Response> {
   const host = path.startsWith('/static/') || path.startsWith('/array/') ? ASSET_HOST : INGEST_HOST
 
   const headers = new Headers(request.headers)
-  headers.set('host', host)
   headers.delete('cookie')
+  headers.delete('authorization')
   const clientIp = request.headers.get('CF-Connecting-IP')
   if (clientIp) headers.set('X-Forwarded-For', clientIp)
 
   const hasBody = request.method !== 'GET' && request.method !== 'HEAD'
-  if (hasBody && Number(request.headers.get('content-length')) > MAX_BODY_BYTES) {
-    return new Response('Payload too large', { status: 413 })
+  if (request.method === 'POST') {
+    const contentLength = request.headers.get('content-length')
+    if (contentLength === null || Number(contentLength) > MAX_BODY_BYTES) {
+      return new Response('Payload too large', { status: 413 })
+    }
   }
   return fetch(`https://${host}${path}${url.search}`, {
     method: request.method,
