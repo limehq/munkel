@@ -2,7 +2,7 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { PostHogProvider } from '@posthog/react'
-import type { ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 import appCss from '../styles.css?url'
 
@@ -63,8 +63,19 @@ function NotFound() {
   )
 }
 
+function analyticsOptedOut(): boolean {
+  const nav = navigator as Navigator & { globalPrivacyControl?: boolean; msDoNotTrack?: string }
+  if (nav.globalPrivacyControl) return true
+  const dnt = nav.doNotTrack ?? nav.msDoNotTrack ?? (window as Window & { doNotTrack?: string }).doNotTrack
+  return dnt === '1' || dnt === 'yes'
+}
+
 function RootDocument({ children }: { children: ReactNode }) {
-  const posthogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY
+  const posthogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY as string | undefined
+  const [analyticsOn, setAnalyticsOn] = useState(false)
+  useEffect(() => {
+    if (posthogKey && !analyticsOptedOut()) setAnalyticsOn(true)
+  }, [posthogKey])
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
       <head>
@@ -72,7 +83,7 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {posthogKey ? (
+        {analyticsOn && posthogKey ? (
           <PostHogProvider
             apiKey={posthogKey}
             options={{
