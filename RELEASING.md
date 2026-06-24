@@ -38,9 +38,13 @@ the app's control socket), so they never get separate numbers. The
 Conventional Commits on `main` (`feat:` → minor, `fix:` → patch, `feat!:`
 → breaking) feed a rolling release PR that maintains `CHANGELOG.md` and
 computes the next version. **Merging that PR is the release**: it creates
-tag + GitHub release and dispatches the desktop build. Note the scope:
-release-please watches the whole repo, so server/landing commits also land
-in the product changelog, which is intentional (one product, one version).
+tag + GitHub release and dispatches the desktop build. Scope: the version is
+the **desktop app's** version, so release-please's root package excludes the
+independently-deployed surfaces via `exclude-paths` in `release-please-config.json`
+(`apps/landing`, `apps/server`, and the generated `graphify-out/`). A commit that
+only touches those is deployed by its own path-triggered workflow and never cuts
+an app release. Protocol/crypto changes in `apps/server` always co-change the
+Swift mirror in `apps/macos`, so they still land in the release.
 
 Escape hatch: a manually pushed `v*` tag still triggers `release.yml`
 directly, bypassing release-please.
