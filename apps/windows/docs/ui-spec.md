@@ -175,6 +175,8 @@ state using the 👥 glyph on a neutral background.
   "Sent 3 images".
 - Inline AVIF thumbnail row when `NotchMessage.images` is present. Each thumb
   is rendered as a 72 × 72 px `object-fit: cover` image from a base64 data URI.
+  These previews are shown for any incoming image album, including albums sent
+  via the `munkel image` CLI command.
 - Copy button (copies the message text).
 - Clicking the message opens an inline reply field with a channel toggle
   (🔒/🌐) and frosted input.
@@ -207,7 +209,9 @@ state using the 👥 glyph on a neutral background.
   filename.
 - With no images attached, `Enter` and the send button call
   `useAppStore().sendChat`. With one or more images attached, they call
-  `useAppStore().sendImages(code, paths, caption, to)`.
+  `useAppStore().sendImages(code, paths, caption, to)`. The same image
+  attach/send flow is also available from the CLI via `munkel image`
+  (`imagePaths` over the named-pipe control channel).
 - On `false` the field stays open with a small red inline error
   ("Circle offline — message not sent." or the codec/upload error) and
   the text/images are preserved for retry. On success the palette hides via

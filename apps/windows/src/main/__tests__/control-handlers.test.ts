@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'bun:test';
+import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
 import { buildControlHandler, type ControlAppState } from '../control-handlers';
 import type { CircleState } from '../../shared/types';
 import type { ControlRequest, ControlResponse } from '../../core/control';
@@ -288,6 +291,26 @@ describe('control-handlers', () => {
 	});
 
 	describe('send — image', () => {
+		let tempDir: string;
+
+		beforeEach(async () => {
+			tempDir = await mkdtemp(join(tmpdir(), 'munkel-control-handlers-'));
+		});
+
+		afterEach(async () => {
+			await rm(tempDir, { recursive: true, force: true });
+		});
+
+		async function makeFile(name: string, size = 0): Promise<string> {
+			const path = join(tempDir, name);
+			if (size > 0) {
+				await writeFile(path, Buffer.alloc(size));
+			} else {
+				await writeFile(path, '');
+			}
+			return path;
+		}
+
 		it('routes imagePaths to sendImages with the caption as text', async () => {
 			let captured: { group: string; paths: string[]; caption: string; to?: string } | null = null;
 			const state = fakeState({
@@ -300,16 +323,15 @@ describe('control-handlers', () => {
 				action: 'send',
 				group: 'blue-table-42',
 				text: 'look at this',
-				imagePaths: ['C:/tmp/a.png', 'C:/tmp/b.png'],
+				imagePaths: [await makeFile('a.png'), await makeFile('b.png')],
 				to: 'Alice',
 			});
 			expect(response).toEqual({ ok: true });
-			expect(captured).toEqual({
-				group: 'blue-table-42',
-				paths: ['C:/tmp/a.png', 'C:/tmp/b.png'],
-				caption: 'look at this',
-				to: 'Alice',
-			});
+			expect(captured).toBeTruthy();
+			expect(captured!.group).toBe('blue-table-42');
+			expect(captured!.paths).toHaveLength(2);
+			expect(captured!.caption).toBe('look at this');
+			expect(captured!.to).toBe('Alice');
 		});
 
 		it('rejects an image send without a circle code', async () => {
@@ -317,10 +339,65 @@ describe('control-handlers', () => {
 			const response = await call(state, {
 				action: 'send',
 				text: 'caption',
-				imagePaths: ['C:/tmp/a.png'],
+				imagePaths: [await makeFile('a.png')],
 			});
 			expect(response.ok).toBe(false);
 			expect(response.error).toMatch(/Image sends need a circle/);
+		});
+
+		it('rejects a missing image file', async () => {
+			const state = fakeState({});
+			const response = await call(state, {
+				action: 'send',
+				group: 'blue-table-42',
+				text: 'caption',
+				imagePaths: [join(tempDir, 'does-not-exist.png')],
+			});
+			expect(response.ok).toBe(false);
+			expect(response.error).toMatch(/File not found/);
+		});
+
+		it('rejects unsupported image formats', async () => {
+			const txtPath = await makeFile('notes.txt');
+			const state = fakeState({});
+			const response = await call(state, {
+				action: 'send',
+				group: 'blue-table-42',
+				text: 'caption',
+				imagePaths: [txtPath],
+			});
+			expect(response.ok).toBe(false);
+			expect(response.error).toMatch(/Unsupported image format/);
+			expect(response.error).toContain('notes.txt');
+		});
+
+		it('rejects image files larger than the maximum size', async () => {
+			const bigPath = await makeFile('huge.png', 51 * 1024 * 1024);
+			const state = fakeState({});
+			const response = await call(state, {
+				action: 'send',
+				group: 'blue-table-42',
+				text: 'caption',
+				imagePaths: [bigPath],
+			});
+			expect(response.ok).toBe(false);
+			expect(response.error).toMatch(/File too large/);
+			expect(response.error).toContain('huge.png');
+		});
+
+		it('rejects more than 8 images', async () => {
+			const paths = await Promise.all(
+				Array.from({ length: 9 }, (_, i) => makeFile(`img${i}.png`)),
+			);
+			const state = fakeState({});
+			const response = await call(state, {
+				action: 'send',
+				group: 'blue-table-42',
+				text: 'caption',
+				imagePaths: paths,
+			});
+			expect(response.ok).toBe(false);
+			expect(response.error).toMatch(/Too many images/);
 		});
 
 		it('passes through sendImages errors verbatim', async () => {
@@ -334,7 +411,7 @@ describe('control-handlers', () => {
 				action: 'send',
 				group: 'blue-table-42',
 				text: 'caption',
-				imagePaths: ['C:/tmp/a.png'],
+				imagePaths: [await makeFile('a.png')],
 			});
 			expect(response).toEqual({
 				ok: false,

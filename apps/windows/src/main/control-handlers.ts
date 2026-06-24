@@ -9,7 +9,8 @@
  * and the same error semantics for ambiguous recipients.
  */
 
-import { normalizeCircleCode } from '../core';
+import { stat } from 'node:fs/promises';
+import { normalizeCircleCode, MAX_IMAGES_PER_MESSAGE } from '../core';
 import type { CircleState } from '../shared/types';
 import type { ControlGroupInfo, ControlRequest, ControlResponse } from '../core/control';
 import type { SendResult } from './group-session';
@@ -26,6 +27,19 @@ export interface ControlAppState {
 }
 
 const BROADCAST_ALIASES = new Set(['all', '*']);
+const MAX_IMAGE_FILE_SIZE = 50 * 1024 * 1024; // 50 MiB
+const SUPPORTED_IMAGE_EXTENSIONS = new Set(['jpg', 'jpeg', 'png', 'webp', 'avif', 'heic', 'heif']);
+
+function formatBytes(bytes: number): string {
+	if (bytes < 1024) return `${bytes} B`;
+	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+	return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
+}
+
+function imageExtension(path: string): string {
+	const match = path.match(/\.([^.]+)$/);
+	return match ? match[1].toLowerCase() : '';
+}
 
 function memberLabel(member: CircleState['members'][number]): string {
 	return member.displayName ?? member.memberId;
@@ -92,6 +106,49 @@ export function buildControlHandler(
 					if (!request.group) {
 						return { ok: false, error: 'Image sends need a circle — say `munkel <circle> image …`' };
 					}
+
+					if (request.imagePaths.length > MAX_IMAGES_PER_MESSAGE) {
+						return {
+							ok: false,
+							error: `Too many images — send at most ${MAX_IMAGES_PER_MESSAGE} at once`,
+						};
+					}
+
+					for (const path of request.imagePaths) {
+						let size: number;
+						try {
+							const fileStat = await stat(path);
+							if (!fileStat.isFile()) {
+								return { ok: false, error: `Not a file: ${path}` };
+							}
+							size = fileStat.size;
+						} catch (err) {
+							const code = (err as { code?: string }).code;
+							if (code === 'ENOENT') {
+								return { ok: false, error: `File not found: ${path}` };
+							}
+							return {
+								ok: false,
+								error: `Could not access ${path}: ${err instanceof Error ? err.message : String(err)}`,
+							};
+						}
+
+						if (size > MAX_IMAGE_FILE_SIZE) {
+							return {
+								ok: false,
+								error: `File too large: ${path} (${formatBytes(size)}; max ${formatBytes(MAX_IMAGE_FILE_SIZE)})`,
+							};
+						}
+
+						const ext = imageExtension(path);
+						if (!SUPPORTED_IMAGE_EXTENSIONS.has(ext)) {
+							return {
+								ok: false,
+								error: `Unsupported image format: ${path} — use ${[...SUPPORTED_IMAGE_EXTENSIONS].join(', ')}`,
+							};
+						}
+					}
+
 					const sent = await appState.sendImages(
 						request.group,
 						request.imagePaths,

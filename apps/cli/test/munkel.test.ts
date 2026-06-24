@@ -465,3 +465,56 @@ test("MUNKEL_PIPE with no app yields the same no-launch error as MUNKEL_SOCKET",
   expect(result.exitCode).toBe(1)
   expect(result.stderr).toContain("Munkel app isn't running")
 })
+
+test("image over MUNKEL_PIPE rejects unsupported file formats", async () => {
+  const app = await fakePipeApp(() => ({ ok: true })).pending
+
+  const textFile = join(tmpdir(), `munkel-pipe-txt-${process.pid}-${Math.random().toString(36).slice(2)}.txt`)
+  await Bun.write(textFile, "not an image")
+
+  const result = await runMunkelPipe(["image", "sebil", textFile], app.pipePath)
+
+  expect(result.exitCode).toBe(64)
+  expect(result.stderr).toContain("unsupported image format")
+  expect(result.stderr).toContain(".txt")
+  expect(app.requests).toEqual([])
+})
+
+test("image over MUNKEL_PIPE rejects more than 8 images", async () => {
+  const app = await fakePipeApp(() => ({ ok: true })).pending
+
+  const paths: string[] = []
+  for (let i = 0; i < 9; i++) {
+    const p = join(
+      tmpdir(),
+      `munkel-pipe-img-${process.pid}-${i}-${Math.random().toString(36).slice(2)}.png`,
+    )
+    await Bun.write(p, new Uint8Array([i]))
+    paths.push(p)
+  }
+
+  const result = await runMunkelPipe(["image", "sebil", ...paths], app.pipePath)
+
+  expect(result.exitCode).toBe(64)
+  expect(result.stderr).toContain("too many images")
+  expect(result.stderr).toContain("9 > 8")
+  expect(app.requests).toEqual([])
+})
+
+test("image over MUNKEL_PIPE accepts -c as caption shorthand", async () => {
+  const app = await fakePipeApp(() => ({ ok: true })).pending
+
+  const imageFile = join(
+    tmpdir(),
+    `munkel-pipe-img-${process.pid}-${Math.random().toString(36).slice(2)}.png`,
+  )
+  await Bun.write(imageFile, new Uint8Array([0x89, 0x50, 0x4e, 0x47]))
+
+  const result = await runMunkelPipe(["image", "sebil", imageFile, "-c", "hello world"], app.pipePath)
+
+  expect(result.exitCode).toBe(0)
+  expect(result.stdout).toContain("munkeled ✓")
+  expect(app.requests).toEqual([
+    { action: "send", to: "sebil", imagePaths: [imageFile], text: "hello world" },
+  ])
+})

@@ -1,4 +1,4 @@
-import { app, ipcMain, BrowserWindow, IpcMainInvokeEvent } from 'electron';
+import { app, ipcMain, BrowserWindow, IpcMainInvokeEvent, Tray } from 'electron';
 import path from 'node:path';
 import { createMenuWindow, toggleMenuWindow } from './menu-window';
 import { createNotchWindow, showNotch, hideNotch, updateNotch } from './notch-window';
@@ -23,6 +23,7 @@ if (!gotTheLock) {
 let menuWindow: BrowserWindow | null = null;
 let notchWindow: BrowserWindow | null = null;
 let paletteWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
 let controlServer: { close(): Promise<void> } | null = null;
 
 function getWindowType(sender: Electron.WebContents): WindowType {
@@ -75,11 +76,15 @@ app.whenReady().then(async () => {
 	notchWindow = createNotchWindow();
 	paletteWindow = createPaletteWindow();
 
-	createTray({
-		toggleMenu: () => toggleMenuWindow(menuWindow),
-		showPalette: () => showPalette(paletteWindow),
-		quit: () => app.quit(),
-	});
+	try {
+		tray = createTray({
+			toggleMenu: () => toggleMenuWindow(menuWindow),
+			showPalette: () => showPalette(paletteWindow),
+			quit: () => app.quit(),
+		});
+	} catch (err) {
+		console.error('[munkel] failed to create tray icon:', err);
+	}
 
 	registerTogglePalette(togglePalette);
 	registerCryptoHandlers();

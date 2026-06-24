@@ -15,7 +15,7 @@ export default defineConfig({
 		outDir: 'dist',
 		emptyOutDir: true,
 		rollupOptions: {
-			external: ['electron', 'ws', /^node:/],
+			external: ['electron', 'ws', /^@jsquash\/avif/, 'image-size', /^node:/],
 		},
 		sourcemap: true,
 	},
