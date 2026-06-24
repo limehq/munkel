@@ -51,8 +51,8 @@ export function MacScreen({ className, children }: { className?: string; childre
               <span className="mb-clock">Sun 22. Jun 09:41</span>
             </div>
           </div>
-          {children}
         </div>
+        {children}
       </div>
     </div>
   )

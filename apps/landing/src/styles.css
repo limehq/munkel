@@ -189,6 +189,12 @@
   body {
     font-family: var(--font-sans);
     background: var(--background);
+    /* iOS: viewport-fit=cover (see __root.tsx) bleeds the page background under
+       the status bar / home indicator so it's edge-to-edge instead of a solid
+       non-scrolling band; the env() insets below keep content clear of the
+       notch and the Safari toolbar. theme-color is ignored on iOS 26 — the bar
+       tint is sampled from this background. */
+    padding-top: env(safe-area-inset-top, 0px);
     color: var(--foreground);
     -webkit-font-smoothing: antialiased;
     transition: background 0.25s ease, color 0.25s ease;
@@ -233,7 +239,7 @@ svg.lucide { width: 16px; height: 16px; stroke-width: 1.5; }
 }
 
 nav {
-  position: sticky; top: 0; z-index: 100;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 100;
   height: var(--nav-h);
   border-bottom: 1px solid var(--border);
   background: color-mix(in oklab, var(--background) 86%, transparent);
@@ -254,15 +260,14 @@ nav.floating {
   display: flex; align-items: center; justify-content: space-between; gap: 1.25rem;
   border: 1px solid transparent; border-radius: 999px;
   transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1), max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
-    height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
     transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.4s cubic-bezier(0.4, 0, 0.2, 1),
     border-color 0.35s ease, background 0.35s ease, box-shadow 0.35s ease;
 }
 nav.floating .nav-inner {
-  width: fit-content; max-width: min(1100px, calc(100vw - 2rem));
-  height: calc(var(--nav-h) - 12px);
+  width: calc(100% - 2rem);
+  max-width: 1040px;
   transform: translateY(12px);
-  padding: 0 0.75rem 0 1.5rem;
+  padding: 0 1rem 0 1.5rem;
   border-color: var(--border);
   background: color-mix(in oklab, var(--background) 82%, transparent);
   backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
@@ -316,13 +321,25 @@ nav.floating .nav-inner {
 
 /* ---------- MacBook mockup ---------- */
 .mockup-wrap {
+  position: relative;
+  z-index: 3;
   margin: 5vh auto 0;
-  perspective: 1600px;
-  will-change: transform;
   height: clamp(200px, 40vw, 390px);
   overflow: hidden;
-  -webkit-mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
-  mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
+}
+.mockup-backdrop { position: absolute; inset: 0; background: var(--background); }
+.mockup-fade {
+  position: absolute; inset: 0;
+  perspective: 1600px;
+  transform-origin: 50% 0%;
+  will-change: transform;
+}
+.mockup-wrap::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(46% 60% at 0% 100%, var(--background) 32%, transparent 80%),
+    radial-gradient(46% 60% at 100% 100%, var(--background) 32%, transparent 80%),
+    linear-gradient(to bottom, transparent 74%, var(--background) 100%);
 }
 .macbook { transform-origin: 50% 0%; max-width: 1000px; margin: 0 auto; }
 .mb-screen {
@@ -357,14 +374,15 @@ nav.floating .nav-inner {
 .mb-menu-right svg.lucide { width: 15px; height: 15px; }
 .mb-clock { font-weight: 500; }
 .mb-notch {
-  position: absolute; top: -1px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
   width: 128px; height: 25px;
   background: #000;
   z-index: 5;
-  /* Bleed 1px over the display's top edge (clipped by .mb-display's overflow)
-     so the notch's anti-aliased top — which lands on a sub-pixel row under the
-     scroll-zoom — can't leak the green wallpaper as a hairline; the visible
-     edge stays solid-black and flush. */
+  /* Child of .mb-screen, NOT .mb-display: .mb-display's overflow:hidden clip
+     AA's onto a sub-pixel row under the scroll-zoom scale, leaking the
+     wallpaper through the notch's top edge as a hairline. In .mb-screen the
+     clip-path's AA edge sits in the 8px solid-#000 bezel above .mb-display
+     (inset:8px), so it's invisible. top:7px = the old top:-1px of .mb-display. */
   /* The real NotchShape, not a rounded rectangle: concave top corners that
      blend into the menu bar, side walls inset by the top radius, convex bottom
      corners. Built as an animatable clip-path so the demo's silhouette is
@@ -553,19 +571,19 @@ nav.floating .nav-inner {
 /* ---------- Hero (pinned scroll stage) ---------- */
 .hero { padding: 0; text-align: center; position: relative; overflow: clip; }
 .hero::before {
-  content: ""; position: absolute; inset: -300px -20% auto -20%; height: 110vh;
+  content: ""; position: absolute; inset: -300px -20% auto -20%; height: 110vh; height: 110lvh;
   background: radial-gradient(ellipse 50% 60% at 50% 0%, var(--brand-soft), transparent 70%);
   pointer-events: none;
 }
-.hero-stage { height: 220vh; position: relative; }
-.hero-sticky { position: sticky; top: 0; height: 100vh; overflow: hidden; }
+.hero-stage { height: 220vh; height: 220lvh; position: relative; }
+.hero-sticky { position: sticky; top: 0; height: 100vh; height: 100lvh; overflow: hidden; }
 .hero-copy { position: relative; padding-top: 12vh; will-change: transform, opacity; z-index: 2; }
 /* Anchored to the viewport (not the 100vh sticky, which the in-flow announce bar
    + nav push below the fold at scroll 0) so the cue is visible immediately; Motion
    fades it out over the first sliver of scroll. */
 .scroll-hint {
-  position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
-  z-index: 2; pointer-events: none;
+  position: fixed; bottom: calc(22px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
+  z-index: 4; pointer-events: none;
   display: flex; flex-direction: column; align-items: center; gap: 2px;
   color: var(--muted-foreground);
 }
@@ -573,9 +591,9 @@ nav.floating .nav-inner {
 .scroll-hint svg.lucide { width: 20px; height: 20px; animation: hint-bob 2s ease-in-out infinite; }
 @keyframes hint-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(6px); } }
 /* "Hover for details" cue right under the docked notch. It lives inside the
-   mockup display, so the macbook's zoom transform carries it with the notch. */
+   mockup screen, so the macbook's zoom transform carries it with the notch. */
 .notch-hint {
-  position: absolute; top: 64px; left: 50%; transform: translateX(-50%);
+  position: absolute; top: 72px; left: 50%; transform: translateX(-50%);
   z-index: 4; pointer-events: none;
   display: flex; flex-direction: column; align-items: center; gap: 1px;
   font-size: 11px; line-height: 1; white-space: nowrap;
@@ -654,7 +672,7 @@ h1 .notch-word {
 
 /* 404 — the shushing meerkat, since the message already vanished. */
 .not-found {
-  min-height: 70vh; display: flex; flex-direction: column;
+  min-height: 70vh; min-height: 70lvh; display: flex; flex-direction: column;
   align-items: center; justify-content: center; text-align: center;
   gap: 0.5rem; padding: 6rem 1.5rem;
 }
@@ -996,7 +1014,7 @@ html:not(.dark) .terminal { background: oklch(0.205 0 0); }
 
 /* Full-screen image preview over the laptop display (mirrors the app's Quick Look hover). */
 .mb-preview {
-  position: absolute; inset: 0; z-index: 6;
+  position: absolute; inset: 8px; z-index: 6;
   display: grid; place-items: center; padding: 46px 26px 26px;
   background: oklch(0 0 0 / 0.5); -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
   opacity: 0; visibility: hidden; transition: opacity 0.22s ease, visibility 0s linear 0.22s;
@@ -1189,7 +1207,7 @@ html:not(.dark) .terminal { background: oklch(0.205 0 0); }
 .brew-cmd { margin: 1.75rem auto 0; max-width: fit-content; }
 .brew-cmd .install-body { display: flex; align-items: center; padding: 0.5rem 0.5rem 0.5rem 1rem; }
 .brew-cmd .install-body > span + span { margin-right: 0.75rem; }
-footer { border-top: 1px solid var(--border); padding: 2rem 0; }
+footer { border-top: 1px solid var(--border); padding: 2rem 0 calc(2rem + env(safe-area-inset-bottom, 0px)); }
 .footer-inner { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
 .footer-inner .muted { font-size: var(--text-xs); }
 .footer-links { display: flex; gap: 1.5rem; }
@@ -1256,7 +1274,7 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
   .how-grid { grid-template-columns: 1fr; gap: 2rem; }
   .how-head { position: static; }
   .cli-grid, .privacy-grid, .agents-grid { grid-template-columns: 1fr; }
-  .hero-stage { height: 200vh; }
+  .hero-stage { height: 210vh; height: 210lvh; }
   .hero-copy { padding-top: 8vh; }
   .mockup-wrap { margin-top: 3rem; }
   /* The notch is internally 1:1 with the app (310pt etc.); on narrow viewports
@@ -1312,7 +1330,7 @@ footer { border-top: 1px solid var(--border); padding: 2rem 0; }
 /* Slim standalone header — NOT the bespoke landing <nav>. Static, no float,
    no hash links. Same sticky height token so the layout rhythm matches. */
 .legal-header {
-  position: sticky; top: 0; z-index: 100;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 100;
   height: var(--nav-h);
   border-bottom: 1px solid var(--border);
   background: color-mix(in oklab, var(--background) 86%, transparent);

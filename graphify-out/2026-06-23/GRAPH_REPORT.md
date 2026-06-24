@@ -1,16 +1,16 @@
 # Graph Report - munkel  (2026-06-23)
 
 ## Corpus Check
-- 124 files · ~228,204 words
+- 124 files · ~228,136 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2489 nodes · 3732 edges · 117 communities (88 shown, 29 thin omitted)
+- 2488 nodes · 3731 edges · 114 communities (83 shown, 31 thin omitted)
 - Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 227 edges (avg confidence: 0.81)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `0ffcadf8`
+- Built from commit: `4f36dc46`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -127,9 +127,6 @@
 - [[_COMMUNITY_Community 111|Community 111]]
 - [[_COMMUNITY_Community 112|Community 112]]
 - [[_COMMUNITY_Community 113|Community 113]]
-- [[_COMMUNITY_Community 114|Community 114]]
-- [[_COMMUNITY_Community 115|Community 115]]
-- [[_COMMUNITY_Community 116|Community 116]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `MessageDisplayModel` - 49 edges
@@ -165,7 +162,7 @@
 - **Landing Page Testimonial Avatar Set** — avatars_01_portrait, avatars_02_portrait, avatars_03_portrait, avatars_05_portrait [INFERRED 0.80]
 - **Ephemeral notch-native private messaging positioning** — public_og_tagline, public_og_notch_motif, public_og_trust_attributes, public_og_ephemerality_positioning [INFERRED 0.85]
 
-## Communities (117 total, 29 thin omitted)
+## Communities (114 total, 31 thin omitted)
 
 ### Community 0 - "Cloudflare Worker Type Defs"
 Cohesion: 0.00
@@ -177,47 +174,47 @@ Nodes (29): CGImage, Data, Int, Any, Bool, CGImage, Data, Double (+21 more)
 
 ### Community 2 - "Notch Presenter"
 Cohesion: 0.07
-Nodes (36): AnyCancellable, NSScreen, String, Any, AnyCancellable, async, Bool, CGSize (+28 more)
+Nodes (35): AnyCancellable, NSScreen, String, Any, AnyCancellable, async, Bool, CGSize (+27 more)
 
 ### Community 3 - "Command Palette State"
 Cohesion: 0.18
 Nodes (9): Bool, Void, Any, AppModel, CGFloat, CommandPaletteState, CommandPalettePanel, CommandPalettePanel (+1 more)
 
 ### Community 4 - "AppModel Core"
-Cohesion: 0.12
-Nodes (13): AnyCancellable, Bool, GroupSession, Never, PresenceStatus, Set, TimeInterval, UpdaterController (+5 more)
+Cohesion: 0.07
+Nodes (25): AnyCancellable, Bool, Data, GroupSession, Int, Never, PresenceStatus, Set (+17 more)
 
 ### Community 5 - "Command Palette View"
-Cohesion: 0.12
-Nodes (19): AppModel, Bool, CGFloat, CGRect, CGSize, CommandPaletteState, Int, String (+11 more)
+Cohesion: 0.09
+Nodes (20): String, AppModel, Bool, CommandPaletteState, Int, String, Data, String (+12 more)
 
 ### Community 6 - "Landing Dependencies"
 Cohesion: 0.04
 Nodes (45): dependencies, class-variance-authority, @cloudflare/vite-plugin, clsx, @fontsource-variable/geist, @fontsource-variable/geist-mono, lucide-react, motion (+37 more)
 
 ### Community 7 - "Blob Client & CLI Installer"
-Cohesion: 0.21
-Nodes (11): Data, Int, String, URL, URLSession, BlobClient, BlobError, badRelayURL (+3 more)
+Cohesion: 0.11
+Nodes (18): Data, Int, String, URL, URLSession, BlobClient, BlobError, badRelayURL (+10 more)
 
 ### Community 8 - "Notch Panel"
 Cohesion: 0.08
 Nodes (27): Animation, AnyView, AnyCancellable, Bool, CGSize, Content, Never, NSRect (+19 more)
 
 ### Community 9 - "Menu View"
-Cohesion: 0.13
-Nodes (15): AnimatablePair, CGFloat, CGRect, Content, Context, View, AnyTransition, ContentBlur (+7 more)
+Cohesion: 0.06
+Nodes (36): AnimatablePair, Any, AppModel, Bool, CGFloat, Data, GroupSession, Never (+28 more)
 
 ### Community 10 - "Group Session"
-Cohesion: 0.15
-Nodes (18): async, Bool, Data, Never, PresenceStatus, Sendable, String, Task (+10 more)
+Cohesion: 0.06
+Nodes (37): async, Bool, Data, Never, PresenceStatus, Sendable, String, Task (+29 more)
 
 ### Community 11 - "AppPayload Wire Tests"
 Cohesion: 0.13
 Nodes (7): AppPayload, chat, image, presence, profile, AppPayloadImageTests, AppPayloadTests
 
 ### Community 12 - "Message Notch View"
-Cohesion: 0.10
-Nodes (23): String, Data, String, Bool, CGFloat, CGImage, CGSize, IncomingImage (+15 more)
+Cohesion: 0.18
+Nodes (14): Bool, CGFloat, CGImage, CGSize, Data, IncomingImage, IncomingMessage, LinkPreviewData (+6 more)
 
 ### Community 13 - "Updater & Display Preference"
 Cohesion: 0.17
@@ -232,20 +229,20 @@ Cohesion: 0.08
 Nodes (24): LegalHeader(), LegalPage(), Route, Route, Route, Route, Route, Route (+16 more)
 
 ### Community 16 - "History Album Grid"
-Cohesion: 0.35
-Nodes (6): Bool, String, URL, URL, CLIInstaller, NSAlert
+Cohesion: 0.18
+Nodes (13): Bool, Data, Never, String, Task, URL, Bool, String (+5 more)
 
 ### Community 17 - "App Framework Imports"
 Cohesion: 0.14
-Nodes (11): AppKit, UpdaterController, Combine, IOKit.pwr_mgt, KeyboardShortcuts, UpdaterMenuItems, KeyboardShortcuts.Name, QuartzCore (+3 more)
+Nodes (10): AppKit, Combine, IOKit.pwr_mgt, KeyboardShortcuts, KeyboardShortcuts.Name, MunkelKit, QuartzCore, ServiceManagement (+2 more)
 
 ### Community 18 - "GitHub Device Auth"
-Cohesion: 0.16
-Nodes (10): Any, Bool, Data, GroupSession, Task, HoverTip, FrostedField, GroupSectionView (+2 more)
+Cohesion: 0.25
+Nodes (11): Any, Date, String, TimeInterval, URL, URLRequest, GitHubDeviceAuth, GitHubDeviceCodeGrant (+3 more)
 
 ### Community 19 - "GitHub Auth Tests"
-Cohesion: 0.06
-Nodes (45): Bool, String, URL, Any, Data, Date, Int, String (+37 more)
+Cohesion: 0.18
+Nodes (10): Data, Int, String, TimeInterval, URLRequest, GitHubDeviceAuth, auth(), GitHubDeviceAuthTests (+2 more)
 
 ### Community 20 - "Notch Shape Animation"
 Cohesion: 0.16
@@ -272,12 +269,12 @@ Cohesion: 0.10
 Nodes (19): compilerOptions, allowImportingTsExtensions, jsx, lib, module, moduleResolution, noEmit, noFallthroughCasesInSwitch (+11 more)
 
 ### Community 26 - "Crypto Framework Imports"
-Cohesion: 0.14
-Nodes (13): Data, PresenceStatus, String, CoreGraphics, CryptoKit, Foundation, ImageIO, Identity (+5 more)
+Cohesion: 0.21
+Nodes (7): CoreGraphics, CryptoKit, Foundation, ImageIO, Network, Testing, UniformTypeIdentifiers
 
 ### Community 27 - "App Lifecycle & Clipboard"
-Cohesion: 0.21
-Nodes (10): Any, AnyCancellable, AppModel, UpdaterController, AppDelegate, Notification, NSApplicationDelegate, NSPopoverDelegate (+2 more)
+Cohesion: 0.18
+Nodes (13): Any, AnyCancellable, AppModel, UpdaterController, Image, BrandGlyph, AppDelegate, Notification (+5 more)
 
 ### Community 28 - "shadcn components.json"
 Cohesion: 0.11
@@ -296,20 +293,20 @@ Cohesion: 0.12
 Nodes (16): compilerOptions, esModuleInterop, isolatedModules, lib, module, moduleDetection, moduleResolution, noEmit (+8 more)
 
 ### Community 32 - "Brand Glyph & Animated Image"
-Cohesion: 0.23
-Nodes (9): Context, Data, NSView, String, Void, ContentMode, AnimatedImageView, ImageCopyHitTarget (+1 more)
+Cohesion: 0.24
+Nodes (8): Context, NSView, String, Void, ContentMode, AnimatedImageView, ImageCopyHitTarget, NSImageView
 
 ### Community 33 - "AppPayload Schema"
-Cohesion: 0.13
-Nodes (15): Data, Encoder, Int, String, CodingKeys, avatar, avatarURL, caption (+7 more)
+Cohesion: 0.18
+Nodes (10): CodingKeys, avatar, avatarURL, caption, displayName, items, kind, sentAt (+2 more)
 
 ### Community 34 - "Relay Client"
-Cohesion: 0.24
-Nodes (6): Data, String, SymmetricKey, MessageCrypto, MessageCryptoTests, MessageCryptoRawTests
+Cohesion: 0.22
+Nodes (10): CGFloat, CGRect, CGSize, Void, Layout, FlowLayout, ListHeightKey, PreferenceKey (+2 more)
 
 ### Community 35 - "Wire Message Encoding"
-Cohesion: 0.22
-Nodes (9): CodingKey, CodingKeys, code, from, memberId, message, payload, to (+1 more)
+Cohesion: 0.12
+Nodes (14): Encoder, CodingKey, Encodable, ClientMessage, ping, send, CodingKeys, code (+6 more)
 
 ### Community 36 - "CLI tsconfig"
 Cohesion: 0.12
@@ -321,7 +318,7 @@ Nodes (13): createLogger(), Level, Logger, BLOB_TTL_MS, BlobEnv, log, registerBl
 
 ### Community 38 - "Auth/Crypto/Relay Errors"
 Cohesion: 0.20
-Nodes (9): Never, String, Task, URL, Void, AsyncStream, ClientMessage, RelayClient (+1 more)
+Nodes (8): Data, Int, GitHubAuthError, accessDenied, deviceFlowDisabled, expired, http, malformedResponse
 
 ### Community 39 - "Capture Exclusion"
 Cohesion: 0.19
@@ -344,8 +341,8 @@ Cohesion: 0.14
 Nodes (13): devDependencies, @types/bun, typescript, name, private, scripts, build, build:release (+5 more)
 
 ### Community 45 - "Control Protocol"
-Cohesion: 0.18
-Nodes (11): AppModel, CGFloat, Never, String, Void, GroupSectionView, Label, GroupListHeightKey (+3 more)
+Cohesion: 0.33
+Nodes (9): Bool, String, URL, Codable, ControlGroupInfo, ControlRequest, ControlResponse, MunkelControl (+1 more)
 
 ### Community 46 - "Notch Presenter Plan (doc)"
 Cohesion: 0.24
@@ -364,12 +361,12 @@ Cohesion: 0.23
 Nodes (8): Attachment, log, ClientMessage, clientMessageSchema, ErrorCode, memberId, MEMBER_ID_ALPHABET, memberIdArb
 
 ### Community 50 - "Image Preview Overlay"
-Cohesion: 0.21
+Cohesion: 0.22
 Nodes (8): Bool, CGImage, CGSize, Data, IncomingImage, MessageDisplayModel, ImagePreviewOverlay, PreviewCard
 
 ### Community 51 - "Login Item"
-Cohesion: 0.33
-Nodes (4): AnyCancellable, Bool, LoginItem, LoginItemModel
+Cohesion: 0.29
+Nodes (5): AnyCancellable, Bool, LoginItem, LoginItemModel, ObservableObject
 
 ### Community 52 - "Blob Error Types"
 Cohesion: 0.18
@@ -408,23 +405,19 @@ Cohesion: 0.33
 Nodes (9): Munkel Open Graph Social Share Card, Sample Message 'coffee?' in Notch, Dark Minimalist Brand Palette with Green Accent Dot, Ephemeral Privacy-First Messaging Positioning, Hand/Whisper Menu-Bar Glyph Icon, MacBook Notch Notification Motif, Munkel Product Wordmark, Tagline: Ephemeral messages, whispered from the MacBook notch (+1 more)
 
 ### Community 63 - "Presence Status"
-Cohesion: 0.29
-Nodes (4): Data, Int, String, Task
+Cohesion: 0.25
+Nodes (7): Bool, CaseIterable, PresenceStatus, away, doNotDisturb, online, String
 
 ### Community 64 - "Relay E2E Test Harness"
-Cohesion: 0.13
-Nodes (6): Frame, GROUP_A, GROUP_B, openClients, TestClient, waitForReady()
-
-### Community 65 - "Relay E2E Test Client"
-Cohesion: 0.33
-Nodes (7): Bool, Data, Never, String, Task, URL, AvatarStore
+Cohesion: 0.25
+Nodes (5): Frame, GROUP_A, GROUP_B, openClients, waitForReady()
 
 ### Community 66 - "CLI Showcase"
-Cohesion: 0.40
-Nodes (5): AppModel, Data, ControlServer, NWConnection, NWListener
+Cohesion: 0.36
+Nodes (5): Data, Encoder, Int, String, ImageItem
 
 ### Community 67 - "FAQ Accordion"
-Cohesion: 0.32
+Cohesion: 0.38
 Nodes (6): CGFloat, Color, Data, PresenceStatus, String, AvatarView
 
 ### Community 68 - "Brand Icon Assets"
@@ -448,8 +441,8 @@ Cohesion: 0.47
 Nodes (5): Bool, CGFloat, Void, CopyGlyph, CopyMessageButton
 
 ### Community 74 - "Identity Model"
-Cohesion: 0.20
-Nodes (9): CryptoError, invalidPayload, sealFailed, Event, disconnected, received, RelayError, notConnected (+1 more)
+Cohesion: 0.40
+Nodes (4): Data, PresenceStatus, String, Identity
 
 ### Community 75 - "Notch Hosting Content"
 Cohesion: 0.40
@@ -464,12 +457,8 @@ Cohesion: 1.00
 Nodes (4): Avatar 01 - Woman with Long Dark Hair, Avatar 02 - Man with Glasses, Avatar 03 - Person with Sunglasses, Avatar 05 - Woman with Glasses and Ponytail
 
 ### Community 82 - "Presence Status UI"
-Cohesion: 0.50
+Cohesion: 0.67
 Nodes (3): Color, String, PresenceStatus
-
-### Community 83 - "Vite Config"
-Cohesion: 0.50
-Nodes (3): config, rootDir, srcDir
 
 ### Community 84 - "Worker Image Transform Types"
 Cohesion: 0.67
@@ -483,48 +472,36 @@ Nodes (3): Body, Request, Response
 Cohesion: 0.67
 Nodes (3): ByteLengthQueuingStrategy, CountQueuingStrategy, QueuingStrategy
 
-### Community 106 - "Message Limits"
-Cohesion: 0.25
-Nodes (5): Data, Image, BrandGlyph, ClipboardImage, NSImage
-
 ### Community 109 - "Community 109"
-Cohesion: 0.48
-Nodes (3): String, SymmetricKey, GroupKey
+Cohesion: 0.40
+Nodes (4): CGFloat, CGSize, Double, UnreadIndicatorView
 
 ### Community 110 - "Community 110"
 Cohesion: 0.40
 Nodes (3): LAUNCH_PLATFORMS, LaunchBadgeTrack(), LaunchPlatform
 
 ### Community 111 - "Community 111"
-Cohesion: 0.40
+Cohesion: 0.50
 Nodes (3): Element, Index, Collection
 
 ### Community 112 - "Community 112"
 Cohesion: 0.67
 Nodes (3): MunkelApp, Scene, app
 
-### Community 114 - "Community 114"
-Cohesion: 0.29
-Nodes (5): Encoder, Encodable, ClientMessage, ping, send
-
-### Community 115 - "Community 115"
-Cohesion: 0.33
-Nodes (3): Int, Content, Color
-
 ## Knowledge Gaps
-- **1393 isolated node(s):** `build-release.sh script`, `name`, `version`, `private`, `type` (+1388 more)
+- **1392 isolated node(s):** `build-release.sh script`, `name`, `version`, `private`, `type` (+1387 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **29 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **31 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `URL` connect `History Album Grid` to `Cloudflare Worker Type Defs`, `Relay E2E Test Client`, `Auth/Crypto/Relay Errors`, `Blob Client & CLI Installer`, `Group Session`, `Link Preview Fetcher`?**
+- **Why does `URL` connect `History Album Grid` to `Cloudflare Worker Type Defs`, `Group Session`, `Link Preview Fetcher`, `Blob Client & CLI Installer`?**
   _High betweenness centrality (0.365) - this node is a cross-community bridge._
 - **Why does `firstURL()` connect `Link Preview Fetcher` to `History Album Grid`?**
-  _High betweenness centrality (0.133) - this node is a cross-community bridge._
-- **Why does `Foundation` connect `Crypto Framework Imports` to `AppPayload Schema`, `Blob Client & CLI Installer`, `Incoming Message Model`, `Identity Model`, `GitHub Config`, `Group Code`, `Community 111`, `History Album Grid`, `App Framework Imports`, `Community 114`, `GitHub Auth Tests`, `Link Preview Fetcher`, `Wire Message Tests`?**
-  _High betweenness centrality (0.102) - this node is a cross-community bridge._
+  _High betweenness centrality (0.137) - this node is a cross-community bridge._
+- **Why does `Foundation` connect `Crypto Framework Imports` to `AppPayload Schema`, `Wire Message Encoding`, `Auth/Crypto/Relay Errors`, `Blob Client & CLI Installer`, `Incoming Message Model`, `Group Session`, `Identity Model`, `GitHub Config`, `Group Code`, `Control Protocol`, `App Framework Imports`, `GitHub Auth Tests`, `Link Preview Fetcher`, `Wire Message Tests`, `Presence Status`?**
+  _High betweenness centrality (0.106) - this node is a cross-community bridge._
 - **Are the 5 inferred relationships involving `MessageDisplayModel` (e.g. with `.decodeFull()` and `.load()`) actually correct?**
   _`MessageDisplayModel` has 5 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 3 inferred relationships involving `AppModel` (e.g. with `NotchPresenter` and `.respond()`) actually correct?**
@@ -532,4 +509,4 @@ _Questions this graph is uniquely positioned to answer:_
 - **Are the 3 inferred relationships involving `GroupSession` (e.g. with `BlobClient` and `.placeholder()`) actually correct?**
   _`GroupSession` has 3 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `build-release.sh script`, `name`, `version` to the rest of the system?**
-  _1394 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _1393 weakly-connected nodes found - possible documentation gaps or missing edges._
