@@ -131,9 +131,10 @@ followed by adversaries that are explicitly out of scope.
 The project's sites do **not** store passwords for authenticating external
 users, because there are no external user accounts anywhere in Munkel:
 
-- **Website (munkel.app).** The landing page (`apps/landing/`) is a static
-  marketing site served by a Cloudflare Worker. It has no login form, no user
-  accounts, and no password storage.
+- **Website (munkel.app).** The landing page (`apps/landing/`) is a marketing
+  site served by a Cloudflare Worker. It has no login form, no user accounts,
+  and no password storage; its only data flow is privacy-first, cookieless
+  website analytics (PostHog EU), which stores nothing on your device.
 - **GitHub repository (github.com/limehq/munkel).** Authentication and access
   control are GitHub's; the repository does not run its own user-auth system
   and stores no passwords.

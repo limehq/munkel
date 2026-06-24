@@ -23,7 +23,7 @@ const FAQS: { q: string; a: ReactNode }[] = [
   },
   {
     q: 'Do my messages get saved anywhere?',
-    a: "They don't. A munkel shows in the notch for a few seconds and fades, a local history keeps it about a minute, then it's gone. Nothing is stored on the server, and there's no telemetry.",
+    a: "They don't. A munkel shows in the notch for a few seconds and fades, a local history keeps it about a minute, then it's gone. Nothing is stored on the server, and the app sends no telemetry.",
   },
   {
     q: 'Will my Mac warn me when I install it?',

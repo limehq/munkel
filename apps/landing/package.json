@@ -18,6 +18,7 @@
     "@cloudflare/vite-plugin": "^1.42.1",
     "@fontsource-variable/geist": "^5.2.9",
     "@fontsource-variable/geist-mono": "^5.2.8",
+    "@posthog/react": "^1.10.3",
     "@radix-ui/react-accordion": "^1.2.14",
     "@radix-ui/react-slot": "^1.2.5",
     "@radix-ui/react-tabs": "^1.1.15",

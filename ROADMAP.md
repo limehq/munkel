@@ -136,8 +136,11 @@ future.
   supporting infrastructure, not separate end-user products. We would rather do
   one platform well than spread thin.
 - **No telemetry / analytics in the app.** We will not add usage analytics,
-  tracking, or content-bearing telemetry. Operational relay metrics (see
-  *Next*) are deliberately limited to non-content signals.
+  tracking, or content-bearing telemetry to the app or the relay. Operational
+  relay metrics (see *Next*) are deliberately limited to non-content signals.
+  The marketing site (munkel.app) is the one exception: it uses privacy-first,
+  cookieless website analytics that store nothing on your device — never the app
+  or your messages.
 
 ---
 

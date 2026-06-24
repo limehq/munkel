@@ -160,6 +160,13 @@ and **`www.munkel.app`** declared in
 [`apps/landing/wrangler.jsonc`](../apps/landing/wrangler.jsonc). It is marketing
 and documentation only — it has no access to relay traffic, R2, or any keys.
 
+It emits first-party, cookieless product analytics (pageviews + download-CTA
+clicks) to **PostHog EU**. Events are reverse-proxied through the same Worker at
+an opaque path (`/relay-Hk2p`) so the browser makes no third-party request; the
+client runs in memory-only mode (no cookies, no `localStorage`, no `identify()`,
+no session recording, autocapture, or web vitals) and honours DNT/GPC. This is
+the landing site only — it stays isolated from the relay, R2, and all keys.
+
 ## Identity, keys, and groups
 
 There are no accounts. Everything derives on-device from the human-readable

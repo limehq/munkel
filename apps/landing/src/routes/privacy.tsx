@@ -10,7 +10,7 @@ export const Route = createFileRoute('/privacy')({
       {
         name: 'description',
         content:
-          'How Munkel handles personal data: no analytics, no tracking, self-hosted fonts, and end-to-end encrypted, ephemeral messaging.',
+          'How Munkel handles personal data: privacy-first cookieless website analytics, self-hosted fonts, and end-to-end encrypted, ephemeral messaging.',
       },
     ],
   }),
@@ -23,7 +23,7 @@ function PrivacyPage() {
       title="Privacy Policy"
       intro="How we handle personal data when you visit this website and use Munkel — written to be honest about how little we collect."
     >
-      <p className="legal-updated">Last updated: 19 June 2026</p>
+      <p className="legal-updated">Last updated: 24 June 2026</p>
 
       <h2>1. Controller</h2>
       <p>
@@ -64,7 +64,9 @@ function PrivacyPage() {
         The legal basis for this processing is our legitimate interest in
         providing a secure and reliable website under Art. 6(1)(f) GDPR. We have
         concluded a data processing agreement (Auftragsverarbeitungsvertrag) with
-        our hosting provider as required by Art. 28 GDPR.
+        our hosting provider as required by Art. 28 GDPR. Cloudflare, Inc. is
+        based in the USA; where connection data is processed outside the EU, this
+        is safeguarded by EU Standard Contractual Clauses.
       </p>
 
       <h2>3. Fonts</h2>
@@ -76,21 +78,66 @@ function PrivacyPage() {
         displaying fonts.
       </p>
 
-      <h2>4. Analytics and tracking</h2>
+      <h2>4. Analytics</h2>
       <p>
-        We do not use any web analytics, tracking, or telemetry on this website.
-        There are no analytics scripts, no tracking pixels, no advertising
-        networks, and no third-party measurement services. We do not build
-        profiles of visitors and we do not track you across sites.
+        We use PostHog to understand, in aggregate, how this website is used —
+        which pages are visited, where visitors arrive from, and when the
+        download button is clicked. Analytics data is stored on PostHog Cloud EU
+        servers in Frankfurt, Germany. PostHog is operated by PostHog Inc. (USA),
+        which provides a data processing agreement (Auftragsverarbeitungsvertrag)
+        under Art. 28 GDPR; insofar as personal data is accessed from outside the
+        EU, it is safeguarded by the EU Standard Contractual Clauses that form
+        part of that agreement.
+      </p>
+      <p>This analytics is deliberately minimal and privacy-preserving:</p>
+      <ul>
+        <li>
+          It runs in a cookieless, memory-only mode. No cookie, no local-storage
+          entry, no device fingerprint, and no stable cross-visit identifier is
+          created — so there is nothing on your device to ask consent for, and no
+          cookie banner.
+        </li>
+        <li>
+          Requests are sent first-party, to a path on this domain that forwards
+          them to PostHog. We never call PostHog's <span className="code">identify</span>{' '}
+          function, so no personal profile is built, and we do not track you
+          across other sites.
+        </li>
+        <li>
+          Your IP address is used in transit only to approximate country-level
+          location; it is not retained by us as an identifier. Session recording,
+          autocapture, and web-vitals collection are switched off.
+        </li>
+        <li>
+          We honour the <span className="code">Do-Not-Track</span> and Global
+          Privacy Control signals: if your browser sends one, no analytics event
+          is collected.
+        </li>
+      </ul>
+      <p>
+        The legal basis is our legitimate interest in measuring and improving the
+        website under Art. 6(1)(f) GDPR. Because nothing is stored on or read from
+        your device, the consent requirement of § 25 TDDDG (formerly TTDSG) does
+        not apply.
+      </p>
+      <p>
+        We retain this analytics data only as long as necessary for this purpose
+        and delete it thereafter. You can object to this processing at any time
+        with effect for the future: turn on Do-Not-Track or Global Privacy
+        Control in your browser — we honour both and then collect nothing — or
+        email us at <a href="mailto:hey@munkel.app">hey@munkel.app</a>.
       </p>
 
       <h2>5. Cookies and local storage</h2>
       <p>
-        This website does not set any cookies. It uses a single, strictly
-        functional browser local-storage entry to remember your light/dark theme
-        preference (the key <span className="code">munkel-theme</span>). This
-        value never leaves your browser, is not used for tracking, and exists
-        only so the site renders in your chosen appearance on your next visit.
+        This website sets no cookies. The only thing it stores on your device is
+        a single, strictly functional browser local-storage entry that remembers
+        your light/dark theme preference (the key{' '}
+        <span className="code">munkel-theme</span>). The analytics described in
+        section 4 runs in a memory-only mode and writes nothing to your device —
+        no cookie and no local-storage entry. The theme value never leaves your
+        browser, is not used for tracking, and exists only so the site renders in
+        your chosen appearance on your next visit.
       </p>
 
       <h2>6. The Munkel app and relay</h2>
@@ -123,7 +170,10 @@ function PrivacyPage() {
         <a href="mailto:hey@munkel.app">hey@munkel.app</a>. You also have the
         right to lodge a complaint with a supervisory authority, in particular in
         the EU member state of your habitual residence, place of work, or the
-        place of the alleged infringement.
+        place of the alleged infringement. The supervisory authority responsible
+        for us is the Hamburg Commissioner for Data Protection and Freedom of
+        Information (Der Hamburgische Beauftragte für Datenschutz und
+        Informationsfreiheit).
       </p>
 
       <h2>8. Changes to this policy</h2>
