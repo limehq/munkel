@@ -15,6 +15,7 @@ const NAV_LINKS = [
   ['#cli', 'CLI'],
   ['#agents', 'Agents'],
   ['#privacy', 'Privacy'],
+  ['#pricing', 'Pricing'],
   ['#faq', 'FAQ'],
 ] as const
 
