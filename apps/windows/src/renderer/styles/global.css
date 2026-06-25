@@ -505,6 +505,10 @@ select {
 	margin-top: 2px;
 }
 
+.reply-button {
+	margin-top: 2px;
+}
+
 .reply-field {
 	display: flex;
 	align-items: center;

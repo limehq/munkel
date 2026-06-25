@@ -12,13 +12,17 @@ Add a `windows-latest` job to CI that runs Windows-native checks for
 
 ## Current CI (reference)
 
-`.github/workflows/ci.yml`:
+`.github/workflows/ci.yml` triggers on `pull_request` and `push` to `main`
+**only** (`on.push.branches: [main]`):
 
-- `checks` — ubuntu, `turbo run test typecheck --filter="!@munkel/macos"`
-- `macos` — `swift test` in `apps/macos`
+- `checks` — ubuntu, `turbo run test typecheck --filter="!@munkel/macos"`.
+  This **already runs the `@munkel/windows` Bun tests** on Linux.
+- `macos` — `swift test` in `apps/macos`.
 
-Windows is **not** covered on native OS today (ubuntu job may run Windows tests
-in Bun but not Electron build nuances).
+What is missing is **native-Windows** coverage: the Electron `build` on
+`windows-latest` (path separators, native module load, `.cjs` main bundle) — not
+the unit tests, which the ubuntu job covers. This plan adds the native OS build,
+not a duplicate test run.
 
 ## Out of scope
 
@@ -51,16 +55,25 @@ windows:
 
 **Notes:**
 
-- Pin action SHAs like existing jobs
-- `test:interop:vectors` is root script — run from repo root
-- Electron download on CI adds time; cache if needed (`actions/cache` on `~/.cache/electron`)
+- Pin action SHAs like existing jobs.
+- `test:interop:vectors` is a root script — run from repo root.
+- Electron download on CI adds time; cache `~/.cache/electron` (and consider
+  caching the Bun install) with `actions/cache` if the job approaches the
+  20-min timeout.
 
-**Acceptance:** Job runs on PR to fork branches (confirm `on.pull_request` triggers).
+**Acceptance:** Job runs on PRs targeting `platform/windows/v2-clean` (the
+existing `on.pull_request` trigger fires for any base branch).
 
-### Task 2 — Branch filter (fork workflow)
+### Task 2 — Trigger reality check (no change usually needed)
 
-Ensure CI runs for PRs targeting `platform/windows/v2-clean` and eventually
-`main`. If only `main` is listed in `on.push.branches`, add:
+The existing `on.pull_request` already triggers for **PRs** into any branch,
+including `platform/windows/v2-clean` — so PR-based feature work is covered with
+no edit.
+
+What is **not** covered: a direct **push** to `platform/windows/v2-clean`
+(without a PR) — `on.push.branches` lists only `main`. Since the fork workflow
+merges features via PR (see `AGENTS.md`), this is fine. Only if you want CI on
+direct pushes to the integration branch, extend:
 
 ```yaml
 on:
@@ -69,22 +82,21 @@ on:
     branches: [main, platform/windows/v2-clean]
 ```
 
-Or rely on `pull_request` only for feature branches.
+**Acceptance:** A PR from `platform/windows/notch-reply-polish` →
+`platform/windows/v2-clean` runs the `windows` job. (Direct-push CI is optional
+and off by default.)
 
-**Acceptance:** Opening PR from `platform/windows/notch-reply-polish` runs `windows` job.
+### Task 3 — Optional electron-builder smoke (BLOCKED until Plan 04)
 
-### Task 3 — Optional electron-builder smoke
+`electron-builder` is **not yet a dependency** and there is no `pack` script
+(see Plan 04 Task 1). Do **not** add an `electron-builder` step here — it would
+fail. The `bunx turbo run build` step above already exercises the Vite/tsc build
+on Windows, which is the meaningful native-OS signal for this plan.
 
-**Only if fast enough (<5 min extra):**
+Revisit packaging smoke in Plan 04 once the dependency and scripts exist.
 
-```yaml
-- run: bunx electron-builder --win dir --config apps/windows/electron-builder.yml
-  working-directory: apps/windows
-```
-
-Mark as optional first run; skip if Electron build requires code signing setup.
-
-**Acceptance:** Document in PR whether dir target builds on CI or deferred to Plan 04.
+**Acceptance:** No `electron-builder` invocation in this plan's workflow; native
+`build` is green on `windows-latest`.
 
 ### Task 4 — README badge / docs
 
@@ -109,12 +121,14 @@ bun run test:interop:vectors
 
 ## Definition of done
 
-- [ ] `windows-latest` job green on sample PR
-- [ ] typecheck + test + build covered
+- [ ] `windows-latest` job green on a sample PR into `platform/windows/v2-clean`
+- [ ] typecheck + test + build covered on native Windows
 - [ ] interop vectors run in CI
+- [ ] No `electron-builder` step (deferred to Plan 04)
 - [ ] PR merged to `platform/windows/v2-clean`
 
 ## Trigger for upstream outreach
 
-Per `State.md`: contact upstream maintainer when **feature parity** AND
-**windows-ci green** — this plan satisfies the CI half.
+Per `.planning/STATE.md` (and the gitignored private `State.md`): contact the
+upstream maintainer when **feature parity** AND **windows-ci green** — this plan
+satisfies the CI half.

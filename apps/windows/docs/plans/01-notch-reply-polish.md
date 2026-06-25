@@ -1,7 +1,10 @@
 # Plan 01: Notch reply UX polish
 
 **Branch:** `platform/windows/notch-reply-polish`  
-**Base:** `platform/windows/v2-clean` (after Phase 2 PR merged)  
+**Base:** the branch **already exists** with Phase 2 stacked on it. While PR #12
+is unmerged, stay on `platform/windows/notch-reply-polish` and keep working —
+do **not** recreate it from a bare `v2-clean` (that would drop the interop
+vectors).  
 **Estimate:** 1 session
 
 ## Problem
@@ -56,6 +59,9 @@ compose on passive row clicks after success.
 3. Ensure copy button still works (`stopPropagation` already present)
 4. Preserve `Escape` to close reply field
 5. Preserve `onNotchMessage` reset (lines 28–32)
+6. Do **not** attach `onClick` to `.message-body` or `.message-text` — only the
+   explicit Reply button opens the compose field. (Today the whole
+   `.message-row` is clickable; after this change only the button is.)
 
 **Acceptance:** Clicking message body does not open reply; Reply button does.
 
@@ -64,20 +70,26 @@ compose on passive row clicks after success.
 **Files:** `apps/windows/src/renderer/styles/global.css`
 
 1. Add `.reply-button` consistent with `.copy-button` / `.icon-button`
-2. Layout: Reply + Copy aligned on the right of message row
+2. Place the Reply control as a **sibling of `.copy-button` inside
+   `.message-row`** (right-aligned action group); give it `aria-label="Reply"`.
 3. Hover/focus states match existing frosted UI
 
-**Acceptance:** Visual parity with ui-spec.md notch section.
+**Acceptance:** Reply + Copy render as a right-aligned action group; the control
+is keyboard-focusable with an accessible label. (Defer subjective "visual
+parity" judgement to Task 3 once ui-spec describes the control.)
 
 ### Task 3 — Update documentation
 
 **Files:**
 
-- `apps/windows/docs/ui-spec.md` — replace "Clicking the message opens inline reply"
-  with explicit Reply affordance description
-- `apps/windows/README.md` — no change required unless UX bullet list mentions click-to-reply
+- `apps/windows/docs/ui-spec.md` — update the notch reply description (around
+  lines 181–182, "Clicking the message opens an inline reply field…") to
+  describe the explicit Reply button affordance instead of click-to-reply.
+- `apps/windows/README.md` — no change required unless its UX bullet list
+  mentions click-to-reply.
 
-**Acceptance:** Docs match implemented behavior.
+**Acceptance:** `ui-spec.md` no longer says the message row opens the reply on
+click; it documents the explicit Reply control matching the implementation.
 
 ### Task 4 — Manual verification
 

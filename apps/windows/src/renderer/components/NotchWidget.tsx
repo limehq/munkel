@@ -87,7 +87,7 @@ export default function NotchWidget() {
 		<div className={`notch-widget ${visible && message ? 'notch-visible' : ''}`}>
 			{message && (
 				<div className="notch-content">
-					<div className="message-row" onClick={() => setReplying(true)}>
+					<div className="message-row">
 						<Avatar name={message.sender} size={40} />
 						<div className="message-body">
 							<div className="message-meta">
@@ -114,6 +114,17 @@ export default function NotchWidget() {
 						</div>
 						<button className="icon-button copy-button" onClick={copyText}>
 							{copied ? '✓' : '📋'}
+						</button>
+						<button
+							className="icon-button reply-button"
+							onClick={(e) => {
+								e.stopPropagation();
+								setReplying(true);
+							}}
+							aria-label="Reply"
+							title="Reply"
+						>
+							↩
 						</button>
 					</div>
 

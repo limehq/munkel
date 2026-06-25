@@ -178,8 +178,9 @@ state using the 👥 glyph on a neutral background.
   These previews are shown for any incoming image album, including albums sent
   via the `munkel image` CLI command.
 - Copy button (copies the message text).
-- Clicking the message opens an inline reply field with a channel toggle
-  (🔒/🌐) and frosted input.
+- An explicit **Reply** button on the message row opens an inline reply field
+  with a channel toggle (🔒/🌐) and frosted input. Clicking the message body
+  or row does not open the field.
 - `Enter` or the `➤` send button calls `useAppStore().sendChat`; on
   `false` (session offline) the field stays open with a small red
   inline error ("Circle offline — reply not sent."). A new incoming
@@ -249,3 +250,10 @@ change reviewable.
   precaution.
 - Global shortcut `Ctrl + Shift + M` is registered on app launch and
   unregistered before quit.
+
+## Capture-Proof Surfaces
+
+All app windows (menu, notch, palette) call `win.setContentProtection(true)` after creation.
+
+- On macOS this sets `NSWindow.sharingType` to `NSWindowSharingNone`.
+- On Windows this calls `SetWindowDisplayAffinity` with `WDA_EXCLUDEFROMCAPTURE`. For Windows 10 version 2004 and later the window is removed from capture entirely; older Windows versions behave as if `WDA_MONITOR` is applied and capture a black window instead.
