@@ -47,6 +47,7 @@ struct HistoryEntry: Identifiable, Equatable {
     let group: String
     let groupColor: Color
     let receivedAt: Date
+    let sentAt: Date
     /// Album images for an image message (empty for plain text), carried so the
     /// EXPANDED history can render thumbnails that upgrade to full resolution
     /// just like the current message. RAM-only — gone when the entry is pruned.
