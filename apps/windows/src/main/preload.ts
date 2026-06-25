@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { IpcApi, NotchMessage, StateUpdate } from '../shared/types';
+import type { GitHubLoginState, IpcApi, NotchMessage, StateUpdate } from '../shared/types';
 
 const api: IpcApi = {
 	getWindowType: () => ipcRenderer.invoke('get-window-type'),
@@ -20,6 +20,9 @@ const api: IpcApi = {
 	updateProfile: (displayName, avatar) => ipcRenderer.invoke('update-profile', displayName, avatar),
 	setRelayUrl: (code, relayUrl) => ipcRenderer.invoke('set-relay-url', code, relayUrl),
 	getState: () => ipcRenderer.invoke('get-state'),
+	startGitHubLogin: () => ipcRenderer.invoke('start-github-login'),
+	cancelGitHubLogin: () => ipcRenderer.invoke('cancel-github-login'),
+	githubLogout: () => ipcRenderer.invoke('github-logout'),
 
 	selectImages: () => ipcRenderer.invoke('select-images'),
 
@@ -33,6 +36,11 @@ const api: IpcApi = {
 		const handler = (_event: Electron.IpcRendererEvent, data: StateUpdate) => callback(data);
 		ipcRenderer.on('state-update', handler);
 		return () => ipcRenderer.removeListener('state-update', handler);
+	},
+	onGitHubLoginState: (callback) => {
+		const handler = (_event: Electron.IpcRendererEvent, data: GitHubLoginState) => callback(data);
+		ipcRenderer.on('github-login-state', handler);
+		return () => ipcRenderer.removeListener('github-login-state', handler);
 	},
 	onNotchMessage: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: NotchMessage) => callback(data);

@@ -30,9 +30,10 @@ interface AvatarProps {
 	name: string;
 	size?: number;
 	isEveryone?: boolean;
+	imageBase64?: string;
 }
 
-export function Avatar({ name, size = 34, isEveryone = false }: AvatarProps) {
+export function Avatar({ name, size = 34, isEveryone = false, imageBase64 }: AvatarProps) {
 	const [from, to] = getAvatarPalette(name);
 	return (
 		<div
@@ -44,7 +45,17 @@ export function Avatar({ name, size = 34, isEveryone = false }: AvatarProps) {
 				background: isEveryone ? 'rgba(255,255,255,0.12)' : `linear-gradient(135deg, ${from}, ${to})`,
 			}}
 		>
-			{isEveryone ? '👥' : getInitials(name)}
+			{isEveryone ? (
+				'👥'
+			) : imageBase64 ? (
+				<img
+					className="avatar-image"
+					src={`data:image/jpeg;base64,${imageBase64}`}
+					alt={name}
+				/>
+			) : (
+				getInitials(name)
+			)}
 		</div>
 	);
 }

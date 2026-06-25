@@ -19,11 +19,20 @@ export interface IdentityState {
 	memberId: string;
 	displayName: string;
 	avatar?: string;
+	githubLogin?: string;
 }
 
 export interface StateUpdate {
 	identity: IdentityState;
 	circles: CircleState[];
+}
+
+export type GitHubLoginPhase = 'idle' | 'requesting' | 'awaiting' | 'fetching' | 'failed';
+
+export interface GitHubLoginState {
+	phase: GitHubLoginPhase;
+	userCode?: string;
+	error?: string;
 }
 
 export interface IncomingImage {
@@ -58,6 +67,9 @@ export interface IpcApi {
 	updateProfile: (displayName: string, avatar?: string) => Promise<void>;
 	setRelayUrl: (code: string, relayUrl: string) => Promise<void>;
 	getState: () => Promise<StateUpdate>;
+	startGitHubLogin: () => Promise<void>;
+	cancelGitHubLogin: () => Promise<void>;
+	githubLogout: () => Promise<void>;
 
 	// Image picker (main-process dialog; returns file paths).
 	selectImages: () => Promise<string[] | undefined>;
@@ -72,6 +84,7 @@ export interface IpcApi {
 
 	// Main → renderer push channels.
 	onStateUpdate: (callback: (update: StateUpdate) => void) => () => void;
+	onGitHubLoginState: (callback: (state: GitHubLoginState) => void) => () => void;
 	onNotchMessage: (callback: (message: NotchMessage) => void) => () => void;
 	onRelayError: (callback: (message: string) => void) => () => void;
 	onNotchShow: (callback: () => void) => () => void;

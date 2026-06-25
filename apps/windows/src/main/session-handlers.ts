@@ -1,7 +1,8 @@
 import { dialog, ipcMain } from 'electron';
 import type { AppState } from './session-store';
+import type { GitHubLoginService } from './github-login';
 
-export function registerSessionHandlers(appState: AppState): void {
+export function registerSessionHandlers(appState: AppState, githubLoginService: GitHubLoginService): void {
 	ipcMain.handle('join-circle', async (_event, code: string, relayUrl?: string) => {
 		await appState.joinCircle(code, relayUrl);
 	});
@@ -19,7 +20,7 @@ export function registerSessionHandlers(appState: AppState): void {
 	});
 
 	ipcMain.handle('update-profile', async (_event, displayName: string, avatar?: string) => {
-		appState.updateIdentity(displayName, avatar);
+		appState.updateIdentity(avatar === undefined ? { displayName } : { displayName, avatar });
 	});
 
 	ipcMain.handle('set-relay-url', async (_event, code: string, relayUrl: string) => {
@@ -39,5 +40,9 @@ export function registerSessionHandlers(appState: AppState): void {
 			],
 		});
 		return result.canceled ? undefined : result.filePaths;
+	});
+
+	ipcMain.handle('github-logout', async () => {
+		githubLoginService.logoutGitHub();
 	});
 }

@@ -14,7 +14,11 @@ Phase 1 is feature-complete for day-to-day messaging:
 - `munkel` CLI integration over a Windows named pipe.
 - Cross-platform crypto interop with the macOS app and server reference.
 
-GitHub OAuth login/avatar and release packaging are still pending.
+GitHub login is optional. The app still works with a manual display name and
+joined circles even when no GitHub account is connected. A real
+device-flow-enabled OAuth app is a later human gate: `github-config.ts` uses
+the public macOS client ID by default, and production verification can later
+override it with `MUNKEL_GITHUB_CLIENT_ID`.
 
 ## Agent execution plans
 
