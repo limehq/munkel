@@ -62,13 +62,11 @@ export function Screenshots() {
                     </div>
                     <div className="nx-album">
                       {ALBUM.map((img) => (
-                        <button
+                        <span
                           key={img.id}
-                          type="button"
                           className="nx-thumb"
                           style={{ backgroundImage: img.grad }}
                           onMouseEnter={() => show(img)}
-                          aria-label="Preview image"
                         />
                       ))}
                     </div>
@@ -86,13 +84,11 @@ export function Screenshots() {
                     </span>
                     <span className="nx-ralbum">
                       {HIST_ALBUM.map((img) => (
-                        <button
+                        <span
                           key={img.id}
-                          type="button"
                           className="nx-rthumb"
                           style={{ backgroundImage: img.grad }}
                           onMouseEnter={() => show(img)}
-                          aria-label="Preview image"
                         />
                       ))}
                     </span>

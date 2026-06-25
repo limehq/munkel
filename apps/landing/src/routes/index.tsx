@@ -22,16 +22,18 @@ function LandingPage() {
     <MotionConfig reducedMotion="user">
       <AnnounceBar />
       <Nav />
-      <Hero />
-      <HowItWorks />
-      <Features />
-      <Screenshots />
-      <Cli />
-      <Agents />
-      <Privacy />
-      <Faq />
-      <LaunchBadgeTrack />
-      <Cta />
+      <main>
+        <Hero />
+        <HowItWorks />
+        <Features />
+        <Screenshots />
+        <Cli />
+        <Agents />
+        <Privacy />
+        <Faq />
+        <LaunchBadgeTrack />
+        <Cta />
+      </main>
       <SiteFooter />
     </MotionConfig>
   )

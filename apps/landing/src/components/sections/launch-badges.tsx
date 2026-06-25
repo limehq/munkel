@@ -21,7 +21,13 @@ const LAUNCH_PLATFORMS: LaunchPlatform[] = [
   { name: 'Dang.ai', href: 'https://dang.ai' },
 ]
 
-function LaunchBadge({ platform }: { platform: LaunchPlatform }) {
+function LaunchBadge({
+  platform,
+  duplicate = false,
+}: {
+  platform: LaunchPlatform
+  duplicate?: boolean
+}) {
   const { name, href, img, alt } = platform
   return (
     <a
@@ -29,7 +35,7 @@ function LaunchBadge({ platform }: { platform: LaunchPlatform }) {
       href={href}
       target="_blank"
       rel="noopener"
-      aria-label={`Featured on ${name}`}
+      tabIndex={duplicate ? -1 : undefined}
     >
       {img ? (
         <img src={img} alt={alt ?? `Featured on ${name}`} loading="lazy" decoding="async" />
@@ -65,7 +71,7 @@ export function LaunchBadgeTrack({ liveOnly = false }: { liveOnly?: boolean }) {
           ))}
           <span className="badge-dup" aria-hidden>
             {platforms.map((p) => (
-              <LaunchBadge key={`${p.name}-dup`} platform={p} />
+              <LaunchBadge key={`${p.name}-dup`} platform={p} duplicate />
             ))}
           </span>
         </div>

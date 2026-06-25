@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Check, Copy, Sparkles } from 'lucide-react'
 
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 
 const INSTALL_CMDS = {
   npx: 'npx skills add limehq/munkel',
@@ -41,10 +41,12 @@ function InstallCmd() {
           <Check className="ic-check" strokeWidth={2.5} aria-hidden />
         </button>
       </div>
-      <div className="install-body">
-        <span className="prompt">$</span>
-        <span>{INSTALL_CMDS[pm]}</span>
-      </div>
+      {(Object.keys(INSTALL_CMDS) as Pm[]).map((key) => (
+        <TabsContent key={key} value={key} forceMount className="install-body">
+          <span className="prompt">$</span>
+          <span>{INSTALL_CMDS[key]}</span>
+        </TabsContent>
+      ))}
     </Tabs>
   )
 }
