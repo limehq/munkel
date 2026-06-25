@@ -39,3 +39,37 @@ jobs:
       - name: Swift tests (MunkelKit)
         working-directory: apps/macos
         run: swift test
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: "1.3.14"
+
+      # Electron caches its prebuilt binary under %LOCALAPPDATA%\electron\Cache
+      # on Windows (electronjs.org @electron/get docs). Cache it to avoid the
+      # cold-download cost on every run. Keyed on the lockfile so a new Electron
+      # version busts the cache.
+      - name: Cache Electron binary
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4
+        with:
+          path: ~\AppData\Local\electron\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Typecheck and test (@munkel/windows, native Windows)
+        run: bunx turbo run typecheck test --filter=@munkel/windows
+
+      - name: Interop vectors (Swift <-> Windows golden vectors)
+        run: bun run test:interop:vectors
+
+      - name: Build (@munkel/windows, native Windows)
+        run: bunx turbo run build --filter=@munkel/windows
