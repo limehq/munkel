@@ -1,95 +1,96 @@
 {
   "version": "1.0",
-  "timestamp": "2026-06-24T12:00:00+02:00",
-  "phase": "2",
-  "phase_name": "swift-windows-interop",
-  "phase_dir": "platform/windows/swift-windows-interop",
+  "timestamp": "2026-06-25T14:22:00+02:00",
+  "phase": "3",
+  "phase_name": "notch-reply-polish",
+  "phase_dir": "platform/windows/notch-reply-polish",
   "plan": 1,
-  "task": 4,
+  "task": 0,
   "total_tasks": 6,
   "status": "paused",
   "completed_tasks": [
     {
-      "id": 1,
-      "name": "Shared interop vectors + generator + Windows/Swift tests",
+      "id": 0,
+      "name": "Phase 2 committed + pushed + PR #12 opened",
       "status": "done",
-      "commit": null
+      "commit": "2e4d24d"
     },
     {
-      "id": 2,
-      "name": "Auto free dev port in dev.mjs (avoid 5173 collision)",
+      "id": 0,
+      "name": "Agent plan files reviewed (subagent) and corrected",
       "status": "done",
-      "commit": null
-    },
-    {
-      "id": 3,
-      "name": "Manual app smoke test (tray, quit)",
-      "status": "done",
-      "progress": "Electron quit clean; pipe released; dev server left running until Ctrl+C"
+      "commit": "413ad0a"
     }
   ],
   "remaining_tasks": [
     {
+      "id": 1,
+      "name": "Plan 01 Task 1 — explicit Reply button in NotchWidget.tsx (remove row click)",
+      "status": "not_started"
+    },
+    {
+      "id": 2,
+      "name": "Plan 01 Task 2 — .reply-button styles (sibling of .copy-button)",
+      "status": "not_started"
+    },
+    {
+      "id": 3,
+      "name": "Plan 01 Task 3 — update ui-spec.md lines ~181-182",
+      "status": "not_started"
+    },
+    {
       "id": 4,
-      "name": "Commit Phase 2 + open PR to platform/windows/v2-clean",
+      "name": "Plan 01 Task 4 — manual verification (bun run dev)",
       "status": "not_started"
     },
     {
       "id": 5,
-      "name": "Run swift test on macOS (InteropVectorsTests)",
+      "name": "Plan 01 Task 5 — typecheck + test --filter=@munkel/windows",
       "status": "not_started"
     },
     {
       "id": 6,
-      "name": "Merge PR + start Phase 3 (notch-reply-polish) or document manual-test issues",
+      "name": "Plan 01 Task 6 — PR to platform/windows/v2-clean",
       "status": "not_started"
     }
   ],
   "blockers": [],
   "human_actions_pending": [
     {
-      "action": "Review manual-test findings and confirm whether dev Quit should also stop dev.mjs",
-      "context": "Tray Quit exits Electron cleanly but Vite watcher may stay on 5174+ until terminal Ctrl+C",
+      "action": "Merge PR #12 (Phase 2) into platform/windows/v2-clean when ready",
+      "context": "Phase 2 interop vectors are not on v2-clean yet; Plan 02-04 must not branch from bare v2-clean until merged. Plan 01 continues on the current branch regardless.",
       "blocking": false
     },
     {
-      "action": "Run `cd apps/macos && swift test` on macOS to validate InteropVectorsTests",
-      "context": "Windows-side tests green (116 pass); Swift side not verified on this machine",
+      "action": "Run `cd apps/macos && swift test --filter InteropVectorsTests` on macOS",
+      "context": "Swift side of Phase 2 interop vectors not yet verified on this Windows machine",
+      "blocking": false
+    },
+    {
+      "action": "Decide whether to push platform/windows/notch-reply-polish now",
+      "context": "Commits 2e4d24d (pushed) + 413ad0a (local only). 413ad0a not yet on remote.",
       "blocking": false
     }
   ],
   "decisions": [
     {
-      "decision": "Use scripts/interop-vectors/vectors.json as cross-platform golden source",
-      "rationale": "Deterministic fixed-nonce AES-GCM + payload JSON pins catch Swift/Windows drift without live relay",
-      "phase": "2"
+      "decision": "Plan 01 implemented on existing notch-reply-polish branch, not re-branched from v2-clean",
+      "rationale": "Phase 2 is stacked on this branch; re-branching from bare v2-clean would drop interop vectors until PR #12 merges",
+      "phase": "3"
     },
     {
-      "decision": "dev.mjs probes first free port from VITE_DEV_PORT default 5174",
-      "rationale": "Ultra-Wisper-Flow occupies 5173; hardcoded ports collide with other local Vite apps",
-      "phase": "2"
-    },
-    {
-      "decision": "Skip imageFixtures SHA-256 when Bun lacks OffscreenCanvas",
-      "rationale": "Generator degrades gracefully; byte-level AVIF parity refresh on Electron/macOS later",
-      "phase": "2"
+      "decision": "Plan files corrected per code-reviewer subagent findings before agent execution",
+      "rationale": "Original plans had PR #11/#12 error, avatar-codec.ts vs avatar.ts, missing identity/IPC wiring + security tasks",
+      "phase": "3"
     }
   ],
   "uncommitted_files": [
-    "apps/macos/Sources/MunkelKit/MessageCrypto.swift",
-    "apps/macos/Tests/MunkelKitTests/InteropVectorsTests.swift",
-    "apps/windows/README.md",
-    "apps/windows/scripts/dev.mjs",
-    "apps/windows/src/core/crypto.ts",
-    "apps/windows/src/core/image-codec.ts",
-    "apps/windows/vite.renderer.config.ts",
-    "apps/windows/src/core/__tests__/swift-interop.test.ts",
-    "scripts/generate-interop-vectors.ts",
-    "scripts/interop-vectors/",
-    "package.json",
-    "graphify-out/GRAPH_REPORT.md",
-    "graphify-out/graph.json"
+    ".planning/.continue-here.md",
+    ".planning/HANDOFF.json",
+    "graphify-out/GRAPH_REPORT.md (intentionally not committed)",
+    "graphify-out/graph.json (intentionally not committed)",
+    "scripts/interop-vectors/vectors.json (regenerated by test run; not committed)"
   ],
-  "next_action": "Commit Phase 2 changes on platform/windows/swift-windows-interop, then open PR to platform/windows/v2-clean via `gh pr create --repo rodgi040/munkel`",
-  "context_notes": "Phase 1 merged (PR #11). Phase 2 code complete and Windows tests green. User manually tested app; Quit is clean for Electron/pipe. Dev stack may linger. Private planning uses State.md/Roadmap.md; no formal GSD phase dirs."
+  "next_action": "Implement Plan 01 Task 1: in apps/windows/src/renderer/components/NotchWidget.tsx remove onClick from .message-row and add an explicit Reply button (Option A). Follow apps/windows/docs/plans/01-notch-reply-polish.md.",
+  "context_notes": "Session did: /gsd-resume-work (reconstructed STATE.md), planned remaining Windows-native milestones into apps/windows/docs/plans/, committed Phase 2 (PR #12), ran a critical code-reviewer subagent on the plans, then fixed all six plan files (commit 413ad0a). Munkel Windows is already usable day-to-day; remaining work is polish (01), GitHub OAuth (02, optional v1), Windows CI (03), packaging (04). All gh commands need --repo rodgi040/munkel. Dev port auto-picks 5174+."
 }
