@@ -6,6 +6,10 @@ files:
   - dist/**/*
   - assets/**/*
   - package.json
+asar: true
+asarUnpack:
+  - "**/node_modules/sharp/**/*"
+  - "**/node_modules/@img/**/*"
 win:
   target:
     - zip
