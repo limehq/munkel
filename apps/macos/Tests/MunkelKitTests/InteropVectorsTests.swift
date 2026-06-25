@@ -5,7 +5,7 @@ import Testing
 
 // MARK: - vectors.json schema
 
-private struct VectorsFile: Decodable {
+struct VectorsFile: Decodable {
     struct DerivationEntry: Decodable {
         let code: String
         let groupId: String
