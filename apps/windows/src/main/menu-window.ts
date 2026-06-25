@@ -27,6 +27,8 @@ export function createMenuWindow(): BrowserWindow {
 		},
 	});
 
+	win.setContentProtection(true);
+
 	const margin = 16;
 	const x = Math.max(0, width - 320 - margin);
 	const y = Math.max(0, height - 520 - margin);

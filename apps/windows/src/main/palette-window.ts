@@ -30,6 +30,8 @@ export function createPaletteWindow(): BrowserWindow {
 		},
 	});
 
+	win.setContentProtection(true);
+
 	const x = Math.round((width - PALETTE_WIDTH) / 2);
 	const y = Math.round((height - PALETTE_HEIGHT) / 2);
 	win.setPosition(x, y);

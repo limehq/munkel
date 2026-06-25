@@ -32,6 +32,8 @@ export function createNotchWindow(): BrowserWindow {
 		},
 	});
 
+	win.setContentProtection(true);
+
 	const x = Math.round((width - NOTCH_WIDTH) / 2);
 	win.setPosition(x, 0);
 
