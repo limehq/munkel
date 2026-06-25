@@ -638,12 +638,12 @@ final class NotchPresenter {
         removeClickMonitors()
         hoverObservation = nil
         turnOffHoverCopy()
-        await notch.hide()
         if currentNotch === notch {
             currentNotch = nil
             currentModel = nil
             notchVisible = false
         }
+        await notch.hide()
     }
 
     /// Show the GitHub device-flow user code in the notch. Driven by AppModel's
