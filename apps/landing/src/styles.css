@@ -379,7 +379,8 @@ nav.floating .nav-inner {
   padding: 0 14px;
   font-family: -apple-system, system-ui, sans-serif;
   font-size: 13px; color: oklch(0.97 0 0 / 0.85);
-  background: oklch(0 0 0 / 0.26);
+  background: oklch(0 0 0 / 0.5);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
 }
 .mb-menu { display: flex; align-items: center; gap: 15px; }
 /* U+F8FF = the Apple logo glyph in the system font on Apple devices. */
