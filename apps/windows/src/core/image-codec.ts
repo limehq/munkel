@@ -17,8 +17,8 @@
  *
  * Drift vs `ImageCodec.swift` is a silent wire-format bug. The byte
  * budgets, pixel caps, and step orderings here are pinned to the Swift
- * source — a parity test lands on the `swift-windows-interop` follow-up
- * branch.
+ * source — parity is enforced by `scripts/interop-vectors/vectors.json`
+ * and `swift-interop.test.ts` / `InteropVectorsTests.swift`.
  */
 
 import imageSize from 'image-size';

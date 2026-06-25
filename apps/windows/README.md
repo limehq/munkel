@@ -15,6 +15,12 @@ Phase 1 is feature-complete for day-to-day messaging:
 
 GitHub OAuth login/avatar and release packaging are still pending.
 
+## Agent execution plans
+
+Sequential feature plans for coding agents live in
+[`docs/plans/README.md`](./docs/plans/README.md). Each plan maps to a
+`platform/windows/<feature>` branch off `platform/windows/v2-clean`.
+
 ## Development
 
 ```bash
@@ -28,6 +34,10 @@ bun run dev
 `bun run dev` starts the Vite renderer dev server, builds the main/preload
 processes in watch mode, and launches Electron.
 
+The dev server binds the first free port starting at **5174** (override with
+`VITE_DEV_PORT`). This avoids collisions with other local Vite apps that often
+use 5173.
+
 ## Scripts
 
 - `bun run dev` — start the Electron app in development mode
@@ -40,6 +50,10 @@ processes in watch mode, and launches Electron.
   assertion. Override the code or URL with `CODE=…` / `RELAY_URL=…`.
   See `scripts/interop.ts` for details; this is a manual run, not part
   of `bun run test`.
+- `bun run test:interop:vectors` — **from repo root**: regenerate and run
+  the shared Swift ↔ Windows golden-vector suite (`scripts/interop-vectors/`).
+  On macOS also run `cd apps/macos && swift test` to verify
+  `InteropVectorsTests.swift`.
 
 ## Entry points
 
