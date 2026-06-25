@@ -1,4 +1,5 @@
 # @munkel/windows
+[![CI](https://github.com/rodgi040/munkel/actions/workflows/ci.yml/badge.svg)](https://github.com/rodgi040/munkel/actions/workflows/ci.yml)
 
 Munkel for Windows — Electron + Vite + React + TypeScript client.
 
