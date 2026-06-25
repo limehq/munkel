@@ -10,6 +10,7 @@ import { Screenshots } from '@/components/sections/screenshots'
 import { Cli } from '@/components/sections/cli'
 import { Agents } from '@/components/sections/agents'
 import { Privacy } from '@/components/sections/privacy'
+import { Pricing } from '@/components/sections/pricing'
 import { Faq } from '@/components/sections/faq'
 import { Cta } from '@/components/sections/cta'
 import { LaunchBadgeTrack } from '@/components/sections/launch-badges'
@@ -30,6 +31,7 @@ function LandingPage() {
         <Cli />
         <Agents />
         <Privacy />
+        <Pricing />
         <Faq />
         <LaunchBadgeTrack />
         <Cta />
