@@ -5,20 +5,19 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 
 ## Execution order
 
-| # | Plan | Branch | Depends on | Priority |
-|---|------|--------|------------|----------|
-| — | [Phase 2: Swift ↔ Windows interop](./phase-2-swift-windows-interop.md) | `platform/windows/swift-windows-interop` | **PR #12 merged into `v2-clean`** | **Ship via PR** |
-| 1 | [Notch reply polish](./01-notch-reply-polish.md) | `platform/windows/notch-reply-polish` | continues on existing branch (see workflow) | Next |
-| 2 | [GitHub OAuth (Windows)](./02-github-oauth-windows.md) | `platform/windows/github-oauth-windows` | #1 or parallel, base must include Phase 2 | Optional for v1 |
-| 3 | [Windows CI](./03-windows-ci.md) | `platform/windows/windows-ci` | #1–2 or parallel | Before release |
-| 4 | [Release packaging](./04-packaging.md) | `platform/windows/packaging` | #3 green | Launch gate |
+| # | Plan | Branch | Depends on | Status |
+|---|------|--------|------------|--------|
+| — | [Phase 2: Swift ↔ Windows interop](./phase-2-swift-windows-interop.md) | `platform/windows/swift-windows-interop` | base for #1–4 | ✅ Merged (PR #12) |
+| 1 | [Notch reply polish](./01-notch-reply-polish.md) | `platform/windows/notch-reply-polish` | Phase 2 | ✅ Merged (PR #13) |
+| 2 | [GitHub OAuth (Windows)](./02-github-oauth-windows.md) | `platform/windows/github-oauth-windows` | Phase 2 | ✅ Merged (PR #15) |
+| 3 | [Windows CI](./03-windows-ci.md) | `platform/windows/windows-ci` | Phase 2 | ✅ Merged (PR #14) |
+| 4 | [Release packaging](./04-packaging.md) | `platform/windows/packaging` | #3 green | ✅ Merged (PR #16) |
 
-> **Phase 2 is NOT yet on `v2-clean`.** Its commits (`2e4d24d`, `4c2f9de`) live
-> only on `platform/windows/swift-windows-interop` and the stacked
-> `platform/windows/notch-reply-polish`. The `v2-clean` tip is still
-> `ced0a5e` (PR #11, `cli-windows-image`). Merge [PR #12](https://github.com/rodgi040/munkel/pull/12)
-> before cutting any new branch from a bare `v2-clean`, or the interop vectors
-> and Swift tests will be missing from your branch.
+> **All Windows-integration plans are merged into `platform/windows/v2-clean`.**
+> Phase 2 + Plans 01–04 shipped via PR #12–#16; the `v2-clean` tip is `14b9ffc`.
+> The feature sub-branches were tagged (`feat/windows-*`) and deleted after merge.
+> The individual plan files below are kept as historical execution references —
+> their per-task "next step" wording reflects the state at authoring time, not now.
 
 ## Agent workflow (every plan)
 
@@ -56,7 +55,9 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 
 ## Current status (2026-06-25)
 
-- Phase 2: implemented; PR #12 open, **not yet merged** into `v2-clean`.
-- Active implementation branch: `platform/windows/notch-reply-polish` (Phase 2
-  is stacked on it). Implement Plan 01 here now; do not branch new work from a
-  bare `v2-clean` until PR #12 merges.
+- **windows-native-full-build COMPLETE.** Phase 2 + Plans 01–04 all merged via
+  PR #12–#16 into `platform/windows/v2-clean` (tip `14b9ffc`); CI green.
+- Per-feature tracking artifacts live in `.planning/phases/{0,A,B,C,D}-*/`.
+- Next gate is the human-owned final PR from the Windows integration to `main`
+  (see `AGENTS.md` — main is reached exactly once, manually reviewed). Plus the
+  non-blocking human gates: real GitHub login test, fresh-VM QA, NSIS+signing.
