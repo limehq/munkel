@@ -1199,6 +1199,13 @@ html:not(.dark) .terminal { background: oklch(0.205 0 0); }
 }
 .honest a:hover { text-decoration-color: var(--foreground); }
 
+/* ---------- Pricing (minimal: free forever + Ko-fi tip) ---------- */
+#pricing .container { display: flex; flex-direction: column; align-items: center; }
+.pricing-minimal { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 1.5rem; }
+.pricing-minimal h2 { font-size: clamp(2rem, 4.5vw, 3rem); font-weight: 700; letter-spacing: var(--tracking-tight); line-height: 1.05; }
+.kofi-button { margin-top: 0.75rem; }
+.kofi-cup { color: var(--brand); }
+
 /* ---------- FAQ (redesigned: centered, card accordion) ---------- */
 #faq .container { display: flex; flex-direction: column; align-items: center; }
 .faq-head { text-align: center; max-width: 600px; margin-bottom: 3.5rem; }
