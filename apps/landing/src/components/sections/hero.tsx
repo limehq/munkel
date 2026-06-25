@@ -305,7 +305,7 @@ export function Hero() {
                 >
                     <span className={cn('absolute top-[9px] left-1/2 [transform:translateX(-50%)] w-[9px] h-[9px] rounded-full [background:radial-gradient(circle_at_35%_35%,oklch(0.38_0.05_250),oklch(0.17_0.03_255)_55%,oklch(0.05_0_0)_100%)] [box-shadow:0_0_0_1.5px_oklch(0.09_0_0),inset_0_0_2px_oklch(0.6_0.08_250_/_0.5)]', teaserOpen && 'top-[11px] w-[7px] h-[7px] z-[3]')}></span>
 
-                    <div className={cn("absolute inset-0 overflow-hidden rounded-b-[20px] opacity-0 invisible [transition:opacity_0.2s_ease,visibility_0s_linear_0.2s] [font-family:system-ui,-apple-system,sans-serif] [-webkit-font-smoothing:antialiased]", teaserOpen && !expanded && 'opacity-100 visible')}>
+                    <div className={cn("absolute inset-0 overflow-hidden rounded-b-[20px] opacity-0 invisible [transition:opacity_0.2s_ease,visibility_0s_linear_0.2s] [font-family:system-ui,-apple-system,sans-serif] [-webkit-font-smoothing:antialiased]", teaserOpen && !expanded && 'opacity-100 visible [transition:opacity_0.25s_ease_0.1s,visibility_0s]', teaserOpen && expanded && '[transition:opacity_0.12s_ease,visibility_0s_linear_0.12s]')}>
                       {teaserOpen && (
                         <span
                           className="absolute top-[6px] left-[30px] w-[20px] h-[20px] rounded-full border border-[var(--ring,#fff)] pointer-events-none animate-[nt-ping_1s_ease-out_0.55s_both] motion-reduce:animate-none"
@@ -333,7 +333,7 @@ export function Hero() {
                       </div>
                     </div>
 
-                    <div className={cn("absolute inset-0 overflow-hidden rounded-b-[20px] opacity-0 invisible [transition:opacity_0.2s_ease,visibility_0s_linear_0.2s] [font-family:system-ui,-apple-system,sans-serif] [-webkit-font-smoothing:antialiased] flex flex-col [padding:32px_30px_15px] gap-[5px] text-left", expanded && 'opacity-100 visible')} aria-hidden={!expanded}>
+                    <div className={cn("absolute inset-0 overflow-hidden rounded-b-[20px] opacity-0 invisible [transition:opacity_0.2s_ease,visibility_0s_linear_0.2s] [font-family:system-ui,-apple-system,sans-serif] [-webkit-font-smoothing:antialiased] flex flex-col [padding:32px_30px_15px] gap-[5px] text-left", expanded && 'opacity-100 visible [transition:opacity_0.22s_ease_0.08s,visibility_0s]')} aria-hidden={!expanded}>
                       <div className="flex items-start gap-[12px] [padding:4px_6px]">
                         <Avatar name={msg.name} className="flex-none w-[34px] h-[34px] rounded-full flex items-center justify-center [font-family:ui-rounded,system-ui,sans-serif] font-bold text-[13px] leading-[1] text-white" />
                         <div className="flex-1 min-w-0 flex flex-col gap-[2px]">

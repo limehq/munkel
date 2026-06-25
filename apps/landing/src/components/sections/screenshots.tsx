@@ -109,7 +109,7 @@ export function Screenshots() {
             <div
               className={cn(
                 "absolute inset-2 z-[6] grid place-items-center [padding:46px_26px_26px] bg-[oklch(0_0_0_/_0.5)] backdrop-blur-[2px] opacity-0 invisible [transition:opacity_0.22s_ease,visibility_0s_linear_0.22s] pointer-events-none",
-                preview && 'opacity-100 visible',
+                preview && 'opacity-100 visible [transition:opacity_0.22s_ease,visibility_0s]',
               )}
               aria-hidden
             >
