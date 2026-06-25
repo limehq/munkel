@@ -87,7 +87,7 @@ enum DemoHistory {
             }
             return HistoryEntry(
                 sender: "Sebil", text: label, isDirect: false, group: group, groupColor: color,
-                receivedAt: Date(), images: images, caption: caption,
+                receivedAt: Date(), sentAt: Date(), images: images, caption: caption,
                 loadFull: { id in resolved[id] }
             )
         }

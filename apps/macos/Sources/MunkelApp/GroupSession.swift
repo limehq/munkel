@@ -51,12 +51,12 @@ final class GroupSession {
     var onStateChange: (() -> Void)?
     /// Called when a chat message arrives; `isDirect` distinguishes a
     /// private message (relay `to` set) from a group broadcast.
-    var onChat: ((_ sender: Member, _ text: String, _ isDirect: Bool) -> Void)?
+    var onChat: ((_ sender: Member, _ text: String, _ sentAt: Date, _ isDirect: Bool) -> Void)?
     /// Called when an image album arrives (1–10 images). `caption` is the
     /// optional shared message (empty if none). `loadFull` fetches + decrypts
     /// one image's full resolution from R2 on demand, keyed by its r2Key
     /// (nil on failure/expiry).
-    var onImages: ((_ sender: Member, _ items: [ImageItem], _ caption: String, _ isDirect: Bool, _ loadFull: @escaping @Sendable (String) async -> Data?) -> Void)?
+    var onImages: ((_ sender: Member, _ items: [ImageItem], _ caption: String, _ sentAt: Date, _ isDirect: Bool, _ loadFull: @escaping @Sendable (String) async -> Data?) -> Void)?
 
     init(code: String, relayURL: URL) {
         self.code = code
@@ -333,12 +333,12 @@ final class GroupSession {
                 onStateChange?()
             }
 
-        case let .chat(text, _):
+        case let .chat(text, sentAt):
             let sender = members.first { $0.id == memberId }
                 ?? Member(id: memberId)
-            onChat?(sender, MessageLimits.clamp(text), to != nil)
+            onChat?(sender, MessageLimits.clamp(text), sentAt, to != nil)
 
-        case let .image(items, caption, _):
+        case let .image(items, caption, sentAt):
             // Drop items with an implausibly large inline thumb; the relay
             // frame cap already bounds the total, this guards each one.
             let safeItems = items.filter { $0.thumb.count <= Self.maxIncomingThumbBytes }
@@ -366,7 +366,7 @@ final class GroupSession {
                     }
                 }.value
             }
-            onImages?(sender, safeItems, MessageLimits.clamp(caption), to != nil, loadFull)
+            onImages?(sender, safeItems, MessageLimits.clamp(caption), sentAt, to != nil, loadFull)
         }
     }
 }
