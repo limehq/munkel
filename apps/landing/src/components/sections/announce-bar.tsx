@@ -14,7 +14,7 @@ export function AnnounceBar() {
       <span className="rounded-full bg-brand px-2 py-0.5 font-mono text-[length:var(--text-xs)] font-semibold uppercase tracking-[0.06em] text-background">Soon</span>
       <span className="inline-flex items-center gap-2">
         <MonitorSmartphone className="text-brand shrink-0" aria-hidden />
-        Windows is learning to munkel.
+        Windows is learning to munkel
       </span>
       <ArrowRight
         className="text-muted-foreground [transition:transform_0.2s_ease] group-hover:[transform:translateX(3px)] max-[560px]:hidden"
