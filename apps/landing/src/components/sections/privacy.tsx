@@ -38,14 +38,14 @@ function SharedWindow({ className }: { className?: string }) {
 // The people on the call — a floating tile strip, visible on both screens.
 function CallPeople() {
   return (
-    <div className="absolute top-[44px] right-[16px] flex gap-[6px] p-[6px] rounded-[12px] border border-[oklch(1_0_0_/_0.12)] bg-[oklch(0.14_0.01_260_/_0.85)] backdrop-blur-[6px]">
+    <div className="absolute top-[44px] right-[16px] max-[600px]:top-[30px] max-[600px]:right-[10px] flex gap-[6px] max-[600px]:gap-[4px] p-[6px] max-[600px]:p-[4px] rounded-[12px] border border-[oklch(1_0_0_/_0.12)] bg-[oklch(0.14_0.01_260_/_0.85)] backdrop-blur-[6px]">
       {CALL.map((n) => (
         <div key={n} className="flex flex-col items-center gap-[3px]">
           <Avatar
             name={n}
-            className="w-[34px] h-[30px] rounded-[7px] flex items-center justify-center [font-family:ui-rounded,system-ui,sans-serif] font-bold text-[12px] text-white"
+            className="w-[34px] h-[30px] max-[600px]:w-[24px] max-[600px]:h-[21px] rounded-[7px] flex items-center justify-center [font-family:ui-rounded,system-ui,sans-serif] font-bold text-[12px] max-[600px]:text-[9px] text-white"
           />
-          <span className="text-[8px] text-[oklch(1_0_0_/_0.65)]">{n}</span>
+          <span className="text-[8px] max-[600px]:text-[6px] text-[oklch(1_0_0_/_0.65)]">{n}</span>
         </div>
       ))}
     </div>
@@ -141,14 +141,14 @@ export function Privacy() {
                     </div>
                     <SharedWindow className="top-[26px] left-[8%] right-[8%] bottom-[12%] shadow-[0_10px_24px_-10px_oklch(0_0_0_/_0.5)]" />
                   </div>
-                  <div className="flex-none flex flex-col gap-[8px] justify-center">
+                  <div className="flex-none flex flex-col gap-[8px] max-[600px]:gap-[5px] justify-center">
                     {CALL.map((n) => (
-                      <div key={n} className="w-[92px] flex flex-col items-center gap-[3px]">
+                      <div key={n} className="w-[92px] max-[600px]:w-[58px] flex flex-col items-center gap-[3px]">
                         <Avatar
                           name={n}
-                          className="w-full h-[48px] rounded-[8px] flex items-center justify-center [font-family:ui-rounded,system-ui,sans-serif] font-bold text-[16px] text-white"
+                          className="w-full h-[48px] max-[600px]:h-[32px] rounded-[8px] flex items-center justify-center [font-family:ui-rounded,system-ui,sans-serif] font-bold text-[16px] max-[600px]:text-[11px] text-white"
                         />
-                        <span className="text-[9px] text-[oklch(1_0_0_/_0.7)]">{n}</span>
+                        <span className="text-[9px] max-[600px]:text-[7px] text-[oklch(1_0_0_/_0.7)]">{n}</span>
                       </div>
                     ))}
                   </div>
