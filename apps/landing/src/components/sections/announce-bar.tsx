@@ -9,7 +9,6 @@ export function AnnounceBar() {
     <a
       className="announce"
       href={GITHUB_URL}
-      aria-label="Munkel is coming to Windows soon"
       onClick={() => posthog?.capture('announce_windows_clicked')}
     >
       <span className="announce-tag">Soon</span>

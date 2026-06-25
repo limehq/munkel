@@ -379,7 +379,8 @@ nav.floating .nav-inner {
   padding: 0 14px;
   font-family: -apple-system, system-ui, sans-serif;
   font-size: 13px; color: oklch(0.97 0 0 / 0.85);
-  background: oklch(0 0 0 / 0.26);
+  background: oklch(0 0 0 / 0.5);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
 }
 .mb-menu { display: flex; align-items: center; gap: 15px; }
 /* U+F8FF = the Apple logo glyph in the system font on Apple devices. */
@@ -556,7 +557,7 @@ nav.floating .nav-inner {
 }
 .nx-rhead { flex: none; display: flex; align-items: center; gap: 4px; }
 .nx-rdot { flex: none; width: 5px; height: 5px; border-radius: 50%; }
-.nx-rsender { font-size: 10px; font-weight: 600; color: oklch(1 0 0 / 0.4); }
+.nx-rsender { font-size: 10px; font-weight: 600; color: oklch(1 0 0 / 0.5); }
 .nx-rchan { flex: none; width: 9px; height: 9px; color: oklch(1 0 0 / 0.3); }
 .nx-rchan.is-globe { width: 8px; height: 8px; }
 .nx-rtext {
@@ -897,6 +898,7 @@ html:not(.dark) .install-cmd { background: oklch(0.205 0 0); }
   color: oklch(0.92 0 0);
   white-space: nowrap; overflow-x: auto;
 }
+.install-body[data-state="inactive"] { display: none; }
 .install-body .prompt { color: oklch(0.97 0 0 / 0.45); margin-right: 0.75ch; user-select: none; }
 
 /* ---------- CLI ---------- */
@@ -1128,7 +1130,7 @@ html:not(.dark) .terminal { background: oklch(0.205 0 0); }
 .pv-rec { width: 8px; height: 8px; border-radius: 50%; background: #ff453a; box-shadow: 0 0 0 3px rgb(255 69 58 / 0.25); }
 .pv-divider { width: 1px; height: 14px; background: oklch(1 0 0 / 0.18); }
 .pv-cicon { width: 13px; height: 13px; color: oklch(1 0 0 / 0.8); }
-.pv-stop { padding: 2px 9px; border-radius: 999px; background: #ff453a; color: #fff; font-weight: 600; }
+.pv-stop { padding: 2px 9px; border-radius: 999px; background: #c7362d; color: #fff; font-weight: 600; }
 
 /* Right panel = a viewer's machine: different wallpaper, a meeting app with the
    participant grid and the shared screen mirrored below it (note: no notch). */
