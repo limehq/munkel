@@ -3,10 +3,8 @@ import type { CSSProperties, SVGProps } from 'react'
 import { BatteryMedium, Check, ChevronDown, ChevronUp, Copy, Globe, Wifi } from 'lucide-react'
 import { motion, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react'
 
-import { Button } from '@/components/ui/button'
 import { DownloadButton } from '@/components/download-button'
-import { GithubIcon } from '@/components/icons'
-import { GITHUB_URL } from '@/lib/constants'
+import { GithubButton } from '@/components/github-button'
 import { easeInOutQuad } from '@/lib/motion'
 import { sleep } from '@/lib/utils'
 
@@ -246,12 +244,7 @@ export function Hero() {
             </p>
             <div className="hero-ctas">
               <DownloadButton location="hero" />
-              <Button asChild variant="outline">
-                <a href={GITHUB_URL}>
-                  <GithubIcon />
-                  View on GitHub
-                </a>
-              </Button>
+              <GithubButton location="hero" />
             </div>
             <div className="hero-meta">Free and open source · macOS 14+</div>
           </motion.div>

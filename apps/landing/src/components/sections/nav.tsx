@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Moon, Sun } from 'lucide-react'
 import { motion, useMotionValueEvent, useScroll } from 'motion/react'
+import { usePostHog } from '@posthog/react'
 
 import { Button } from '@/components/ui/button'
 import { DownloadButton } from '@/components/download-button'
@@ -18,6 +19,7 @@ const NAV_LINKS = [
 ] as const
 
 export function Nav() {
+  const posthog = usePostHog()
   const [floating, setFloating] = useState(false)
   const [active, setActive] = useState<string | null>(null)
 
@@ -55,7 +57,10 @@ export function Nav() {
                 key={href}
                 href={href}
                 className={active === href ? 'active' : undefined}
-                onClick={() => setActive(href)}
+                onClick={() => {
+                  setActive(href)
+                  posthog?.capture('nav_link_clicked', { label })
+                }}
               >
                 {active === href && (
                   <motion.span
@@ -74,7 +79,12 @@ export function Nav() {
             <span>Download</span>
           </DownloadButton>
           <Button asChild variant="ghost" size="icon">
-            <a href={GITHUB_URL} aria-label="GitHub" title="GitHub">
+            <a
+              href={GITHUB_URL}
+              aria-label="GitHub"
+              title="GitHub"
+              onClick={() => posthog?.capture('cta_github_clicked', { location: 'nav' })}
+            >
               <GithubIcon />
             </a>
           </Button>
