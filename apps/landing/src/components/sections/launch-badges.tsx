@@ -66,7 +66,7 @@ export function LaunchBadgeTrack({ liveOnly = false }: { liveOnly?: boolean }) {
           Spotted us on a launch board? An upvote is always welcome.
         </p>
       </div>
-      <div className="group mt-12 [mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)] [-webkit-mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)] motion-reduce:[mask-image:none] motion-reduce:[-webkit-mask-image:none]">
+      <div className="group mt-12 py-3 [mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)] [-webkit-mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)] motion-reduce:[mask-image:none] motion-reduce:[-webkit-mask-image:none]">
         <div className="flex items-center gap-4 w-max animate-[badge-scroll_38s_linear_infinite] group-hover:[animation-play-state:paused] motion-reduce:animate-none motion-reduce:flex-wrap motion-reduce:justify-center motion-reduce:w-auto">
           {platforms.map((p) => (
             <LaunchBadge key={p.name} platform={p} />
