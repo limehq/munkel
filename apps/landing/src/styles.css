@@ -57,8 +57,23 @@
   to { height: 0; }
 }
 
+/* Metric-matched fallback so the font-display:swap from the system font to Geist
+   reflows nothing: local Arial scaled to Geist's own box. size-adjust =
+   (Geist xAvg 581/upm 1000) / (Arial xAvg 1117/upm 2048); ascent/descent
+   overrides = Geist sTypoAscender 1005 / -295 over (upm * size-adjust). Derived
+   from the woff2 OS/2 table — regenerate if Geist's metrics change. Sits before
+   system-ui in --font-sans so it wins during the swap window. */
+@font-face {
+  font-family: 'Geist Fallback';
+  src: local('Arial');
+  size-adjust: 106.53%;
+  ascent-override: 94.34%;
+  descent-override: 27.69%;
+  line-gap-override: 0%;
+}
+
 :root {
-  --font-sans: 'Geist Variable', 'Geist', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --font-sans: 'Geist Variable', 'Geist', 'Geist Fallback', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   --font-heading: var(--font-sans);
   --font-mono: 'Geist Mono Variable', 'Geist Mono', 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
