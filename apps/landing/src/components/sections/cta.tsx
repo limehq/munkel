@@ -1,15 +1,18 @@
 import { useState } from 'react'
 import { Check, Copy } from 'lucide-react'
+import { usePostHog } from '@posthog/react'
 
-import { Button } from '@/components/ui/button'
 import { DownloadButton } from '@/components/download-button'
-import { BREW_CMD, GITHUB_URL } from '@/lib/constants'
+import { GithubButton } from '@/components/github-button'
+import { BREW_CMD } from '@/lib/constants'
 
 function BrewCmd() {
+  const posthog = usePostHog()
   const [copied, setCopied] = useState(false)
 
   const copy = () => {
     if (navigator.clipboard) navigator.clipboard.writeText(BREW_CMD).catch(() => {})
+    posthog?.capture('cta_brew_copied', { location: 'footer' })
     setCopied(true)
     setTimeout(() => setCopied(false), 1400)
   }
@@ -46,9 +49,7 @@ export function Cta() {
         </p>
         <div className="hero-ctas">
           <DownloadButton location="footer" />
-          <Button asChild variant="outline">
-            <a href={GITHUB_URL}>View on GitHub</a>
-          </Button>
+          <GithubButton location="footer" />
         </div>
         <BrewCmd />
         <div className="hero-meta">Signed &amp; notarized · no app telemetry · macOS 14+</div>
