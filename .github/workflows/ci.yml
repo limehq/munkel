@@ -73,3 +73,13 @@ jobs:
 
       - name: Build (@munkel/windows, native Windows)
         run: bunx turbo run build --filter=@munkel/windows
+
+      - name: Pack portable directory
+        run: bun run pack:dir
+        working-directory: apps/windows
+
+      - name: Upload Windows unpacked artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: munkel-windows-unpacked
+          path: apps/windows/release/win-unpacked/
