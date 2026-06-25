@@ -165,7 +165,40 @@ state using the 👥 glyph on a neutral background.
 3. **Join area** — single input for join/create, dice button for random code,
    Join button.
 4. **Quick-send hotkey** — plane icon + label + `Ctrl + Shift + M`.
-5. **GitHub area** — visual states for idle/requesting/awaiting/fetching/failed.
+5. **GitHub area** — six menu states: signed-out idle, requesting,
+   awaiting, fetching, failed, and signed-in.
+
+### GitHub menu states
+
+The tray menu's GitHub block matches `MenuWindow.tsx` exactly.
+
+1. **Idle / signed out**
+   Copy: `Sign in with GitHub`
+   Caption: `Import your public profile and avatar.`
+   Layout: copy block on the left, `Sign in` button on the right.
+2. **Requesting**
+   Copy: `Requesting GitHub code…`
+   Layout: spinner on the left, single-line strong label on the right.
+3. **Awaiting**
+   Copy: `Finish sign-in on GitHub`
+   Caption: `Browser opened. The code is in your clipboard.`
+   Layout: stacked frosted panel; first row is the copy, second row shows the
+   device `userCode` plus a `Cancel` button.
+4. **Fetching**
+   Copy: `Fetching profile…`
+   Layout: spinner on the left, single-line strong label on the right.
+5. **Failed**
+   Copy: `GitHub sign-in failed`
+   Caption: renderer shows the main-process `GitHubLoginState.error` string.
+   Layout: stacked frosted panel with a `Retry` button below the copy.
+6. **Signed in**
+   Copy line 1: `Signed in as NAME`
+   Copy line 2: `@LOGIN`
+   Layout: avatar on the left, copy block in the middle, `Sign out` button on
+   the right.
+   Data source: `NAME` is `identity.displayName`; `LOGIN` is
+   `identity.githubLogin`; avatar renders from `identity.avatar` as a base64
+   JPEG when present, otherwise the initials fallback remains visible.
 
 ### Notch content
 

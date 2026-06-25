@@ -3,11 +3,20 @@ import { useIpc } from '../hooks/useIpc';
 import { useAppStore } from '../store/app-store';
 import { Avatar } from './Avatar';
 import { getCircleColor } from '../../shared/group-color';
-import type { CircleState } from '../../shared/types';
+import type { CircleState, GitHubLoginState, IdentityState } from '../../shared/types';
 
 export default function MenuWindow() {
 	const ipc = useIpc();
-	const { state, joinCircle, leaveCircle, sendChat, updateProfile } = useAppStore();
+	const {
+		state,
+		joinCircle,
+		leaveCircle,
+		sendChat,
+		updateProfile,
+		startGitHubLogin,
+		cancelGitHubLogin,
+		githubLogout,
+	} = useAppStore();
 
 	const [joinCode, setJoinCode] = useState('');
 	const [joinRelay, setJoinRelay] = useState('');
@@ -64,6 +73,8 @@ export default function MenuWindow() {
 		if (!name) return;
 		void updateProfile(name);
 	}
+
+	const showTestNotch = import.meta.env.DEV;
 
 	return (
 		<div
@@ -186,11 +197,125 @@ export default function MenuWindow() {
 
 			<div className="divider" />
 
+			<div className="github-column">
+				<GitHubSection
+					identity={state.identity}
+					loginState={state.githubLoginState}
+					onStart={() => void startGitHubLogin()}
+					onCancel={() => void cancelGitHubLogin()}
+					onLogout={() => void githubLogout()}
+				/>
+				{showTestNotch && (
+					<div className="github-row">
+						<button className="button-small" onClick={() => ipc.testNotch()}>
+							Test notch
+						</button>
+					</div>
+				)}
+			</div>
+		</div>
+	);
+}
+
+interface GitHubSectionProps {
+	identity: IdentityState | null;
+	loginState: GitHubLoginState;
+	onStart: () => void;
+	onCancel: () => void;
+	onLogout: () => void;
+}
+
+function GitHubSection({
+	identity,
+	loginState,
+	onStart,
+	onCancel,
+	onLogout,
+}: GitHubSectionProps) {
+	const githubLogin = identity?.githubLogin;
+	const displayName = identity?.displayName?.trim() || githubLogin || 'GitHub';
+
+	if (loginState.phase === 'requesting') {
+		return (
 			<div className="github-row">
-				<button className="button-small" onClick={() => ipc.testNotch()}>
-					Test notch
+				<span className="spinner" />
+				<div className="github-copy">
+					<strong>Requesting GitHub code…</strong>
+				</div>
+			</div>
+		);
+	}
+
+	if (loginState.phase === 'awaiting') {
+		return (
+			<div className="github-panel">
+				<div className="github-row">
+					<div className="github-copy">
+						<strong>Finish sign-in on GitHub</strong>
+						<span className="caption">Browser opened. The code is in your clipboard.</span>
+					</div>
+				</div>
+				<div className="code-row">
+					<span className="user-code">{loginState.userCode}</span>
+					<button className="button-small" onClick={onCancel}>
+						Cancel
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	if (loginState.phase === 'fetching') {
+		return (
+			<div className="github-row">
+				<span className="spinner" />
+				<div className="github-copy">
+					<strong>Fetching profile…</strong>
+				</div>
+			</div>
+		);
+	}
+
+	if (loginState.phase === 'failed') {
+		return (
+			<div className="github-panel">
+				<div className="github-copy">
+					<strong>GitHub sign-in failed</strong>
+					<span className="caption">{loginState.error}</span>
+				</div>
+				<div className="github-actions">
+					<button className="button-small" onClick={onStart}>
+						Retry
+					</button>
+				</div>
+			</div>
+		);
+	}
+
+	if (githubLogin) {
+		return (
+			<div className="github-row">
+				<Avatar name={displayName} imageBase64={identity?.avatar} />
+				<div className="github-copy">
+					<strong>Signed in as {displayName}</strong>
+					<span className="caption">@{githubLogin}</span>
+				</div>
+				<button className="button-small" onClick={onLogout}>
+					Sign out
 				</button>
 			</div>
+		);
+	}
+
+	return (
+		<div className="github-row">
+			<div className="github-copy">
+				<strong>Sign in with GitHub</strong>
+				<span className="caption">Import your public profile and avatar.</span>
+			</div>
+			<button className="button-small" onClick={onStart}>
+				Sign in
+			</button>
 		</div>
 	);
 }

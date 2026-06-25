@@ -9,6 +9,12 @@ const DEFAULT_RELAY_URL =
 
 export type { StateUpdate, CircleState } from '../shared/types';
 
+interface IdentityUpdate {
+	displayName: string;
+	avatar?: string;
+	githubLogin?: string;
+}
+
 export class AppState {
 	private readonly sessions = new Map<string, GroupSession>();
 	private identity: IdentityState;
@@ -25,6 +31,7 @@ export class AppState {
 			memberId: persisted.memberId,
 			displayName: persisted.displayName,
 			avatar: persisted.avatar,
+			githubLogin: persisted.githubLogin,
 		};
 		this.broadcaster = new ProfileBroadcaster(() => this.broadcastProfiles());
 	}
@@ -87,14 +94,22 @@ export class AppState {
 		return session.sendImages(paths, caption, to);
 	}
 
-	updateIdentity(displayName: string, avatar?: string): void {
-		this.identity = { ...this.identity, displayName, avatar };
-		this.identityStore.patch({ displayName, avatar });
+	updateIdentity(next: IdentityUpdate): void {
+		this.identity = { ...this.identity, ...next };
+		this.identityStore.patch(next);
 		for (const session of this.sessions.values()) {
 			session.updateIdentity(this.identity);
 		}
 		this.broadcast();
 		this.broadcaster.trigger();
+	}
+
+	getIdentity(): IdentityState {
+		return this.identity;
+	}
+
+	flushProfileBroadcast(): void {
+		this.broadcaster.flushNow();
 	}
 
 	async setRelayUrl(code: string, relayUrl: string): Promise<void> {

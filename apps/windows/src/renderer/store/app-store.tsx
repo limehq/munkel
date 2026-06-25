@@ -7,12 +7,20 @@ import {
 	useMemo,
 	type ReactNode,
 } from 'react';
-import type { NotchMessage, StateUpdate, CircleState, Member, IdentityState } from '../../shared/types';
+import type {
+	CircleState,
+	GitHubLoginState,
+	IdentityState,
+	Member,
+	NotchMessage,
+	StateUpdate,
+} from '../../shared/types';
 
 interface AppState {
 	identity: IdentityState | null;
 	circles: CircleState[];
 	notchMessages: NotchMessage[];
+	githubLoginState: GitHubLoginState;
 }
 
 interface AppStore {
@@ -31,6 +39,9 @@ interface AppStore {
 	selectImages: () => Promise<string[] | undefined>;
 	updateProfile: (displayName: string, avatar?: string) => Promise<void>;
 	setRelayUrl: (code: string, relayUrl: string) => Promise<void>;
+	startGitHubLogin: () => Promise<void>;
+	cancelGitHubLogin: () => Promise<void>;
+	githubLogout: () => Promise<void>;
 }
 
 const AppContext = createContext<AppStore | null>(null);
@@ -40,6 +51,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		identity: null,
 		circles: [],
 		notchMessages: [],
+		githubLoginState: { phase: 'idle' },
 	});
 
 	const setIdentity = useCallback((identity: IdentityState | null) => {
@@ -74,6 +86,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		}));
 	}, []);
 
+	const setGitHubLoginState = useCallback((githubLoginState: GitHubLoginState) => {
+		setState((s) => ({ ...s, githubLoginState }));
+	}, []);
+
 	useEffect(() => {
 		let mounted = true;
 
@@ -88,6 +104,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			applyUpdate(update);
 		});
 
+		const removeGitHubLoginState = window.electronAPI.onGitHubLoginState((githubLoginState) => {
+			setGitHubLoginState(githubLoginState);
+		});
+
 		const removeNotchMessage = window.electronAPI.onNotchMessage((message) => {
 			pushNotchMessage(message);
 		});
@@ -95,9 +115,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		return () => {
 			mounted = false;
 			removeStateUpdate();
+			removeGitHubLoginState();
 			removeNotchMessage();
 		};
-	}, [applyUpdate, pushNotchMessage]);
+	}, [applyUpdate, pushNotchMessage, setGitHubLoginState]);
 
 	const joinCircle = useCallback(async (code: string, relayUrl?: string) => {
 		await window.electronAPI.joinCircle(code, relayUrl);
@@ -127,6 +148,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		await window.electronAPI.setRelayUrl(code, relayUrl);
 	}, []);
 
+	const startGitHubLogin = useCallback(async () => {
+		await window.electronAPI.startGitHubLogin();
+	}, []);
+
+	const cancelGitHubLogin = useCallback(async () => {
+		await window.electronAPI.cancelGitHubLogin();
+	}, []);
+
+	const githubLogout = useCallback(async () => {
+		await window.electronAPI.githubLogout();
+	}, []);
+
 	const store = useMemo<AppStore>(
 		() => ({
 			state,
@@ -143,6 +176,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			selectImages,
 			updateProfile,
 			setRelayUrl,
+			startGitHubLogin,
+			cancelGitHubLogin,
+			githubLogout,
 		}),
 		[
 			state,
@@ -159,6 +195,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			selectImages,
 			updateProfile,
 			setRelayUrl,
+			startGitHubLogin,
+			cancelGitHubLogin,
+			githubLogout,
 		],
 	);
 

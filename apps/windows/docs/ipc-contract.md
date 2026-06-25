@@ -23,6 +23,9 @@ the main process by `ipcMain.handle(...)`.
 | `update-profile` | `(displayName: string, avatar?: string) => Promise<void>` | `session-handlers.ts` | Update local identity. |
 | `set-relay-url` | `(code: string, relayUrl: string) => Promise<void>` | `session-handlers.ts` | Change relay URL for a circle. |
 | `get-state` | `() => Promise<StateUpdate>` | `session-handlers.ts` | Returns current identity and circles. |
+| `start-github-login` | `() => Promise<void>` | `main.ts` | Starts the GitHub OAuth device flow. The renderer never receives the access token. |
+| `cancel-github-login` | `() => Promise<void>` | `main.ts` | Cancels any in-flight GitHub device-flow attempt and resets the menu state to `idle`. |
+| `github-logout` | `() => Promise<void>` | `session-handlers.ts` | Clears persisted `githubLogin` + avatar, keeps `displayName`, and triggers a profile broadcast. |
 | `derive-group-id` | `(code: string) => Promise<string>` | `crypto-channel.ts` | Returns the 32-char hex `groupId`. |
 | `seal-chat` | `(code: string, text: string, sentAt?: string) => Promise<string>` | `crypto-channel.ts` | Returns a base64 sealed payload. |
 | `open-chat` | `(code: string, payload: string) => Promise<{ kind: 'chat'; text: string; sentAt: string } \| null>` | `crypto-channel.ts` | Decrypts and decodes a chat payload. |
@@ -36,6 +39,7 @@ renderer registers listeners through `window.electronAPI`.
 | Channel | Payload | Purpose |
 |---------|---------|---------|
 | `state-update` | `{ identity, circles }` | Broadcast current app state. |
+| `github-login-state` | `GitHubLoginState` | Push the GitHub login UI state to the menu window only. |
 | `notch-message` | `NotchMessage` | New incoming message for the notch widget. `images?` is populated for image albums. |
 | `notch-show` | *none* | Tell the notch window to animate in. |
 | `notch-hide` | *none* | Tell the notch window to animate out. |
@@ -65,11 +69,20 @@ interface IdentityState {
   memberId: string;
   displayName: string;
   avatar?: string;
+  githubLogin?: string;
 }
 
 interface StateUpdate {
   identity: IdentityState;
   circles: CircleState[];
+}
+
+type GitHubLoginPhase = 'idle' | 'requesting' | 'awaiting' | 'fetching' | 'failed';
+
+interface GitHubLoginState {
+  phase: GitHubLoginPhase;
+  userCode?: string;
+  error?: string;
 }
 
 interface IncomingImage {
@@ -124,6 +137,9 @@ interface ControlGroupInfo {
 ## Security notes
 
 - Raw `messageKey` values never leave the main process.
+- GitHub OAuth access tokens stay in main-process RAM only and are never sent
+  over IPC. The renderer receives `GitHubLoginState`, `githubLogin`, and the
+  base64 JPEG avatar only.
 - The preload script exposes a typed allowlist (`window.electronAPI`) and does
   not expose `ipcRenderer` directly.
 - Renderer code must use `window.electronAPI` only.

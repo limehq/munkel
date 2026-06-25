@@ -9,6 +9,7 @@ import { registerCryptoHandlers, deriveGroupId } from './crypto-channel';
 import { IdentityStore } from './identity-store';
 import { AppState } from './session-store';
 import { registerSessionHandlers } from './session-handlers';
+import { GitHubLoginService } from './github-login';
 import { buildControlHandler } from './control-handlers';
 import { createControlServer } from '../core/transport';
 import { buildPipeName } from '../core/control';
@@ -71,6 +72,10 @@ function relayError(message: string): void {
 	paletteWindow?.webContents.send('relay-error', message);
 }
 
+function pushGitHubLoginState(state: import('../shared/types').GitHubLoginState): void {
+	menuWindow?.webContents.send('github-login-state', state);
+}
+
 app.whenReady().then(async () => {
 	menuWindow = createMenuWindow();
 	notchWindow = createNotchWindow();
@@ -91,7 +96,8 @@ app.whenReady().then(async () => {
 
 	const identityStore = new IdentityStore(app.getPath('userData'));
 	const appState = new AppState(identityStore, broadcastState, showNotchMessage, relayError);
-	registerSessionHandlers(appState);
+	const githubLoginService = new GitHubLoginService(appState, pushGitHubLoginState);
+	registerSessionHandlers(appState, githubLoginService);
 
 	// Named-pipe control server for the `munkel` CLI. Mirrors the macOS app's
 	// Unix-domain-socket `ControlServer` — one request/response per connection,
@@ -117,6 +123,12 @@ app.whenReady().then(async () => {
 	ipcMain.handle('toggle-menu', () => toggleMenuWindow(menuWindow));
 	ipcMain.handle('quit-app', () => app.quit());
 	ipcMain.handle('test-notch', () => runNotchDemo());
+	ipcMain.handle('start-github-login', async () => {
+		githubLoginService.startGitHubLogin();
+	});
+	ipcMain.handle('cancel-github-login', async () => {
+		githubLoginService.cancelGitHubLogin();
+	});
 
 	await appState.restoreCircles();
 	appState.broadcast();
