@@ -14,7 +14,7 @@ export function AnnounceBar() {
       <span className="announce-tag">Soon</span>
       <span className="announce-text">
         <MonitorSmartphone aria-hidden />
-        Windows is learning to munkel.
+        Windows is learning to munkel
       </span>
       <ArrowRight className="announce-arrow" aria-hidden />
     </a>
