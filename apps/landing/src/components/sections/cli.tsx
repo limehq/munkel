@@ -8,16 +8,16 @@ const TERM_SCRIPT: TermStep[] = [
   { type: 'cmd', text: 'munkel channels' },
   {
     type: 'out',
-    html: '<span class="tdot-live">●</span> blue-table-42  <span class="tdim">·</span>  Alex, Sam, Morgan',
+    html: '<span class="text-brand">●</span> blue-table-42  <span class="text-[oklch(0.6_0_0)]">·</span>  Alex, Sam, Morgan',
   },
   {
     type: 'out',
-    html: '<span class="tdot-live">●</span> project-7  <span class="tdim">·</span>  Sam, Alex',
+    html: '<span class="text-brand">●</span> project-7  <span class="text-[oklch(0.6_0_0)]">·</span>  Sam, Alex',
   },
   { type: 'cmd', text: 'munkel blue-table-42 all "table\'s free, come down"' },
-  { type: 'out', html: '<span class="tdim">munkeled ✓</span>' },
+  { type: 'out', html: '<span class="text-[oklch(0.6_0_0)]">munkeled ✓</span>' },
   { type: 'cmd', text: 'munkel project-7 Sam "package for you downstairs"' },
-  { type: 'out', html: '<span class="tdim">munkeled ✓</span>' },
+  { type: 'out', html: '<span class="text-[oklch(0.6_0_0)]">munkeled ✓</span>' },
 ]
 
 function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
@@ -42,11 +42,11 @@ function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
       for (const step of TERM_SCRIPT) {
         if (cancelled) return
         const line = document.createElement('div')
-        line.className = 'tline'
+        line.className = 'whitespace-pre-wrap'
         body!.appendChild(line)
         if (step.type === 'cmd') {
           line.innerHTML =
-            '<span class="tprompt">$ </span><span class="ttext"></span><span class="cursor"></span>'
+            '<span class="text-brand [text-shadow:0_0_calc(var(--glow)*12px)_color-mix(in_oklab,var(--brand)_60%,transparent)]">$ </span><span class="ttext"></span><span class="cursor inline-block w-[7px] h-[14px] bg-[oklch(0.85_0_0)] align-[-2px] animate-[blink_1s_steps(1)_infinite]"></span>'
           const ttext = line.querySelector('.ttext')!
           if (instant) {
             ttext.textContent = step.text
@@ -71,8 +71,9 @@ function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
       }
       if (cancelled) return
       const done = document.createElement('div')
-      done.className = 'tline'
-      done.innerHTML = '<span class="tprompt">$ </span><span class="cursor"></span>'
+      done.className = 'whitespace-pre-wrap'
+      done.innerHTML =
+        '<span class="text-brand [text-shadow:0_0_calc(var(--glow)*12px)_color-mix(in_oklab,var(--brand)_60%,transparent)]">$ </span><span class="cursor inline-block w-[7px] h-[14px] bg-[oklch(0.85_0_0)] align-[-2px] animate-[blink_1s_steps(1)_infinite]"></span>'
       body!.appendChild(done)
     }
 
@@ -106,15 +107,23 @@ function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
   }, [])
 
   return (
-    <div className="terminal" ref={termRef}>
-      <div className="terminal-bar">
-        <span className="tdot"></span>
-        <span className="tdot"></span>
-        <span className="tdot"></span>
-        <span className="ttitle">zsh · munkel</span>
+    <div
+      className="border border-border rounded-[var(--radius-xl)] bg-[oklch(0.17_0_0)] [html:not(.dark)_&]:bg-[oklch(0.205_0_0)] overflow-hidden shadow-[var(--shadow-lg)]"
+      ref={termRef}
+    >
+      <div className="flex items-center gap-1.5 px-4 py-3 border-b border-b-[oklch(1_0_0_/_0.08)]">
+        <span className="w-[11px] h-[11px] rounded-full bg-[oklch(1_0_0_/_0.14)]"></span>
+        <span className="w-[11px] h-[11px] rounded-full bg-[oklch(1_0_0_/_0.14)]"></span>
+        <span className="w-[11px] h-[11px] rounded-full bg-[oklch(1_0_0_/_0.14)]"></span>
+        <span className="ml-auto mr-auto font-mono text-[11px] text-[oklch(0.6_0_0)] translate-x-[-24px]">
+          zsh · munkel
+        </span>
       </div>
-      <div className="terminal-body" ref={bodyRef}>
-        <span className="cursor"></span>
+      <div
+        className="p-5 pb-6 font-mono text-[13px] leading-[1.9] text-[oklch(0.85_0_0)] min-h-[242px]"
+        ref={bodyRef}
+      >
+        <span className="cursor inline-block w-[7px] h-[14px] bg-[oklch(0.85_0_0)] align-[-2px] animate-[blink_1s_steps(1)_infinite]"></span>
       </div>
     </div>
   )
@@ -122,7 +131,7 @@ function TerminalDemo({ onFirstSend }: { onFirstSend?: () => void }) {
 
 function CliShowcase() {
   return (
-    <div className="cli-stage">
+    <div className="min-w-0">
       <TerminalDemo />
     </div>
   )
@@ -131,14 +140,22 @@ function CliShowcase() {
 export function Cli() {
   return (
     <section id="cli">
-      <div className="container">
-        <div className="cli-grid">
-          <div className="cli-copy">
-            <div className="section-kicker">CLI</div>
-            <h2>Munkel from the shell.</h2>
-            <p>
-              <span className="code">munkel</span> is a thin client that talks to the app over a
-              local socket. The app handles the crypto and the connection, the CLI just sends.
+      <div className="mx-auto max-w-[1400px] px-8">
+        <div className="grid grid-cols-[5fr_7fr] gap-12 items-start max-[900px]:grid-cols-1">
+          <div>
+            <div className="font-mono text-[length:var(--text-xs)] text-brand tracking-[0.06em] uppercase">
+              CLI
+            </div>
+            <h2 className="text-[length:var(--text-4xl)] font-semibold tracking-tight mt-4">
+              Munkel from the shell.
+            </h2>
+            <p className="mt-[1.125rem] text-muted-foreground leading-relaxed text-[length:var(--text-lg)] text-pretty">
+              <span className="font-mono text-[0.875em] bg-muted px-1.5 py-0.5 rounded-[calc(var(--radius)*0.6)] text-[0.8125rem]!">
+                munkel
+              </span>{' '}
+              is a thin client that talks to
+              the app over a local socket. The app handles the crypto and the connection, the CLI
+              just sends.
             </p>
           </div>
           <CliShowcase />

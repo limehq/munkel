@@ -1,7 +1,8 @@
 import type { ReactNode } from 'react'
 import { BatteryMedium, Wifi } from 'lucide-react'
 
-// Deterministic avatar (mirrors the hero's): an initial on a name-hashed gradient.
+import { cn } from '@/lib/utils'
+
 const AVATAR_PALETTES: [string, string][] = [
   ['#f56b6b', '#d93069'],
   ['#5ca6fa', '#3857eb'],
@@ -28,27 +29,35 @@ export function Avatar({ name, className }: { name: string; className?: string }
   )
 }
 
-/**
- * A still macOS display: wallpaper + a minimal (Apple-logo-only) menu bar.
- * Pass the notch (and any overlay) as children. Sizing comes from `className`
- * on the `.macbook` element or the surrounding layout.
- */
-export function MacScreen({ className, children }: { className?: string; children?: ReactNode }) {
+export function MacScreen({
+  className,
+  wallpaperClassName,
+  children,
+}: {
+  className?: string
+  wallpaperClassName?: string
+  children?: ReactNode
+}) {
   return (
-    <div className={`macbook${className ? ` ${className}` : ''}`}>
-      <div className="mb-screen">
-        <div className="mb-display">
-          <div className="mb-wallpaper"></div>
-          <div className="mb-menubar">
-            <div className="mb-menu">
-              <span className="mb-apple" aria-hidden>
+    <div className={cn('[transform-origin:50%_0%] max-w-[1000px] mx-auto', className)}>
+      <div className="relative aspect-[16/10] bg-black rounded-[22px] border border-[oklch(1_0_0_/_0.16)] shadow-[0_40px_80px_-32px_oklch(0_0_0_/_0.5)]">
+        <div className="absolute inset-2 rounded-[14px] overflow-hidden bg-[oklch(0.11_0_0)]">
+          <div
+            className={cn(
+              'absolute inset-0 [background:radial-gradient(70%_55%_at_50%_0%,color-mix(in_oklab,var(--brand)_32%,oklch(0.15_0.01_250)),transparent_80%),radial-gradient(50%_45%_at_12%_70%,color-mix(in_oklab,var(--brand)_12%,oklch(0.13_0_0)),transparent_70%),linear-gradient(180deg,oklch(0.14_0.008_250),oklch(0.1_0.005_260))]',
+              wallpaperClassName,
+            )}
+          ></div>
+          <div className="absolute top-0 left-0 right-0 h-[28px] flex items-center justify-between px-[14px] [font-family:-apple-system,system-ui,sans-serif] text-[13px] text-[oklch(0.97_0_0_/_0.85)] bg-[oklch(0_0_0_/_0.5)] backdrop-blur-[12px] max-[900px]:h-[21px] max-[900px]:text-[11px] max-[600px]:h-[16px] max-[600px]:text-[9px]">
+            <div className="flex items-center gap-[15px]">
+              <span className="text-[15px] leading-[0] opacity-[0.92] max-[900px]:text-[13px] max-[600px]:text-[11px]" aria-hidden>
                 &#xF8FF;
               </span>
             </div>
-            <div className="mb-menu-right">
-              <BatteryMedium aria-hidden />
-              <Wifi aria-hidden />
-              <span className="mb-clock">Sun 22. Jun 09:41</span>
+            <div className="flex items-center gap-[11px] [font-variant-numeric:tabular-nums]">
+              <BatteryMedium className="w-[15px]! h-[15px]! max-[900px]:w-[13px]! max-[900px]:h-[13px]!" aria-hidden />
+              <Wifi className="w-[15px]! h-[15px]! max-[900px]:w-[13px]! max-[900px]:h-[13px]!" aria-hidden />
+              <span className="font-medium">Sun 22. Jun 09:41</span>
             </div>
           </div>
         </div>

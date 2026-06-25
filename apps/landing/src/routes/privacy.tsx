@@ -23,28 +23,28 @@ function PrivacyPage() {
       title="Privacy Policy"
       intro="How we handle personal data when you visit this website and use Munkel — written to be honest about how little we collect."
     >
-      <p className="legal-updated">Last updated: 24 June 2026</p>
+      <p className="mt-2 text-muted-foreground text-[length:var(--text-sm)]">Last updated: 24 June 2026</p>
 
       <h2>1. Controller</h2>
       <p>
         The controller responsible for data processing on this website within
         the meaning of the General Data Protection Regulation (GDPR) is:
       </p>
-      <dl className="legal-dl">
-        <dt>Company</dt>
-        <dd>Unique (Deutschland) GmbH</dd>
-        <dt>Address</dt>
-        <dd>
+      <dl className="grid grid-cols-[minmax(7rem,12rem)_1fr] gap-x-6 gap-y-2 mt-5 max-[600px]:grid-cols-1 max-[600px]:gap-x-0 max-[600px]:gap-y-[0.125rem]">
+        <dt className="text-[length:var(--text-sm)] text-muted-foreground font-mono tracking-wide">Company</dt>
+        <dd className="text-foreground max-[600px]:mb-3">Unique (Deutschland) GmbH</dd>
+        <dt className="text-[length:var(--text-sm)] text-muted-foreground font-mono tracking-wide">Address</dt>
+        <dd className="text-foreground max-[600px]:mb-3">
           Bei den Mühren 1
           <br />
           20457 Hamburg
         </dd>
-        <dt>E-Mail</dt>
-        <dd>
+        <dt className="text-[length:var(--text-sm)] text-muted-foreground font-mono tracking-wide">E-Mail</dt>
+        <dd className="text-foreground max-[600px]:mb-3">
           <a href="mailto:hey@munkel.app">hey@munkel.app</a>
         </dd>
-        <dt>Phone</dt>
-        <dd>
+        <dt className="text-[length:var(--text-sm)] text-muted-foreground font-mono tracking-wide">Phone</dt>
+        <dd className="text-foreground max-[600px]:mb-3">
           <a href="tel:+4940227187">+49 (0) 40 227 187 – 0</a>
         </dd>
       </dl>
@@ -99,7 +99,7 @@ function PrivacyPage() {
         </li>
         <li>
           Requests are sent first-party, to a path on this domain that forwards
-          them to PostHog. We never call PostHog's <span className="code">identify</span>{' '}
+          them to PostHog. We never call PostHog's <span className="font-mono text-[0.875em] bg-muted px-1.5 py-0.5 rounded-[calc(var(--radius)*0.6)]">identify</span>{' '}
           function, so no personal profile is built, and we do not track you
           across other sites.
         </li>
@@ -109,7 +109,7 @@ function PrivacyPage() {
           autocapture, and web-vitals collection are switched off.
         </li>
         <li>
-          We honour the <span className="code">Do-Not-Track</span> and Global
+          We honour the <span className="font-mono text-[0.875em] bg-muted px-1.5 py-0.5 rounded-[calc(var(--radius)*0.6)]">Do-Not-Track</span> and Global
           Privacy Control signals: if your browser sends one, no analytics event
           is collected.
         </li>
@@ -133,7 +133,7 @@ function PrivacyPage() {
         This website sets no cookies. The only thing it stores on your device is
         a single, strictly functional browser local-storage entry that remembers
         your light/dark theme preference (the key{' '}
-        <span className="code">munkel-theme</span>). The analytics described in
+        <span className="font-mono text-[0.875em] bg-muted px-1.5 py-0.5 rounded-[calc(var(--radius)*0.6)]">munkel-theme</span>). The analytics described in
         section 4 runs in a memory-only mode and writes nothing to your device —
         no cookie and no local-storage entry. The theme value never leaves your
         browser, is not used for tracking, and exists only so the site renders in
