@@ -1,5 +1,11 @@
 # Munkel
 
+## Windows installation
+
+For Windows builds, download the Windows zip artifact from CI artifacts or from releases, extract it, and run `Munkel.exe`.
+
+Fork beta builds are currently unsigned. Windows SmartScreen or Defender may show an "Unknown publisher" warning. If that happens, click `More info` and then `Run anyway`.
+
 [![CI](https://github.com/limehq/munkel/actions/workflows/ci.yml/badge.svg)](https://github.com/limehq/munkel/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/limehq/munkel/actions/workflows/codeql.yml/badge.svg)](https://github.com/limehq/munkel/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/limehq/munkel/badge)](https://scorecard.dev/viewer/?uri=github.com/limehq/munkel)

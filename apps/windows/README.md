@@ -1,4 +1,18 @@
 # @munkel/windows
+
+## Packaging
+
+- `bun run render-ico` regenerates `assets/icon.ico` from `assets/tray-icon.svg`. Run it after SVG changes.
+- `bun run pack:dir` produces `apps/windows/release/win-unpacked/`, which contains the portable directory build including `Munkel.exe`.
+- `bun run pack` produces `apps/windows/release/Munkel-<version>-win.zip` plus the `win-unpacked` directory.
+- Fork beta builds are currently unsigned.
+
+For v1, the Windows Electron app is a standalone bundle. The `munkel` CLI is installed separately and communicates with the app over the named pipe. Bundling the CLI via `extraResources` is an optional future follow-up.
+
+## Open packaging tasks
+
+- NSIS installer target: deferred; zip + portable dir suffice for the fork beta. Add an `nsis` entry to `win.target` and installer config when a guided installer is needed.
+- Authenticode code-signing: deferred; fork beta ships unsigned. For public release, obtain a code-signing certificate (`.pfx`), store it in GitHub secrets such as `WINDOWS_CERTIFICATE_PFX` and `WINDOWS_CERTIFICATE_PASSWORD`, and configure `win.certificateFile` / `win.certificatePassword` in `electron-builder.yml`. SmartScreen reputation still builds over time; EV certificates help but cost more. Rationale: an unsigned fork beta is acceptable; signing is a public-release concern.
 [![CI](https://github.com/rodgi040/munkel/actions/workflows/ci.yml/badge.svg)](https://github.com/rodgi040/munkel/actions/workflows/ci.yml)
 
 Munkel for Windows — Electron + Vite + React + TypeScript client.

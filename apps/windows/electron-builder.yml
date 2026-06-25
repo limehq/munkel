@@ -8,4 +8,6 @@ files:
   - package.json
 win:
   target:
+    - zip
     - dir
+  icon: assets/icon.ico

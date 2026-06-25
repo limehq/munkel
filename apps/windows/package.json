@@ -9,7 +9,10 @@
 		"build": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit && vite build --config vite.main.config.ts && vite build --config vite.renderer.config.ts",
 		"typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit",
 		"test": "bun test",
-		"render-tray-icon": "bun scripts/render-tray-icon.mjs"
+		"render-tray-icon": "bun scripts/render-tray-icon.mjs",
+		"pack": "bun run build && electron-builder --win --config electron-builder.yml",
+		"pack:dir": "bun run build && electron-builder --win dir --config electron-builder.yml",
+		"render-ico": "bun scripts/render-ico.mjs"
 	},
 	"dependencies": {
 		"@jsquash/avif": "^2.1.1",
@@ -26,6 +29,7 @@
 		"@types/ws": "^8.18.1",
 		"@vitejs/plugin-react": "^4.3.1",
 		"electron": "^31.0.2",
+		"electron-builder": "26.15.4",
 		"typescript": "^5.4.5",
 		"vite": "^5.3.1"
 	}
