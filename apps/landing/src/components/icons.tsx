@@ -2,7 +2,7 @@
 // (public/munkel-glyph.svg). Rendered as a CSS mask so it inherits `currentColor`
 // and themes for free; sizing comes from the consumer's class.
 export function MeerkatGlyph({ className = '' }: { className?: string }) {
-  return <span className={`meerkat-glyph ${className}`.trim()} aria-hidden />
+  return <span className={`inline-block flex-none bg-current [-webkit-mask:url(/munkel-glyph.svg)_center_/_contain_no-repeat] [mask:url(/munkel-glyph.svg)_center_/_contain_no-repeat] ${className}`.trim()} aria-hidden />
 }
 
 // GitHub's mark isn't in lucide, so it's hand-rolled to match the lucide stroke

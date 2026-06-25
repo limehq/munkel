@@ -69,13 +69,13 @@ export const Route = createRootRoute({
 
 function NotFound() {
   return (
-    <div className="not-found">
-      <div className="app-icon">
-        <img src="/app-icon.png" alt="The Munkel meerkat" width={112} height={112} />
+    <div className="min-h-[70lvh] flex flex-col items-center justify-center text-center gap-2 [padding:6rem_1.5rem]">
+      <div className="block w-28 mx-auto mb-7">
+        <img src="/app-icon.png" alt="The Munkel meerkat" width={112} height={112} className="w-full h-auto block [filter:drop-shadow(0_14px_28px_oklch(0_0_0_/_0.5))]" />
       </div>
-      <h1>404</h1>
-      <p>This one already vanished — like every good munkel. Nothing here is ever stored.</p>
-      <a className="nf-home" href="/">← Back to munkel.app</a>
+      <h1 className="text-[length:var(--text-4xl)] font-bold tracking-[var(--tracking-tight)]">404</h1>
+      <p className="text-muted-foreground max-w-[42ch] leading-relaxed">This one already vanished — like every good munkel. Nothing here is ever stored.</p>
+      <a className="mt-6 text-brand font-semibold" href="/">← Back to munkel.app</a>
     </div>
   )
 }

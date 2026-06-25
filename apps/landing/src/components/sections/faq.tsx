@@ -38,13 +38,17 @@ const FAQS: { q: string; a: ReactNode }[] = [
 export function Faq() {
   return (
     <section id="faq">
-      <div className="container">
-        <div className="faq-head">
-          <div className="section-kicker">FAQ</div>
-          <h2>Quick answers.</h2>
-          <p>The things people ask before downloading.</p>
+      <div className="mx-auto max-w-[1400px] px-8 flex flex-col items-center">
+        <div className="text-center max-w-[600px] mb-14">
+          <div className="font-mono text-[length:var(--text-xs)] text-brand tracking-[0.06em] uppercase">FAQ</div>
+          <h2 className="text-[length:var(--text-4xl)] font-semibold tracking-tight mt-4 text-balance">
+            Quick answers.
+          </h2>
+          <p className="mt-[1.125rem] text-muted-foreground text-[length:var(--text-lg)] leading-relaxed text-pretty">
+            The things people ask before downloading.
+          </p>
         </div>
-        <Accordion type="single" collapsible className="faq">
+        <Accordion type="single" collapsible className="w-full max-w-[760px] flex flex-col gap-3.5">
           {FAQS.map((item, i) => (
             <AccordionItem key={i} value={`item-${i}`}>
               <AccordionTrigger>{item.q}</AccordionTrigger>
@@ -52,8 +56,14 @@ export function Faq() {
             </AccordionItem>
           ))}
         </Accordion>
-        <div className="faq-foot">
-          Still curious? <a href={DISCUSSIONS_URL}>Start a discussion on GitHub.</a>
+        <div className="mt-11 text-center text-[length:var(--text-sm)] text-muted-foreground">
+          Still curious?{' '}
+          <a
+            href={DISCUSSIONS_URL}
+            className="text-foreground underline underline-offset-[3px] decoration-[var(--border)] hover:decoration-[var(--foreground)]"
+          >
+            Start a discussion on GitHub.
+          </a>
         </div>
       </div>
     </section>

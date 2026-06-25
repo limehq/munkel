@@ -22,29 +22,29 @@ function ImprintPage() {
       intro="Information according to § 5 DDG (formerly § 5 TMG)."
     >
       <h2>Provider</h2>
-      <dl className="legal-dl">
-        <dt>Company</dt>
-        <dd>Unique (Deutschland) GmbH</dd>
-        <dt>Address</dt>
-        <dd>
+      <dl className="grid grid-cols-[minmax(7rem,12rem)_1fr] gap-x-6 gap-y-2 mt-5 max-[600px]:grid-cols-1 max-[600px]:gap-x-0 max-[600px]:gap-y-[0.125rem]">
+        <dt className="text-[length:var(--text-sm)] text-muted-foreground font-mono tracking-wide">Company</dt>
+        <dd className="text-foreground max-[600px]:mb-3">Unique (Deutschland) GmbH</dd>
+        <dt className="text-[length:var(--text-sm)] text-muted-foreground font-mono tracking-wide">Address</dt>
+        <dd className="text-foreground max-[600px]:mb-3">
           Bei den Mühren 1
           <br />
           20457 Hamburg
         </dd>
-        <dt>Register</dt>
-        <dd>Commercial register: HRB 40590</dd>
-        <dt>Register court</dt>
-        <dd>Amtsgericht Hamburg</dd>
+        <dt className="text-[length:var(--text-sm)] text-muted-foreground font-mono tracking-wide">Register</dt>
+        <dd className="text-foreground max-[600px]:mb-3">Commercial register: HRB 40590</dd>
+        <dt className="text-[length:var(--text-sm)] text-muted-foreground font-mono tracking-wide">Register court</dt>
+        <dd className="text-foreground max-[600px]:mb-3">Amtsgericht Hamburg</dd>
       </dl>
 
       <h2>Contact</h2>
-      <dl className="legal-dl">
-        <dt>Phone</dt>
-        <dd>
+      <dl className="grid grid-cols-[minmax(7rem,12rem)_1fr] gap-x-6 gap-y-2 mt-5 max-[600px]:grid-cols-1 max-[600px]:gap-x-0 max-[600px]:gap-y-[0.125rem]">
+        <dt className="text-[length:var(--text-sm)] text-muted-foreground font-mono tracking-wide">Phone</dt>
+        <dd className="text-foreground max-[600px]:mb-3">
           <a href="tel:+4940227187">+49 (0) 40 227 187 – 0</a>
         </dd>
-        <dt>E-Mail</dt>
-        <dd>
+        <dt className="text-[length:var(--text-sm)] text-muted-foreground font-mono tracking-wide">E-Mail</dt>
+        <dd className="text-foreground max-[600px]:mb-3">
           <a href="mailto:hey@munkel.app">hey@munkel.app</a>
         </dd>
       </dl>
@@ -56,15 +56,15 @@ function ImprintPage() {
       </p>
 
       <h2>Editorial responsibility (§ 18 Abs. 2 MStV)</h2>
-      <dl className="legal-dl">
-        <dt>Name</dt>
-        <dd>Jurij Koch</dd>
-        <dt>Phone</dt>
-        <dd>
+      <dl className="grid grid-cols-[minmax(7rem,12rem)_1fr] gap-x-6 gap-y-2 mt-5 max-[600px]:grid-cols-1 max-[600px]:gap-x-0 max-[600px]:gap-y-[0.125rem]">
+        <dt className="text-[length:var(--text-sm)] text-muted-foreground font-mono tracking-wide">Name</dt>
+        <dd className="text-foreground max-[600px]:mb-3">Jurij Koch</dd>
+        <dt className="text-[length:var(--text-sm)] text-muted-foreground font-mono tracking-wide">Phone</dt>
+        <dd className="text-foreground max-[600px]:mb-3">
           <a href="tel:+494022718715">+49 (0) 40 227 187 – 15</a>
         </dd>
-        <dt>E-Mail</dt>
-        <dd>
+        <dt className="text-[length:var(--text-sm)] text-muted-foreground font-mono tracking-wide">E-Mail</dt>
+        <dd className="text-foreground max-[600px]:mb-3">
           <a href="mailto:hey@munkel.app">hey@munkel.app</a>
         </dd>
       </dl>
