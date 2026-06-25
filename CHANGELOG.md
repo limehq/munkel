@@ -1,5 +1,19 @@
 # Changelog
 
+## [0.16.0](https://github.com/limehq/munkel/compare/v0.15.0...v0.16.0) (2026-06-25)
+
+
+### Features
+
+* **landing:** privacy-first PostHog analytics (EU, cookieless, reverse-proxied) ([#173](https://github.com/limehq/munkel/issues/173)) ([b71e03c](https://github.com/limehq/munkel/commit/b71e03c3773fee3f8f584b4cead5797d039cb342))
+* **macos:** show your own messages in the notch ([#178](https://github.com/limehq/munkel/issues/178)) ([8cfa045](https://github.com/limehq/munkel/commit/8cfa04506a207374ac1a052dbffe8ee220cafb48))
+
+
+### Bug Fixes
+
+* **landing:** stop remounting the page on hydration (stable PostHogProvider) ([#180](https://github.com/limehq/munkel/issues/180)) ([5635889](https://github.com/limehq/munkel/commit/563588955e24f359c9e8e565a6ed1ac7a361ecb6))
+* **macos:** align expanded notch corners with hardware (top 15→10, continuous corners) ([#164](https://github.com/limehq/munkel/issues/164)) ([f5ab2e4](https://github.com/limehq/munkel/commit/f5ab2e49f9c425ceb6b08bb5d3c7b7d66dab317a))
+
 ## [0.15.0](https://github.com/limehq/munkel/compare/v0.14.0...v0.15.0) (2026-06-24)
 
 
