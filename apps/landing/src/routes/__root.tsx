@@ -2,7 +2,8 @@ import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 import { PostHogProvider } from '@posthog/react'
-import { useEffect, useState, type ReactNode } from 'react'
+import posthog from 'posthog-js'
+import { useEffect, type ReactNode } from 'react'
 
 import appCss from '../styles.css?url'
 import geistLatinWoff2 from '@fontsource-variable/geist/files/geist-latin-wght-normal.woff2?url'
@@ -86,11 +87,24 @@ function analyticsOptedOut(): boolean {
   return dnt === '1' || dnt === 'yes'
 }
 
+let analyticsInitialized = false
+
 function RootDocument({ children }: { children: ReactNode }) {
   const posthogKey = import.meta.env.VITE_PUBLIC_POSTHOG_KEY as string | undefined
-  const [analyticsOn, setAnalyticsOn] = useState(false)
   useEffect(() => {
-    if (posthogKey && !analyticsOptedOut()) setAnalyticsOn(true)
+    if (analyticsInitialized || !posthogKey || analyticsOptedOut()) return
+    analyticsInitialized = true
+    posthog.init(posthogKey, {
+      api_host: '/relay-Hk2p',
+      ui_host: 'https://eu.posthog.com',
+      defaults: '2026-01-30',
+      person_profiles: 'identified_only',
+      cookieless_mode: 'always',
+      disable_session_recording: true,
+      autocapture: false,
+      capture_performance: false,
+      respect_dnt: true,
+    })
   }, [posthogKey])
   return (
     <html lang="en" className="dark" suppressHydrationWarning>
@@ -99,26 +113,7 @@ function RootDocument({ children }: { children: ReactNode }) {
         <HeadContent />
       </head>
       <body>
-        {analyticsOn && posthogKey ? (
-          <PostHogProvider
-            apiKey={posthogKey}
-            options={{
-              api_host: '/relay-Hk2p',
-              ui_host: 'https://eu.posthog.com',
-              defaults: '2026-01-30',
-              person_profiles: 'identified_only',
-              cookieless_mode: 'always',
-              disable_session_recording: true,
-              autocapture: false,
-              capture_performance: false,
-              respect_dnt: true,
-            }}
-          >
-            {children}
-          </PostHogProvider>
-        ) : (
-          children
-        )}
+        <PostHogProvider client={posthog}>{children}</PostHogProvider>
         {/* Stripped from production builds by @tanstack/devtools-vite — do not
             wrap in a manual DEV gate; its AST transform chokes on that. */}
         <TanStackDevtools
