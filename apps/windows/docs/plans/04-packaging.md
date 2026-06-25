@@ -12,8 +12,11 @@ with documented signing strategy for public release.
 
 ## Existing scaffold
 
-- `apps/windows/electron-builder.yml` — `appId: app.munkel.windows`, `win.target: dir`
-- `apps/windows/package.json` — no `electron-builder` script yet
+- `apps/windows/electron-builder.yml` — `appId: app.munkel.windows`, `win.target: [dir]`
+- `apps/windows/package.json` — no `electron-builder` dependency or `pack` script yet
+- Icon assets are **PNG/SVG only**: `assets/tray-icon.png`, `tray-icon.svg`,
+  `tray-icon-32.png`, `tray-icon-48.png`. **There is no `.ico`** — Windows exe
+  icons require one (see Task 2).
 - Version: `0.0.1` (manual — not in release-please yet)
 
 ## Product decisions (human — before Task 2)
@@ -39,7 +42,11 @@ Document chosen options in PR body and `apps/windows/README.md`.
 
 **Files:** `apps/windows/package.json`, root `package.json` turbo pipeline
 
-1. Add `electron-builder` devDependency (respect 7-day npm age guard or use lockfile)
+1. Add `electron-builder` devDependency. **This trips the global 7-day npm-age
+   guard** — the install will be blocked unless the version is already in the
+   lockfile, or the user explicitly approves `ALLOW_FRESH_PKG=1`. Surface the
+   exact version bump to the user and wait for "go" before installing; prefer a
+   lockfile-pinned version.
 2. Scripts:
    ```json
    "pack": "electron-builder --win --config electron-builder.yml",
@@ -61,11 +68,16 @@ Document chosen options in PR body and `apps/windows/README.md`.
        - dir
        # - nsis   # if chosen
    ```
-2. Set `icon` — use existing tray/app icon assets
+2. **Generate `assets/icon.ico`** (multi-size, 256×256 down to 16×16) from the
+   existing `tray-icon.png` / `tray-icon.svg` — PNG alone is **not** accepted as
+   a Windows exe icon. Use a converter (e.g. `electron-icon-builder`, ImageMagick
+   `convert`, or `png-to-ico`) and commit the `.ico`. Then set
+   `win.icon: assets/icon.ico` in `electron-builder.yml`.
 3. `extraMetadata` / `productName`: Munkel
 4. NSIS block (if chosen): one-click, per-machine, license file if required
 
-**Acceptance:** Icons appear in built exe; app launches from unpacked dir.
+**Acceptance:** `assets/icon.ico` exists and is committed; the built exe shows
+the Munkel icon in Explorer/taskbar; app launches from the unpacked dir.
 
 ### Task 3 — CI pack job (optional smoke)
 
@@ -116,9 +128,10 @@ Optional follow-up: bundle CLI in `extraResources`.
 - [ ] Fresh VM / machine: extract zip, run exe
 - [ ] Single-instance lock works
 - [ ] Tray icon visible
-- [ ] Named pipe control works with CLI
+- [ ] Named pipe control works with CLI (`\\.\pipe\Munkel-<user>-Control`)
 - [ ] Join circle + send message + image
-- [ ] Uninstall clean (if NSIS)
+- [ ] Uninstall clean — **only if the NSIS target was chosen**; skip for
+      zip/dir-only builds (nothing to uninstall)
 
 ### Task 8 — PR
 
@@ -145,7 +158,10 @@ bun run pack:dir
 
 With Plans 01–04 complete + Phase 2 merged:
 
-1. Feature parity with `upstream/main` (session-start graphify pass)
-2. `windows-ci` green
-3. Installable artifact exists
-4. User contacts upstream maintainer (see `State.md` fork strategy)
+1. **Feature parity with `upstream/main`** — not an agent-runnable step. Verify
+   via the session-start `/graphify .` parity pass and the re-ranked gap list in
+   the private `State.md`; treat "no remaining parity gaps" as the checklist
+   item. Do not mark this done from inside an agent run.
+2. `windows-ci` green (Plan 03).
+3. Installable artifact exists (this plan).
+4. User contacts upstream maintainer (see the private `State.md` fork strategy).

@@ -2,7 +2,13 @@
 
 **Branch:** `platform/windows/swift-windows-interop`  
 **Target:** PR → `platform/windows/v2-clean`  
-**Status:** Implemented — merge only
+**Status:** Implemented — merge only via [PR #12](https://github.com/rodgi040/munkel/pull/12)
+
+> The merge gate is **PR #12**, not PR #11 (PR #11 was `cli-windows-image`,
+> already on `v2-clean` at `ced0a5e`). The commits exist on the feature branch
+> (`2e4d24d`, `4c2f9de`), but local branch presence is **not** the same as being
+> on `v2-clean` — only the PR #12 merge puts the interop vectors there. Do not
+> start Plans 02–04 from a bare `v2-clean` until PR #12 merges.
 
 ## Goal
 
@@ -39,6 +45,6 @@ cd apps/macos && swift test --filter InteropVectorsTests
 
 ## Definition of done
 
-- [x] 18 Windows interop tests pass
-- [ ] PR merged to `platform/windows/v2-clean`
-- [ ] macOS `InteropVectorsTests` green (human)
+- [x] 18 Windows interop tests pass (`bun run test:interop:vectors`)
+- [ ] **PR #12** merged to `platform/windows/v2-clean`
+- [ ] macOS `swift test --filter InteropVectorsTests` green (human)
