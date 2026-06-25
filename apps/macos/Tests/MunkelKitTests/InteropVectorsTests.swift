@@ -5,7 +5,7 @@ import Testing
 
 // MARK: - vectors.json schema
 
-private struct VectorsFile: Decodable {
+struct VectorsFile: Decodable {
     struct DerivationEntry: Decodable {
         let code: String
         let groupId: String
@@ -92,35 +92,35 @@ private func sha256Hex(_ data: Data) -> String {
 
 @Suite("Swift ↔ Windows interop vectors")
 struct InteropVectorsTests {
-    private let vectors = try! loadVectors()
+    private static let vectors = try! loadVectors()
 
     @Test func vectorsFileVersion() {
-        #expect(vectors.version == 1)
-        #expect(vectors.sealed.count == vectors.payloads.count)
+        #expect(Self.vectors.version == 1)
+        #expect(Self.vectors.sealed.count == Self.vectors.payloads.count)
     }
 
-    @Test(arguments: vectors.derivation)
+    @Test(arguments: Self.vectors.derivation)
     func groupIdMatchesWindows(entry: VectorsFile.DerivationEntry) {
         #expect(GroupKey(code: entry.code).groupId == entry.groupId)
     }
 
-    @Test(arguments: vectors.payloads)
+    @Test(arguments: Self.vectors.payloads)
     func payloadJSONDecodes(entry: VectorsFile.PayloadEntry) throws {
         _ = try AppPayload.decoded(from: Data(entry.json.utf8))
     }
 
-    @Test(arguments: vectors.sealed)
+    @Test(arguments: Self.vectors.sealed)
     func opensWindowsSealedBlob(entry: VectorsFile.SealedEntry) throws {
         let key = GroupKey(code: entry.code).messageKey
         let opened = try MessageCrypto.open(entry.sealedBase64, using: key)
-        let canonical = try #require(vectors.payloads.first { $0.id == entry.payloadId })
+        let canonical = try #require(Self.vectors.payloads.first { $0.id == entry.payloadId })
         #expect(String(data: opened, encoding: .utf8) == canonical.json)
         _ = try AppPayload.decoded(from: opened)
     }
 
-    @Test(arguments: vectors.sealed)
+    @Test(arguments: Self.vectors.sealed)
     func resealsToSameBlob(entry: VectorsFile.SealedEntry) throws {
-        let canonical = try #require(vectors.payloads.first { $0.id == entry.payloadId })
+        let canonical = try #require(Self.vectors.payloads.first { $0.id == entry.payloadId })
         let key = GroupKey(code: entry.code).messageKey
         guard let nonceData = Data(base64Encoded: entry.nonceBase64), nonceData.count == 12 else {
             Issue.record("invalid nonce for \(entry.id)")
@@ -132,14 +132,14 @@ struct InteropVectorsTests {
     }
 
     @Test func avatarCodecConstantsMatchWindows() {
-        let avatar = vectors.codecConstants.avatar
+        let avatar = Self.vectors.codecConstants.avatar
         #expect(AvatarCodec.maxEncodedBytes == avatar.maxEncodedBytes)
         #expect(AvatarCodec.maxEncodedPixels == avatar.maxEncodedPixels)
         #expect(avatar.maxDecodedPixels == 256)
     }
 
     @Test func imageCodecConstantsMatchWindows() {
-        let image = vectors.codecConstants.image
+        let image = Self.vectors.codecConstants.image
         #expect(ImageCodec.maxFullBytes == image.maxFullBytes)
         #expect(ImageCodec.maxFullPixels == image.maxFullPixels)
         #expect(ImageCodec.maxThumbBytes == image.maxThumbBytes)
@@ -150,7 +150,7 @@ struct InteropVectorsTests {
         #expect(AppPayload.perThumbBudget(imageCount: 64) == image.perThumbBudget["64"])
     }
 
-    @Test(arguments: vectors.imageFixtures)
+    @Test(arguments: Self.vectors.imageFixtures)
     func imageCodecAVIFMatchesWindows(fixture: VectorsFile.ImageFixture) throws {
         guard let png = Data(base64Encoded: fixture.pngBase64) else {
             Issue.record("invalid png base64 for \(fixture.id)")
