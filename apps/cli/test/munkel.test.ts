@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from "bun:test"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { fileURLToPath } from "node:url"
 import { createPipeServer } from "../src/transport.js"
 import type { ControlResponse } from "../src/control.js"
 
@@ -11,7 +12,7 @@ import type { ControlResponse } from "../src/control.js"
 // "/C:/Users/.../src/munkel.ts" — a leading slash that Bun's subprocess
 // resolver rejects with "Module not found". Strip it so the same test
 // works on macOS, Linux and Windows.
-const cliPath = new URL("../src/munkel.ts", import.meta.url).pathname.replace(/^\//, "")
+const cliPath = fileURLToPath(new URL("../src/munkel.ts", import.meta.url))
 
 let stopFakeApp: (() => void) | undefined
 afterEach(() => {
