@@ -69,10 +69,28 @@ function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
  * Returns `base64(nonce[12] ‖ ciphertext ‖ tag[16])`.
  */
 export async function seal(plaintext: string | Uint8Array, messageKey: CryptoKey): Promise<string> {
+  const nonce = crypto.getRandomValues(new Uint8Array(12));
+  return sealWithNonce(plaintext, messageKey, nonce);
+}
+
+/**
+ * Deterministic seal for cross-platform interop tests (Swift ↔ Windows).
+ * Production code should use {@link seal} with a random nonce.
+ *
+ * Returns `base64(nonce[12] ‖ ciphertext ‖ tag[16])`.
+ */
+export async function sealWithNonce(
+  plaintext: string | Uint8Array,
+  messageKey: CryptoKey,
+  nonce: Uint8Array,
+): Promise<string> {
+  if (nonce.length !== 12) {
+    throw new CryptoError('AES-GCM nonce must be exactly 12 bytes');
+  }
   try {
-    const nonce = crypto.getRandomValues(new Uint8Array(12));
+    const iv = nonce as Uint8Array<ArrayBuffer>;
     const ciphertext = new Uint8Array(
-      await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, messageKey, toUint8Array(plaintext) as ArrayBufferView<ArrayBuffer>),
+      await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, messageKey, toUint8Array(plaintext) as ArrayBufferView<ArrayBuffer>),
     );
     return Buffer.from(concatBytes(nonce, ciphertext)).toString('base64');
   } catch (err) {
@@ -81,8 +99,8 @@ export async function seal(plaintext: string | Uint8Array, messageKey: CryptoKey
 }
 
 export async function sealRaw(plaintext: Uint8Array, messageKey: CryptoKey): Promise<Uint8Array> {
+  const nonce = crypto.getRandomValues(new Uint8Array(12));
   try {
-    const nonce = crypto.getRandomValues(new Uint8Array(12));
     const ciphertext = new Uint8Array(
       await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, messageKey, plaintext as ArrayBufferView<ArrayBuffer>),
     );

@@ -10,7 +10,8 @@
 		"typecheck": "turbo typecheck",
 		"deploy": "turbo deploy",
 		"build:release": "scripts/build-release.sh",
-		"test:interop": "bun scripts/interop.ts"
+		"test:interop": "bun scripts/interop.ts",
+		"test:interop:vectors": "bun scripts/generate-interop-vectors.ts && bun test apps/windows/src/core/__tests__/swift-interop.test.ts"
 	},
 	"overrides": {
 		"esbuild": "0.28.1"
