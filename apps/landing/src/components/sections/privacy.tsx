@@ -134,21 +134,21 @@ export function Privacy() {
                 className="max-w-none w-full"
                 wallpaperClassName="[background:radial-gradient(70%_55%_at_50%_0%,oklch(0.4_0.13_300),transparent_80%),radial-gradient(55%_50%_at_82%_82%,oklch(0.36_0.11_190),transparent_72%),linear-gradient(180deg,oklch(0.17_0.035_300),oklch(0.12_0.02_280))]"
               >
-                <div className="absolute [inset:38px_6%_6%] flex flex-row gap-[10px] p-[10px] rounded-[12px] border border-[oklch(1_0_0_/_0.1)] bg-[oklch(0.12_0.01_270_/_0.94)] shadow-[0_22px_54px_-18px_oklch(0_0_0_/_0.6)]">
+                <div className="absolute [inset:38px_6%_6%] max-[600px]:[inset:24px_6%_6%] flex flex-row gap-[10px] max-[600px]:gap-[7px] p-[10px] max-[600px]:p-[7px] rounded-[12px] border border-[oklch(1_0_0_/_0.1)] bg-[oklch(0.12_0.01_270_/_0.94)] shadow-[0_22px_54px_-18px_oklch(0_0_0_/_0.6)]">
                   <div className="flex-1 relative overflow-hidden rounded-[8px] border border-[oklch(1_0_0_/_0.08)] [background:radial-gradient(70%_55%_at_50%_0%,color-mix(in_oklab,var(--brand)_32%,oklch(0.15_0.01_250)),transparent_80%),linear-gradient(180deg,oklch(0.14_0.008_250),oklch(0.1_0.005_260))]">
                     <div className="absolute top-0 left-0 right-0 h-[15px] flex items-center px-[7px] bg-[oklch(0_0_0_/_0.3)]">
                       <span className="w-[5px] h-[5px] rounded-full bg-[oklch(1_0_0_/_0.5)]" />
                     </div>
                     <SharedWindow className="top-[26px] left-[8%] right-[8%] bottom-[12%] shadow-[0_10px_24px_-10px_oklch(0_0_0_/_0.5)]" />
                   </div>
-                  <div className="flex-none flex flex-col gap-[8px] max-[600px]:gap-[5px] justify-center">
+                  <div className="flex-none flex flex-col gap-[8px] max-[600px]:gap-[3px] justify-center">
                     {CALL.map((n) => (
-                      <div key={n} className="w-[92px] max-[600px]:w-[58px] flex flex-col items-center gap-[3px]">
+                      <div key={n} className="w-[92px] max-[600px]:w-[44px] flex flex-col items-center gap-[3px] max-[600px]:gap-[2px]">
                         <Avatar
                           name={n}
-                          className="w-full h-[48px] max-[600px]:h-[32px] rounded-[8px] flex items-center justify-center [font-family:ui-rounded,system-ui,sans-serif] font-bold text-[16px] max-[600px]:text-[11px] text-white"
+                          className="w-full h-[48px] max-[600px]:h-[20px] rounded-[8px] flex items-center justify-center [font-family:ui-rounded,system-ui,sans-serif] font-bold text-[16px] max-[600px]:text-[9px] text-white"
                         />
-                        <span className="text-[9px] max-[600px]:text-[7px] text-[oklch(1_0_0_/_0.7)]">{n}</span>
+                        <span className="text-[9px] max-[600px]:text-[6px] text-[oklch(1_0_0_/_0.7)]">{n}</span>
                       </div>
                     ))}
                   </div>
