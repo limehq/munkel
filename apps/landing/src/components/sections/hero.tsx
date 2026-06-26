@@ -97,7 +97,7 @@ export function Hero() {
   const [composing, setComposing] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
   const interactingRef = useRef(false)
-  const interacting = composing || draft.length > 0
+  const interacting = composing
   useEffect(() => {
     interactingRef.current = interacting
   }, [interacting])
@@ -166,6 +166,8 @@ export function Hero() {
       setTeaserOpen(false)
       setExpanded(false)
       setHintVisible(false)
+      setDraft('')
+      setComposing(false)
     }
   })
 
@@ -180,7 +182,10 @@ export function Hero() {
     }
     const onLeave = () => {
       hoveredRef.current = false
-      if (!interactingRef.current) setExpanded(false)
+      if (!interactingRef.current) {
+        setExpanded(false)
+        setDraft('')
+      }
     }
     root.addEventListener('mouseenter', onEnter)
     root.addEventListener('mouseleave', onLeave)
@@ -312,10 +317,13 @@ export function Hero() {
                       "h-[180px] [clip-path:path('M0_0_Q15_0_15_15_L15_160_Q15_180_35_180_L275_180_Q295_180_295_160_L295_15_Q295_0_310_0_Z')]",
                   )}
                   ref={notchRef}
-                  onClick={() => {
+                  onClick={(e) => {
                     if (!teaserOpen) return
+                    if ((e.target as HTMLElement).closest('button, input')) return
                     setExpanded(true)
-                    requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }))
+                    if (window.matchMedia('(hover: hover)').matches) {
+                      requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }))
+                    }
                   }}
                 >
                     <span className={cn('absolute top-[9px] left-1/2 [transform:translateX(-50%)] w-[9px] h-[9px] rounded-full [background:radial-gradient(circle_at_35%_35%,oklch(0.38_0.05_250),oklch(0.17_0.03_255)_55%,oklch(0.05_0_0)_100%)] [box-shadow:0_0_0_1.5px_oklch(0.09_0_0),inset_0_0_2px_oklch(0.6_0.08_250_/_0.5)]', teaserOpen && 'top-[11px] w-[7px] h-[7px] z-[3]')}></span>
@@ -390,11 +398,13 @@ export function Hero() {
                           onFocus={() => setComposing(true)}
                           onBlur={() => setComposing(false)}
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' && draft.trim()) {
-                              setSent((s) => [
-                                { name: 'You', text: draft.trim(), direct: msg.direct, circle: msg.circle, color: msg.color },
-                                ...s,
-                              ])
+                            if (e.key === 'Enter' && !e.nativeEvent.isComposing && draft.trim()) {
+                              setSent((s) =>
+                                [
+                                  { name: 'You', text: draft.trim(), direct: msg.direct, circle: msg.circle, color: msg.color },
+                                  ...s,
+                                ].slice(0, 3),
+                              )
                               setDraft('')
                             }
                           }}
