@@ -47,7 +47,7 @@ export function Screenshots() {
         </div>
 
         <div className="flex justify-center ml-[calc(50%_-_50vw)] mr-[calc(50%_-_50vw)]">
-          <MacScreen className="w-[min(1560px,94vw)] max-w-none [transform:none]">
+          <MacScreen className="w-[min(1180px,90vw)] max-w-none [transform:none]">
             <div className="absolute top-[7px] left-1/2 bg-black z-[5] [transform:translateX(-50%)] [transform-origin:top_center] cursor-pointer w-[420px] h-[310px] [clip-path:path('M0_0_Q15_0_15_15_L15_290_Q15_310_35_310_L385_310_Q405_310_405_290_L405_15_Q405_0_420_0_Z')] [filter:drop-shadow(0_10px_16px_oklch(0_0_0_/_0.5))] [transition:width_0.42s_cubic-bezier(0.33,1,0.68,1),height_0.42s_cubic-bezier(0.33,1,0.68,1),clip-path_0.42s_cubic-bezier(0.33,1,0.68,1),filter_0.3s_ease] motion-reduce:[transition:none] max-[900px]:[transform:translateX(-50%)_scale(0.75)] max-[600px]:[transform:translateX(-50%)_scale(0.58)]">
               <span className="absolute left-1/2 -translate-x-1/2 top-[11px] w-[7px] h-[7px] z-[3] rounded-full [background:radial-gradient(circle_at_35%_35%,oklch(0.38_0.05_250),oklch(0.17_0.03_255)_55%,oklch(0.05_0_0)_100%)] shadow-[0_0_0_1.5px_oklch(0.09_0_0),inset_0_0_2px_oklch(0.6_0.08_250_/_0.5)]"></span>
               <div className="absolute inset-0 overflow-hidden rounded-b-[20px] opacity-100 visible [font-family:system-ui,-apple-system,sans-serif] [-webkit-font-smoothing:antialiased] flex flex-col [padding:38px_26px_18px] gap-[9px] text-left" onMouseLeave={hide}>
