@@ -45,12 +45,17 @@ jobs:
         run: |
           set -euo pipefail
           bunx wrangler versions upload --preview-alias "pr-${{ github.event.number }}" | tee upload.log
-          url="$(grep -oE 'Version Preview Alias URL: https://[^[:space:]]+' upload.log | grep -oE 'https://[^[:space:]]+')"
+          url="$(grep -oiE "https://pr-${{ github.event.number }}-[a-z0-9.-]+\.workers\.dev" upload.log | head -n1 || true)"
           echo "url=$url" >> "$GITHUB_OUTPUT"
 
       - name: Comment preview URL
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          url="${{ steps.preview.outputs.url }}"
+          if [ -z "$url" ]; then
+            echo "No preview URL emitted (workers.dev preview URLs not enabled for this Worker yet); skipping comment."
+            exit 0
+          fi
           gh pr comment "${{ github.event.number }}" --edit-last --create-if-none \
-            --body "🔎 Landing preview: ${{ steps.preview.outputs.url }} (commit \`${{ github.event.pull_request.head.sha }}\`)"
+            --body "🔎 Landing preview: $url (commit \`${{ github.event.pull_request.head.sha }}\`)"
