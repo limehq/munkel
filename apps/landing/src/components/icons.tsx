@@ -37,3 +37,23 @@ export function KofiIcon({ className = '' }: { className?: string }) {
     </svg>
   )
 }
+
+export function MenuBarBattery({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 28 13" fill="none" className={className} aria-hidden>
+      <rect x="0.6" y="0.6" width="23" height="11.8" rx="3.4" stroke="currentColor" strokeOpacity="0.5" strokeWidth="1" />
+      <rect x="2.2" y="2.2" width="15.5" height="8.6" rx="1.8" fill="currentColor" />
+      <rect x="24.4" y="4" width="1.8" height="5" rx="0.9" fill="currentColor" fillOpacity="0.5" />
+    </svg>
+  )
+}
+
+export function MenuBarWifi({ className = '' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 16 13" fill="none" className={className} aria-hidden>
+      <path d="M1.7 5.3a9 9 0 0 1 12.6 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M4.2 8a5.4 5.4 0 0 1 7.6 0" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <circle cx="8" cy="10.7" r="1.05" fill="currentColor" />
+    </svg>
+  )
+}
