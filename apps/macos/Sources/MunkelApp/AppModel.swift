@@ -146,6 +146,7 @@ final class AppModel: ObservableObject {
                 sender: displayName,
                 avatarData: Identity.avatarData,
                 text: text,
+                sentAt: Date(),
                 isDirect: false,
                 group: code,
                 groupColor: .groupColor(index: groupCodes.firstIndex(of: code) ?? 0),
@@ -190,6 +191,7 @@ final class AppModel: ObservableObject {
                     sender: self.displayName,
                     avatarData: Identity.avatarData,
                     text: caption,
+                    sentAt: Date(),
                     isDirect: false,
                     group: code,
                     groupColor: .groupColor(index: self.groupCodes.firstIndex(of: code) ?? 0),
@@ -228,6 +230,7 @@ final class AppModel: ObservableObject {
             sender: "Sebil",
             avatarData: Identity.avatarData,
             text: demo.currentText,
+            sentAt: Date(),
             isDirect: false,
             group: code,
             groupColor: demo.color,
@@ -654,12 +657,13 @@ final class AppModel: ObservableObject {
         session.onStateChange = { [weak self] in
             self?.presenceVersion += 1
         }
-        session.onChat = { [weak self] sender, text, isDirect in
+        session.onChat = { [weak self] sender, text, sentAt, isDirect in
             guard let self else { return }
             self.notch.show(
                 sender: sender.label,
                 avatarData: sender.avatar,
                 text: text,
+                sentAt: sentAt,
                 isDirect: isDirect,
                 group: code,
                 groupColor: .groupColor(index: self.groupCodes.firstIndex(of: code) ?? 0),
@@ -676,7 +680,7 @@ final class AppModel: ObservableObject {
                 }
             }
         }
-        session.onImages = { [weak self] sender, items, caption, isDirect, loadFull in
+        session.onImages = { [weak self] sender, items, caption, sentAt, isDirect, loadFull in
             guard let self else { return }
             let images = items.map {
                 IncomingImage(id: $0.r2Key, thumb: $0.thumb, width: $0.width, height: $0.height, mime: $0.mime)
@@ -685,6 +689,7 @@ final class AppModel: ObservableObject {
                 sender: sender.label,
                 avatarData: sender.avatar,
                 text: caption,
+                sentAt: sentAt,
                 isDirect: isDirect,
                 group: code,
                 groupColor: .groupColor(index: self.groupCodes.firstIndex(of: code) ?? 0),

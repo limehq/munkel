@@ -76,6 +76,7 @@ final class NotchPresenter {
         sender: String,
         avatarData: Data?,
         text: String = "",
+        sentAt: Date,
         isDirect: Bool,
         group: String,
         groupColor: Color,
@@ -112,6 +113,7 @@ final class NotchPresenter {
             group: group,
             groupColor: groupColor,
             receivedAt: Date(),
+            sentAt: sentAt,
             // Carry the album so the expanded history can show it later; the
             // collapsed row still reads as the 📷 label above. `text` is the
             // raw caption here (empty for a captionless album / plain message).
@@ -394,7 +396,9 @@ final class NotchPresenter {
     /// displayed — chronological, so live-pushed newcomers appear as the
     /// bottom-most row, directly above the current message.
     private func visibleHistory(excluding id: UUID) -> [HistoryEntry] {
-        history.filter { $0.id != id }
+        history
+            .filter { $0.id != id }
+            .sorted { ($0.sentAt, $0.receivedAt) < ($1.sentAt, $1.receivedAt) }
     }
 
     private func pruneHistory() {
@@ -634,12 +638,12 @@ final class NotchPresenter {
         removeClickMonitors()
         hoverObservation = nil
         turnOffHoverCopy()
-        await notch.hide()
         if currentNotch === notch {
             currentNotch = nil
             currentModel = nil
             notchVisible = false
         }
+        await notch.hide()
     }
 
     /// Show the GitHub device-flow user code in the notch. Driven by AppModel's
