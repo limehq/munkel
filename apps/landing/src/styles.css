@@ -207,7 +207,7 @@
    the bespoke page design is untouched. */
 @layer base {
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html { scroll-behavior: smooth; interpolate-size: allow-keywords; }
+  html { scroll-behavior: smooth; interpolate-size: allow-keywords; scroll-padding-top: calc(var(--nav-h) + env(safe-area-inset-top, 0px) + 1.5rem); }
   body {
     font-family: var(--font-sans);
     background: var(--background);
