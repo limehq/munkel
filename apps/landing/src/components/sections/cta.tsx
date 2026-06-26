@@ -42,7 +42,7 @@ export function Cta() {
       <div className="mx-auto max-w-[1400px] px-8">
         <div className="block w-21 mx-auto mb-5">
           <img
-            src="/app-icon.png"
+            src="/app-icon.webp"
             alt=""
             width={84}
             height={84}
