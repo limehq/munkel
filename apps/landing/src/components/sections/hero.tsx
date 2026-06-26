@@ -234,10 +234,11 @@ export function Hero() {
           >
             <div className="block w-[112px] mx-auto mb-7">
               <img
-                src="/app-icon.png"
+                src="/app-icon.webp"
                 alt="The Munkel meerkat, paws to its mouth"
                 width={112}
                 height={112}
+                fetchPriority="high"
                 className="w-full h-auto block [filter:drop-shadow(0_14px_28px_oklch(0_0_0_/_0.5))]"
               />
             </div>

@@ -56,6 +56,7 @@ export const Route = createRootRoute({
         type: 'font/woff2',
         crossOrigin: 'anonymous',
       },
+      { rel: 'preload', as: 'image', href: '/app-icon.webp', fetchPriority: 'high' },
       { rel: 'stylesheet', href: appCss },
       { rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' },
       { rel: 'icon', type: 'image/png', sizes: '32x32', href: '/favicon-32.png' },
@@ -71,7 +72,7 @@ function NotFound() {
   return (
     <div className="min-h-[70lvh] flex flex-col items-center justify-center text-center gap-2 [padding:6rem_1.5rem]">
       <div className="block w-28 mx-auto mb-7">
-        <img src="/app-icon.png" alt="The Munkel meerkat" width={112} height={112} className="w-full h-auto block [filter:drop-shadow(0_14px_28px_oklch(0_0_0_/_0.5))]" />
+        <img src="/app-icon.webp" alt="The Munkel meerkat" width={112} height={112} className="w-full h-auto block [filter:drop-shadow(0_14px_28px_oklch(0_0_0_/_0.5))]" />
       </div>
       <h1 className="text-[length:var(--text-4xl)] font-bold tracking-[var(--tracking-tight)]">404</h1>
       <p className="text-muted-foreground max-w-[42ch] leading-relaxed">This one already vanished — like every good munkel. Nothing here is ever stored.</p>
