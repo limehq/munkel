@@ -11,10 +11,6 @@ import { cn } from '@/lib/utils'
 
 const NAV_LINKS = [
   ['#how', 'How it works'],
-  ['#features', 'Features'],
-  ['#screenshots', 'Screenshots'],
-  ['#cli', 'CLI'],
-  ['#agents', 'Agents'],
   ['#privacy', 'Privacy'],
   ['#pricing', 'Pricing'],
   ['#faq', 'FAQ'],
