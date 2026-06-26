@@ -69,8 +69,8 @@ export function Nav() {
                 key={href}
                 href={href}
                 className={cn(
-                  'relative z-[1] rounded-full px-3 py-1.5 text-[length:var(--text-sm)] whitespace-nowrap text-muted-foreground transition-[color] duration-200 hover:text-foreground',
-                  active === href && 'text-primary-foreground',
+                  'relative z-[1] rounded-full px-3 py-1.5 text-[length:var(--text-sm)] whitespace-nowrap text-muted-foreground transition-[color] duration-200',
+                  active === href ? 'text-primary-foreground' : 'hover:text-foreground',
                 )}
                 onClick={() => {
                   setActive(href)

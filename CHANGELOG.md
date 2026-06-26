@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.17.0](https://github.com/limehq/munkel/compare/v0.16.0...v0.17.0) (2026-06-26)
+
+
+### Features
+
+* **landing:** add minimal pricing section (free forever) with Ko-fi tip CTA ([#192](https://github.com/limehq/munkel/issues/192)) ([bb1a6af](https://github.com/limehq/munkel/commit/bb1a6af851998ce5318ee7fd0a800f3761726aee))
+
+
+### Bug Fixes
+
+* **macos:** order notch history by message sentAt, not arrival ([#197](https://github.com/limehq/munkel/issues/197)) ([40b6bde](https://github.com/limehq/munkel/commit/40b6bde3dd514e48da68baa9648b51129c5cb8a0))
+
 ## [0.16.0](https://github.com/limehq/munkel/compare/v0.15.0...v0.16.0) (2026-06-25)
 
 
