@@ -92,6 +92,15 @@ export function Hero() {
   const [msgIdx, setMsgIdx] = useState(0)
   const hoveredRef = useRef(false)
   const dockedRef = useRef(false)
+  const [draft, setDraft] = useState('')
+  const [sent, setSent] = useState<Msg[]>([])
+  const [composing, setComposing] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const interactingRef = useRef(false)
+  const interacting = composing
+  useEffect(() => {
+    interactingRef.current = interacting
+  }, [interacting])
 
   const { scrollY } = useScroll()
   const scrub = useMotionValue(typeof window === 'undefined' ? 1000 : window.innerHeight * 1.2)
@@ -157,6 +166,8 @@ export function Hero() {
       setTeaserOpen(false)
       setExpanded(false)
       setHintVisible(false)
+      setDraft('')
+      setComposing(false)
     }
   })
 
@@ -171,7 +182,10 @@ export function Hero() {
     }
     const onLeave = () => {
       hoveredRef.current = false
-      setExpanded(false)
+      if (!interactingRef.current) {
+        setExpanded(false)
+        setDraft('')
+      }
     }
     root.addEventListener('mouseenter', onEnter)
     root.addEventListener('mouseleave', onLeave)
@@ -188,7 +202,7 @@ export function Hero() {
     void (async () => {
       while (alive) {
         await sleep(dwell)
-        while (hoveredRef.current && alive) await sleep(300)
+        while ((hoveredRef.current || interactingRef.current) && alive) await sleep(300)
         if (!alive) break
         setMsgIdx((i) => (i + 1) % MESSAGES.length)
       }
@@ -303,6 +317,14 @@ export function Hero() {
                       "h-[180px] [clip-path:path('M0_0_Q15_0_15_15_L15_160_Q15_180_35_180_L275_180_Q295_180_295_160_L295_15_Q295_0_310_0_Z')]",
                   )}
                   ref={notchRef}
+                  onClick={(e) => {
+                    if (!teaserOpen) return
+                    if ((e.target as HTMLElement).closest('button, input')) return
+                    setExpanded(true)
+                    if (window.matchMedia('(hover: hover)').matches) {
+                      requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true }))
+                    }
+                  }}
                 >
                     <span className={cn('absolute top-[9px] left-1/2 [transform:translateX(-50%)] w-[9px] h-[9px] rounded-full [background:radial-gradient(circle_at_35%_35%,oklch(0.38_0.05_250),oklch(0.17_0.03_255)_55%,oklch(0.05_0_0)_100%)] [box-shadow:0_0_0_1.5px_oklch(0.09_0_0),inset_0_0_2px_oklch(0.6_0.08_250_/_0.5)]', teaserOpen && 'top-[11px] w-[7px] h-[7px] z-[3]')}></span>
 
@@ -369,13 +391,40 @@ export function Hero() {
                             aria-hidden
                           />
                         </span>
-                        <div className="flex-1 min-w-0 px-[8px] py-[5px] rounded-[7px] bg-[oklch(1_0_0_/_0.12)] text-[13px] leading-[1.2] text-[oklch(1_0_0_/_0.7)] whitespace-nowrap overflow-hidden text-ellipsis">
-                          {msg.direct ? `Private to ${msg.name}…` : 'Reply to all…'}
-                        </div>
+                        <input
+                          ref={inputRef}
+                          value={draft}
+                          onChange={(e) => setDraft(e.target.value)}
+                          onFocus={() => setComposing(true)}
+                          onBlur={() => setComposing(false)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.nativeEvent.isComposing && draft.trim()) {
+                              setSent((s) =>
+                                [
+                                  { name: 'You', text: draft.trim(), direct: msg.direct, circle: msg.circle, color: msg.color },
+                                  ...s,
+                                ].slice(0, 3),
+                              )
+                              setDraft('')
+                            }
+                          }}
+                          placeholder={msg.direct ? `Private to ${msg.name}…` : 'Reply to all…'}
+                          aria-label="Reply"
+                          className="flex-1 min-w-0 px-[8px] py-[5px] rounded-[7px] bg-[oklch(1_0_0_/_0.12)] border-0 outline-none text-[13px] leading-[1.2] text-white placeholder:text-[oklch(1_0_0_/_0.7)]"
+                        />
                       </div>
 
                       <div className="flex flex-col [padding:0_6px_6px]">
                         <div className="h-px bg-[oklch(1_0_0_/_0.15)] mb-[3px]" />
+                        {sent.map((s, i) => (
+                          <div key={`sent-${sent.length - i}`} className="flex items-center gap-[4px] w-full min-h-[20px] text-left">
+                            <span className="flex-none flex items-center gap-[4px]">
+                              <span className="flex-none w-[5px] h-[5px] rounded-full" style={{ background: s.color }} />
+                              <span className="text-[10px] font-semibold text-[oklch(1_0_0_/_0.5)]">You</span>
+                            </span>
+                            <span className="flex-[0_1_auto] min-w-0 mr-auto text-[11px] text-[oklch(1_0_0_/_0.55)] whitespace-nowrap overflow-hidden text-ellipsis">{s.text}</span>
+                          </div>
+                        ))}
                         {history.map((h) => {
                           const RowIcon = h.direct ? LockFill : Globe
                           return (
