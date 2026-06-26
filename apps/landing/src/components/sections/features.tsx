@@ -1,7 +1,5 @@
 import { Laptop, Lock, Terminal, TimerOff, UserRoundX } from 'lucide-react'
 
-import { GithubIcon } from '@/components/icons'
-
 export function Features() {
   return (
     <section id="features">
@@ -16,10 +14,11 @@ export function Features() {
             <div className="inline-flex items-center justify-center w-9 h-9 rounded-[var(--radius-md)] bg-[var(--brand-soft)] text-brand shadow-[0_0_calc(var(--glow)*20px)_color-mix(in_oklab,var(--brand)_20%,transparent)] mb-4 [&_svg]:w-[18px]! [&_svg]:h-[18px]!">
               <TimerOff aria-hidden />
             </div>
-            <h3 className="text-[length:var(--text-xl)] font-semibold">Ephemeral by design</h3>
+            <h3 className="text-[length:var(--text-xl)] font-semibold">Say it, then let it go</h3>
             <p className="mt-2 text-[length:var(--text-sm)] text-muted-foreground leading-relaxed text-pretty max-w-[46ch]">
-              Messages live only in the moment. Nothing logged, nothing stored. Miss one and it's
-              gone, like a real whisper.
+              Be quick and candid — your munkels live only in the moment, nothing logged or stored.
+              There's nothing to delete and nothing that comes back later. Miss one and it's gone,
+              like a real whisper.
             </p>
             <div className="mt-auto pt-6">
               <div className="relative h-[108px]">
@@ -42,10 +41,10 @@ export function Features() {
             <div className="inline-flex items-center justify-center w-9 h-9 rounded-[var(--radius-md)] bg-[var(--brand-soft)] text-brand shadow-[0_0_calc(var(--glow)*20px)_color-mix(in_oklab,var(--brand)_20%,transparent)] mb-4 [&_svg]:w-[18px]! [&_svg]:h-[18px]!">
               <Lock aria-hidden />
             </div>
-            <h3 className="text-[length:var(--text-base)] font-semibold">End-to-end encrypted</h3>
+            <h3 className="text-[length:var(--text-base)] font-semibold">Only your people can read it</h3>
             <p className="mt-2 text-[length:var(--text-sm)] text-muted-foreground leading-relaxed text-pretty max-w-[46ch]">
-              Encrypted on your Mac, with the channel name as the key. Our relay only ever sees
-              sealed envelopes it can't open.
+              Your munkels are for the channel and no one else — not even us. They're sealed on your
+              Mac with the channel name as the key; our relay only ever sees envelopes it can't open.
             </p>
             <div className="mt-auto pt-5 flex items-center gap-2 flex-wrap font-mono text-[length:var(--text-xs)]" aria-hidden>
               <span className="py-[0.3rem] px-[0.55rem] border border-border rounded-[var(--radius-sm)] bg-[var(--surface)] text-muted-foreground">a9f2·c41</span>
@@ -59,28 +58,21 @@ export function Features() {
               </span>
             </div>
           </div>
-          <div className="flex flex-col border border-border rounded-[var(--radius-xl)] bg-card p-7 transition-[border-color] duration-150 hover:border-ring col-start-3 col-end-4 row-start-2 row-end-3 max-[900px]:col-auto! max-[900px]:row-auto!">
+          <div className="flex flex-col border border-border rounded-[var(--radius-xl)] bg-card p-7 transition-[border-color] duration-150 hover:border-ring col-start-3 col-end-5 row-start-2 row-end-3 max-[900px]:col-auto! max-[900px]:row-auto!">
             <div className="inline-flex items-center justify-center w-9 h-9 rounded-[var(--radius-md)] bg-[var(--brand-soft)] text-brand shadow-[0_0_calc(var(--glow)*20px)_color-mix(in_oklab,var(--brand)_20%,transparent)] mb-4 [&_svg]:w-[18px]! [&_svg]:h-[18px]!">
               <UserRoundX aria-hidden />
             </div>
-            <h3 className="text-[length:var(--text-base)] font-semibold">No accounts of our own</h3>
-            <p className="mt-2 text-[length:var(--text-sm)] text-muted-foreground leading-relaxed text-pretty max-w-[46ch]">No email, no phone, no password. Munkel keeps no accounts and stores nothing about you.</p>
-          </div>
-          <div className="flex flex-col border border-border rounded-[var(--radius-xl)] bg-card p-7 transition-[border-color] duration-150 hover:border-ring col-start-4 col-end-5 row-start-2 row-end-3 max-[900px]:col-auto! max-[900px]:row-auto!">
-            <div className="inline-flex items-center justify-center w-9 h-9 rounded-[var(--radius-md)] bg-[var(--brand-soft)] text-brand shadow-[0_0_calc(var(--glow)*20px)_color-mix(in_oklab,var(--brand)_20%,transparent)] mb-4 [&_svg]:w-[18px]! [&_svg]:h-[18px]!">
-              <GithubIcon />
-            </div>
-            <h3 className="text-[length:var(--text-base)] font-semibold">GitHub identity</h3>
-            <p className="mt-2 text-[length:var(--text-sm)] text-muted-foreground leading-relaxed text-pretty max-w-[46ch]">Sign in with GitHub once, for your name and face. The token is never stored.</p>
+            <h3 className="text-[length:var(--text-base)] font-semibold">Nothing to sign up for</h3>
+            <p className="mt-2 text-[length:var(--text-sm)] text-muted-foreground leading-relaxed text-pretty max-w-[46ch]">No email, no phone, no password — nothing to create and nothing to leak. Munkel keeps no accounts and stores nothing about you. Sign in with GitHub once, just for your name and face; the token is never stored.</p>
           </div>
           <div className="flex flex-col border border-border rounded-[var(--radius-xl)] bg-card p-7 transition-[border-color] duration-150 hover:border-ring col-start-1 col-end-3 row-start-3 row-end-4 max-[900px]:col-auto! max-[900px]:row-auto!">
             <div className="inline-flex items-center justify-center w-9 h-9 rounded-[var(--radius-md)] bg-[var(--brand-soft)] text-brand shadow-[0_0_calc(var(--glow)*20px)_color-mix(in_oklab,var(--brand)_20%,transparent)] mb-4 [&_svg]:w-[18px]! [&_svg]:h-[18px]!">
               <Terminal aria-hidden />
             </div>
-            <h3 className="text-[length:var(--text-base)] font-semibold">munkel CLI</h3>
+            <h3 className="text-[length:var(--text-base)] font-semibold">Send from wherever you work</h3>
             <p className="mt-2 text-[length:var(--text-sm)] text-muted-foreground leading-relaxed text-pretty max-w-[46ch]">
-              Send straight from your shell, script it, or hand it to an agent. An MCP server is on
-              the way.
+              Fire a munkel straight from your shell, script it into a workflow, or hand it to an
+              agent. An MCP server is on the way.
             </p>
             <div className="mt-auto pt-5" aria-hidden>
               <div className="font-mono text-[length:var(--text-xs)] text-[oklch(0.92_0_0)] bg-[oklch(0.17_0_0)] border border-border rounded-[var(--radius-md)] py-[0.625rem] px-[0.875rem] whitespace-nowrap overflow-hidden text-ellipsis">
@@ -93,9 +85,9 @@ export function Features() {
             <div className="inline-flex items-center justify-center w-9 h-9 rounded-[var(--radius-md)] bg-[var(--brand-soft)] text-brand shadow-[0_0_calc(var(--glow)*20px)_color-mix(in_oklab,var(--brand)_20%,transparent)] mb-4 [&_svg]:w-[18px]! [&_svg]:h-[18px]!">
               <Laptop aria-hidden />
             </div>
-            <h3 className="text-[length:var(--text-base)] font-semibold">Works without a notch</h3>
+            <h3 className="text-[length:var(--text-base)] font-semibold">Works on any Mac</h3>
             <p className="mt-2 text-[length:var(--text-sm)] text-muted-foreground leading-relaxed text-pretty max-w-[46ch]">
-              No notch on your laptop? Munkels slide into a tidy floating panel instead. Same munkel,
+              No notch? No problem. Munkels slide into a tidy floating panel instead — same munkel,
               different spot.
             </p>
             <div className="mt-auto pt-5 flex justify-center" aria-hidden>
