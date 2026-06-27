@@ -1,6 +1,6 @@
 :root {
 	--munkel-bg: #0b0b0d;
-	--munkel-surface: rgba(22, 22, 24, 0.86);
+	--munkel-surface: rgba(18, 18, 20, 0.98);
 	--munkel-border: rgba(255, 255, 255, 0.10);
 	--munkel-accent: #0a84ff;
 	--munkel-accent-soft: rgba(10, 132, 255, 0.25);
@@ -426,7 +426,7 @@ select {
 .notch-widget {
 	width: 360px;
 	padding: 14px 18px 18px;
-	background: rgba(10, 10, 12, 0.96);
+	background: rgba(8, 8, 10, 0.99);
 	backdrop-filter: blur(20px) saturate(180%);
 	-webkit-backdrop-filter: blur(20px) saturate(180%);
 	border-radius: 0 0 var(--munkel-radius-xl) var(--munkel-radius-xl);
