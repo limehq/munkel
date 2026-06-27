@@ -424,6 +424,7 @@ select {
 
 /* Notch widget */
 .notch-widget {
+  min-height: 100%;
 	width: 360px;
 	padding: 14px 18px 18px;
 	background: rgba(8, 8, 10, 0.99);
