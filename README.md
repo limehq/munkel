@@ -2,7 +2,9 @@
 
 ## Windows installation
 
-For Windows builds, download the Windows zip artifact from CI artifacts or from releases, extract it, and run `Munkel.exe`.
+**Recommended:** download `Munkel-Setup-<version>.exe` from CI artifacts or releases, run the installer, and open **Munkel** from the Start Menu or Windows Search. The installer creates Start Menu and Desktop shortcuts automatically — no manual configuration.
+
+**Alternative (portable):** download the Windows zip artifact, extract it, and run `Munkel.exe` directly.
 
 Fork beta builds are currently unsigned. Windows SmartScreen or Defender may show an "Unknown publisher" warning. If that happens, click `More info` and then `Run anyway`.
 

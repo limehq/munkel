@@ -1,5 +1,7 @@
 appId: app.munkel.windows
 productName: Munkel
+copyright: Copyright © Munkel
+artifactName: Munkel-Setup-${version}.${ext}
 directories:
   output: release
 files:
@@ -12,6 +14,19 @@ asarUnpack:
   - "**/node_modules/@img/**/*"
 win:
   target:
+    - nsis
     - zip
     - dir
   icon: assets/icon.ico
+  executableName: Munkel
+nsis:
+  # One-click: double-click Setup.exe → done (no wizard, no manual config).
+  oneClick: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Munkel
+  runAfterFinish: true
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico
