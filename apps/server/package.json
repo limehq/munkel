@@ -11,8 +11,8 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20260621.1",
-		"@types/node": "^26.0.0",
+		"@cloudflare/workers-types": "^4.20260629.1",
+		"@types/node": "^26.0.1",
 		"@types/ws": "^8.18.1",
 		"fast-check": "^4.8.0",
 		"typescript": "^6.0.3",
@@ -21,7 +21,7 @@
 		"ws": "^8.19.0"
 	},
 	"dependencies": {
-		"hono": "^4.12.26",
+		"hono": "^4.12.27",
 		"partyserver": "^0.5.8",
 		"zod": "^4.1.0"
 	}
