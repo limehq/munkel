@@ -3,7 +3,7 @@
 ## Packaging
 
 - `bun run render-ico` regenerates `assets/icon.ico` from `assets/tray-icon.svg`. Run it after SVG changes.
-- `bun run pack:installer` produces `apps/windows/release/Munkel-Setup-<version>.exe` — **recommended for end users**. One-click NSIS installer: installs to `%LOCALAPPDATA%\Programs\Munkel`, creates Start Menu + Desktop shortcuts (searchable as “Munkel” in Windows Search), and launches the app when done.
+- `bun run pack:installer` produces `apps/windows/release/Munkel-Setup-<version>.exe` — **recommended for end users**. One-click NSIS installer: installs to `%LOCALAPPDATA%\Programs\@munkelwindows\` (electron-builder folder name from `@munkel/windows`), creates Start Menu + Desktop shortcuts (searchable as “Munkel” in Windows Search), and launches the app when done.
 - `bun run pack:dir` produces `apps/windows/release/win-unpacked/`, which contains the portable directory build including `Munkel.exe` (for dev/QA).
 - `bun run pack` produces the NSIS installer, zip, and portable dir in one run.
 - Fork beta builds are currently unsigned. SmartScreen may warn on first run — click **More info** → **Run anyway**.

@@ -53,11 +53,15 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 - Do not push to `main` or upstream `limehq/munkel`.
 - macOS-only verification steps are marked **human** — skip on Windows-only agents.
 
-## Current status (2026-06-25)
+## Current status (2026-06-29)
 
-- **windows-native-full-build COMPLETE.** Phase 2 + Plans 01–04 all merged via
-  PR #12–#16 into `platform/windows/v2-clean` (tip `14b9ffc`); CI green.
-- Per-feature tracking artifacts live in `.planning/phases/{0,A,B,C,D}-*/`.
-- Next gate is the human-owned final PR from the Windows integration to `main`
-  (see `AGENTS.md` — main is reached exactly once, manually reviewed). Plus the
-  non-blocking human gates: real GitHub login test, fresh-VM QA, NSIS+signing.
+- **Post-Plan work in progress (not yet merged to `v2-clean`):**
+  - `platform/windows/fix-renderer-path` — renderer path fix for packaged builds (`3555a62`)
+  - `platform/windows/ui-darken` — near-opaque UI surfaces + notch fill (`01b8efa`, `aed3267`), user-approved
+  - `platform/windows/installer-shortcuts` — NSIS one-click installer (`fdf29d4`), E2E verified
+- **Next agent task:** Settings UI redesign (E5) — see `.planning/phases/E-ui-polish-hyperframes/NEXT-AGENT.md` (gitignored local planning).
+- **Merge gate:** Open PRs in order fix-renderer-path → ui-darken → installer-shortcuts → `v2-clean`.
+- Per-feature tracking: `.planning/phases/{0,A,B,C,D,E}-*/` + todos in `.planning/todos/pending/`.
+- Next gate remains the human-owned final PR from the Windows integration to `main`
+  (see `AGENTS.md`). Plus non-blocking human gates: real GitHub login test,
+  fresh-VM QA, Authenticode signing.
