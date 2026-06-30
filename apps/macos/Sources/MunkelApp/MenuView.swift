@@ -28,15 +28,15 @@ struct MenuView: View {
         VStack(alignment: .leading, spacing: 12) {
             header
 
-            if model.githubUserLogin == nil {
-                Text("Sign in with GitHub to use Munkel.")
+            if !model.isSignedIn {
+                Text("Sign in to use Munkel.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
                     // Without this the popup truncates to one ellipsized
                     // line instead of wrapping.
                     .fixedSize(horizontal: false, vertical: true)
 
-                githubArea
+                authArea
             } else {
                 if model.groupCodes.isEmpty {
                     Text("No channels yet. Create one or join with a code.")
@@ -80,7 +80,7 @@ struct MenuView: View {
 
                 Divider()
 
-                githubArea
+                authArea
             }
         }
         .padding(14)
@@ -188,9 +188,9 @@ struct MenuView: View {
             }
             #endif
             Divider()
-            if model.githubUserLogin != nil {
+            if model.isSignedIn {
                 Button {
-                    model.logoutGitHub()
+                    model.signOut()
                 } label: {
                     Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
                 }
@@ -286,10 +286,10 @@ struct MenuView: View {
     }
 
     @ViewBuilder
-    private var githubArea: some View {
-        switch model.githubLoginState {
+    private var authArea: some View {
+        switch model.authFlow {
         case .idle:
-            if model.githubUserLogin != nil {
+            if model.isSignedIn {
                 HStack(spacing: 8) {
                     AvatarView(name: model.displayName, imageData: Identity.avatarData, size: 20, status: model.effectiveStatus)
                     Text(model.displayName)
@@ -299,27 +299,35 @@ struct MenuView: View {
                     statusPicker
                 }
             } else {
-                Button {
-                    model.startGitHubLogin()
-                } label: {
-                    Label("Sign in with GitHub", systemImage: "person.crop.circle.badge.checkmark")
+                VStack(alignment: .leading, spacing: 8) {
+                    Button {
+                        model.startGitHubLogin()
+                    } label: {
+                        Label("Sign in with GitHub", systemImage: "person.crop.circle.badge.checkmark")
+                    }
+                    .disabled(!GitHubConfig.isConfigured)
+                    .help(
+                        GitHubConfig.isConfigured
+                            ? "Fetches your username + avatar from GitHub (once, no account)"
+                            : "No client ID configured — see README"
+                    )
+                    Button {
+                        model.startAppleLogin()
+                    } label: {
+                        Label("Sign in with Apple", systemImage: "apple.logo")
+                    }
+                    .help("Sign in with your Apple Account")
                 }
-                .disabled(!GitHubConfig.isConfigured)
-                .help(
-                    GitHubConfig.isConfigured
-                        ? "Fetches your username + avatar from GitHub (once, no account)"
-                        : "No client ID configured — see README"
-                )
             }
 
-        case .requestingCode:
+        case let .connecting(provider):
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text("Connecting to GitHub…")
+                Text(provider == .apple ? "Signing in with Apple…" : "Connecting to GitHub…")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
-                Button("Cancel") { model.cancelGitHubLogin() }
+                Button("Cancel") { model.cancelLogin() }
                     .controlSize(.small)
             }
 
@@ -338,7 +346,7 @@ struct MenuView: View {
                     .foregroundStyle(.secondary)
                     .help("Copy code")
                     Spacer()
-                    Button("Cancel") { model.cancelGitHubLogin() }
+                    Button("Cancel") { model.cancelLogin() }
                         .controlSize(.small)
                 }
                 Text(
@@ -355,10 +363,10 @@ struct MenuView: View {
                 .controlSize(.small)
             }
 
-        case .fetchingProfile:
+        case let .fetchingProfile(provider):
             HStack(spacing: 8) {
                 ProgressView().controlSize(.small)
-                Text("Loading GitHub profile…")
+                Text("Loading \(provider.displayName) profile…")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -369,9 +377,9 @@ struct MenuView: View {
                     .font(.caption)
                     .foregroundStyle(.red)
                 Spacer()
-                Button("Retry") { model.startGitHubLogin() }
+                Button("Retry") { model.retryLogin() }
                     .controlSize(.small)
-                Button("Dismiss") { model.cancelGitHubLogin() }
+                Button("Dismiss") { model.cancelLogin() }
                     .controlSize(.small)
             }
         }
