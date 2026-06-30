@@ -15,7 +15,7 @@ struct MenuView: View {
     @StateObject private var loginItem = LoginItemModel()
     /// Empty = automatic (active display); otherwise a display's stable UUID.
     @AppStorage(DisplayPreference.key) private var preferredDisplayID = ""
-    #if !DEBUG
+    #if !DEBUG && !MAS
     @State private var cliInstalled = CLIInstaller.isInstalled
     #endif
     #if DEBUG
@@ -95,7 +95,7 @@ struct MenuView: View {
         // reads one can join), the outgoing draft and the GitHub device
         // code, so it stays out of screen shares like the notch does.
         .excludedFromScreenCapture()
-        #if !DEBUG
+        #if !DEBUG && !MAS
         .onAppear { cliInstalled = CLIInstaller.isInstalled }
         #endif
         #if DEBUG
@@ -135,9 +135,11 @@ struct MenuView: View {
             } label: {
                 Label("About Munkel", systemImage: "info.circle")
             }
+            #if !MAS
             if let updater = model.updater {
                 UpdaterMenuItems(updater: updater)
             }
+            #endif
             Button {
                 model.openCommandPalette()
             } label: {
@@ -145,7 +147,7 @@ struct MenuView: View {
             }
             // Release only: the dev build doesn't embed the CLI (run it from
             // source with `MUNKEL_DEV=1 bun apps/cli/src/munkel.ts`).
-            #if !DEBUG
+            #if !DEBUG && !MAS
             if !cliInstalled {
                 Button {
                     CLIInstaller.installFromMenu()
@@ -389,6 +391,7 @@ struct MenuView: View {
     }
 }
 
+#if !MAS
 /// The update section of the settings menu: a prominent "Update to <version>…"
 /// item once Sparkle has found a newer release (its menu-bar "gentle reminder"),
 /// the manual check, and a toggle for background checks. Its own
@@ -413,6 +416,7 @@ private struct UpdaterMenuItems: View {
         Toggle("Check Automatically", isOn: $updater.automaticallyChecksForUpdates)
     }
 }
+#endif
 
 /// A selectable round recipient target with an accent ring when chosen and a
 /// fast custom tooltip on hover (the system `.help()` delay felt laggy). On
