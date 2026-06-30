@@ -656,7 +656,7 @@ final class NotchPresenter {
             await previous?.value
             // Idempotent: a panel is already up for this flow. This relies on
             // every new `.awaitingUser` being preceded by a non-`.awaitingUser`
-            // state (startGitHubLogin sets `.requestingCode`), which runs
+            // state (startGitHubLogin sets `.connecting`), which runs
             // hideAuthCode and nils this first — so a fresh code always rebuilds.
             guard let self, self.authCodeNotch == nil else { return }
             // The notch slot holds one panel: tear down a lingering message /
