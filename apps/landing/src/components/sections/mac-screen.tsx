@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
-import { BatteryMedium, Wifi } from 'lucide-react'
 
+import { MenuBarBattery, MenuBarWifi } from '@/components/icons'
 import { cn } from '@/lib/utils'
 
 const AVATAR_PALETTES: [string, string][] = [
@@ -55,8 +55,8 @@ export function MacScreen({
               </span>
             </div>
             <div className="flex items-center gap-[11px] [font-variant-numeric:tabular-nums]">
-              <BatteryMedium className="w-[15px]! h-[15px]! max-[900px]:w-[13px]! max-[900px]:h-[13px]!" aria-hidden />
-              <Wifi className="w-[15px]! h-[15px]! max-[900px]:w-[13px]! max-[900px]:h-[13px]!" aria-hidden />
+              <MenuBarBattery className="w-[24px] h-[12px] max-[900px]:w-[20px] max-[900px]:h-[10px] max-[600px]:w-[16px] max-[600px]:h-[8px]" />
+              <MenuBarWifi className="w-[15px] h-[12px] max-[900px]:w-[13px] max-[900px]:h-[10px] max-[600px]:w-[11px] max-[600px]:h-[9px]" />
               <span className="font-medium">Sun 22. Jun 09:41</span>
             </div>
           </div>

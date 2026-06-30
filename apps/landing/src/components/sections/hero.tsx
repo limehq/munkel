@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
 import type { CSSProperties, SVGProps } from 'react'
-import { BatteryMedium, Check, ChevronDown, ChevronUp, Copy, Globe, Wifi } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, Copy, Globe } from 'lucide-react'
 import { motion, useMotionValue, useMotionValueEvent, useReducedMotion, useScroll, useTransform } from 'motion/react'
 
 import { DownloadButton } from '@/components/download-button'
 import { GithubButton } from '@/components/github-button'
+import { MenuBarBattery, MenuBarWifi } from '@/components/icons'
 import { easeInOutQuad } from '@/lib/motion'
 import { cn, sleep } from '@/lib/utils'
 
@@ -296,8 +297,8 @@ export function Hero() {
                       <span className="text-[15px] leading-[0] opacity-[0.92] max-[900px]:text-[13px] max-[600px]:text-[11px]" aria-hidden>&#xF8FF;</span>
                     </div>
                     <div className="flex items-center gap-[11px] [font-variant-numeric:tabular-nums]">
-                      <BatteryMedium className="w-[15px]! h-[15px]! max-[900px]:w-[13px]! max-[900px]:h-[13px]!" aria-hidden />
-                      <Wifi className="w-[15px]! h-[15px]! max-[900px]:w-[13px]! max-[900px]:h-[13px]!" aria-hidden />
+                      <MenuBarBattery className="w-[24px] h-[12px] max-[900px]:w-[20px] max-[900px]:h-[10px] max-[600px]:w-[16px] max-[600px]:h-[8px]" />
+                      <MenuBarWifi className="w-[15px] h-[12px] max-[900px]:w-[13px] max-[900px]:h-[10px] max-[600px]:w-[11px] max-[600px]:h-[9px]" />
                       <span className="font-medium">{clock}</span>
                     </div>
                   </div>
