@@ -12,14 +12,12 @@ import type {
 	GitHubLoginState,
 	IdentityState,
 	Member,
-	NotchMessage,
 	StateUpdate,
 } from '../../shared/types';
 
 interface AppState {
 	identity: IdentityState | null;
 	circles: CircleState[];
-	notchMessages: NotchMessage[];
 	githubLoginState: GitHubLoginState;
 }
 
@@ -29,8 +27,6 @@ interface AppStore {
 	setCircles: (circles: CircleState[]) => void;
 	addCircle: (circle: CircleState) => void;
 	removeCircle: (code: string) => void;
-	pushNotchMessage: (message: NotchMessage) => void;
-	clearNotchMessages: () => void;
 
 	joinCircle: (code: string, relayUrl?: string) => Promise<void>;
 	leaveCircle: (code: string) => Promise<void>;
@@ -50,7 +46,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 	const [state, setState] = useState<AppState>({
 		identity: null,
 		circles: [],
-		notchMessages: [],
 		githubLoginState: { phase: 'idle' },
 	});
 
@@ -68,14 +63,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
 	const removeCircle = useCallback((code: string) => {
 		setState((s) => ({ ...s, circles: s.circles.filter((c) => c.code !== code) }));
-	}, []);
-
-	const pushNotchMessage = useCallback((message: NotchMessage) => {
-		setState((s) => ({ ...s, notchMessages: [...s.notchMessages, message] }));
-	}, []);
-
-	const clearNotchMessages = useCallback(() => {
-		setState((s) => ({ ...s, notchMessages: [] }));
 	}, []);
 
 	const applyUpdate = useCallback((update: StateUpdate) => {
@@ -108,17 +95,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			setGitHubLoginState(githubLoginState);
 		});
 
-		const removeNotchMessage = window.electronAPI.onNotchMessage((message) => {
-			pushNotchMessage(message);
-		});
-
 		return () => {
 			mounted = false;
 			removeStateUpdate();
 			removeGitHubLoginState();
-			removeNotchMessage();
 		};
-	}, [applyUpdate, pushNotchMessage, setGitHubLoginState]);
+	}, [applyUpdate, setGitHubLoginState]);
 
 	const joinCircle = useCallback(async (code: string, relayUrl?: string) => {
 		await window.electronAPI.joinCircle(code, relayUrl);
@@ -167,8 +149,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			setCircles,
 			addCircle,
 			removeCircle,
-			pushNotchMessage,
-			clearNotchMessages,
 			joinCircle,
 			leaveCircle,
 			sendChat,
@@ -186,8 +166,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			setCircles,
 			addCircle,
 			removeCircle,
-			pushNotchMessage,
-			clearNotchMessages,
 			joinCircle,
 			leaveCircle,
 			sendChat,

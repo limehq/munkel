@@ -9,6 +9,7 @@ const baseMessage: NotchMessage = {
 	isDirect: true,
 	group: 'blue-table-42',
 	groupColor: '#3b82f6',
+	receivedAt: '2026-07-02T12:00:00.000Z',
 };
 
 describe('resolveReplyRecipient', () => {
