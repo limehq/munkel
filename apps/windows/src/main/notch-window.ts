@@ -2,6 +2,7 @@ import { BrowserWindow, screen } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getWindowUrl } from './window-url';
+import { unfocusNotchAfterReply } from './notch-focus';
 import type { NotchMessage } from '../shared/types';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -52,6 +53,7 @@ export function showNotch(win: BrowserWindow | null): void {
 
 export function hideNotch(win: BrowserWindow | null): void {
 	if (!win) return;
+	unfocusNotchAfterReply(win);
 	win.webContents.send('notch-hide');
 	// Give the renderer time to animate out before hiding the window.
 	setTimeout(() => win.hide(), 250);

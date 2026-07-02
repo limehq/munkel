@@ -211,19 +211,24 @@ The tray menu's GitHub block matches `MenuWindow.tsx` exactly.
   These previews are shown for any incoming image album, including albums sent
   via the `munkel image` CLI command.
 - Copy button (copies the message text).
-- An explicit **Reply** button on the message row opens an inline reply field
-  with a channel toggle (🔒/🌐) and frosted input. Clicking the message body
-  or row does not open the field.
+- The inline reply field (channel toggle 🔒/🌐 + frosted input) opens via
+  **either** path: the explicit **Reply** (↩) button, or a click on the message
+  body (sender/meta/text area). Both call the same `setReplying(true)`, so
+  post-open behaviour (focus timing, etc.) is identical. The Avatar, the Copy
+  button, and image thumbnails do **not** open the field, and a click that was
+  really a drag-to-select gesture (or lands on selected text) is ignored so
+  hand-copying message text still works. *(Supersedes the earlier
+  "only ↩ opens reply" decision from Plan 01, 2026-07-02.)*
 - `Enter` or the `➤` send button calls `useAppStore().sendChat`; on
   `false` (session offline) the field stays open with a small red
   inline error ("Circle offline — reply not sent."). A new incoming
   message (`onNotchMessage`) resets the reply state so a half-typed
   reply cannot bleed across messages.
 - The reply is private by default for direct messages, broadcast by
-  default for public messages (matches the incoming channel). The
-  recipient `memberId` is resolved from `state.circles` by display
-  name; if the sender has since renamed, the original display name
-  is sent as `to` so the wire payload stays parseable.
+  default for public messages (matches the incoming channel). Private
+  replies use `NotchMessage.senderMemberId` (relay `frame.from`) as the
+  wire `to` field. If `senderMemberId` is missing, the send is blocked
+  with an inline error instead of falling back to the display name.
 
 ### Palette content
 

@@ -37,6 +37,16 @@ class MockSocket extends EventEmitter {
 		this.readyState = MockSocket.CLOSED;
 		this.emit('close');
 	}
+
+	/**
+	 * Real `ws` sockets expose `terminate()`; RelayClient calls it during
+	 * connection-lost teardown. Modelled as a silent state change (no 'close'
+	 * emit) so tests can exercise the "error without close" path precisely.
+	 */
+	terminate(): void {
+		this.closed = true;
+		this.readyState = MockSocket.CLOSED;
+	}
 }
 
 function waitFor(condition: () => boolean, timeout = 1000): Promise<void> {
@@ -142,6 +152,55 @@ describe('RelayClient', () => {
 
 		await waitFor(() => disconnectedEvents.length === 1);
 		await waitFor(() => sockets.length === 2, 1500);
+	});
+
+	test('reconnects after a socket error that is not followed by close (H-C)', async () => {
+		const factory = createFactory();
+		client = new RelayClient('wss://relay.example.com', 'group', 'member', {
+			createWebSocket: factory,
+		});
+
+		const errors: unknown[] = [];
+		const disconnectedEvents: unknown[] = [];
+		client.on('error', () => errors.push(true));
+		client.on('disconnected', () => disconnectedEvents.push(true));
+
+		client.connect();
+		await waitFor(() => sockets.length === 1);
+		sockets[0].open();
+
+		// Emit ONLY 'error' (no subsequent 'close'). The old code would stall
+		// here with a dead socket and never retry.
+		sockets[0].emit('error', new Error('ECONNRESET'));
+
+		await waitFor(() => errors.length === 1);
+		await waitFor(() => disconnectedEvents.length === 1);
+		await waitFor(() => sockets.length === 2, 1500);
+	});
+
+	test('a following close after an error does not double-schedule a reconnect', async () => {
+		const factory = createFactory();
+		client = new RelayClient('wss://relay.example.com', 'group', 'member', {
+			createWebSocket: factory,
+		});
+
+		const disconnectedEvents: unknown[] = [];
+		// An 'error' listener is required or EventEmitter rethrows the emit.
+		client.on('error', () => {});
+		client.on('disconnected', () => disconnectedEvents.push(true));
+
+		client.connect();
+		await waitFor(() => sockets.length === 1);
+		sockets[0].open();
+
+		// Both events fire for the same socket; teardown must run once.
+		sockets[0].emit('error', new Error('boom'));
+		sockets[0].close();
+
+		await waitFor(() => sockets.length === 2, 1500);
+		// Exactly one reconnect socket, one disconnect event — no double retry.
+		expect(sockets.length).toBe(2);
+		expect(disconnectedEvents.length).toBe(1);
 	});
 
 	test('disconnect prevents reconnection', async () => {

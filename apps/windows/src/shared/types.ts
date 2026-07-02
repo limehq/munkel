@@ -44,6 +44,8 @@ export interface IncomingImage {
 
 export interface NotchMessage {
 	sender: string;
+	/** Relay member UUID (`frame.from`); required for private notch replies. */
+	senderMemberId?: string;
 	text: string;
 	isDirect: boolean;
 	group: string;
@@ -81,6 +83,8 @@ export interface IpcApi {
 
 	// Notch demo.
 	testNotch: () => Promise<void>;
+	beginNotchReply: () => Promise<void>;
+	endNotchReply: () => Promise<void>;
 
 	// Main → renderer push channels.
 	onStateUpdate: (callback: (update: StateUpdate) => void) => () => void;

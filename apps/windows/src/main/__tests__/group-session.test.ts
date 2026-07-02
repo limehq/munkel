@@ -244,6 +244,7 @@ describe('GroupSession', () => {
 		expect(chats[0].isDirect).toBe(true);
 		expect(notches[0].text).toBe('Hello Windows!');
 		expect(notches[0].group).toBe(code);
+		expect(notches[0].senderMemberId).toBe('peer-1');
 
 		session.disconnect();
 	});
@@ -367,6 +368,7 @@ describe('GroupSession', () => {
 		expect(notches[0]!.images![0]!.width).toBe(800);
 		expect(notches[0]!.images![1]!.thumb).toBe('BBBB');
 		expect(notches[0]!.text).toBe('look at this');
+		expect(notches[0]!.senderMemberId).toBe('peer-1');
 		expect(notches[0]!.groupColor).toBe(getCircleColor(3));
 
 		session.disconnect();

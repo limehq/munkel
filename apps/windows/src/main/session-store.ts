@@ -4,8 +4,11 @@ import { GroupSession, type SendResult } from './group-session';
 import { ProfileBroadcaster } from './profile-broadcaster';
 import type { CircleState, IdentityState, NotchMessage, StateUpdate } from '../shared/types';
 
-const DEFAULT_RELAY_URL =
-	process.env.NODE_ENV === 'development' ? 'ws://127.0.0.1:8787' : 'wss://relay.munkel.app';
+// Relay endpoint. Defaults to PRODUCTION in all builds so fresh joins (incl.
+// dev) reach real peers. Point at a local `wrangler dev` relay by setting
+// MUNKEL_RELAY_URL=ws://127.0.0.1:8787. The old dev-only localhost default
+// silently pinned dev circles to a dead relay → never online (presence bug H-A).
+const DEFAULT_RELAY_URL = process.env.MUNKEL_RELAY_URL ?? 'wss://relay.munkel.app';
 
 export type { StateUpdate, CircleState } from '../shared/types';
 
@@ -44,6 +47,13 @@ export class AppState {
 
 		const persisted = this.identityStore.load().circles.find((c) => c.code === normalized);
 		const url = relayUrl ?? persisted?.relayUrl ?? DEFAULT_RELAY_URL;
+		// Phase-0 diagnostics (presence bug): make the chosen relay URL + member
+		// visible so we can tell a dead-localhost dev join (H-A) from a real
+		// connect failure, and confirm which memberId this client actually uses.
+		console.error(
+			'[session] joinCircle',
+			JSON.stringify({ code: normalized, relayUrl: url, memberId: `${this.identity.memberId.slice(0, 8)}…` }),
+		);
 
 		const session = await GroupSession.create(normalized, url, this.identity.memberId, this.identity, {
 			onStateChange: () => this.broadcast(),
@@ -132,8 +142,31 @@ export class AppState {
 
 	async restoreCircles(): Promise<void> {
 		const circles = this.identityStore.load().circles;
+		// Phase-0 diagnostics (presence bug): prove whether the persisted circles
+		// were actually loaded (H-D). "0 external connections" is explained by
+		// "0 circles loaded" just as much as by a connect failure.
+		console.error(
+			'[session] restoreCircles',
+			JSON.stringify({
+				count: circles.length,
+				circles: circles.map((c) => ({ code: c.code, relayUrl: c.relayUrl })),
+			}),
+		);
 		for (const circle of circles) {
-			await this.joinCircle(circle.code, circle.relayUrl);
+			// Heal circles persisted against a dead localhost dev relay (H-A):
+			// repoint them at the current default so they can actually connect.
+			// joinCircle persists the corrected URL. No-op when the default is
+			// itself localhost (intentional local-relay dev via MUNKEL_RELAY_URL).
+			const relayUrl = /(?:127\.0\.0\.1|localhost)/.test(circle.relayUrl)
+				? DEFAULT_RELAY_URL
+				: circle.relayUrl;
+			if (relayUrl !== circle.relayUrl) {
+				console.error(
+					'[session] repair localhost relayUrl → default',
+					JSON.stringify({ code: circle.code, from: circle.relayUrl, to: relayUrl }),
+				);
+			}
+			await this.joinCircle(circle.code, relayUrl);
 		}
 	}
 
