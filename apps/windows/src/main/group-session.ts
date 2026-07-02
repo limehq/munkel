@@ -311,6 +311,7 @@ export class GroupSession {
 						});
 						this.callbacks.onNotch({
 							sender: senderLabel,
+							senderMemberId: frame.from,
 							text: decoded.text,
 							isDirect,
 							group: this.code,
@@ -358,6 +359,7 @@ export class GroupSession {
 						}
 						this.callbacks.onNotch({
 							sender: senderLabel,
+							senderMemberId: frame.from,
 							text: decoded.caption || `Sent ${images.length} image${images.length === 1 ? '' : 's'}`,
 							isDirect,
 							group: this.code,

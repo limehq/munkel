@@ -28,6 +28,9 @@ export class IdentityStore {
 
 	load(): PersistedState {
 		if (!fs.existsSync(this.filePath)) {
+			// Phase-0 diagnostics (presence bug, H-D): a silent default here means
+			// persisted circles are lost — a direct explanation for "not online".
+			console.error('[identity] state file missing — creating default', JSON.stringify({ path: this.filePath }));
 			const state = defaultState();
 			this.save(state);
 			return state;
@@ -37,7 +40,11 @@ export class IdentityStore {
 			const raw = fs.readFileSync(this.filePath, 'utf8');
 			const parsed = JSON.parse(raw) as unknown;
 			return this.migrate(parsed);
-		} catch {
+		} catch (err) {
+			console.error(
+				'[identity] state unreadable — resetting to default',
+				JSON.stringify({ path: this.filePath, error: err instanceof Error ? err.message : String(err) }),
+			);
 			const state = defaultState();
 			this.save(state);
 			return state;
