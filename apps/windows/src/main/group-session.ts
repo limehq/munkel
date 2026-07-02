@@ -316,6 +316,7 @@ export class GroupSession {
 							isDirect,
 							group: this.code,
 							groupColor: getCircleColor(colorIndex),
+							receivedAt: new Date().toISOString(),
 						});
 					} else if (decoded.kind === 'profile') {
 						const index = this.members.findIndex((m) => m.memberId === frame.from);
@@ -364,6 +365,7 @@ export class GroupSession {
 							isDirect,
 							group: this.code,
 							groupColor: getCircleColor(colorIndex),
+							receivedAt: new Date().toISOString(),
 							images,
 						});
 					}

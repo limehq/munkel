@@ -50,6 +50,8 @@ export interface NotchMessage {
 	isDirect: boolean;
 	group: string;
 	groupColor: string;
+	/** Local receiver timestamp (ISO-8601) used for notch history expiry. */
+	receivedAt: string;
 	images?: IncomingImage[];
 }
 
@@ -85,6 +87,8 @@ export interface IpcApi {
 	testNotch: () => Promise<void>;
 	beginNotchReply: () => Promise<void>;
 	endNotchReply: () => Promise<void>;
+	notchSetInteractive: (interactive: boolean) => Promise<void>;
+	notchEmpty: () => Promise<void>;
 
 	// Main → renderer push channels.
 	onStateUpdate: (callback: (update: StateUpdate) => void) => () => void;
@@ -94,6 +98,7 @@ export interface IpcApi {
 	onNotchShow: (callback: () => void) => () => void;
 	onNotchHide: (callback: () => void) => () => void;
 	onNotchUpdate: (callback: (data: NotchMessage) => void) => () => void;
+	onNotchReopen: (callback: () => void) => () => void;
 }
 
 declare global {
