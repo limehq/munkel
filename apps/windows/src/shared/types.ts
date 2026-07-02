@@ -98,6 +98,7 @@ export interface IpcApi {
 	onNotchShow: (callback: () => void) => () => void;
 	onNotchHide: (callback: () => void) => () => void;
 	onNotchUpdate: (callback: (data: NotchMessage) => void) => () => void;
+	// Reserved fallback for cursor-polling reopen; do not remove as dead code.
 	onNotchReopen: (callback: () => void) => () => void;
 }
 

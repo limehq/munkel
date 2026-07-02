@@ -71,6 +71,7 @@ const api: IpcApi = {
 		ipcRenderer.on('notch-update', handler);
 		return () => ipcRenderer.removeListener('notch-update', handler);
 	},
+	// Reserved fallback for cursor-polling reopen; do not remove as dead code.
 	onNotchReopen: (callback) => {
 		const handler = () => callback();
 		ipcRenderer.on('notch-reopen', handler);
