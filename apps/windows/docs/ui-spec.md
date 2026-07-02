@@ -99,7 +99,8 @@ All text uses `-webkit-font-smoothing: antialiased`.
 
 ### Notch widget
 
-- **Size:** 360px wide; height adapts to content.
+- **Size:** `BrowserWindow` stays fixed at `360 × 260px`; the rendered notch
+  panel translates within that space.
 - **Position:** horizontally centered at the very top of the primary screen
   (`y = 0`).
 - **Frame:** none; transparent background outside the pill.
@@ -108,11 +109,20 @@ All text uses `-webkit-font-smoothing: antialiased`.
 - **Shadow strategy:** because `transparent + frameless` windows on Windows do
   not get a native DWM shadow, the notch shadow is rendered via an internal
   `::before` pseudo-element with `filter: blur(12px)`.
-- **Animation:** simple CSS enter animation (slide down + fade). Full
-  teaser/expanded morph is reserved for Phase 2; Phase 1 shows a static
-  expanded view.
-- **Demo:** the notch is shown briefly on launch so the Phase 1 scaffold is
-  visible.
+- **Lifecycle states:**
+  - **FULL** (`0–5s`): full message row visible and replyable.
+  - **PEEK** (`5–35s`): panel collapses upward so only a small sliver remains;
+    a white reverse progress ring drains for 30 seconds.
+  - **RETRACTED** (`35s+`): ring disappears and only a minimal grabber tab
+    remains.
+  - **REOPENED** (hover): the panel expands back to full height and shows the
+    rolling 60-second history list.
+- **Hit testing:** collapsed states use
+  `setIgnoreMouseEvents(true, { forward: true })`, so the transparent window is
+  click-through except for hover detection on the visible sliver. Expanded
+  states restore interactivity.
+- **Demo:** the `test-notch` IPC sends 2–3 staggered sample messages so manual
+  QA can verify timer reset and history reopen behavior.
 
 ### Palette window
 
@@ -210,15 +220,18 @@ The tray menu's GitHub block matches `MenuWindow.tsx` exactly.
   is rendered as a 72 × 72 px `object-fit: cover` image from a base64 data URI.
   These previews are shown for any incoming image album, including albums sent
   via the `munkel image` CLI command.
-- Copy button (copies the message text).
-- The inline reply field (channel toggle 🔒/🌐 + frosted input) opens via
-  **either** path: the explicit **Reply** (↩) button, or a click on the message
-  body (sender/meta/text area). Both call the same `setReplying(true)`, so
-  post-open behaviour (focus timing, etc.) is identical. The Avatar, the Copy
-  button, and image thumbnails do **not** open the field, and a click that was
-  really a drag-to-select gesture (or lands on selected text) is ignored so
-  hand-copying message text still works. *(Supersedes the earlier
-  "only ↩ opens reply" decision from Plan 01, 2026-07-02.)*
+- In **FULL**, only the newest message is shown. In **PEEK** and **RETRACTED**,
+  message text is hidden and only the sliver/ring remains visible.
+- In **REOPENED**, the notch shows a scrollable history list of all messages
+  received within the last 60 seconds, newest first.
+- Copy button (copies the message text) exists per row.
+- The inline reply field (channel toggle 🔒/🌐 + frosted input) opens per row
+  via **either** path: the explicit **Reply** (↩) button, or a click on the
+  message body (sender/meta/text area). The Avatar, the Copy button, and image
+  thumbnails do **not** open the field, and a click that was really a
+  drag-to-select gesture (or lands on selected text) is ignored so hand-copying
+  message text still works. Only one reply field can be open at a time, tracked
+  as `replyingTo: string | null`.
 - `Enter` or the `➤` send button calls `useAppStore().sendChat`; on
   `false` (session offline) the field stays open with a small red
   inline error ("Circle offline — reply not sent."). A new incoming
@@ -229,6 +242,9 @@ The tray menu's GitHub block matches `MenuWindow.tsx` exactly.
   replies use `NotchMessage.senderMemberId` (relay `frame.from`) as the
   wire `to` field. If `senderMemberId` is missing, the send is blocked
   with an inline error instead of falling back to the display name.
+- History entries are pruned 60 seconds after **local receipt**
+  (`NotchMessage.receivedAt`). Once the buffer stays empty briefly, the renderer
+  asks the main process to hide the notch window.
 
 ### Palette content
 
@@ -258,10 +274,12 @@ The tray menu's GitHub block matches `MenuWindow.tsx` exactly.
 
 ## Live data wiring
 
-`PaletteWindow` and `NotchWidget` read from the `useAppStore()` context
+`PaletteWindow` reads from the `useAppStore()` context
 (`apps/windows/src/renderer/store/app-store.tsx`), which is fed by the
-`state-update` and `notch-message` push channels from the main process.
-See `docs/ipc-contract.md` for the wire shape.
+`state-update` push channel from the main process. `NotchWidget` still uses the
+store for `sendChat`, but its rolling history is local component state fed
+directly by `notch-message`, `notch-update`, `notch-show`, `notch-hide`, and
+`notch-reopen`. See `docs/ipc-contract.md` for the wire shape.
 
 The historical fixtures in `src/renderer/mock-data.ts` are deprecated
 and unused by any renderer component. They should be deleted in the
@@ -272,6 +290,12 @@ change reviewable.
 
 - Notch enter: `translateY(-18px) scaleY(0.92) → translateY(0) scaleY(1)`,
   opacity 0 → 1, duration 0.45s, ease-out.
+- Notch collapse: CSS `transform` only; the panel slides upward to leave an
+  18px peek sliver, then an 8px retracted sliver.
+- Peek ring: `notch-ring-drain`, 30s linear, white stroke, reverse direction,
+  `stroke-dashoffset: 0 → circumference`.
+- Reduced motion: ring animation stops at a static half-drained state and notch
+  transitions become instant via `prefers-reduced-motion: reduce`.
 - Palette enter: `scale(0.96) → scale(1)`, opacity 0 → 1, duration 0.2s.
 - Frosted field focus: 0.15s box-shadow transition.
 - Button active: 0.1s scale(0.97).
