@@ -216,12 +216,19 @@ select {
 /* Menu window */
 .menu-window {
 	width: 320px;
-	min-height: 100%;
+	height: 100%;
 	border-radius: var(--munkel-radius-md);
 	padding: 14px;
 	display: flex;
 	flex-direction: column;
+	overflow-y: auto;
 	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* Direct children must not shrink, or the flex column would compress
+   content to fit the fixed window height instead of overflowing/scrolling. */
+.menu-window > * {
+	flex-shrink: 0;
 }
 
 .menu-header {
@@ -279,8 +286,6 @@ select {
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
-	overflow-y: auto;
-	max-height: 360px;
 }
 
 .circle-section {
