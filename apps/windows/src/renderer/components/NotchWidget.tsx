@@ -37,6 +37,7 @@ export default function NotchWidget() {
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const replyInputRef = useRef<HTMLInputElement>(null);
+	const historyLenRef = useRef(0);
 	const phaseTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 	const leaveHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const copyFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -45,12 +46,17 @@ export default function NotchWidget() {
 	const messagePointerDown = useRef<{ id: string; x: number; y: number } | null>(null);
 
 	const newest = history[0] ?? null;
-	const expanded = hovering || replyingTo !== null;
+	const reopening = hovering;
+	const replyOpen = replyingTo !== null;
+	const expanded = reopening || replyOpen;
 	const widgetClass = newest
-		? expanded
+		? reopening
 			? 'notch-reopened'
-			: `notch-${phase}`
+			: replyOpen || phase === 'full'
+				? 'notch-full'
+				: `notch-${phase}`
 		: 'notch-retracted';
+	historyLenRef.current = history.length;
 
 	useEffect(() => {
 		if (!replyingTo) return;
@@ -104,7 +110,7 @@ export default function NotchWidget() {
 			setError(null);
 		});
 		const removeReopen = window.electronAPI.onNotchReopen(() => {
-			if (history.length > 0) {
+			if (historyLenRef.current > 0) {
 				setHovering(true);
 			}
 		});
@@ -115,7 +121,7 @@ export default function NotchWidget() {
 			removeMessage();
 			removeReopen();
 		};
-	}, [history.length]);
+	}, []);
 
 	useEffect(() => {
 		if (!newest) {
@@ -136,15 +142,18 @@ export default function NotchWidget() {
 
 	useEffect(() => {
 		const pruneTimer = setInterval(() => {
-			setHistory((current) => pruneNotchHistory(current, Date.now(), NOTCH_HISTORY_MS));
+			setHistory((current) => {
+				const pruned = pruneNotchHistory(current, Date.now(), NOTCH_HISTORY_MS);
+				return pruned.length === current.length ? current : pruned;
+			});
 		}, PRUNE_INTERVAL_MS);
 		return () => clearInterval(pruneTimer);
 	}, []);
 
 	useEffect(() => {
-		const interactive = !!newest && (phase === 'full' || expanded);
+		const interactive = !!newest && (phase === 'full' || reopening || replyOpen);
 		void window.electronAPI.notchSetInteractive(interactive);
-	}, [expanded, newest?.id, phase]);
+	}, [newest?.id, phase, reopening, replyOpen]);
 
 	useEffect(() => {
 		if (history.length > 0 || hovering) return;
@@ -379,11 +388,11 @@ export default function NotchWidget() {
 				<div className="notch-grabber" />
 			</div>
 
-			{expanded && history.length > 0 ? (
+			{reopening && history.length > 0 ? (
 				<div className="notch-content">
 					<div className="notch-history-list">{history.map((entry) => renderMessageRow(entry))}</div>
 				</div>
-			) : phase === 'full' && newest ? (
+			) : newest && (phase === 'full' || replyingTo === newest.id) ? (
 				<div className="notch-content">{renderMessageRow(newest)}</div>
 			) : null}
 		</div>
