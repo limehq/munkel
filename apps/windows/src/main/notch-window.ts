@@ -13,6 +13,12 @@ const NOTCH_HIDE_DELAY_MS = 250;
 
 let pendingHide: ReturnType<typeof setTimeout> | null = null;
 
+function clearPendingHide(): void {
+	if (!pendingHide) return;
+	clearTimeout(pendingHide);
+	pendingHide = null;
+}
+
 export function createNotchWindow(): BrowserWindow {
 	const { width } = screen.getPrimaryDisplay().workAreaSize;
 
@@ -50,10 +56,7 @@ export function createNotchWindow(): BrowserWindow {
 
 export function showNotch(win: BrowserWindow | null): void {
 	if (!win) return;
-	if (pendingHide) {
-		clearTimeout(pendingHide);
-		pendingHide = null;
-	}
+	clearPendingHide();
 	win.showInactive();
 	win.webContents.send('notch-show');
 }
@@ -67,9 +70,7 @@ export function requestNotchHide(win: BrowserWindow | null): void {
 	unfocusNotchAfterReply(win);
 	win.webContents.send('notch-hide');
 	// Give the renderer time to animate out before hiding the window.
-	if (pendingHide) {
-		clearTimeout(pendingHide);
-	}
+	clearPendingHide();
 	pendingHide = setTimeout(() => {
 		pendingHide = null;
 		win.hide();
