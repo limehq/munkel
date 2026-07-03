@@ -1,6 +1,7 @@
 import { app, ipcMain, BrowserWindow, IpcMainInvokeEvent, Tray } from 'electron';
+import fs from 'node:fs';
 import path from 'node:path';
-import { createMenuWindow, toggleMenuWindow } from './menu-window';
+import { createMenuWindow, showMenuWindow, toggleMenuWindow } from './menu-window';
 import { createNotchWindow, showNotch, hideNotch, updateNotch } from './notch-window';
 import { focusNotchForReply, unfocusNotchAfterReply } from './notch-focus';
 import { createPaletteWindow, showPalette, hidePalette } from './palette-window';
@@ -22,6 +23,10 @@ import type { WindowType } from '../shared/types';
 // and packaged builds read DIFFERENT state.json stores (userData mismatch) —
 // the root cause of persisted circles silently not loading (presence bug H-D).
 app.setName('munkel');
+const pinnedUserData = path.join(app.getPath('appData'), 'munkel');
+fs.mkdirSync(pinnedUserData, { recursive: true });
+app.setPath('userData', pinnedUserData);
+app.setAppUserModelId('app.munkel.windows');
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -34,6 +39,13 @@ let notchWindow: BrowserWindow | null = null;
 let paletteWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let controlServer: { close(): Promise<void> } | null = null;
+
+app.on('second-instance', () => {
+	if (!menuWindow || menuWindow.isDestroyed()) {
+		menuWindow = createMenuWindow();
+	}
+	showMenuWindow(menuWindow);
+});
 
 function getWindowType(sender: Electron.WebContents): WindowType {
 	const win = BrowserWindow.fromWebContents(sender);

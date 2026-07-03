@@ -43,9 +43,17 @@ export function toggleMenuWindow(win: BrowserWindow | null): void {
 	if (win.isVisible()) {
 		win.hide();
 	} else {
-		win.show();
-		win.focus();
+		showMenuWindow(win);
 	}
+}
+
+export function showMenuWindow(win: BrowserWindow | null): void {
+	if (!win) return;
+	if (win.isMinimized()) {
+		win.restore();
+	}
+	win.show();
+	win.focus();
 }
 
 export function hideMenuWindow(win: BrowserWindow | null): void {
