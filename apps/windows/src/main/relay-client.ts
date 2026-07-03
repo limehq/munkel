@@ -19,6 +19,7 @@ export class RelayClient extends EventEmitter {
 	private readonly url: string;
 	/** Same as `url` but with the member UUID masked, safe to log. */
 	private readonly logUrl: string;
+	private readonly groupId: string;
 	private readonly createWebSocket: (url: string) => WebSocket;
 	private socket: WebSocket | null = null;
 	private running = false;
@@ -34,6 +35,7 @@ export class RelayClient extends EventEmitter {
 	) {
 		super();
 		const base = relayUrl.replace(/\/$/, '');
+		this.groupId = groupId;
 		this.url = `${base}/ws?group=${groupId}&member=${memberId}`;
 		this.logUrl = `${base}/ws?group=${groupId}&member=${memberId.slice(0, 8)}…`;
 		this.createWebSocket = options?.createWebSocket ?? ((url) => new WebSocket(url));
@@ -117,8 +119,9 @@ export class RelayClient extends EventEmitter {
 			});
 
 			socket.on('close', (code?: number, reason?: Buffer) => {
-				this.log('close', { code, reason: reason?.toString() });
-				this.handleConnectionLost(socket);
+				const closeInfo = { code, reason: reason?.toString() };
+				this.log('close', { groupId: this.groupId, ...closeInfo });
+				this.handleConnectionLost(socket, closeInfo);
 			});
 		} catch (err) {
 			this.log('connect-threw', {
@@ -135,7 +138,10 @@ export class RelayClient extends EventEmitter {
 	 * guard runs the teardown + a single `scheduleReconnect` exactly once per
 	 * socket, and `scheduleReconnect` is itself a no-op while a timer is armed.
 	 */
-	private handleConnectionLost(socket: WebSocket): void {
+	private handleConnectionLost(
+		socket: WebSocket,
+		closeInfo: { code?: number; reason?: string } = {},
+	): void {
 		if (this.socket !== socket) return; // already handled or superseded
 		this.socket = null;
 		this.stopPing();
@@ -146,7 +152,12 @@ export class RelayClient extends EventEmitter {
 		}
 		if (this.running) {
 			this.emit('disconnected');
-			this.log('reconnect', { backoffMs: this.backoffMs });
+			this.log('reconnect', {
+				groupId: this.groupId,
+				code: closeInfo.code,
+				reason: closeInfo.reason,
+				backoffMs: this.backoffMs,
+			});
 			this.scheduleReconnect();
 		}
 	}
