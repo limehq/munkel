@@ -6,6 +6,7 @@ const api: IpcApi = {
 	hideWindow: () => ipcRenderer.invoke('hide-window'),
 	showPalette: () => ipcRenderer.invoke('show-palette'),
 	toggleMenu: () => ipcRenderer.invoke('toggle-menu'),
+	setMenuPickerOpen: (open) => ipcRenderer.invoke('menu-picker-state', open),
 	quitApp: () => ipcRenderer.invoke('quit-app'),
 	onGlobalShortcut: (callback) => {
 		const handler = () => callback();

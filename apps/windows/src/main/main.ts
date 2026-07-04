@@ -16,6 +16,7 @@ import { buildControlHandler } from './control-handlers';
 import { createControlServer } from '../core/transport';
 import { buildPipeName } from '../core/control';
 import { broadcastStateUpdate } from './broadcast-state';
+import { isDismissSuppressed, isGitHubLoginActive } from './menu-dismiss';
 import type { WindowType } from '../shared/types';
 
 // Pin the app name BEFORE anything reads userData. Without this, `electron`
@@ -39,6 +40,10 @@ let notchWindow: BrowserWindow | null = null;
 let paletteWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let controlServer: { close(): Promise<void> } | null = null;
+// Menu click-away-to-dismiss suppression state (Plan 06).
+let pickerOpen = false;
+let githubLoginActive = false;
+const isDev = process.env.NODE_ENV === 'development';
 
 app.on('second-instance', () => {
 	if (!menuWindow || menuWindow.isDestroyed()) {
@@ -119,11 +124,21 @@ function relayError(message: string): void {
 }
 
 function pushGitHubLoginState(state: import('../shared/types').GitHubLoginState): void {
+	// Keep the menu open while the user may be in the browser entering the code.
+	githubLoginActive = isGitHubLoginActive(state.phase);
 	menuWindow?.webContents.send('github-login-state', state);
 }
 
 app.whenReady().then(async () => {
-	menuWindow = createMenuWindow();
+	menuWindow = createMenuWindow({
+		isDismissSuppressed: () =>
+			isDismissSuppressed({
+				pickerOpen,
+				githubLoginActive,
+				devToolsOpen: menuWindow?.webContents.isDevToolsOpened() ?? false,
+				isDev,
+			}),
+	});
 	notchWindow = createNotchWindow();
 	paletteWindow = createPaletteWindow();
 
@@ -171,6 +186,11 @@ app.whenReady().then(async () => {
 	});
 	ipcMain.handle('show-palette', () => showPalette(paletteWindow));
 	ipcMain.handle('toggle-menu', () => toggleMenuWindow(menuWindow));
+	ipcMain.handle('menu-picker-state', (_event, open: boolean) => {
+		// Renderer signals when a native picker (recipient <select>) is open so its
+		// focus-stealing popup doesn't blur-dismiss the menu mid-selection.
+		pickerOpen = !!open;
+	});
 	ipcMain.handle('quit-app', () => app.quit());
 	ipcMain.handle('test-notch', () => runNotchDemo());
 	ipcMain.handle('notch-begin-reply', (event) => {
