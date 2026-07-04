@@ -2,6 +2,7 @@
 
 > **Status:** Merged via merge commit `1b63d37` into `platform/windows/v2-clean`.
 > Fix implemented — hover-stuck deadlock resolved.
+> **Remaining human gate:** manual live-animation QA on Windows (FULL → PEEK → RETRACTED → hide).
 > - Extracted `useNotchLifecycle` hook from `NotchWidget.tsx`.
 > - Added `useNotchLifecycle` unit tests covering the happy path and the hover-stuck repro.
 > - Removed the `!hovering` guard from the empty-hide timer so the notch hides reliably even when `mouseleave` is never delivered.
