@@ -43,6 +43,9 @@ xcuserdata/
 # Planning artifacts
 .planning/
 
+# Scratchpad / local working drafts and backups
+/scratchpad/
+
 # graphify build artifacts (keep only clean deliverables)
 graphify-out/*
 !graphify-out/graph.json
