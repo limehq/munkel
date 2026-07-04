@@ -37,3 +37,13 @@ Windows-specific plans and contracts live under
 |------|--------|-------|-------|
 | **Review [ponytail audit report](./audits/ponytail-audit-2026-06-30.md)** | Open | — | Walk findings #1–#25; confirm line/dep estimates; decide which cuts to implement and in what order; resolve whether Swift/TS shared core (#1) becomes a milestone or stays deferred. No code changes until reviewed. |
 | **Fix [Windows notch UX bugs](./bugs/windows-notch-ux-2026-06-30.md)** | Fixed | — | All P0–P2 issues (WIN-NOTCH-001/002/003) are addressed. Plan 05 (history/peek, PR #22), Plan 06 (menu click-away dismiss, merge `1c7c0c2`), and Plan 07 (hover-stuck retract deadlock, merge `1b63d37`) are merged into `platform/windows/v2-clean`. See the bug doc for details. |
+| **Remove "Test notch" demo pipeline** | Partially done | — | Button is hidden in production builds, but the full demo pipeline (`runNotchDemo`, IPC, types, docs) is still present and should be removed before release. |
+| **Integrate official logo assets** | Partially done | — | Placeholder assets are wired throughout the app, tray, and installer. Official logo assets are still missing. |
+| **Implement auto-update** | Open | — | Architecture and implementation not started. Decide on update provider (e.g., `electron-updater`), release feed, and code-signing flow. |
+| **Circle leave confirmation dialog** | Open | — | Show a confirmation mini-popup before the user leaves a Circle to prevent accidental exits. |
+| **Hand over NSIS installer to `main`** | Partially done | — | NSIS one-click installer with Start-Menu shortcuts is merged into `platform/windows/v2-clean` (PR #25). The PR from the Windows integration branch to `main` is still a draft. |
+| **Circle Presence 2-person visual confirmation** | Manual/QA gate | — | Code fix is merged (PR #19). Final visual confirmation with a second person is still outstanding. |
+| **Manual QA: menu click-away dismiss** | Manual/QA gate | — | Plan 06 code merged; live Windows runtime validation required. |
+| **Manual QA: notch auto-hide/retract sequence** | Manual/QA gate | — | Plan 07 code merged; live animation QA on Windows required. |
+
+> **Note:** Execution Plans 05–07 are merged into `platform/windows/v2-clean`.
