@@ -80,8 +80,8 @@ Bun workspaces + [Turborepo](https://turborepo.dev):
 | `apps/landing/` | Landing page: TanStack Start (React) on Cloudflare Workers, [munkel.app](https://munkel.app) |
 | `skills/` | Agent skills (`SKILL.md`), installable via the [skills CLI](https://skills.sh) |
 
-The wire protocol v1 (WebSocket + JSON, E2E AES-256-GCM) is specified where
-it is enforced: `apps/server/src/protocol.ts`.
+The wire protocol v1 (WebSocket + JSON, E2E AES-256-GCM) is specified in
+`packages/shared-wire/PROTOCOL.md` and enforced by `@munkel/shared-wire`.
 
 Production relay: **wss://relay.munkel.app** (the app's default).
 
@@ -227,7 +227,7 @@ The Worker is named `munkel-relay` and is reachable both as
 `routes` entry in `wrangler.toml`).
 
 Connect with `GET /ws?group=<32-hex>&member=<uuid>`; see
-`apps/server/src/protocol.ts`.
+`packages/shared-wire/src/protocol.ts`.
 
 ## Landing page
 
@@ -299,7 +299,7 @@ gear) so it stays resident and the first send skips cold-start. The
 socket path can be overridden via `MUNKEL_SOCKET` (used by the tests).
 
 On Windows the CLI talks to the running app over a named pipe at
-`\\.\pipe\Munkel-<user>-Control` (`apps/windows/src/core/transport.ts`). If the
+`\\.\pipe\Munkel-<user>-Control` (`packages/shared-wire/src/transport.ts`). If the
 app is not running, the CLI launches it and waits for the pipe, matching the
 macOS auto-launch behavior.
 

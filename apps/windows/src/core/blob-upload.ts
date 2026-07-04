@@ -17,7 +17,7 @@
  * client-side `MAX_FULL_BYTES`.
  */
 
-export const MAX_BLOB_BYTES = 3 * 1024 * 1024;
+import { MAX_BLOB_BYTES } from '@munkel/shared-wire/wire-constants';
 
 /** Throws if `relayUrl` is not a ws:// or wss:// URL. */
 export function blobBaseUrl(relayUrl: string): string {

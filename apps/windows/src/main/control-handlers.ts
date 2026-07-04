@@ -12,7 +12,7 @@
 import { stat } from 'node:fs/promises';
 import { normalizeCircleCode, MAX_IMAGES_PER_MESSAGE } from '../core';
 import type { CircleState } from '../shared/types';
-import type { ControlGroupInfo, ControlRequest, ControlResponse } from '../core/control';
+import type { ControlGroupInfo, ControlRequest, ControlResponse } from '@munkel/shared-wire/control';
 import type { SendResult } from './group-session';
 
 /**
@@ -86,8 +86,8 @@ function snapshotGroup(circle: CircleState): ControlGroupInfo {
  * Build the async control-protocol handler bound to a given `AppState`.
  *
  * One request/response per connection — the transport layer in
- * `core/transport.ts` already opens/closes the pipe per call and translates
- * thrown errors into `{ ok: false, error }` envelopes.
+ * `@munkel/shared-wire/transport` already opens/closes the pipe per call and
+ * translates thrown errors into `{ ok: false, error }` envelopes.
  */
 export function buildControlHandler(
 	appState: ControlAppState,

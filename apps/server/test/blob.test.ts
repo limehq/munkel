@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { BLOB_TTL_MS, MAX_BLOB_BYTES, registerBlobRoutes, sweepExpiredBlobs } from '../src/blob';
+import { MAX_BLOB_BYTES } from '@munkel/shared-wire/wire-constants';
+import { BLOB_TTL_MS, registerBlobRoutes, sweepExpiredBlobs } from '../src/blob';
 import type { BlobEnv } from '../src/blob';
 
 /**

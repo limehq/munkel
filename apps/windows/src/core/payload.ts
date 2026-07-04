@@ -1,3 +1,6 @@
+import { BLOB_KEY_REGEX, MAX_PAYLOAD_CHARS } from '@munkel/shared-wire/wire-constants';
+export { BLOB_KEY_REGEX, MAX_PAYLOAD_CHARS };
+
 export type ChatPayload = {
   kind: 'chat';
   text: string;
@@ -83,22 +86,6 @@ export function encodeImage(
 ): ImagePayload {
   return { kind: 'image', items, caption, sentAt: sentAt.toISOString() };
 }
-
-/**
- * Server-side blob key format (URL-safe, 16–128 chars). Mirrors
- * `apps/server/src/blob.ts: BLOB_KEY_REGEX`. Exported here so the
- * `ImageItem` validation in `decodePayload` can use it.
- */
-export const BLOB_KEY_REGEX = /^[A-Za-z0-9_-]{16,128}$/;
-
-/**
- * Re-export the wire-format cap so callers don't have to import from
- * `./protocol.js` for the size guard. Mirrors `apps/server/src/protocol.ts:92`
- * and `apps/windows/src/core/protocol.ts:84` — drift across these three
- * is a silent wire-format bug; flagged in the branch plan.
- */
-import { MAX_PAYLOAD_CHARS } from './protocol.js';
-export { MAX_PAYLOAD_CHARS };
 
 /**
  * Throw `PayloadTooLargeError` if the (already-sealed or pre-seal)
