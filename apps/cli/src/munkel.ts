@@ -6,8 +6,8 @@
 
 import { homedir } from "node:os"
 import { basename, join, resolve as resolvePath } from "node:path"
-import { buildPipeName, type ControlGroupInfo, type ControlRequest, type ControlResponse } from "./control.js"
-import { createPipeClient, type PipeClient } from "./transport.js"
+import { buildPipeName, type ControlGroupInfo, type ControlRequest, type ControlResponse } from "@munkel/shared-wire/control"
+import { createControlClient, type ControlClient } from "@munkel/shared-wire/transport"
 
 // `MUNKEL_DEV=1` (or a binary named `munkel-dev`) targets the parallel "Munkel
 // Dev" app instead of the installed release — its own control socket and bundle
@@ -207,13 +207,13 @@ function responseTimeout(): Promise<never> {
 
 // Named-pipe roundtrip. Mirrors the Windows app's
 // apps/windows/src/main/main.ts createControlServer call: one
-// request/response per connection, newline-delimited JSON. The pipe
-// client in `transport.ts` handles the framing; we only wrap it so the
-// call site can `await` it.
+// request/response per connection, newline-delimited JSON. The control
+// client in `@munkel/shared-wire/transport` handles the framing; we only
+// wrap it so the call site can `await` it.
 async function sendOverPipe(path: string, req: ControlRequest): Promise<ControlResponse> {
-  let client: PipeClient | null = null
+  let client: ControlClient | null = null
   try {
-    client = await createPipeClient(path)
+    client = await createControlClient(path)
     return await Promise.race([client.request(req), responseTimeout()])
   } finally {
     await client?.close()
@@ -324,7 +324,7 @@ async function waitForTransport(timeoutMs = 8000, intervalMs = 150) {
   for (;;) {
     if (usePipe) {
       try {
-        const client = await createPipeClient(pipePath as string)
+        const client = await createControlClient(pipePath as string)
         await client.close()
         return true
       } catch {

@@ -1,7 +1,7 @@
 import { Server } from 'partyserver';
 import type { Connection, ConnectionContext, WSMessage } from 'partyserver';
-import { clientMessageSchema, MEMBER_ID_REGEX } from './protocol';
-import type { ErrorCode, ServerMessage } from './protocol';
+import { clientMessageSchema, MEMBER_ID_REGEX } from '@munkel/shared-wire/protocol';
+import type { ErrorCode, ServerMessage } from '@munkel/shared-wire/protocol';
 import { createLogger } from './lib/logger';
 
 const MAX_CONNECTIONS_PER_GROUP = 32;

@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { clientMessageSchema, MAX_PAYLOAD_CHARS, MEMBER_ID_REGEX } from '../src/protocol';
+import { clientMessageSchema, MAX_PAYLOAD_CHARS, MEMBER_ID_REGEX } from '@munkel/shared-wire/protocol';
 
 // Property-based ("fuzz") tests for the wire-protocol parser. clientMessageSchema
 // runs on every untrusted client frame before any routing, so it is the relay's

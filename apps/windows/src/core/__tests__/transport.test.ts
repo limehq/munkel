@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { createControlServer, createControlClient } from '../transport';
-import { buildPipeName } from '../control';
-import type { ControlRequest, ControlResponse } from '../control';
+import { createControlServer, createControlClient } from '@munkel/shared-wire/transport';
+import { buildPipeName } from '@munkel/shared-wire/control';
+import type { ControlRequest, ControlResponse } from '@munkel/shared-wire/control';
 
 describe('named-pipe transport', () => {
   let pipeName: string;

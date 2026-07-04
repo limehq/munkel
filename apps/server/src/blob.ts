@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
-import { GROUP_ID_REGEX } from './protocol';
+import { GROUP_ID_REGEX } from '@munkel/shared-wire/protocol';
+import { BLOB_KEY_REGEX, MAX_BLOB_BYTES } from '@munkel/shared-wire/wire-constants';
 import { createLogger } from './lib/logger';
 
 /**
@@ -20,16 +21,6 @@ import { createLogger } from './lib/logger';
  * {@link sweepExpiredBlobs} to physically delete blobs that were never fetched,
  * so nothing outlives the window (see index.ts / wrangler.toml).
  */
-
-/** Client-generated per-image object id: URL-safe, 16–128 chars. */
-export const BLOB_KEY_REGEX = /^[A-Za-z0-9_-]{16,128}$/;
-
-/**
- * Max ciphertext bytes accepted per blob: a ~2 MiB image plus the 28-byte
- * AES-GCM envelope and headroom. Bounds an unauthenticated write (the group
- * id is the only credential) to billable storage.
- */
-export const MAX_BLOB_BYTES = 3 * 1024 * 1024;
 
 /**
  * How long a message stays alive in the recipient's notch — the basis for the

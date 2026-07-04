@@ -11,6 +11,9 @@
     "apps/cli": {
       "name": "@munkel/cli",
       "version": "0.0.1",
+      "dependencies": {
+        "@munkel/shared-wire": "workspace:*",
+      },
       "devDependencies": {
         "@types/bun": "^1.2.0",
         "typescript": "^6.0.3",
@@ -62,6 +65,7 @@
       "name": "@munkel/server",
       "version": "0.0.1",
       "dependencies": {
+        "@munkel/shared-wire": "workspace:*",
         "hono": "^4.12.7",
         "partyserver": "^0.5.8",
         "zod": "^4.1.0",
@@ -82,6 +86,7 @@
       "version": "0.0.1",
       "dependencies": {
         "@jsquash/avif": "^2.1.1",
+        "@munkel/shared-wire": "workspace:*",
         "image-size": "^2.0.2",
         "react": "^18.3.1",
         "react-dom": "^18.3.1",
@@ -100,6 +105,17 @@
         "react-test-renderer": "18.3.1",
         "typescript": "^5.4.5",
         "vite": "^5.3.1",
+      },
+    },
+    "packages/shared-wire": {
+      "name": "@munkel/shared-wire",
+      "version": "0.0.1",
+      "dependencies": {
+        "zod": "^4.1.0",
+      },
+      "devDependencies": {
+        "@types/node": "^25.9.3",
+        "typescript": "^5.4.5",
       },
     },
   },
@@ -322,6 +338,8 @@
     "@munkel/macos": ["@munkel/macos@workspace:apps/macos"],
 
     "@munkel/server": ["@munkel/server@workspace:apps/server"],
+
+    "@munkel/shared-wire": ["@munkel/shared-wire@workspace:packages/shared-wire"],
 
     "@munkel/windows": ["@munkel/windows@workspace:apps/windows"],
 
@@ -1414,6 +1432,8 @@
     "@jridgewell/remapping/@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
 
     "@malept/flatpak-bundler/fs-extra": ["fs-extra@9.1.0", "", { "dependencies": { "at-least-node": "^1.0.0", "graceful-fs": "^4.2.0", "jsonfile": "^6.0.1", "universalify": "^2.0.0" } }, "sha512-hcg3ZmepS30/7BSFqRvoo3DOMQu7IjqxO5nCDt+zM9XWjb33Wg7ziNT+Qvqbuc3+gWpzO02JubVyk2G4Zvo1OQ=="],
+
+    "@munkel/shared-wire/typescript": ["typescript@5.9.3", "", { "bin": { "tsc": "bin/tsc", "tsserver": "bin/tsserver" } }, "sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw=="],
 
     "@munkel/windows/@types/react": ["@types/react@18.3.31", "", { "dependencies": { "@types/prop-types": "*", "csstype": "^3.2.2" } }, "sha512-vfEqpXTvwT91yhmwdfouStN2hSKwTvyRs8qpLfADyrq/kxDw0hZM7Wk9Ug1FELj8hIby+S/+kQCSRFF32nv2Qw=="],
 

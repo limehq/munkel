@@ -1,6 +1,8 @@
 /**
- * Contract between the Windows system-tray app (named-pipe server) and the
- * `munkel` CLI: newline-delimited JSON, one request/response per connection.
+ * Local IPC contract between the Munkel tray/menu-bar app and the `munkel`
+ * CLI: newline-delimited JSON, one request/response per connection.
+ *
+ * See {@link ../PROTOCOL.md} for the full Munkel wire protocol v1 spec.
  */
 
 export interface ControlRequest {

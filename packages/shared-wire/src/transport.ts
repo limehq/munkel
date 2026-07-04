@@ -1,3 +1,13 @@
+/**
+ * Named-pipe / Unix-socket transport for the `munkel` CLI and tray/menu-bar
+ * apps.
+ *
+ * The wire contract is the same on every platform; the only thing that changes
+ * is the address (Unix-domain socket on macOS, named pipe on Windows).
+ *
+ * See {@link ../PROTOCOL.md} for the full Munkel wire protocol v1 spec.
+ */
+
 import net from 'node:net';
 import type { ControlRequest, ControlResponse } from './control.js';
 
@@ -14,17 +24,22 @@ function sanitizePath(path: string): string {
   return path.trim();
 }
 
+export interface ControlServer {
+  close(): Promise<void>;
+}
+
 /**
- * Create a named-pipe server for the Munkel control protocol.
+ * Create a named-pipe (or Unix-domain-socket, when the path is a normal file
+ * path) server for the Munkel control protocol.
  *
  * Each connection expects exactly one line of JSON (a {@link ControlRequest})
- * and receives one line of JSON (a {@link ControlResponse}) before the server
- * closes the connection.
+ * and receives one line of JSON (a {@link ControlResponse}) before the
+ * server closes the connection.
  */
 export function createControlServer(
   pipeName: string,
   handler: (request: ControlRequest) => Promise<ControlResponse>,
-): Promise<{ close(): Promise<void> }> {
+): Promise<ControlServer> {
   return new Promise((resolve, reject) => {
     const server = net.createServer((socket) => {
       let buffer = '';
@@ -43,7 +58,10 @@ export function createControlServer(
           const request = JSON.parse(line) as ControlRequest;
           response = await handler(request);
         } catch (err) {
-          response = { ok: false, error: err instanceof Error ? err.message : String(err) };
+          response = {
+            ok: false,
+            error: err instanceof Error ? err.message : String(err),
+          };
         }
 
         socket.write(`${JSON.stringify(response)}\n`, () => {
@@ -72,17 +90,21 @@ export function createControlServer(
   });
 }
 
-/**
- * Connect to a Munkel control server over a Windows named pipe.
- *
- * The control protocol is one request/response per connection, so every call
- * to `request` opens a fresh named-pipe connection and closes it after the
- * response line arrives.
- */
-export function createControlClient(pipeName: string): Promise<{
+export interface ControlClient {
   request(req: ControlRequest): Promise<ControlResponse>;
   close(): Promise<void>;
-}> {
+}
+
+/**
+ * Connect to a Munkel control server over a Windows named pipe (or a
+ * Unix-domain socket, when the path is a normal file path — used by the
+ * CLI tests).
+ *
+ * The control protocol is one request/response per connection, so every
+ * call to `request` opens a fresh connection and closes it after the
+ * response line arrives.
+ */
+export function createControlClient(pipeName: string): Promise<ControlClient> {
   const path = sanitizePath(pipeName);
 
   function request(req: ControlRequest): Promise<ControlResponse> {

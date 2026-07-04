@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { GroupRoom } from './group-room';
-import { GROUP_ID_REGEX, MEMBER_ID_REGEX } from './protocol';
+import { GROUP_ID_REGEX, MEMBER_ID_REGEX } from '@munkel/shared-wire/protocol';
 import { registerBlobRoutes, sweepExpiredBlobs } from './blob';
 import type { BlobEnv } from './blob';
 import { createLogger } from './lib/logger';

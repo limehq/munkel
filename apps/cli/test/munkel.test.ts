@@ -2,8 +2,8 @@ import { afterEach, expect, test } from "bun:test"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { fileURLToPath } from "node:url"
-import { createPipeServer } from "../src/transport.js"
-import type { ControlResponse } from "../src/control.js"
+import { createControlServer } from "@munkel/shared-wire/transport"
+import type { ControlResponse } from "@munkel/shared-wire/control"
 
 // Runs the CLI as a subprocess against a fake app listening on a temporary
 // Unix socket (MUNKEL_SOCKET overrides the default path).
@@ -41,9 +41,9 @@ function fakeApp(respond: (request: unknown) => unknown) {
 function fakePipeApp(respond: (request: unknown) => ControlResponse) {
   // node:net's createServer({ path }) takes a Unix-domain-socket path on
   // macOS/Linux and a `\\.\pipe\<name>` path on Windows — the same
-  // `createPipeServer` from apps/cli/src/transport.ts handles both. The
-  // fake app thus exercises the CLI's named-pipe code path on every
-  // platform (Bun listens on the same kind of path it then connects to).
+  // `createControlServer` from @munkel/shared-wire handles both. The fake
+  // app thus exercises the CLI's named-pipe code path on every platform
+  // (Bun listens on the same kind of path it then connects to).
   const pipePath = join(
     tmpdir(),
     `munkel-pipe-${process.pid}-${Math.random().toString(36).slice(2)}.sock`,
@@ -51,10 +51,10 @@ function fakePipeApp(respond: (request: unknown) => ControlResponse) {
   const requests: unknown[] = []
   let server: { close(): Promise<void> } | undefined
   let stopped = false
-  // createPipeServer is async; the caller awaits the returned promise via
+  // createControlServer is async; the caller awaits the returned promise via
   // runMunkelPipe below. We track the requests in a closure and resolve
   // when the test ends.
-  const pending = createPipeServer(pipePath, async (request) => {
+  const pending = createControlServer(pipePath, async (request) => {
     requests.push(request)
     return respond(request)
   }).then((s) => {
@@ -401,9 +401,9 @@ test("a silent app triggers a bounded response timeout", async () => {
 })
 
 // MUNKEL_PIPE exercises the Windows named-pipe code path. The fake app
-// uses `createPipeServer` (node:net), which on macOS/Linux binds a
+// uses `createControlServer` (node:net), which on macOS/Linux binds a
 // Unix-domain-socket path and on Windows binds a named pipe. The CLI's
-// pipe client uses `createPipeClient` from the same module, so the
+// control client uses `createControlClient` from the same module, so the
 // round-trip is the production code path on every platform.
 test("circles over MUNKEL_PIPE works the same as the Unix socket", async () => {
   const app = await fakePipeApp(() => ({

@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'bun:test';
+import { MAX_BLOB_BYTES } from '@munkel/shared-wire/wire-constants';
 import {
 	blobBaseUrl,
 	generateBlobKey,
 	uploadBlob,
-	MAX_BLOB_BYTES,
 } from '../blob-upload';
 
 describe('blobBaseUrl', () => {
