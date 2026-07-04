@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { NOTCH_FULL_MS, NOTCH_HISTORY_MS, NOTCH_RETRACT_AT_MS, type NotchPhase } from './notch-phase';
 import { pruneNotchHistory } from './prune-notch-history';
 import type { NotchMessage } from '../../shared/types';
@@ -58,27 +58,27 @@ export function useNotchLifecycle(): UseNotchLifecycleReturn {
 
 	const setReopening = (value: boolean) => setHovering(value);
 
-	const cancelHoverLeave = () => {
+	const cancelHoverLeave = useCallback(() => {
 		if (leaveHoverTimer.current) {
 			clearTimeout(leaveHoverTimer.current);
 			leaveHoverTimer.current = null;
 		}
-	};
+	}, []);
 
-	const scheduleHoverLeave = () => {
+	const scheduleHoverLeave = useCallback(() => {
 		if (replyOpen) return;
 		cancelHoverLeave();
 		leaveHoverTimer.current = setTimeout(() => {
 			setHovering(false);
 			leaveHoverTimer.current = null;
 		}, HOVER_LEAVE_DELAY_MS);
-	};
+	}, [replyOpen, cancelHoverLeave]);
 
-	const reopenFromHoverTarget = () => {
+	const reopenFromHoverTarget = useCallback(() => {
 		if (history.length === 0) return;
 		cancelHoverLeave();
 		setHovering(true);
-	};
+	}, [history.length, cancelHoverLeave]);
 
 	const setReplyOpen = (value: boolean) => {
 		if (!value) {
@@ -86,19 +86,19 @@ export function useNotchLifecycle(): UseNotchLifecycleReturn {
 		}
 	};
 
-	const openReply = (entry: NotchHistoryEntry) => {
+	const openReply = useCallback((entry: NotchHistoryEntry) => {
 		setReplyingTo(entry.id);
-	};
+	}, []);
 
-	const closeReply = () => {
+	const closeReply = useCallback(() => {
 		setReplyingTo(null);
-	};
+	}, []);
 
 	const copyText = (text: string) => {
 		void navigator.clipboard.writeText(text);
 	};
 
-	const onNotchMessage = (message: NotchMessage) => {
+	const onNotchMessage = useCallback((message: NotchMessage) => {
 		const entry: NotchHistoryEntry = {
 			...message,
 			id: nextNotchId(),
@@ -108,7 +108,7 @@ export function useNotchLifecycle(): UseNotchLifecycleReturn {
 		setHovering(false);
 		cancelHoverLeave();
 		closeReply();
-	};
+	}, [cancelHoverLeave, closeReply]);
 
 	// Phase lifecycle: FULL → PEEK → RETRACTED for each new newest message.
 	useEffect(() => {
@@ -161,7 +161,7 @@ export function useNotchLifecycle(): UseNotchLifecycleReturn {
 			removeHide();
 			removeReopen();
 		};
-	}, []);
+	}, [cancelHoverLeave, closeReply]);
 
 	// Keep the notch window interactive whenever the user needs to interact with it.
 	useEffect(() => {
