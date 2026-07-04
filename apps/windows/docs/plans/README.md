@@ -20,7 +20,7 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 > **Plans 01–07 are merged/implemented into `platform/windows/v2-clean`.**
 > Phase 2 + Plans 01–05 shipped via PR #12–#16 and PR #22; Plan 06 merged via
 > this merge; Plan 07 implemented on `platform/windows/notch-retract-fix` and
-> merged into `v2-clean`. The `v2-clean` tip is the current merge commit.
+> merged into `v2-clean`. The `v2-clean` tip is `1c7c0c2`.
 > Plan 05 was implemented in branch `platform/windows/notch-peek-history` and merged via PR #22 (`a72b456`).
 > The feature sub-branches for #01–#04 were tagged (`feat/windows-*`) and deleted
 > after merge. Plan 05 used `platform/windows/notch-peek-history` and was also
@@ -65,8 +65,7 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 ## Current status (2026-07-04)
 
 - **windows-native-full-build COMPLETE.** Phase 2 + Plans 01–07 all merged or
-  implemented into `platform/windows/v2-clean` (tip is the current merge commit);
-  CI green.
+  implemented into `platform/windows/v2-clean` (tip `1c7c0c2`); CI green.
 - **Post-plan features merged into `v2-clean`:** packaged renderer path fix
   (`3555a62`), near-opaque/darker UI + notch fill (`01b8efa`, `aed3267`), and the
   NSIS one-click installer with Start-Menu shortcuts (`fdf29d4`) — landed via the
