@@ -14,6 +14,7 @@ the main process by `ipcMain.handle(...)`.
 | `hide-window` | `() => Promise<void>` | `main.ts` | Hides the window that sent the request. |
 | `show-palette` | `() => Promise<void>` | `main.ts` | Shows the quick-send palette. |
 | `toggle-menu` | `() => Promise<void>` | `main.ts` | Toggles the tray menu window. |
+| `menu-picker-state` | `(open: boolean) => Promise<void>` | `main.ts` | Menu renderer signals when a native picker (recipient `<select>`) is open, so its focus-stealing popup does not blur-dismiss the menu (Plan 06 click-away-to-dismiss). |
 | `quit-app` | `() => Promise<void>` | `main.ts` | Quits the application. |
 | `join-circle` | `(code: string, relayUrl?: string) => Promise<void>` | `session-handlers.ts` | Join or create a circle. |
 | `leave-circle` | `(code: string) => Promise<void>` | `session-handlers.ts` | Leave a circle. |

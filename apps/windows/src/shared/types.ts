@@ -60,6 +60,7 @@ export interface IpcApi {
 	hideWindow: () => Promise<void>;
 	showPalette: () => Promise<void>;
 	toggleMenu: () => Promise<void>;
+	setMenuPickerOpen: (open: boolean) => Promise<void>;
 	quitApp: () => Promise<void>;
 	onGlobalShortcut: (callback: () => void) => () => void;
 

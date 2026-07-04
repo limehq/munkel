@@ -36,4 +36,4 @@ Windows-specific plans and contracts live under
 | Task | Status | Owner | Notes |
 |------|--------|-------|-------|
 | **Review [ponytail audit report](./audits/ponytail-audit-2026-06-30.md)** | Open | — | Walk findings #1–#25; confirm line/dep estimates; decide which cuts to implement and in what order; resolve whether Swift/TS shared core (#1) becomes a milestone or stays deferred. No code changes until reviewed. |
-| **Fix [Windows notch UX bugs](./bugs/windows-notch-ux-2026-06-30.md)** | Open | — | Investigation done 2026-06-30. Implement P0 (reply/send), P1 (sizing), P2 (history) per consolidated plan. |
+| **Fix [Windows notch UX bugs](./bugs/windows-notch-ux-2026-06-30.md)** | Partially done | — | P0 reply/send addressed by Session 1 work (pending QA). P2 history fixed by PR #22 (`a72b456`). P1 sizing (WIN-NOTCH-001) still open; see `docs/bugs/windows-notch-ux-2026-06-30.md`. |

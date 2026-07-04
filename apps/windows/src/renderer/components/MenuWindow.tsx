@@ -384,6 +384,8 @@ function CircleSection({
 					className="frosted-field recipient-select"
 					value={recipient}
 					onChange={(e) => onRecipientChange(e.target.value)}
+					onFocus={() => void window.electronAPI.setMenuPickerOpen(true)}
+					onBlur={() => void window.electronAPI.setMenuPickerOpen(false)}
 				>
 					<option value="">All</option>
 					{circle.members.map((m) => (

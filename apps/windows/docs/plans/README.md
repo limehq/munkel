@@ -12,17 +12,21 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 | 2 | [GitHub OAuth (Windows)](./02-github-oauth-windows.md) | `platform/windows/github-oauth-windows` | Phase 2 | ✅ Merged (PR #15) |
 | 3 | [Windows CI](./03-windows-ci.md) | `platform/windows/windows-ci` | Phase 2 | ✅ Merged (PR #14) |
 | 4 | [Release packaging](./04-packaging.md) | `platform/windows/packaging` | #3 green | ✅ Merged (PR #16) |
-| 5 | [Notch message auto-dismiss timer](./05-notch-message-timer.md) | `platform/windows/notch-message-timer` | #4 in `v2-clean` | 📝 Planned |
-| 7 | [Notch hover-stuck / retract deadlock fix](./07-notch-retract-verify-fix.md) | `platform/windows/notch-retract-fix` | #5 in `v2-clean` | ✅ Implemented |
+| 5 | [Notch Peek + 60s History](./05-notch-message-timer.md) | `platform/windows/notch-peek-history` | #4 in `v2-clean` | ✅ Merged (PR #22) |
+| 6 | [Menu window click-away dismiss](./06-menu-window-dismiss.md) | `platform/windows/menu-dismiss-on-blur` | #23 (single-instance) in `v2-clean` | ✅ Merged (this merge) |
+| 7 | [Notch hover-stuck / retract deadlock fix](./07-notch-retract-verify-fix.md) | `platform/windows/notch-retract-fix` | PR #22 in `v2-clean` | ✅ Implemented/merged |
+| 8 | [Orphaned Electron store cleanup](./08-electron-store-cleanup.md) | — (maintenance, no branch) | — | ✅ Done |
 
-> **Plans 01–04 are merged into `platform/windows/v2-clean`.**
-> Plan 07 is implemented on `platform/windows/notch-retract-fix` and ready for PR.
-> Phase 2 + Plans 01–04 shipped via PR #12–#16; the `v2-clean` tip is `14b9ffc`.
-> Plan 05 is a planned future feature — not yet branched or implemented.
+> **Plans 01–07 are merged/implemented into `platform/windows/v2-clean`.**
+> Phase 2 + Plans 01–05 shipped via PR #12–#16 and PR #22; Plan 06 merged via
+> this merge; Plan 07 implemented on `platform/windows/notch-retract-fix` and
+> merged into `v2-clean`. The `v2-clean` tip is the current merge commit.
+> Plan 05 was implemented in branch `platform/windows/notch-peek-history` and merged via PR #22 (`a72b456`).
 > The feature sub-branches for #01–#04 were tagged (`feat/windows-*`) and deleted
-> after merge. The individual plan files below are kept as historical execution
-> references — their per-task "next step" wording reflects the state at authoring
-> time, not now.
+> after merge. Plan 05 used `platform/windows/notch-peek-history` and was also
+> deleted after merge via PR #22. Plan 06 used `platform/windows/menu-dismiss-on-blur`.
+> The individual plan files below are kept as historical execution references —
+> their per-task "next step" wording reflects the state at authoring time, not now.
 
 ## Agent workflow (every plan)
 
@@ -58,10 +62,11 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 - Do not push to `main` or upstream `limehq/munkel`.
 - macOS-only verification steps are marked **human** — skip on Windows-only agents.
 
-## Current status (2026-06-29)
+## Current status (2026-07-04)
 
-- **windows-native-full-build COMPLETE.** Phase 2 + Plans 01–04 all merged via
-  PR #12–#16 into `platform/windows/v2-clean` (tip `14b9ffc`); CI green.
+- **windows-native-full-build COMPLETE.** Phase 2 + Plans 01–07 all merged or
+  implemented into `platform/windows/v2-clean` (tip is the current merge commit);
+  CI green.
 - **Post-plan features merged into `v2-clean`:** packaged renderer path fix
   (`3555a62`), near-opaque/darker UI + notch fill (`01b8efa`, `aed3267`), and the
   NSIS one-click installer with Start-Menu shortcuts (`fdf29d4`) — landed via the

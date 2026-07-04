@@ -2,8 +2,8 @@
 
 **Reporter:** User (manual QA)  
 **Platform:** Windows client (`apps/windows`)  
-**Branch at report time:** `platform/windows/v2-clean` (tip `14b9ffc`)  
-**Status:** Investigated (2026-06-30) — root causes identified; fix plan pending
+**Branch at report time:** `platform/windows/v2-clean` (tip `14b9ffc` — historical; current tip is `f29c577`)  
+**Status:** Partially fixed (2026-07-04) — WIN-NOTCH-002 merged via PR #22; WIN-NOTCH-003 addressed by Session 1 work; WIN-NOTCH-001 remains open.
 
 ## Summary
 
@@ -50,6 +50,10 @@ Notch occupies excessive screen area (exact dimensions TBD — capture screensho
 - `apps/windows/src/renderer/styles/global.css` — `.notch-widget { width: 360px; … }` matches window width; padding/animation may visually enlarge beyond frame on some DPI settings.
 - Electron `BrowserWindow` on Windows with `thickFrame: true`, `hasShadow: true` — frame/shadow may add perceived size.
 
+### Status
+
+**Open.** Sizing fixes were scoped out of PR #22 and remain the P1 track in IDEAS.md § Session 2. The 360×260 fixed window and lack of dynamic resize to content still need attention.
+
 ### Diagnosis notes (Phase 1 — pending)
 
 - [ ] Capture `screen.getPrimaryDisplay().scaleFactor` and actual `BrowserWindow` bounds vs CSS layout box.
@@ -70,13 +74,17 @@ macOS client keeps a **60-second RAM-only history** in the expanded notch (`Notc
 
 ### Actual behavior (Windows)
 
-`NotchWidget.tsx` renders **only the latest** `NotchMessage` from local state (`message`). No history list, no expand/collapse, no 60 s pruning.
+Before PR #22, `NotchWidget.tsx` rendered **only the latest** `NotchMessage` from local state (`message`). No history list, no expand/collapse, no 60 s pruning appeared.
 
-`app-store.tsx` accumulates `notchMessages[]` via `onNotchMessage`, but **NotchWidget does not consume that array** for display — only the most recent IPC update is shown.
+`app-store.tsx` accumulated `notchMessages[]` via `onNotchMessage`, but **NotchWidget did not consume that array** for display — only the most recent IPC update was shown.
 
 ### Classification
 
 Likely **macOS parity gap** (missing feature) rather than a regression, unless Windows ui-spec explicitly promised history (it does not today). User impact is the same: expected product behavior from macOS/landing is absent.
+
+### Status
+
+**Fixed by PR #22** (`a72b456`, branch `platform/windows/notch-peek-history`) into `platform/windows/v2-clean`. The implementation adds a 60-second in-memory history buffer in the notch renderer, phase-based lifecycle (full → peek → retracted), hover-reopen, and pruning. Automated tests pass; manual live-animation QA is the remaining Plan 07 re-QA gate.
 
 ### Suspected code areas
 
@@ -109,6 +117,10 @@ Likely **macOS parity gap** (missing feature) rather than a regression, unless W
 - User expects click-on-message → compose (may be UX mismatch with Plan 01 explicit Reply button).
 - Input field either not shown, not focusable, or keystrokes ignored.
 - Send appears to no-op (no delivery; error visibility unknown).
+
+### Status
+
+**Addressed by Session 1 work** (IDEAS.md § Session 1): `broadcastState` now reaches `notchWindow`, `NotchMessage` carries `senderMemberId`, reply delivery is fail-closed, and the 80 ms focus delay was added. Code tasks are complete; final acceptance depends on the same manual QA cycle as Session 1.
 
 ### Hypotheses (unverified — for Phase 3)
 
@@ -174,8 +186,8 @@ agent chat / `docs/README.md#open-tasks`.
 | ID | Root cause (confidence) | Fix track |
 |----|-------------------------|-----------|
 | WIN-NOTCH-001 | No teaser mode; fixed 360×260 window; dimension drift vs macOS (HIGH) | Shrink + dynamic resize |
-| WIN-NOTCH-002 | Missing feature — history never implemented (HIGH) | Renderer 60s history MVP |
-| WIN-NOTCH-003 | Multi-cause: UX mismatch + `broadcastState` skips notch + no `senderMemberId` + silent relay reject (HIGH) | P0 state broadcast + memberId binding |
+| WIN-NOTCH-002 | Missing feature — history never implemented (HIGH) | **Fixed by PR #22** — renderer 60s history + phase lifecycle |
+| WIN-NOTCH-003 | Multi-cause: UX mismatch + `broadcastState` skips notch + no `senderMemberId` + silent relay reject (HIGH) | **Addressed by Session 1 work** — pending manual QA |
 
 ---
 
@@ -185,3 +197,4 @@ agent chat / `docs/README.md#open-tasks`.
 |------|--------|
 | 2026-06-30 | Initial report from user QA; filed by agent |
 | 2026-06-30 | Root-cause investigation (3 sub-agents); consolidated findings |
+| 2026-07-04 | WIN-NOTCH-002 fixed by PR #22 (`a72b456`); WIN-NOTCH-003 addressed by Session 1 work; WIN-NOTCH-001 remains open |
