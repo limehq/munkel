@@ -106,6 +106,16 @@ function renderHook<T>(useHook: () => T) {
 	return { result, unmount: () => root.unmount() };
 }
 
+function renderHookStrict<T>(useHook: () => T) {
+	const result = { current: null as T };
+	function TestComponent() {
+		result.current = useHook();
+		return null;
+	}
+	const root = create(React.createElement(React.StrictMode, null, React.createElement(TestComponent)));
+	return { result, unmount: () => root.unmount() };
+}
+
 function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
 	return {
 		sender: 'Alice',
@@ -329,5 +339,88 @@ describe('useNotchLifecycle', () => {
 			timers.advance(1_500);
 		});
 		expect(result.current.copiedId).toBeNull();
+	});
+
+	it('clears timers on unmount', async () => {
+		const clearTimeoutSpy = spyOn(globalThis, 'clearTimeout');
+		const clearIntervalSpy = spyOn(globalThis, 'clearInterval');
+		const { result, unmount } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage());
+		});
+		await act(async () => {
+			result.current.scheduleHoverLeave();
+		});
+
+		const timeoutsBeforeUnmount = clearTimeoutSpy.mock.calls.length;
+		const intervalsBeforeUnmount = clearIntervalSpy.mock.calls.length;
+
+		await act(async () => {
+			unmount();
+		});
+
+		expect(clearTimeoutSpy.mock.calls.length).toBeGreaterThan(timeoutsBeforeUnmount);
+		expect(clearIntervalSpy.mock.calls.length).toBeGreaterThan(intervalsBeforeUnmount);
+	});
+
+	it('cancels empty-hide timer when a new message arrives during the 350ms window', async () => {
+		const emptySpy = spyOn(electronApi, 'notchEmpty');
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'first' }));
+		});
+
+		// Wait for the first message to be pruned, starting the empty-hide timer.
+		await act(async () => {
+			timers.advance(60_000);
+		});
+		expect(result.current.history.length).toBe(0);
+
+		// Send a second message before the 350ms empty-hide timer fires.
+		await act(async () => {
+			timers.advance(200);
+		});
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'second' }));
+		});
+
+		// Advance past the original empty-hide deadline.
+		await act(async () => {
+			timers.advance(350);
+		});
+
+		expect(emptySpy).toHaveBeenCalledTimes(0);
+		expect(result.current.history[0].text).toBe('second');
+	});
+
+	it('handles StrictMode double-invoke without duplicating phase or prune timers', async () => {
+		const emptySpy = spyOn(electronApi, 'notchEmpty');
+		const { result, unmount } = renderHookStrict(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'strict' }));
+		});
+		expect(result.current.phase).toBe('full');
+
+		await act(async () => {
+			timers.advance(5_000);
+		});
+		expect(result.current.phase).toBe('peek');
+
+		await act(async () => {
+			timers.advance(55_000);
+		});
+		expect(result.current.history.length).toBe(0);
+
+		await act(async () => {
+			timers.advance(350);
+		});
+		expect(emptySpy).toHaveBeenCalledTimes(1);
+
+		await act(async () => {
+			unmount();
+		});
 	});
 });
