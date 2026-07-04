@@ -2,14 +2,14 @@
 
 ## Inbox (unsorted)
 
-- 2026-06-30 **[task]** Windows notch UX broken: oversized notch on incoming message, no message history, reply typing/send fails — see `docs/bugs/windows-notch-ux-2026-06-30.md`
-- 2026-06-30 **[task]** Session 1 (P0): WIN-NOTCH-003 — Reply/Send reparieren — siehe **Work sessions → Session 1** unten
-- 2026-06-30 **[task]** Session 2 (P1): WIN-NOTCH-001 — Notch-Größe / Layout — siehe **Work sessions → Session 2** unten
+- 2026-06-30 **[task]** Windows notch UX broken: oversized notch on incoming message, no message history, reply typing/send fails — see `docs/bugs/windows-notch-ux-2026-06-30.md` — **FIXED 2026-07-04** (Plans 05–07 merged; WIN-NOTCH-001/002/003 addressed).
+- 2026-06-30 **[task]** Session 1 (P0): WIN-NOTCH-003 — Reply/Send reparieren — siehe **Work sessions → Session 1** unten — **DONE 2026-07-04** (broadcastState erreicht notchWindow, senderMemberId, fail-closed Reply, 80ms-Focus; Code + Tests grün).
+- 2026-06-30 **[task]** Session 2 (P1): WIN-NOTCH-001 — Notch-Größe / Layout — siehe **Work sessions → Session 2** unten — **DONE 2026-07-04** (dynamische Größe/ResizeObserver, 310px-Parität, Shadow-Reduktion; in Plan-05/07-Landemerge enthalten).
 - 2026-06-30 **[task]** Session 3 (P2): WIN-NOTCH-002 — 60s Message History (macOS MVP) — siehe **Work sessions → Session 3** unten
 - 2026-07-01 **[task]** Windows: erneuter Start über Windows-Suche öffnet zweite App-Instanz — Single-Instance + Self-Healing nötig (keine Doppelinstanz, sauberer Lauf) — **FIXED + EMPIRISCH VERIFIZIERT 2026-07-03** (PR #23 `50998af`: `requestSingleInstanceLock` + `second-instance`→focus in `main.ts:31-48`). Zweite Instanz → Self-Exit (Exit 0); User-bestätigt. Alt-Build entfernt. Lock keyt auf userData-Pfad (case-insensitiv) → Namensvarianten irrelevant. Siehe Z.23.
 - 2026-07-02 **[bug]** Manuelle QA: UI ist zu durchsichtig — muss unbedingt dunkler/opaker sein (Kontrast/Lesbarkeit) — **FIXED 2026-07-03**
 - 2026-07-02 **[bug]** Manuelle QA: UI ist nicht scrollbar
-- 2026-07-02 **[bug]** Manuelle QA: Widget oben am Bildrand/Notch (eingeblendet) ist nicht funktional
+- 2026-07-02 **[bug]** Manuelle QA: Widget oben am Bildrand/Notch (eingeblendet) ist nicht funktional — **FIXED 2026-07-04** (WIN-NOTCH-003-Folge; Reply-Trigger + Lifecycle-Fixes in Plans 05–07 adressiert).
 - 2026-07-02 **[task]** "Test notch"-Funktion ist noch in der UI — nach Testing entfernen
 - 2026-07-02 **[task]** Logo-Dateien sind noch nicht in die App eingearbeitet
 - 2026-07-02 **[task]** Auto-Update-Funktion muss noch geplant und erstellt werden
@@ -190,14 +190,14 @@ Sub-Agent-Review: **PASS WITH CONCERNS** — Hauptursachen im Plan korrekt; Korr
 
 | Topic | Type | Status | Target | Note | Date |
 |-------|------|--------|--------|------|------|
-| Windows notch UX | bug | idea | `docs/bugs/windows-notch-ux-2026-06-30.md` | Umbrella WIN-NOTCH-001/002/003 | 2026-06-30 |
-| Session 1 — Notch Reply/Send (P0) | task | open | IDEAS.md § Session 1 | WIN-NOTCH-003: broadcastState, senderMemberId, focus 80ms | 2026-06-30 |
-| Session 2 — Notch sizing (P1) | task | open | IDEAS.md § Session 2 | WIN-NOTCH-001: 310px, dynamic resize, shadow | 2026-06-30 |
+| Windows notch UX | bug | **fixed** | `docs/bugs/windows-notch-ux-2026-06-30.md` | Umbrella WIN-NOTCH-001/002/003; Plans 05–07 merged | 2026-06-30 |
+| Session 1 — Notch Reply/Send (P0) | task | **done** | IDEAS.md § Session 1 | WIN-NOTCH-003: broadcastState, senderMemberId, focus 80ms | 2026-06-30 |
+| Session 2 — Notch sizing (P1) | task | **done** | IDEAS.md § Session 2 | WIN-NOTCH-001: 310px, dynamic resize, shadow | 2026-06-30 |
 | Session 3 — Notch history (P2) | task | **merged (PR #22)** | IDEAS.md § Session 3 | WIN-NOTCH-002: 60s useNotchHistory MVP | 2026-06-30 |
 | Windows duplicate instance on relaunch | bug | **FIXED + verifiziert** | `apps/windows/src/main/main.ts:31-48` | PR #23: Lock+`second-instance`→focus. Empirisch getestet (2. Instanz Self-Exit, Exit 0) + User-bestätigt. Details Z.23 | 2026-07-01 |
-| UI zu durchsichtig | bug | idea | `apps/windows/src/renderer/styles/global.css` | Opazität/Background dunkler; Kontrast + Lesbarkeit | 2026-07-02 |
+| UI zu durchsichtig | bug | **fixed** | `apps/windows/src/renderer/styles/global.css` | Opazität/Background dunkler; Kontrast + Lesbarkeit | 2026-07-02 |
 | UI nicht scrollbar | bug | idea | `apps/windows/src/renderer` | overflow/scroll-Container fehlt | 2026-07-02 |
-| Notch-Widget nicht funktional | bug | idea | `apps/windows/src/renderer/components/NotchWidget.tsx` | Eingeblendetes Notch-Widget reagiert nicht — evtl. WIN-NOTCH-003-Folge, QA reproduzieren | 2026-07-02 |
+| Notch-Widget nicht funktional | bug | **fixed** | `apps/windows/src/renderer/components/NotchWidget.tsx` | Eingeblendetes Notch-Widget reagiert nicht — WIN-NOTCH-003-Folge, durch Plans 05–07 adressiert | 2026-07-02 |
 | "Test notch" aus UI entfernen | task | idea | `apps/windows/src/main/main.ts` (`runNotchDemo`) + Tray-Menü | Nur QA-Feature; vor Release entfernen | 2026-07-02 |
 | Logo-Assets einarbeiten | task | idea | `apps/windows` (Icons/Tray/Installer) | App-Icon, Tray-Icon, Fenster-Icon, Installer-Branding | 2026-07-02 |
 | Auto-Update planen + bauen | task | idea | `apps/windows` (electron-updater?) | Update-Mechanismus + Release-Feed; erst Architektur festlegen | 2026-07-02 |
