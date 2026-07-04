@@ -2,6 +2,7 @@
 
 ## Inbox (unsorted)
 
+- 2026-07-04 **[task]** **ACTIVE NEXT TASK — Review Ponytail audit report** (`docs/audits/ponytail-audit-2026-06-30.md`): walk findings #1–#25, confirm line/dep estimates, decide implement/defer/reject for each, resolve Swift/TS shared core (#1) milestone question. Blocks final PR to `main`; no code changes until reviewed. Track outcome in `docs/audits/ponytail-audit-review.md`.
 - 2026-06-30 **[task]** Windows notch UX broken: oversized notch on incoming message, no message history, reply typing/send fails — see `docs/bugs/windows-notch-ux-2026-06-30.md` — **FIXED 2026-07-04** (Plans 05–07 merged; WIN-NOTCH-001/002/003 addressed).
 - 2026-06-30 **[task]** Session 1 (P0): WIN-NOTCH-003 — Reply/Send reparieren — siehe **Work sessions → Session 1** unten — **DONE 2026-07-04** (broadcastState erreicht notchWindow, senderMemberId, fail-closed Reply, 80ms-Focus; Code + Tests grün).
 - 2026-06-30 **[task]** Session 2 (P1): WIN-NOTCH-001 — Notch-Größe / Layout — siehe **Work sessions → Session 2** unten — **DONE 2026-07-04** (dynamische Größe/ResizeObserver, 310px-Parität, Shadow-Reduktion; in Plan-05/07-Landemerge enthalten).
@@ -190,6 +191,7 @@ Sub-Agent-Review: **PASS WITH CONCERNS** — Hauptursachen im Plan korrekt; Korr
 
 | Topic | Type | Status | Target | Note | Date |
 |-------|------|--------|--------|------|------|
+| Ponytail audit review | task | **in progress** | `docs/audits/ponytail-audit-review.md` | Active next task; blocks final PR to `main`. No code changes until reviewed. | 2026-07-04 |
 | Windows notch UX | bug | **fixed** | `docs/bugs/windows-notch-ux-2026-06-30.md` | Umbrella WIN-NOTCH-001/002/003; Plans 05–07 merged | 2026-06-30 |
 | Session 1 — Notch Reply/Send (P0) | task | **done** | IDEAS.md § Session 1 | WIN-NOTCH-003: broadcastState, senderMemberId, focus 80ms | 2026-06-30 |
 | Session 2 — Notch sizing (P1) | task | **done** | IDEAS.md § Session 2 | WIN-NOTCH-001: 310px, dynamic resize, shadow | 2026-06-30 |
