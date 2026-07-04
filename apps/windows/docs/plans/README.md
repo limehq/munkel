@@ -12,12 +12,15 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 | 2 | [GitHub OAuth (Windows)](./02-github-oauth-windows.md) | `platform/windows/github-oauth-windows` | Phase 2 | ✅ Merged (PR #15) |
 | 3 | [Windows CI](./03-windows-ci.md) | `platform/windows/windows-ci` | Phase 2 | ✅ Merged (PR #14) |
 | 4 | [Release packaging](./04-packaging.md) | `platform/windows/packaging` | #3 green | ✅ Merged (PR #16) |
+| 5 | [Notch message auto-dismiss timer](./05-notch-message-timer.md) | `platform/windows/notch-message-timer` | #4 in `v2-clean` | 📝 Planned |
 
-> **All Windows-integration plans are merged into `platform/windows/v2-clean`.**
+> **Plans 01–04 are merged into `platform/windows/v2-clean`.**
 > Phase 2 + Plans 01–04 shipped via PR #12–#16; the `v2-clean` tip is `14b9ffc`.
-> The feature sub-branches were tagged (`feat/windows-*`) and deleted after merge.
-> The individual plan files below are kept as historical execution references —
-> their per-task "next step" wording reflects the state at authoring time, not now.
+> Plan 05 is a planned future feature — not yet branched or implemented.
+> The feature sub-branches for #01–#04 were tagged (`feat/windows-*`) and deleted
+> after merge. The individual plan files below are kept as historical execution
+> references — their per-task "next step" wording reflects the state at authoring
+> time, not now.
 
 ## Agent workflow (every plan)
 
@@ -55,13 +58,20 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 
 ## Current status (2026-06-29)
 
-- **Post-Plan work in progress (not yet merged to `v2-clean`):**
-  - `platform/windows/fix-renderer-path` — renderer path fix for packaged builds (`3555a62`)
-  - `platform/windows/ui-darken` — near-opaque UI surfaces + notch fill (`01b8efa`, `aed3267`), user-approved
-  - `platform/windows/installer-shortcuts` — NSIS one-click installer (`fdf29d4`), E2E verified
-- **Next agent task:** Settings UI redesign (E5) — see `.planning/phases/E-ui-polish-hyperframes/NEXT-AGENT.md` (gitignored local planning).
-- **Merge gate:** Open PRs in order fix-renderer-path → ui-darken → installer-shortcuts → `v2-clean`.
-- Per-feature tracking: `.planning/phases/{0,A,B,C,D,E}-*/` + todos in `.planning/todos/pending/`.
-- Next gate remains the human-owned final PR from the Windows integration to `main`
-  (see `AGENTS.md`). Plus non-blocking human gates: real GitHub login test,
-  fresh-VM QA, Authenticode signing.
+- **windows-native-full-build COMPLETE.** Phase 2 + Plans 01–04 all merged via
+  PR #12–#16 into `platform/windows/v2-clean` (tip `14b9ffc`); CI green.
+- **Post-plan features merged into `v2-clean`:** packaged renderer path fix
+  (`3555a62`), near-opaque/darker UI + notch fill (`01b8efa`, `aed3267`), and the
+  NSIS one-click installer with Start-Menu shortcuts (`fdf29d4`) — landed via the
+  `installer-shortcuts` PR (supersedes the separate fix-renderer-path / ui-darken branches).
+- Per-feature tracking artifacts live in `.planning/phases/{0,A,B,C,D,E}-*/`.
+- Next gate is the human-owned final PR from the Windows integration to `main`
+  (see `AGENTS.md` — main is reached exactly once, manually reviewed). Plus the
+  non-blocking human gates: real GitHub login test, fresh-VM QA, Authenticode signing.
+
+## Maintenance (2026-06-30)
+
+- **Ponytail audit** (repo-wide complexity review):
+  [`docs/audits/ponytail-audit-2026-06-30.md`](../../../../docs/audits/ponytail-audit-2026-06-30.md)
+- **Open:** review audit findings and prioritize cuts —
+  [`docs/README.md#open-tasks`](../../../../docs/README.md#open-tasks)

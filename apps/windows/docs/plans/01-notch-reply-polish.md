@@ -1,5 +1,12 @@
 # Plan 01: Notch reply UX polish
 
+> **Partially superseded 2026-07-02:** the "only ↩ opens reply" decision below
+> (Option A) was intentionally reversed — clicking the message body now **also**
+> opens the reply field, in addition to the ↩ button. See
+> `apps/windows/docs/ui-spec.md` (Notch content) and
+> `apps/windows/src/renderer/lib/should-open-reply-on-message-click.ts`. The rest
+> of this document is kept for historical rationale.
+
 **Branch:** `platform/windows/notch-reply-polish`  
 **Base:** the branch **already exists** with Phase 2 stacked on it. While PR #12
 is unmerged, stay on `platform/windows/notch-reply-polish` and keep working —

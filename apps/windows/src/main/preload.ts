@@ -31,6 +31,8 @@ const api: IpcApi = {
 	openChat: (code, payload) => ipcRenderer.invoke('open-chat', code, payload),
 
 	testNotch: () => ipcRenderer.invoke('test-notch'),
+	beginNotchReply: () => ipcRenderer.invoke('notch-begin-reply'),
+	endNotchReply: () => ipcRenderer.invoke('notch-end-reply'),
 
 	onStateUpdate: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: StateUpdate) => callback(data);

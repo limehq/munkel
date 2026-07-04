@@ -1,7 +1,9 @@
 import { app, ipcMain, BrowserWindow, IpcMainInvokeEvent, Tray } from 'electron';
+import fs from 'node:fs';
 import path from 'node:path';
-import { createMenuWindow, toggleMenuWindow } from './menu-window';
+import { createMenuWindow, showMenuWindow, toggleMenuWindow } from './menu-window';
 import { createNotchWindow, showNotch, hideNotch, updateNotch } from './notch-window';
+import { focusNotchForReply, unfocusNotchAfterReply } from './notch-focus';
 import { createPaletteWindow, showPalette, hidePalette } from './palette-window';
 import { createTray } from './tray';
 import { registerTogglePalette, unregisterShortcuts } from './shortcuts';
@@ -13,7 +15,18 @@ import { GitHubLoginService } from './github-login';
 import { buildControlHandler } from './control-handlers';
 import { createControlServer } from '../core/transport';
 import { buildPipeName } from '../core/control';
+import { broadcastStateUpdate } from './broadcast-state';
 import type { WindowType } from '../shared/types';
+
+// Pin the app name BEFORE anything reads userData. Without this, `electron`
+// launched directly in dev falls back to the generic "Electron" name, so dev
+// and packaged builds read DIFFERENT state.json stores (userData mismatch) —
+// the root cause of persisted circles silently not loading (presence bug H-D).
+app.setName('munkel');
+const pinnedUserData = path.join(app.getPath('appData'), 'munkel');
+fs.mkdirSync(pinnedUserData, { recursive: true });
+app.setPath('userData', pinnedUserData);
+app.setAppUserModelId('app.munkel.windows');
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -26,6 +39,13 @@ let notchWindow: BrowserWindow | null = null;
 let paletteWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let controlServer: { close(): Promise<void> } | null = null;
+
+app.on('second-instance', () => {
+	if (!menuWindow || menuWindow.isDestroyed()) {
+		menuWindow = createMenuWindow();
+	}
+	showMenuWindow(menuWindow);
+});
 
 function getWindowType(sender: Electron.WebContents): WindowType {
 	const win = BrowserWindow.fromWebContents(sender);
@@ -47,18 +67,22 @@ function runNotchDemo() {
 	if (!notchWindow) return;
 	updateNotch(notchWindow, {
 		sender: 'Munkel',
-		text: 'This is a test notification. It will hide in 5 seconds.',
+		text: 'This is a test notification. It will hide in 30 seconds.',
 		isDirect: false,
 		group: 'demo',
 		groupColor: '#34c759',
 	});
 	showNotch(notchWindow);
-	setTimeout(() => hideNotch(notchWindow), 5000);
+	// 30s gives enough time to exercise ↩ Reply during manual QA (was 5s).
+	setTimeout(() => hideNotch(notchWindow), 30_000);
 }
 
 function broadcastState(update: ReturnType<AppState['getState']>): void {
-	menuWindow?.webContents.send('state-update', update);
-	paletteWindow?.webContents.send('state-update', update);
+	broadcastStateUpdate(update, {
+		menu: menuWindow?.webContents ?? null,
+		palette: paletteWindow?.webContents ?? null,
+		notch: notchWindow?.webContents ?? null,
+	});
 }
 
 function showNotchMessage(message: import('../shared/types').NotchMessage): void {
@@ -94,6 +118,10 @@ app.whenReady().then(async () => {
 	registerTogglePalette(togglePalette);
 	registerCryptoHandlers();
 
+	// Phase-0 diagnostics (presence bug, H-D): the actual userData dir the app
+	// reads state.json from. A mismatch vs the inspected file would mean persisted
+	// circles never load → 0 sessions → 0 relay connections.
+	console.error('[munkel] userData path:', app.getPath('userData'));
 	const identityStore = new IdentityStore(app.getPath('userData'));
 	const appState = new AppState(identityStore, broadcastState, showNotchMessage, relayError);
 	const githubLoginService = new GitHubLoginService(appState, pushGitHubLoginState);
@@ -123,6 +151,14 @@ app.whenReady().then(async () => {
 	ipcMain.handle('toggle-menu', () => toggleMenuWindow(menuWindow));
 	ipcMain.handle('quit-app', () => app.quit());
 	ipcMain.handle('test-notch', () => runNotchDemo());
+	ipcMain.handle('notch-begin-reply', (event) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
+		focusNotchForReply(notchWindow);
+	});
+	ipcMain.handle('notch-end-reply', (event) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
+		unfocusNotchAfterReply(notchWindow);
+	});
 	ipcMain.handle('start-github-login', async () => {
 		githubLoginService.startGitHubLogin();
 	});

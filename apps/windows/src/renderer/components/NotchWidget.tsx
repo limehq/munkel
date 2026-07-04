@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Avatar } from './Avatar';
 import { useAppStore } from '../store/app-store';
+import { resolveReplyRecipient } from '../lib/resolve-reply-recipient';
+import { shouldOpenReplyOnMessageClick } from '../lib/should-open-reply-on-message-click';
 import type { NotchMessage } from '../../shared/types';
 
 export default function NotchWidget() {
-	const { state, sendChat } = useAppStore();
+	const { sendChat } = useAppStore();
 	const [visible, setVisible] = useState(false);
 	const [message, setMessage] = useState<NotchMessage | null>(null);
 	const [replying, setReplying] = useState(false);
@@ -13,6 +15,30 @@ export default function NotchWidget() {
 	const [replyPrivate, setReplyPrivate] = useState(false);
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const replyInputRef = useRef<HTMLInputElement>(null);
+	// Pointer-down position on the message body, so a click that was really a
+	// drag-to-select gesture does not open the reply field (see openReply).
+	const messagePointerDown = useRef<{ x: number; y: number } | null>(null);
+
+	useEffect(() => {
+		if (!replying) return;
+		let cancelled = false;
+		let focusTimer: ReturnType<typeof setTimeout> | undefined;
+		void (async () => {
+			await window.electronAPI.beginNotchReply();
+			if (cancelled) return;
+			// Wait ~80ms for the notch window to gain OS-level focus before
+			// focusing the input (macOS parity). A single rAF races the window
+			// focus and can silently drop the input focus — most visible under
+			// React StrictMode's double-invoke in dev.
+			focusTimer = setTimeout(() => replyInputRef.current?.focus(), 80);
+		})();
+		return () => {
+			cancelled = true;
+			if (focusTimer) clearTimeout(focusTimer);
+			void window.electronAPI.endNotchReply();
+		};
+	}, [replying]);
 
 	useEffect(() => {
 		const removeShow = window.electronAPI.onNotchShow(() => setVisible(true));
@@ -39,24 +65,36 @@ export default function NotchWidget() {
 		};
 	}, []);
 
-	const lookupMemberId = useCallback(
-		(group: string, sender: string): string | undefined => {
-			const circle = state.circles.find((c) => c.code === group);
-			if (!circle) return undefined;
-			const member = circle.members.find(
-				(m) => (m.displayName ?? m.memberId.slice(0, 8)) === sender
-			);
-			return member?.memberId;
-		},
-		[state.circles]
-	);
-
 	function copyText(e: React.MouseEvent) {
 		e.stopPropagation();
 		if (!message) return;
 		navigator.clipboard.writeText(message.text);
 		setCopied(true);
 		setTimeout(() => setCopied(false), 1500);
+	}
+
+	/**
+	 * Open the reply field when the message body itself is clicked — a second,
+	 * equivalent path to the ↩ button (both just call `setReplying(true)`, so the
+	 * focus `useEffect` behaves identically). The Copy/↩ buttons are siblings of
+	 * `.message-body`, so their clicks never reach here; image thumbnails are
+	 * excluded via their own `stopPropagation` (they may gain a lightbox later).
+	 */
+	function openReplyFromMessage(e: React.MouseEvent) {
+		const down = messagePointerDown.current;
+		const pointerMovedPx = down
+			? Math.hypot(e.clientX - down.x, e.clientY - down.y)
+			: 0;
+		const selection = window.getSelection();
+		const hasTextSelection =
+			!!selection &&
+			selection.toString().length > 0 &&
+			// Scope the selection check to this message body only.
+			e.currentTarget.contains(selection.anchorNode);
+		if (!shouldOpenReplyOnMessageClick({ replying, hasTextSelection, pointerMovedPx })) {
+			return;
+		}
+		setReplying(true);
 	}
 
 	async function sendReply() {
@@ -66,10 +104,12 @@ export default function NotchWidget() {
 		setSending(true);
 		setError(null);
 		try {
-			const to = replyPrivate
-				? lookupMemberId(message.group, message.sender) ?? message.sender
-				: undefined;
-			const result = await sendChat(message.group, text, to);
+			const recipient = resolveReplyRecipient(message, replyPrivate);
+			if (!recipient.ok) {
+				setError(recipient.error);
+				return;
+			}
+			const result = await sendChat(message.group, text, recipient.to);
 			if (!result.ok) {
 				setError(result.error ?? 'Circle offline — reply not sent.');
 				return; // keep text, leave field open
@@ -89,7 +129,13 @@ export default function NotchWidget() {
 				<div className="notch-content">
 					<div className="message-row">
 						<Avatar name={message.sender} size={40} />
-						<div className="message-body">
+						<div
+							className="message-body"
+							onPointerDown={(e) => {
+								messagePointerDown.current = { x: e.clientX, y: e.clientY };
+							}}
+							onClick={openReplyFromMessage}
+						>
 							<div className="message-meta">
 								<span className="sender">{message.sender}</span>
 								<span>{message.isDirect ? '🔒' : '🌐'}</span>
@@ -99,7 +145,10 @@ export default function NotchWidget() {
 							</div>
 							<p className="message-text">{message.text}</p>
 							{hasImages && (
-								<div className="image-preview-row">
+								<div
+										className="image-preview-row"
+										onClick={(e) => e.stopPropagation()}
+									>
 									{message.images!.map((img) => (
 										<img
 											key={img.id}
@@ -139,6 +188,7 @@ export default function NotchWidget() {
 									{replyPrivate ? '🔒' : '🌐'}
 								</button>
 								<input
+									ref={replyInputRef}
 									className="frosted-field"
 									placeholder={
 										replyPrivate ? `Private to ${message.sender}…` : 'Reply to all…'
@@ -152,7 +202,6 @@ export default function NotchWidget() {
 										if (e.key === 'Enter') void sendReply();
 										if (e.key === 'Escape') setReplying(false);
 									}}
-									autoFocus
 								/>
 								<button
 									className="icon-button"

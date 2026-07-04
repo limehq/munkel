@@ -29,7 +29,9 @@ the main process by `ipcMain.handle(...)`.
 | `derive-group-id` | `(code: string) => Promise<string>` | `crypto-channel.ts` | Returns the 32-char hex `groupId`. |
 | `seal-chat` | `(code: string, text: string, sentAt?: string) => Promise<string>` | `crypto-channel.ts` | Returns a base64 sealed payload. |
 | `open-chat` | `(code: string, payload: string) => Promise<{ kind: 'chat'; text: string; sentAt: string } \| null>` | `crypto-channel.ts` | Decrypts and decodes a chat payload. |
-| `test-notch` | `() => Promise<void>` | `main.ts` | Shows a demo notch message for 5 seconds. |
+| `test-notch` | `() => Promise<void>` | `main.ts` | Shows a demo notch message for 30 seconds. |
+| `notch-begin-reply` | `() => Promise<void>` | `main.ts` | Promotes the notch window to focusable and focuses it so the inline reply field accepts keyboard input. **Sender must be the notch window** — other windows are ignored. |
+| `notch-end-reply` | `() => Promise<void>` | `main.ts` | Blurs the notch and restores `focusable: false` after reply closes. **Sender must be the notch window.** |
 
 ## Main → Renderer (push)
 
@@ -38,9 +40,9 @@ renderer registers listeners through `window.electronAPI`.
 
 | Channel | Payload | Purpose |
 |---------|---------|---------|
-| `state-update` | `{ identity, circles }` | Broadcast current app state. |
+| `state-update` | `{ identity, circles }` | Broadcast current app state to menu, palette, and notch windows. |
 | `github-login-state` | `GitHubLoginState` | Push the GitHub login UI state to the menu window only. |
-| `notch-message` | `NotchMessage` | New incoming message for the notch widget. `images?` is populated for image albums. |
+| `notch-message` | `NotchMessage` | New incoming message for the notch widget. `senderMemberId` is the relay `frame.from` UUID (required for private replies). `images?` is populated for image albums. |
 | `notch-show` | *none* | Tell the notch window to animate in. |
 | `notch-hide` | *none* | Tell the notch window to animate out. |
 | `notch-update` | `NotchMessage` | Update the message shown by the notch widget. |
@@ -94,6 +96,7 @@ interface IncomingImage {
 
 interface NotchMessage {
   sender: string;
+  senderMemberId?: string;  // relay member UUID (frame.from); set on real messages
   text: string;
   isDirect: boolean;
   group: string;

@@ -216,12 +216,19 @@ select {
 /* Menu window */
 .menu-window {
 	width: 320px;
-	min-height: 100%;
+	height: 100%;
 	border-radius: var(--munkel-radius-md);
 	padding: 14px;
 	display: flex;
 	flex-direction: column;
+	overflow-y: auto;
 	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* Direct children must not shrink, or the flex column would compress
+   content to fit the fixed window height instead of overflowing/scrolling. */
+.menu-window > * {
+	flex-shrink: 0;
 }
 
 .menu-header {
@@ -279,8 +286,6 @@ select {
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
-	overflow-y: auto;
-	max-height: 360px;
 }
 
 .circle-section {
@@ -438,6 +443,7 @@ select {
 	opacity: 0;
 	transform: translateY(-18px) scaleY(0.92);
 	transition: opacity 0.25s ease-out, transform 0.25s ease-out;
+	pointer-events: none;
 }
 
 .notch-widget::before {
@@ -457,6 +463,7 @@ select {
 	opacity: 1;
 	transform: translateY(0) scaleY(1);
 	animation: notch-enter 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+	pointer-events: auto;
 }
 
 @keyframes notch-enter {
@@ -481,7 +488,7 @@ select {
 	align-items: flex-start;
 	gap: 12px;
 	padding: 4px 2px;
-	cursor: pointer;
+	cursor: default;
 	border-radius: 8px;
 	transition: background 0.15s ease-out;
 }
@@ -496,6 +503,9 @@ select {
 	display: flex;
 	flex-direction: column;
 	gap: 2px;
+	/* Clicking the message body opens the reply field (in addition to the ↩
+	   button), so signal it as interactive. */
+	cursor: pointer;
 }
 
 .message-meta {
@@ -747,6 +757,9 @@ select {
 	flex-wrap: wrap;
 	gap: 6px;
 	margin-top: 6px;
+	/* Thumbnails don't open reply (they stopPropagation), so don't inherit the
+	   message-body pointer affordance. */
+	cursor: default;
 }
 
 .image-preview-thumb {
