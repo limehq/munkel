@@ -1,5 +1,7 @@
 # Plan 05: Notch Peek + 60s History
 
+> **Status:** Merged via PR #22 (`a72b456`) into `platform/windows/v2-clean`.
+
 **Branch:** `platform/windows/notch-peek-history`  
 **Base:** `platform/windows/v2-clean`  
 **Estimate:** 1 session  
@@ -85,14 +87,17 @@ bun test
 
 ## Definition of done
 
-- [ ] New notch messages include required `receivedAt`.
-- [ ] Newest message transitions `full -> peek -> retracted` at 5s / 35s.
-- [ ] Peek shows a white reverse-draining ring for 30 seconds.
-- [ ] Hovering the sliver reopens the notch and shows all messages from the
+- [x] New notch messages include required `receivedAt`.
+- [x] Newest message transitions `full -> peek -> retracted` at 5s / 35s.
+- [x] Peek shows a white reverse-draining ring for 30 seconds.
+- [x] Hovering the sliver reopens the notch and shows all messages from the
       last 60 seconds, newest first.
-- [ ] Each history row supports copy and reply; only one reply field is open at
+- [x] Each history row supports copy and reply; only one reply field is open at
       a time.
-- [ ] Messages are pruned 60 seconds after receipt.
-- [ ] The empty notch renderer requests a debounced hide from the main process.
-- [ ] Collapsed notch states are click-through outside the visible sliver.
-- [ ] `bun run typecheck` and `bun test` are green.
+- [x] Messages are pruned 60 seconds after receipt.
+- [x] The empty notch renderer requests a debounced hide from the main process.
+- [x] Collapsed notch states are click-through outside the visible sliver.
+- [x] `bun run typecheck` and `bun test` are green.
+
+> **Note:** `notchPhaseForElapsed` is currently unused; it is tracked as a
+> robustness candidate in [Plan 07](./07-notch-retract-verify-fix.md).
