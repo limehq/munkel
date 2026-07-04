@@ -68,42 +68,6 @@ function togglePalette() {
 	}
 }
 
-function runNotchDemo() {
-	if (!notchWindow) return;
-	const demoMessages = [
-		{
-			sender: 'Munkel',
-			text: 'Notch history demo: newest messages reset the phase timer.',
-			isDirect: false,
-			group: 'demo',
-			groupColor: '#34c759',
-			receivedAt: new Date().toISOString(),
-		},
-		{
-			sender: 'Alice',
-			senderMemberId: 'demo-alice',
-			text: 'Hover the sliver later to reopen the last 60 seconds.',
-			isDirect: true,
-			group: 'demo',
-			groupColor: '#3b82f6',
-			receivedAt: new Date().toISOString(),
-		},
-		{
-			sender: 'Bob',
-			senderMemberId: 'demo-bob',
-			text: 'Reply stays scoped to the selected history entry.',
-			isDirect: false,
-			group: 'demo',
-			groupColor: '#a855f7',
-			receivedAt: new Date().toISOString(),
-		},
-	] satisfies import('../shared/types').NotchMessage[];
-
-	demoMessages.forEach((message, index) => {
-		setTimeout(() => showNotchMessage(message), index * 800);
-	});
-}
-
 function broadcastState(update: ReturnType<AppState['getState']>): void {
 	broadcastStateUpdate(update, {
 		menu: menuWindow?.webContents ?? null,
@@ -192,7 +156,6 @@ app.whenReady().then(async () => {
 		pickerOpen = !!open;
 	});
 	ipcMain.handle('quit-app', () => app.quit());
-	ipcMain.handle('test-notch', () => runNotchDemo());
 	ipcMain.handle('notch-begin-reply', (event) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
 		focusNotchForReply(notchWindow);

@@ -121,8 +121,8 @@ function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
 		sender: 'Alice',
 		text: 'Hello',
 		isDirect: false,
-		group: 'demo',
-		groupColor: '#ff0000',
+		group: 'test-circle',
+		groupColor: '#3b82f6',
 		receivedAt: new Date(Date.now()).toISOString(),
 		...overrides,
 	};

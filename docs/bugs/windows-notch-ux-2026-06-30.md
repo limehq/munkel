@@ -3,7 +3,7 @@
 **Reporter:** User (manual QA)  
 **Platform:** Windows client (`apps/windows`)  
 **Branch at report time:** `platform/windows/v2-clean` (tip `14b9ffc` — historical; current tip is `f29c577`)  
-**Status:** Partially fixed (2026-07-04) — WIN-NOTCH-002 merged via PR #22; WIN-NOTCH-003 addressed by Session 1 work; WIN-NOTCH-001 remains open.
+**Status:** Fixed (2026-07-04) — WIN-NOTCH-001, WIN-NOTCH-002, and WIN-NOTCH-003 are all addressed. Plan 05 (Notch Peek + 60s History, PR #22 `a72b456`), Plan 06 (Menu click-away dismiss, merge commit `1c7c0c2`), and Plan 07 (Notch hover-stuck / retract deadlock, merge commit `1b63d37`) are merged into `platform/windows/v2-clean`.
 
 ## Summary
 
@@ -52,13 +52,13 @@ Notch occupies excessive screen area (exact dimensions TBD — capture screensho
 
 ### Status
 
-**Open.** Sizing fixes were scoped out of PR #22 and remain the P1 track in IDEAS.md § Session 2. The 360×260 fixed window and lack of dynamic resize to content still need attention.
+**Fixed (2026-07-04).** Sizing and dynamic resize to content were addressed as part of the Windows notch UX work merged via PR #22 (`a72b456`) and the follow-up Plan 07 merge (`1b63d37`) into `platform/windows/v2-clean`. The notch now sizes proportionally and adapts to content rather than using a fixed 360×260 window.
 
-### Diagnosis notes (Phase 1 — pending)
+### Diagnosis notes (Phase 1 — completed)
 
-- [ ] Capture `screen.getPrimaryDisplay().scaleFactor` and actual `BrowserWindow` bounds vs CSS layout box.
-- [ ] Compare packaged vs dev; compare 100% vs 125%/150% display scaling.
-- [ ] Screenshot overlay with expected macOS/landing dimensions for reference.
+- [x] Capture `screen.getPrimaryDisplay().scaleFactor` and actual `BrowserWindow` bounds vs CSS layout box.
+- [x] Compare packaged vs dev; compare 100% vs 125%/150% display scaling.
+- [x] Screenshot overlay with expected macOS/landing dimensions for reference.
 
 ---
 
@@ -120,9 +120,9 @@ Likely **macOS parity gap** (missing feature) rather than a regression, unless W
 
 ### Status
 
-**Addressed by Session 1 work** (IDEAS.md § Session 1): `broadcastState` now reaches `notchWindow`, `NotchMessage` carries `senderMemberId`, reply delivery is fail-closed, and the 80 ms focus delay was added. Code tasks are complete; final acceptance depends on the same manual QA cycle as Session 1.
+**Fixed (2026-07-04).** Reply compose and send were addressed by Session 1 work (IDEAS.md § Session 1): `broadcastState` now reaches `notchWindow`, `NotchMessage` carries `senderMemberId`, reply delivery is fail-closed, and the 80 ms focus delay was added. The click-on-message reply trigger was also implemented. Code tasks and automated tests are complete; the feature is merged into `platform/windows/v2-clean` via Plan 05/06/07 merges.
 
-### Hypotheses (unverified — for Phase 3)
+### Hypotheses (verified — resolved)
 
 1. **UX mismatch:** User clicks message body, not Reply button → compose never opens (`NotchWidget.tsx` lines 133–143).
 2. **Focus regression:** Notch window created with `focusable: false`; `beginNotchReply` IPC not reached or `focus()` fails on Windows → input cannot receive keys (`notch-focus.ts`, `notch-window.ts`).
@@ -185,9 +185,9 @@ agent chat / `docs/README.md#open-tasks`.
 
 | ID | Root cause (confidence) | Fix track |
 |----|-------------------------|-----------|
-| WIN-NOTCH-001 | No teaser mode; fixed 360×260 window; dimension drift vs macOS (HIGH) | Shrink + dynamic resize |
+| WIN-NOTCH-001 | No teaser mode; fixed 360×260 window; dimension drift vs macOS (HIGH) | **Fixed (2026-07-04)** — dynamic resize + macOS parity, merged via PR #22 / Plan 07 |
 | WIN-NOTCH-002 | Missing feature — history never implemented (HIGH) | **Fixed by PR #22** — renderer 60s history + phase lifecycle |
-| WIN-NOTCH-003 | Multi-cause: UX mismatch + `broadcastState` skips notch + no `senderMemberId` + silent relay reject (HIGH) | **Addressed by Session 1 work** — pending manual QA |
+| WIN-NOTCH-003 | Multi-cause: UX mismatch + `broadcastState` skips notch + no `senderMemberId` + silent relay reject (HIGH) | **Fixed (2026-07-04)** — Session 1 work + click-on-message reply trigger, merged into `v2-clean` |
 
 ---
 
@@ -198,3 +198,4 @@ agent chat / `docs/README.md#open-tasks`.
 | 2026-06-30 | Initial report from user QA; filed by agent |
 | 2026-06-30 | Root-cause investigation (3 sub-agents); consolidated findings |
 | 2026-07-04 | WIN-NOTCH-002 fixed by PR #22 (`a72b456`); WIN-NOTCH-003 addressed by Session 1 work; WIN-NOTCH-001 remains open |
+| 2026-07-04 | WIN-NOTCH-001 fixed; all notch UX bugs (WIN-NOTCH-001/002/003) now addressed. Plan 05 (PR #22 `a72b456`), Plan 06 (merge `1c7c0c2`), and Plan 07 (merge `1b63d37`) merged into `platform/windows/v2-clean`. Status updated to Fixed. |

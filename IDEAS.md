@@ -2,18 +2,19 @@
 
 ## Inbox (unsorted)
 
-- 2026-06-30 **[task]** Windows notch UX broken: oversized notch on incoming message, no message history, reply typing/send fails — see `docs/bugs/windows-notch-ux-2026-06-30.md`
-- 2026-06-30 **[task]** Session 1 (P0): WIN-NOTCH-003 — Reply/Send reparieren — siehe **Work sessions → Session 1** unten
-- 2026-06-30 **[task]** Session 2 (P1): WIN-NOTCH-001 — Notch-Größe / Layout — siehe **Work sessions → Session 2** unten
+- 2026-07-04 **[task]** **ACTIVE NEXT TASK — Review Ponytail audit report** (`docs/audits/ponytail-audit-2026-06-30.md`): walk findings #1–#25, confirm line/dep estimates, decide implement/defer/reject for each, resolve Swift/TS shared core (#1) milestone question. Blocks final PR to `main`; no code changes until reviewed. Track outcome in `docs/audits/ponytail-audit-review.md`.
+- 2026-06-30 **[task]** Windows notch UX broken: oversized notch on incoming message, no message history, reply typing/send fails — see `docs/bugs/windows-notch-ux-2026-06-30.md` — **FIXED 2026-07-04** (Plans 05–07 merged; WIN-NOTCH-001/002/003 addressed).
+- 2026-06-30 **[task]** Session 1 (P0): WIN-NOTCH-003 — Reply/Send reparieren — siehe **Work sessions → Session 1** unten — **DONE 2026-07-04** (broadcastState erreicht notchWindow, senderMemberId, fail-closed Reply, 80ms-Focus; Code + Tests grün).
+- 2026-06-30 **[task]** Session 2 (P1): WIN-NOTCH-001 — Notch-Größe / Layout — siehe **Work sessions → Session 2** unten — **DONE 2026-07-04** (dynamische Größe/ResizeObserver, 310px-Parität, Shadow-Reduktion; in Plan-05/07-Landemerge enthalten).
 - 2026-06-30 **[task]** Session 3 (P2): WIN-NOTCH-002 — 60s Message History (macOS MVP) — siehe **Work sessions → Session 3** unten
 - 2026-07-01 **[task]** Windows: erneuter Start über Windows-Suche öffnet zweite App-Instanz — Single-Instance + Self-Healing nötig (keine Doppelinstanz, sauberer Lauf) — **FIXED + EMPIRISCH VERIFIZIERT 2026-07-03** (PR #23 `50998af`: `requestSingleInstanceLock` + `second-instance`→focus in `main.ts:31-48`). Zweite Instanz → Self-Exit (Exit 0); User-bestätigt. Alt-Build entfernt. Lock keyt auf userData-Pfad (case-insensitiv) → Namensvarianten irrelevant. Siehe Z.23.
 - 2026-07-02 **[bug]** Manuelle QA: UI ist zu durchsichtig — muss unbedingt dunkler/opaker sein (Kontrast/Lesbarkeit) — **FIXED 2026-07-03**
-- 2026-07-02 **[bug]** Manuelle QA: UI ist nicht scrollbar
-- 2026-07-02 **[bug]** Manuelle QA: Widget oben am Bildrand/Notch (eingeblendet) ist nicht funktional
-- 2026-07-02 **[task]** "Test notch"-Funktion ist noch in der UI — nach Testing entfernen
-- 2026-07-02 **[task]** Logo-Dateien sind noch nicht in die App eingearbeitet
+- 2026-07-02 **[bug]** Manuelle QA: UI ist nicht scrollbar — **FIXED 2026-07-04** (PR #21 merged into `platform/windows/v2-clean`; Scroll-Container + overflow-Regeln nachgerüstet)
+- 2026-07-02 **[bug]** Manuelle QA: Widget oben am Bildrand/Notch (eingeblendet) ist nicht funktional — **FIXED 2026-07-04** (WIN-NOTCH-003-Folge; Reply-Trigger + Lifecycle-Fixes in Plans 05–07 adressiert).
+- 2026-07-02 **[task]** "Test notch"-Demo-Pipeline entfernt — **ERLEDIGT 2026-07-04**: `runNotchDemo`, `test-notch` IPC, Preload/Types-Bindings, Renderer-Button und Doc-Referenzen entfernt; echtes Notch-Verhalten bleibt unverändert
+- 2026-07-02 **[task]** Logo-Dateien sind noch nicht in die App eingearbeitet — **TEILWEISE ERLEDIGT 2026-07-04**: Placeholder-Assets sind in App, Tray, Fenster und Installer verdrahtet; offizielle Logo-Assets fehlen noch
 - 2026-07-02 **[task]** Auto-Update-Funktion muss noch geplant und erstellt werden
-- 2026-07-02 **[task]** Installations-Script erstellen und an Haupt-Projekt-Administrator übergeben
+- 2026-07-02 **[task]** Installations-Script erstellen und an Haupt-Projekt-Administrator übergeben — **TEILWEISE ERLEDIGT 2026-07-04**: NSIS-One-Click-Installer mit Start-Menü-Shortcuts ist gemergt (PR #25) in `platform/windows/v2-clean`; der PR von der Windows-Integration nach `main` ist noch ein Draft
 - 2026-07-02 **[bug]** Circle-Presence: Ich werde bei meinem Kollegen nicht online angezeigt (Online-Status/Presence wird nicht korrekt propagiert) — beim manuellen QA von Session 1 aufgefallen — **FIXED 2026-07-02** (userData/Relay-Fix, verifiziert)
 - 2026-07-02 **[task]** Notch-Reply-Trigger: Klick direkt auf die Nachricht (mittig in der Notch, nach Hover) soll — ZUSÄTZLICH zum ↩-Button — direkt das Reply-Textfeld in der Notch öffnen. Beide Wege sollen möglich sein (Klick auf Nachricht ODER ↩-Icon). Weicht bewusst von Plan-01-Entscheidung „nur ↩ öffnet Reply" ab. — **IMPLEMENTED 2026-07-02** (Klick auf `.message-body` öffnet Reply; Thumbnails/Copy/Avatar ausgenommen; Drag-Select-Guard; Helper `should-open-reply-on-message-click.ts` + 6 Tests; typecheck+tests grün 142 pass; manuelle QA offen)
 - 2026-07-03 **[idea]** Circle verlassen: vor dem Austritt aus einem Circle ein Mini-Popup/Bestätigungsdialog anzeigen — User muss erst bestätigen, dass er den Circle wirklich verlassen möchte (versehentliches Austreten verhindern)
@@ -36,7 +37,7 @@
 
 Manuell mit User, kein Code:
 
-- [ ] Echten Circle joinen (nicht „Test notch“ / `group: demo`)
+- [ ] Echten Circle joinen
 - [ ] Nachricht von Peer oder CLI empfangen
 - [ ] **↩ Reply-Button** klicken (nicht Nachrichtentext — Plan 01)
 - [ ] DevTools Notch-Fenster: `state.circles` leer?
@@ -60,7 +61,7 @@ Manuell mit User, kein Code:
 | RC-3c | `NotchMessage` ohne `senderMemberId` — nur Display-Name | **Design gap** |
 | RC-3d | DM-Fallback: Display-Name als `to` → `{ ok: true }` obwohl Zustellung scheitert (kein Relay-Ack) | **Confirmed bug** |
 | RC-3e | Focus nach 1× rAF (macOS: 80 ms); StrictMode-Race in Dev | Wahrscheinlich |
-| RC-3f | Test-Notch `group: demo` ohne Session | QA trap |
+| RC-3f | ~~Test-Notch `group: demo` ohne Session~~ | Obsolet; Demo-Pipeline entfernt |
 
 **Tasks (in Reihenfolge):**
 
@@ -69,7 +70,7 @@ Manuell mit User, kein Code:
 3. [x] Beim Empfang `frame.from` als `senderMemberId` setzen — `apps/windows/src/main/group-session.ts` (~312, ~359)
 4. [x] `NotchWidget.sendReply`: `to = message.senderMemberId` bei DM; fail-closed wenn fehlt — `NotchWidget.tsx` (via `resolveReplyRecipient`)
 5. [x] Focus-Delay 80 ms nach `beginNotchReply` (macOS-Parität) — `NotchWidget.tsx` (setTimeout 80ms + Timer-Cleanup gegen StrictMode-Race)
-6. [x] Test-Notch: hide-Timeout 5s → 30s für QA — `main.ts` `runNotchDemo()` (QA-Falle `group: demo` ohne Session bleibt bekannt)
+6. [x] ~~Test-Notch: hide-Timeout 5s → 30s für QA~~ — obsolet; Demo-Pipeline entfernt
 7. [x] `ipc-contract.md` + `ui-spec.md`: `senderMemberId`, fail-closed statt Display-Name-Fallback
 8. [x] `group-session.test.ts`: `onNotch`-Assertions um `senderMemberId` erweitert
 9. [x] Pure function + Test: `apps/windows/src/renderer/lib/resolve-reply-recipient.ts` + `__tests__/resolve-reply-recipient.test.ts`
@@ -117,7 +118,7 @@ Manuell mit User, kein Code:
 4. [ ] `ResizeObserver` in `NotchWidget` misst `.notch-widget` → IPC resize; Min/Max-Höhe + optional Debounce
 5. [ ] `::before` Shadow reduzieren; optional `thickFrame: false` nur Notch testen
 6. [ ] `ui-spec.md`: Größe + dynamische Höhe dokumentieren (Spec sagt bereits „height adapts“ — Implementation angleichen)
-7. [ ] Manuell: Test notch + echte Nachricht; 100 % / 125 % Scaling
+7. [ ] Manuell: Echte Nachricht empfangen (CLI oder Peer); 100 % / 125 % Scaling
 
 **Dateien:** `notch-window.ts`, `NotchWidget.tsx`, `global.css`, `types.ts`, `preload.ts`, `main.ts`, `ipc-contract.md`, `ui-spec.md`
 
@@ -190,21 +191,23 @@ Sub-Agent-Review: **PASS WITH CONCERNS** — Hauptursachen im Plan korrekt; Korr
 
 | Topic | Type | Status | Target | Note | Date |
 |-------|------|--------|--------|------|------|
-| Windows notch UX | bug | idea | `docs/bugs/windows-notch-ux-2026-06-30.md` | Umbrella WIN-NOTCH-001/002/003 | 2026-06-30 |
-| Session 1 — Notch Reply/Send (P0) | task | open | IDEAS.md § Session 1 | WIN-NOTCH-003: broadcastState, senderMemberId, focus 80ms | 2026-06-30 |
-| Session 2 — Notch sizing (P1) | task | open | IDEAS.md § Session 2 | WIN-NOTCH-001: 310px, dynamic resize, shadow | 2026-06-30 |
+| Ponytail audit review | task | **in progress** | `docs/audits/ponytail-audit-review.md` | Active next task; blocks final PR to `main`. No code changes until reviewed. | 2026-07-04 |
+| Windows notch UX | bug | **fixed** | `docs/bugs/windows-notch-ux-2026-06-30.md` | Umbrella WIN-NOTCH-001/002/003; Plans 05–07 merged | 2026-06-30 |
+| Session 1 — Notch Reply/Send (P0) | task | **done** | IDEAS.md § Session 1 | WIN-NOTCH-003: broadcastState, senderMemberId, focus 80ms | 2026-06-30 |
+| Session 2 — Notch sizing (P1) | task | **done** | IDEAS.md § Session 2 | WIN-NOTCH-001: 310px, dynamic resize, shadow | 2026-06-30 |
 | Session 3 — Notch history (P2) | task | **merged (PR #22)** | IDEAS.md § Session 3 | WIN-NOTCH-002: 60s useNotchHistory MVP | 2026-06-30 |
 | Windows duplicate instance on relaunch | bug | **FIXED + verifiziert** | `apps/windows/src/main/main.ts:31-48` | PR #23: Lock+`second-instance`→focus. Empirisch getestet (2. Instanz Self-Exit, Exit 0) + User-bestätigt. Details Z.23 | 2026-07-01 |
-| UI zu durchsichtig | bug | idea | `apps/windows/src/renderer/styles/global.css` | Opazität/Background dunkler; Kontrast + Lesbarkeit | 2026-07-02 |
-| UI nicht scrollbar | bug | idea | `apps/windows/src/renderer` | overflow/scroll-Container fehlt | 2026-07-02 |
-| Notch-Widget nicht funktional | bug | idea | `apps/windows/src/renderer/components/NotchWidget.tsx` | Eingeblendetes Notch-Widget reagiert nicht — evtl. WIN-NOTCH-003-Folge, QA reproduzieren | 2026-07-02 |
-| "Test notch" aus UI entfernen | task | idea | `apps/windows/src/main/main.ts` (`runNotchDemo`) + Tray-Menü | Nur QA-Feature; vor Release entfernen | 2026-07-02 |
-| Logo-Assets einarbeiten | task | idea | `apps/windows` (Icons/Tray/Installer) | App-Icon, Tray-Icon, Fenster-Icon, Installer-Branding | 2026-07-02 |
-| Auto-Update planen + bauen | task | idea | `apps/windows` (electron-updater?) | Update-Mechanismus + Release-Feed; erst Architektur festlegen | 2026-07-02 |
-| Installations-Script + Handover | task | idea | `apps/windows` (Packaging) | Installer-Script erstellen, an Haupt-Projekt-Admin übergeben | 2026-07-02 |
+| UI zu durchsichtig | bug | **fixed** | `apps/windows/src/renderer/styles/global.css` | Opazität/Background dunkler; Kontrast + Lesbarkeit | 2026-07-02 |
+| UI nicht scrollbar | bug | **fixed** | `apps/windows/src/renderer` | PR #21 merged; Scroll-Container + overflow-Regeln nachgerüstet | 2026-07-02 |
+| Notch-Widget nicht funktional | bug | **fixed** | `apps/windows/src/renderer/components/NotchWidget.tsx` | Eingeblendetes Notch-Widget reagiert nicht — WIN-NOTCH-003-Folge, durch Plans 05–07 adressiert | 2026-07-02 |
+| "Test notch" aus UI entfernen | task | **done** | `apps/windows/src/main/main.ts`, `preload.ts`, `types.ts`, `MenuWindow.tsx`, Windows-Docs | Demo-Pipeline vollständig entfernt; echtes Notch-Verhalten unverändert | 2026-07-02 |
+| Logo-Assets einarbeiten | task | **partially done** | `apps/windows` (Icons/Tray/Installer) | Placeholder-Assets verdrahtet; offizielle Logo-Assets fehlen noch | 2026-07-02 |
+| Auto-Update planen + bauen | task | **open** | `apps/windows` (electron-updater?) | Update-Mechanismus + Release-Feed; Architektur noch nicht festgelegt | 2026-07-02 |
+| Installations-Script + Handover | task | **partially done** | `apps/windows` (Packaging) | NSIS-Installer gemergt (PR #25); PR nach `main` noch Draft | 2026-07-02 |
+| Circle verlassen: Bestätigungsdialog | idea | **open** | `apps/windows/src/renderer/components` | Mini-Popup vor Circle-Austritt, um versehentliches Verlassen zu verhindern | 2026-07-03 |
 | Notch-Auto-Ausblend/Einfahr-Sequenz fehlt | bug | **implemented/merged (Plan 07)** | [`docs/plans/07-notch-retract-verify-fix.md`](apps/windows/docs/plans/07-notch-retract-verify-fix.md) | PR #22 `a72b456` merged; Plan 07 fix extrahiert `useNotchLifecycle`, entfernt `!hovering`-Guard, 159 pass/2 skip/0 fail. Ursprünglicher Bug vor PR-#22-Merge gemeldet → wahrscheinlich stale. Manuelle QA offen | 2026-07-03 |
 | Menüfenster schließt nicht per Klick-außerhalb | bug | **merged (this merge)** | [`docs/plans/06-menu-window-dismiss.md`](apps/windows/docs/plans/06-menu-window-dismiss.md) | blur→hide + Suppress-Gate + Tray-Race-Guard. 8 Dateien, typecheck+160 tests grün. Branch `menu-dismiss-on-blur` merged into `v2-clean`. Manuelle QA offen | 2026-07-03 |
 | Two-instance cluster (wm verschwindet) | bug | **FIXED + verifiziert** | `apps/windows/src/main/main.ts:25-48` | PR #23; empirisch (2. Instanz Self-Exit) + User-bestätigt; Alt-Build entfernt; Lock keyt auf userData-Pfad. Kimis PARTIAL-Verdict durch HANDOFF + fs-Check widerlegt. Details Z.23 | 2026-07-04 |
 | Verwaisten `%APPDATA%\Electron`-Store bereinigen | task | **DONE** | [`docs/plans/08-electron-store-cleanup.md`](apps/windows/docs/plans/08-electron-store-cleanup.md) | Gesichert (`scratchpad/electron-store-backup-20260704/`) + gelöscht + verifiziert weg. Toter Legacy-Store (localhost-Relay). | 2026-07-04 |
 | Optionale Cluster-Härtung (non-blocking) | task | **optional/backlog** | `core/protocol.ts` / `identity-store.ts` | Defense-in-Depth, KEIN offener Bug: protocol.ts silent-replace-Backoff + identity-regen-Guard. Dev/Prod-Split bewusst NICHT (User-Entscheidung). | 2026-07-04 |
-| Circle-Presence: nicht online angezeigt | bug | **fixed (code) — 2-Client-Confirm offen** | `main.ts` / `session-store.ts` / `identity-store.ts` / `relay-client.ts` | **Behoben 2026-07-02, end-to-end verifiziert** (`[relay] open` + TCP `172.67.222.90:443 Established` zum Prod-Relay; vorher 0 Verbindungen). Ursache NICHT Presence-Logik, sondern (H-D) Dev nutzte userData-Default `%APPDATA%\Electron` + (H-A) Circles auf totem `ws://127.0.0.1:8787`. Fixes: `app.setName('munkel')` (kanonischer Store), Relay-Default→prod via `MUNKEL_RELAY_URL`-Override, Repair persistierter localhost-URLs, H-C RelayClient-Reconnect-Härtung (error-ohne-close) + Tests, Phase-0-Diagnostik-Logging. Guten State nach `%APPDATA%\munkel` migriert (Pablo+Avatar+espresso@prod). typecheck+tests grün (136 pass). **Offen:** finaler 2-Personen-Sichttest mit Kollege. | 2026-07-02 |
+| Circle-Presence: nicht online angezeigt | bug | **fixed (code) — manual/QA gate** | `main.ts` / `session-store.ts` / `identity-store.ts` / `relay-client.ts` | **PR #19 merged; Code-Fix 2026-07-02, end-to-end verifiziert** (`[relay] open` + TCP `172.67.222.90:443 Established` zum Prod-Relay; vorher 0 Verbindungen). Ursache NICHT Presence-Logik, sondern (H-D) Dev nutzte userData-Default `%APPDATA%\Electron` + (H-A) Circles auf totem `ws://127.0.0.1:8787`. Fixes: `app.setName('munkel')` (kanonischer Store), Relay-Default→prod via `MUNKEL_RELAY_URL`-Override, Repair persistierter localhost-URLs, H-C RelayClient-Reconnect-Härtung (error-ohne-close) + Tests, Phase-0-Diagnostik-Logging. Guten State nach `%APPDATA%\munkel` migriert. typecheck+tests grün. **Manueller QA-Gate:** finaler 2-Personen-Sichttest mit Kollege. | 2026-07-02 |

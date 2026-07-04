@@ -121,8 +121,6 @@ All text uses `-webkit-font-smoothing: antialiased`.
   `setIgnoreMouseEvents(true, { forward: true })`, so the transparent window is
   click-through except for hover detection on the visible sliver. Expanded
   states restore interactivity.
-- **Demo:** the `test-notch` IPC sends 2–3 staggered sample messages so manual
-  QA can verify timer reset and history reopen behavior.
 
 ### Palette window
 

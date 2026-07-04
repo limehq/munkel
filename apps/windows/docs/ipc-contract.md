@@ -30,7 +30,6 @@ the main process by `ipcMain.handle(...)`.
 | `derive-group-id` | `(code: string) => Promise<string>` | `crypto-channel.ts` | Returns the 32-char hex `groupId`. |
 | `seal-chat` | `(code: string, text: string, sentAt?: string) => Promise<string>` | `crypto-channel.ts` | Returns a base64 sealed payload. |
 | `open-chat` | `(code: string, payload: string) => Promise<{ kind: 'chat'; text: string; sentAt: string } \| null>` | `crypto-channel.ts` | Decrypts and decodes a chat payload. |
-| `test-notch` | `() => Promise<void>` | `main.ts` | Fires 3 staggered demo messages (~800ms apart). Collapse/hide is renderer-driven now; main no longer owns a 30s auto-hide timer. |
 | `notch-begin-reply` | `() => Promise<void>` | `main.ts` | Promotes the notch window to focusable and focuses it so the inline reply field accepts keyboard input. **Sender must be the notch window** — other windows are ignored. |
 | `notch-end-reply` | `() => Promise<void>` | `main.ts` | Blurs the notch and restores `focusable: false` after reply closes. **Sender must be the notch window.** |
 | `notch-set-interactive` | `(interactive: boolean) => Promise<void>` | `main.ts` | **Sender must be the notch window.** Toggles `win.setIgnoreMouseEvents(!interactive, { forward: true })` so the renderer can switch between passthrough and interactive states. |

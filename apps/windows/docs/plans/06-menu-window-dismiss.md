@@ -1,5 +1,8 @@
 # Plan 06: Menu Window Click-Away Dismiss
 
+> **Status:** Merged via merge commit `1c7c0c2` into `platform/windows/v2-clean`.
+> **Remaining human gate:** manual runtime QA on Windows (see Verification → Manual runtime QA).
+
 **Branch:** `platform/windows/menu-dismiss-on-blur`
 **Base:** `platform/windows/v2-clean`
 **Estimate:** ½–1 session
@@ -157,16 +160,16 @@ bun test
 
 ## Definition of done
 
-- [ ] `blur` hides the menu when focus moves outside, except while suppressed.
-- [ ] Recipient `<select>` interaction does not dismiss the menu.
-- [ ] GitHub login (`requesting`/`awaiting`/`fetching`) keeps the menu open.
-- [ ] DevTools open (dev) does not auto-hide.
-- [ ] Tray click toggles the menu off without immediate reopen.
-- [ ] Second-instance (`main.ts:43-48`) still reliably shows the menu.
-- [ ] IPC `toggle-menu` (`main.ts:173`) remains functional.
-- [ ] `blur` handler is `isDestroyed()`- and `!isVisible()`-safe.
-- [ ] Menu opened via tray stays open with no user action (no self-blur hide).
-- [ ] Pure helpers unit-tested with injected `now`; `bun run typecheck` + `bun test` green.
+- [x] `blur` hides the menu when focus moves outside, except while suppressed.
+- [x] Recipient `<select>` interaction does not dismiss the menu.
+- [x] GitHub login (`requesting`/`awaiting`/`fetching`) keeps the menu open.
+- [x] DevTools open (dev) does not auto-hide.
+- [x] Tray click toggles the menu off without immediate reopen.
+- [x] Second-instance (`main.ts:43-48`) still reliably shows the menu.
+- [x] IPC `toggle-menu` (`main.ts:173`) remains functional.
+- [x] `blur` handler is `isDestroyed()`- and `!isVisible()`-safe.
+- [x] Menu opened via tray stays open with no user action (no self-blur hide).
+- [x] Pure helpers unit-tested with injected `now`; `bun run typecheck` + `bun test` green.
 
 ## Decisions (fundamental — from user, 2026-07-04)
 
