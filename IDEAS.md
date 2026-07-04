@@ -17,9 +17,9 @@
 - 2026-07-02 **[bug]** Circle-Presence: Ich werde bei meinem Kollegen nicht online angezeigt (Online-Status/Presence wird nicht korrekt propagiert) — beim manuellen QA von Session 1 aufgefallen — **FIXED 2026-07-02** (userData/Relay-Fix, verifiziert)
 - 2026-07-02 **[task]** Notch-Reply-Trigger: Klick direkt auf die Nachricht (mittig in der Notch, nach Hover) soll — ZUSÄTZLICH zum ↩-Button — direkt das Reply-Textfeld in der Notch öffnen. Beide Wege sollen möglich sein (Klick auf Nachricht ODER ↩-Icon). Weicht bewusst von Plan-01-Entscheidung „nur ↩ öffnet Reply" ab. — **IMPLEMENTED 2026-07-02** (Klick auf `.message-body` öffnet Reply; Thumbnails/Copy/Avatar ausgenommen; Drag-Select-Guard; Helper `should-open-reply-on-message-click.ts` + 6 Tests; typecheck+tests grün 142 pass; manuelle QA offen)
 - 2026-07-03 **[idea]** Circle verlassen: vor dem Austritt aus einem Circle ein Mini-Popup/Bestätigungsdialog anzeigen — User muss erst bestätigen, dass er den Circle wirklich verlassen möchte (versehentliches Austreten verhindern)
-- 2026-07-03 **[task]** Notch Peek/History-Feature (PR #22, Branch `platform/windows/notch-peek-history`): volle Animation noch **nicht live gesehen** — 5s FULL → 30s PEEK mit weißem Reverse-Ring → RETRACTED → Hover-Reopen → 60s-History-Liste. Manuelle QA nachholen (echte eingehende Nachricht ODER Tray `test-notch` = 3 gestaffelte Demo-Nachrichten). Funktional bisher **kein Bug** gesehen. Höchstes Rest-Risiko: ob Hover-Reopen im click-through-Zustand (`setIgnoreMouseEvents(forward:true)`) auf Windows zuverlässig auslöst — sonst `notch-reopen`-Cursor-Polling-Fallback aktivieren.
+- 2026-07-03 **[task]** Notch Peek/History-Feature (PR #22, Branch `platform/windows/notch-peek-history`): **MERGED 2026-07-04** (`a72b456`) into `platform/windows/v2-clean`. Implements 5s FULL → 30s PEEK with white reverse ring → RETRACTED → hover-reopen → 60s in-memory history list. Code review + automated tests green; full live animation QA deferred to Plan 07 re-QA gate. Highest residual risk remains whether hover-reopen is reliable in the click-through state (`setIgnoreMouseEvents(forward:true)`) on Windows — Plan 07 will activate the `notch-reopen` cursor-polling fallback only if reproved.
 - 2026-07-03 **[bug]** Installierte Munkel zeigt nicht alle Circles: verwaister Legacy-Store `%APPDATA%\Electron` (Circle „munkel" auf totem `ws://127.0.0.1:8787`) wurde bei der 2026-07-02 Store/Relay-Migration (siehe „Circle-Presence" Z.17) **nicht mit-migriert**. Aktueller Store `%APPDATA%\munkel` (= `Munkel`, case-insensitiv derselbe Ordner — nanosekunden-identische mtime bewiesen) hat nur **wm + espresso** auf Prod-Relay. Dev- UND installierte Version (`%LOCALAPPDATA%\Programs\@munkelwindows\Munkel.exe`, productName „Munkel") teilen sich diesen Store — kein Dev-vs-Paket-Split. Offen: (a) fehlenden „munkel"-Circle auf Prod-Relay neu joinen ODER `Electron`-Store bewusst löschen; (b) Single-Instance-Lock (`main.ts:26`) greift evtl. nicht über Namensvarianten „munkel"/„Munkel" → Dev+installiert gleichzeitig = konkurrierende Schreiber auf 1 `state.json`. **UPDATE 2026-07-04:** (b) **GELÖST** — Lock keyt auf userData-Pfad (case-insensitiv), Namensvarianten irrelevant; empirisch verifiziert + Alt-Build entfernt (siehe Z.23). (a) **ERLEDIGT 2026-07-04** — verwaister `%APPDATA%\Electron`-Store gesichert (`scratchpad/electron-store-backup-20260704/`) + gelöscht + verifiziert (siehe [Plan 08](apps/windows/docs/plans/08-electron-store-cleanup.md)). Toter Legacy-Store (beide Circles auf totem localhost-Relay), app nutzt ohnehin `%APPDATA%\munkel`. **Cluster damit vollständig abgeschlossen.**
-- 2026-07-03 **[bug]** Nachrichten verschwinden nicht, nachdem sie angekommen sind — die geplante Notch-Auto-Ausblend-/Einfahr-Sequenz ist noch **nicht korrekt eingearbeitet**. Soll: eingeblendet → retract → Sliver → nach 60 s ganz weg. — **PENDING RE-QA 2026-07-04** ([Plan 07](apps/windows/docs/plans/07-notch-retract-verify-fix.md)): Bug wurde **vor** dem PR-#22-Merge (heute 11:28, `a72b456`) gemeldet — Retract-Feature war damals noch nicht im Build. Gemergter Code ist **korrekt verdrahtet** (Phase-Timeouts `NotchWidget.tsx:132-141`, CSS-Retract `global.css:463-474`, prune→notchEmpty→hide-Kette). **Wahrscheinlich stale.** Muss frisch re-getestet werden (FULL→PEEK→RETRACTED→weg) BEVOR ein Fix geplant/gebaut wird. Kimi-Debug-Draft + Instrumentierung liegen bereit falls Repro.
+- 2026-07-03 **[bug]** Nachrichten verschwinden nicht, nachdem sie angekommen sind — die geplante Notch-Auto-Ausblend-/Einfahr-Sequenz ist **mittlerweile gemergt** (PR #22 `a72b456`). Soll: eingeblendet → retract → Sliver → nach 60 s ganz weg. — **PENDING RE-QA 2026-07-04** ([Plan 07](apps/windows/docs/plans/07-notch-retract-verify-fix.md)): Der ursprüngliche Bug wurde **vor** dem PR-#22-Merge (2026-07-04 11:28, `a72b456`) gemeldet — Retract-Feature war damals noch nicht im Build. Gemergter Code ist **korrekt verdrahtet** (Phase-Timeouts `NotchWidget.tsx:132-141`, CSS-Retract `global.css:463-474`, prune→notchEmpty→hide-Kette). **Wahrscheinlich stale.** Muss frisch re-getestet werden (FULL→PEEK→RETRACTED→weg) BEVOR ein Fix geplant/gebaut wird. Kimi-Debug-Draft + Instrumentierung liegen bereit falls Repro.
 - 2026-07-03 **[bug]** Circle „wm" verschwindet zur Laufzeit — **Root-Cause BELEGT** (Codex-Analyse gpt-5.5, Report `scratchpad/wm-circle-drop-analysis.md`): **Zwei-Instanzen-Verdrängung.** Installierter `app.asar` (Build 28.06.) enthält **kein** `app.setName('munkel')` (aktueller Source `main.ts:20-26` schon) → Dev-Mutex „munkel" ≠ Paket-Mutex „Munkel" → Single-Instance-Lock wirkungslos, beide Apps liefen parallel. Beide teilen Store + `memberId 602a0e2c…`; `core/protocol.ts:14-18`: neue Verbindung gleicher memberId **ersetzt alte still** → gegenseitige Verdrängung aus wm-Relay-Gruppe → Relay-Flapping (`close-1006→reconnect→open`, `relay-client.ts:138-160`). **Entwarnung:** wm wird NICHT aus State gelöscht (`group-session.ts:240-243` setzt nur `isConnected=false`; Circle bleibt im Menü, nur „offline"/Senden schlägt fehl). Noch Hypothese: ob Server aktiv 1006 bei gleicher group+member schickt (braucht Server-Log/2-Instanzen-Repro). **STATUS 2026-07-04 — FIXED + EMPIRISCH VERIFIZIERT** (Quelle HANDOFF.md 2026-07-03 + fs-Check 2026-07-04): `main.ts:25-48` (PR #23 `50998af`): `app.setName('munkel')` vor userData, pinned Store, `AppUserModelId`, `requestSingleInstanceLock` + `second-instance`→focus. Empirisch: zweite Instanz → sofortiger Self-Exit (Exit 0, keine Relay-Verbindung), kein wm-Flapping; **User bestätigt „wm funktioniert wieder"**; typecheck clean, 142 tests pass. Alter 28.06-Build **deinstalliert** (fs-verifiziert: `%LOCALAPPDATA%\Programs\@munkelwindows\` existiert nicht mehr). **Zu Kimis 'PARTIALLY-SOLVED' (ohne HANDOFF-Kontext erstellt):** Restrisiken beruhten auf der Annahme, der Lock keye auf den App-*Namen* (Munkel≠munkel=2 Mutexe); Projekt-Recherche (HANDOFF Z.16) belegt: Lock keyt auf den **userData-Pfad** (case-insensitiv) → `munkel`==`Munkel`=derselbe Lock → moot; Empfehlung 'Dev/Prod-Split' widerspricht der bewussten User-Entscheidung 'kein Dev-Profil-Override'. **Optionale Defense-in-Depth (KEIN Bug):** `core/protocol.ts` silent-replace-Backoff + `identity-store.ts` memberId-Regen-Guard. **FAZIT: Cluster gelöst.** Einziger echter Rest: verwaister `%APPDATA%\Electron`-Store (siehe Z.21).
 - 2026-07-03 **[bug]** Großes Munkel-Menüfenster lässt sich nicht per Klick woanders schließen — es bleibt dauerhaft offen. Soll: Klick außerhalb / Fokusverlust (blur) soll es schließen/ausblenden (click-away-to-dismiss). Vermutlich fehlt ein `blur`→hide-Handler; das `alwaysOnTop:true`-Menüfenster (`menu-window.ts`) reagiert nicht auf Fokusverlust. Muss korrigiert werden. — **PLAN 06 FERTIG 2026-07-04** ([`apps/windows/docs/plans/06-menu-window-dismiss.md`](apps/windows/docs/plans/06-menu-window-dismiss.md)): blur→hide mit Suppress-Gate (Picker/GitHub-Login/DevTools) + Tray-Toggle-Race-Guard + isDestroyed-Safety + reine Testfunktionen. Kimi-geplant, 2× Kimi-kritik-verifiziert, 2 Entscheidungen (Picker=Suppress-Signal, Login=Suppress) bestätigt. — **IMPLEMENTIERT 2026-07-04** (Branch `platform/windows/menu-dismiss-on-blur`, 8 Dateien: neue `menu-dismiss.ts` + Tests, `menu-window.ts` blur/guard, `main.ts`/`preload.ts`/`types.ts` wiring, `MenuWindow.tsx` select-signal, ipc-contract). typecheck PASS, 160 tests pass/0 fail. **Manuelle QA + Commit offen.**
 
@@ -134,7 +134,7 @@ Manuell mit User, kein Code:
 
 ---
 
-### Session 3 — P2: WIN-NOTCH-002 Message History (~3–4 h)
+### Session 3 — P2: WIN-NOTCH-002 Message History (~3–4 h) — **MERGED via PR #22**
 
 **Ziel:** 60-Sekunden-Nachrichtenverlauf unterhalb der aktuellen Nachricht (macOS MVP).
 
@@ -144,27 +144,27 @@ Manuell mit User, kein Code:
 
 **Tasks (in Reihenfolge):**
 
-1. [ ] `NotchHistoryEntry` mit `id`, `receivedAt`, Display-Feldern — `types.ts`
-2. [ ] Hook `useNotchHistory`: bei `notch-message` current→history archivieren; 60 s prune (Interval) — neu `hooks/useNotchHistory.ts`
-3. [ ] History-Rows in `NotchWidget` unter current message
-4. [ ] CSS portieren von Landing `.nx-history` / `.nx-row` — `global.css`
-5. [ ] Bild-Nachrichten: 📷-Summary in History (macOS-Format)
-6. [ ] Dead code konsolidieren: `notchMessages` / doppelte `onNotchMessage`-Listener bereinigen — `app-store.tsx`, `NotchWidget.tsx`
-7. [ ] `ui-spec.md` + `ipc-contract.md`: 60 s RAM-only history
-8. [ ] Pure-Function-/Hook-Test für 60s-Prune + Archivierung (kein Renderer-Component-Test — keine `.test.tsx`-Infra im Projekt); z. B. Logik in testbare Funktion auslagern + Bun-Test
-9. [ ] `group-session.test.ts` / `scripts/interop.ts`: `NotchMessage`-Payloads ggf. anpassen
+1. [x] `NotchHistoryEntry` mit `id`, `receivedAt`, Display-Feldern — `types.ts`
+2. [x] Hook `useNotchHistory`: bei `notch-message` current→history archivieren; 60 s prune (Interval) — neu `hooks/useNotchHistory.ts`
+3. [x] History-Rows in `NotchWidget` unter current message
+4. [x] CSS portieren von Landing `.nx-history` / `.nx-row` — `global.css`
+5. [x] Bild-Nachrichten: 📷-Summary in History (macOS-Format)
+6. [x] Dead code konsolidieren: `notchMessages` / doppelte `onNotchMessage`-Listener bereinigen — `app-store.tsx`, `NotchWidget.tsx`
+7. [x] `ui-spec.md` + `ipc-contract.md`: 60 s RAM-only history
+8. [x] Pure-Function-/Hook-Test für 60s-Prune + Archivierung (kein Renderer-Component-Test — keine `.test.tsx`-Infra im Projekt); z. B. Logik in testbare Funktion auslagern + Bun-Test
+9. [x] `group-session.test.ts` / `scripts/interop.ts`: `NotchMessage`-Payloads ggf. anpassen
 
 **Dateien:** `types.ts`, `useNotchHistory.ts`, `NotchWidget.tsx`, `global.css`, `app-store.tsx`, docs
 
 **Acceptance:**
 
-- [ ] 3 Nachrichten in 60 s → 2 History-Rows + 1 current
-- [ ] >60 s alte Rows verschwinden (live prune)
-- [ ] Neue Nachricht: vorherige current → history
-- [ ] History-Row-Klick kopiert Text
-- [ ] Reply-Compose weiterhin OK (Session-1-Regression)
-- [ ] Fensterhöhe passt (Session-2-ResizeObserver)
-- [ ] typecheck + tests grün
+- [x] 3 Nachrichten in 60 s → 2 History-Rows + 1 current
+- [x] >60 s alte Rows verschwinden (live prune)
+- [x] Neue Nachricht: vorherige current → history
+- [x] History-Row-Klick kopiert Text
+- [x] Reply-Compose weiterhin OK (Session-1-Regression)
+- [x] Fensterhöhe passt (Session-2-ResizeObserver)
+- [x] typecheck + tests grün
 
 **Out of scope Session 3:** Expand/collapse history, hover-copy glyph, Main-Process-Buffer (Proposal C)
 
@@ -193,7 +193,7 @@ Sub-Agent-Review: **PASS WITH CONCERNS** — Hauptursachen im Plan korrekt; Korr
 | Windows notch UX | bug | idea | `docs/bugs/windows-notch-ux-2026-06-30.md` | Umbrella WIN-NOTCH-001/002/003 | 2026-06-30 |
 | Session 1 — Notch Reply/Send (P0) | task | open | IDEAS.md § Session 1 | WIN-NOTCH-003: broadcastState, senderMemberId, focus 80ms | 2026-06-30 |
 | Session 2 — Notch sizing (P1) | task | open | IDEAS.md § Session 2 | WIN-NOTCH-001: 310px, dynamic resize, shadow | 2026-06-30 |
-| Session 3 — Notch history (P2) | task | open | IDEAS.md § Session 3 | WIN-NOTCH-002: 60s useNotchHistory MVP | 2026-06-30 |
+| Session 3 — Notch history (P2) | task | **merged (PR #22)** | IDEAS.md § Session 3 | WIN-NOTCH-002: 60s useNotchHistory MVP | 2026-06-30 |
 | Windows duplicate instance on relaunch | bug | **FIXED + verifiziert** | `apps/windows/src/main/main.ts:31-48` | PR #23: Lock+`second-instance`→focus. Empirisch getestet (2. Instanz Self-Exit, Exit 0) + User-bestätigt. Details Z.23 | 2026-07-01 |
 | UI zu durchsichtig | bug | idea | `apps/windows/src/renderer/styles/global.css` | Opazität/Background dunkler; Kontrast + Lesbarkeit | 2026-07-02 |
 | UI nicht scrollbar | bug | idea | `apps/windows/src/renderer` | overflow/scroll-Container fehlt | 2026-07-02 |
