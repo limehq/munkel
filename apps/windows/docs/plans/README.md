@@ -66,15 +66,32 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 ## Current status (2026-07-04)
 
 - **windows-native-full-build COMPLETE.** Phase 2 + Plans 01–07 all merged into
-  `platform/windows/v2-clean` (tip `5e8442c`); CI green.
+  `platform/windows/v2-clean` (tip `bdb51aa`); CI green.
 - **Post-plan features merged into `v2-clean`:** packaged renderer path fix
-  (`3555a62`), near-opaque/darker UI + notch fill (`01b8efa`, `aed3267`), and the
-  NSIS one-click installer with Start-Menu shortcuts (`fdf29d4`) — landed via the
-  `installer-shortcuts` PR (supersedes the separate fix-renderer-path / ui-darken branches).
+  (`3555a62`), near-opaque/darker UI + notch fill (`01b8efa`, `aed3267`), UI
+  scrollability fix (PR #21), Circle Presence fix (PR #19), single-instance lock
+  fix (PR #23), orphaned Electron store cleanup (Plan 08), and the NSIS one-click
+  installer with Start-Menu shortcuts (PR #25) — landed via the
+  `installer-shortcuts` PR.
 - Per-feature tracking artifacts live in `.planning/phases/{0,A,B,C,D,E}-*/`.
-- Next gate is the human-owned final PR from the Windows integration to `main`
-  (see `AGENTS.md` — main is reached exactly once, manually reviewed). Plus the
-  non-blocking human gates: real GitHub login test, fresh-VM QA, Authenticode signing.
+
+## Next steps / human gates
+
+- **Final PR to `main`:** human-owned, manually reviewed (see `AGENTS.md` —
+  `main` is reached exactly once). Currently still a draft.
+- **Manual / QA gates (non-blocking):**
+  - Circle Presence 2-person visual confirmation (code fix merged in PR #19).
+  - Menu click-away dismiss runtime QA (Plan 06 code merged).
+  - Notch auto-hide / retract live-animation QA (Plan 07 code merged).
+  - Real GitHub login test, fresh-VM QA, Authenticode signing.
+- **Open implementation work:**
+  - Ponytail audit review.
+  - Auto-update architecture + implementation.
+  - Circle leave confirmation dialog.
+  - Complete "Test notch" removal (button already hidden in production; demo
+    pipeline still present).
+  - Integrate official logo assets (placeholders wired, official assets missing).
+- **Backlog:** optional cluster hardening (defense-in-depth, non-blocking).
 
 ## Maintenance (2026-06-30)
 
