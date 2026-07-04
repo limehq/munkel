@@ -147,13 +147,16 @@ export function useNotchLifecycle(): UseNotchLifecycleReturn {
 	}, [newest?.id, phase, reopening, replyOpen]);
 
 	// Hide the notch window once the buffer has been empty briefly.
+	// NOTE: This is intentionally NOT gated on `!hovering`. On Windows the renderer
+	// may never receive a `mouseleave` after `setIgnoreMouseEvents(true, { forward: true })`,
+	// which would keep `hovering` stuck and prevent the notch from ever hiding.
 	useEffect(() => {
-		if (history.length > 0 || hovering) return;
+		if (history.length > 0) return;
 		const emptyTimer = setTimeout(() => {
 			void window.electronAPI.notchEmpty();
 		}, EMPTY_HIDE_DELAY_MS);
 		return () => clearTimeout(emptyTimer);
-	}, [history.length, hovering]);
+	}, [history.length]);
 
 	// Copy feedback timer cleanup.
 	useEffect(() => {
