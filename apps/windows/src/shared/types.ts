@@ -84,8 +84,6 @@ export interface IpcApi {
 	sealChat: (code: string, text: string, sentAt?: string) => Promise<string>;
 	openChat: (code: string, payload: string) => Promise<{ kind: 'chat'; text: string; sentAt: string } | null>;
 
-	// Notch demo.
-	testNotch: () => Promise<void>;
 	beginNotchReply: () => Promise<void>;
 	endNotchReply: () => Promise<void>;
 	notchSetInteractive: (interactive: boolean) => Promise<void>;

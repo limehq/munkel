@@ -11,7 +11,7 @@
 - 2026-07-02 **[bug]** Manuelle QA: UI ist zu durchsichtig — muss unbedingt dunkler/opaker sein (Kontrast/Lesbarkeit) — **FIXED 2026-07-03**
 - 2026-07-02 **[bug]** Manuelle QA: UI ist nicht scrollbar — **FIXED 2026-07-04** (PR #21 merged into `platform/windows/v2-clean`; Scroll-Container + overflow-Regeln nachgerüstet)
 - 2026-07-02 **[bug]** Manuelle QA: Widget oben am Bildrand/Notch (eingeblendet) ist nicht funktional — **FIXED 2026-07-04** (WIN-NOTCH-003-Folge; Reply-Trigger + Lifecycle-Fixes in Plans 05–07 adressiert).
-- 2026-07-02 **[task]** "Test notch"-Funktion ist noch in der UI — **TEILWEISE ERLEDIGT 2026-07-04**: Button wird in Production-Builds ausgeblendet, aber die komplette Demo-Pipeline (`runNotchDemo`, IPC, Types, Docs) existiert weiterhin und muss vor Release entfernt werden
+- 2026-07-02 **[task]** "Test notch"-Demo-Pipeline entfernt — **ERLEDIGT 2026-07-04**: `runNotchDemo`, `test-notch` IPC, Preload/Types-Bindings, Renderer-Button und Doc-Referenzen entfernt; echtes Notch-Verhalten bleibt unverändert
 - 2026-07-02 **[task]** Logo-Dateien sind noch nicht in die App eingearbeitet — **TEILWEISE ERLEDIGT 2026-07-04**: Placeholder-Assets sind in App, Tray, Fenster und Installer verdrahtet; offizielle Logo-Assets fehlen noch
 - 2026-07-02 **[task]** Auto-Update-Funktion muss noch geplant und erstellt werden
 - 2026-07-02 **[task]** Installations-Script erstellen und an Haupt-Projekt-Administrator übergeben — **TEILWEISE ERLEDIGT 2026-07-04**: NSIS-One-Click-Installer mit Start-Menü-Shortcuts ist gemergt (PR #25) in `platform/windows/v2-clean`; der PR von der Windows-Integration nach `main` ist noch ein Draft
@@ -37,7 +37,7 @@
 
 Manuell mit User, kein Code:
 
-- [ ] Echten Circle joinen (nicht „Test notch“ / `group: demo`)
+- [ ] Echten Circle joinen
 - [ ] Nachricht von Peer oder CLI empfangen
 - [ ] **↩ Reply-Button** klicken (nicht Nachrichtentext — Plan 01)
 - [ ] DevTools Notch-Fenster: `state.circles` leer?
@@ -61,7 +61,7 @@ Manuell mit User, kein Code:
 | RC-3c | `NotchMessage` ohne `senderMemberId` — nur Display-Name | **Design gap** |
 | RC-3d | DM-Fallback: Display-Name als `to` → `{ ok: true }` obwohl Zustellung scheitert (kein Relay-Ack) | **Confirmed bug** |
 | RC-3e | Focus nach 1× rAF (macOS: 80 ms); StrictMode-Race in Dev | Wahrscheinlich |
-| RC-3f | Test-Notch `group: demo` ohne Session | QA trap |
+| RC-3f | ~~Test-Notch `group: demo` ohne Session~~ | Obsolet; Demo-Pipeline entfernt |
 
 **Tasks (in Reihenfolge):**
 
@@ -70,7 +70,7 @@ Manuell mit User, kein Code:
 3. [x] Beim Empfang `frame.from` als `senderMemberId` setzen — `apps/windows/src/main/group-session.ts` (~312, ~359)
 4. [x] `NotchWidget.sendReply`: `to = message.senderMemberId` bei DM; fail-closed wenn fehlt — `NotchWidget.tsx` (via `resolveReplyRecipient`)
 5. [x] Focus-Delay 80 ms nach `beginNotchReply` (macOS-Parität) — `NotchWidget.tsx` (setTimeout 80ms + Timer-Cleanup gegen StrictMode-Race)
-6. [x] Test-Notch: hide-Timeout 5s → 30s für QA — `main.ts` `runNotchDemo()` (QA-Falle `group: demo` ohne Session bleibt bekannt)
+6. [x] ~~Test-Notch: hide-Timeout 5s → 30s für QA~~ — obsolet; Demo-Pipeline entfernt
 7. [x] `ipc-contract.md` + `ui-spec.md`: `senderMemberId`, fail-closed statt Display-Name-Fallback
 8. [x] `group-session.test.ts`: `onNotch`-Assertions um `senderMemberId` erweitert
 9. [x] Pure function + Test: `apps/windows/src/renderer/lib/resolve-reply-recipient.ts` + `__tests__/resolve-reply-recipient.test.ts`
@@ -118,7 +118,7 @@ Manuell mit User, kein Code:
 4. [ ] `ResizeObserver` in `NotchWidget` misst `.notch-widget` → IPC resize; Min/Max-Höhe + optional Debounce
 5. [ ] `::before` Shadow reduzieren; optional `thickFrame: false` nur Notch testen
 6. [ ] `ui-spec.md`: Größe + dynamische Höhe dokumentieren (Spec sagt bereits „height adapts“ — Implementation angleichen)
-7. [ ] Manuell: Test notch + echte Nachricht; 100 % / 125 % Scaling
+7. [ ] Manuell: Echte Nachricht empfangen (CLI oder Peer); 100 % / 125 % Scaling
 
 **Dateien:** `notch-window.ts`, `NotchWidget.tsx`, `global.css`, `types.ts`, `preload.ts`, `main.ts`, `ipc-contract.md`, `ui-spec.md`
 
@@ -200,7 +200,7 @@ Sub-Agent-Review: **PASS WITH CONCERNS** — Hauptursachen im Plan korrekt; Korr
 | UI zu durchsichtig | bug | **fixed** | `apps/windows/src/renderer/styles/global.css` | Opazität/Background dunkler; Kontrast + Lesbarkeit | 2026-07-02 |
 | UI nicht scrollbar | bug | **fixed** | `apps/windows/src/renderer` | PR #21 merged; Scroll-Container + overflow-Regeln nachgerüstet | 2026-07-02 |
 | Notch-Widget nicht funktional | bug | **fixed** | `apps/windows/src/renderer/components/NotchWidget.tsx` | Eingeblendetes Notch-Widget reagiert nicht — WIN-NOTCH-003-Folge, durch Plans 05–07 adressiert | 2026-07-02 |
-| "Test notch" aus UI entfernen | task | **partially done** | `apps/windows/src/main/main.ts` (`runNotchDemo`) + Tray-Menü | Button in Production-Builds ausgeblendet; Demo-Pipeline (runNotchDemo, IPC, Types, Docs) noch vorhanden | 2026-07-02 |
+| "Test notch" aus UI entfernen | task | **done** | `apps/windows/src/main/main.ts`, `preload.ts`, `types.ts`, `MenuWindow.tsx`, Windows-Docs | Demo-Pipeline vollständig entfernt; echtes Notch-Verhalten unverändert | 2026-07-02 |
 | Logo-Assets einarbeiten | task | **partially done** | `apps/windows` (Icons/Tray/Installer) | Placeholder-Assets verdrahtet; offizielle Logo-Assets fehlen noch | 2026-07-02 |
 | Auto-Update planen + bauen | task | **open** | `apps/windows` (electron-updater?) | Update-Mechanismus + Release-Feed; Architektur noch nicht festgelegt | 2026-07-02 |
 | Installations-Script + Handover | task | **partially done** | `apps/windows` (Packaging) | NSIS-Installer gemergt (PR #25); PR nach `main` noch Draft | 2026-07-02 |

@@ -74,8 +74,6 @@ export default function MenuWindow() {
 		void updateProfile(name);
 	}
 
-	const showTestNotch = import.meta.env.DEV;
-
 	return (
 		<div
 			className="menu-window glass"
@@ -205,13 +203,6 @@ export default function MenuWindow() {
 					onCancel={() => void cancelGitHubLogin()}
 					onLogout={() => void githubLogout()}
 				/>
-				{showTestNotch && (
-					<div className="github-row">
-						<button className="button-small" onClick={() => ipc.testNotch()}>
-							Test notch
-						</button>
-					</div>
-				)}
 			</div>
 		</div>
 	);
