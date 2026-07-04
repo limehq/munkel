@@ -3,16 +3,17 @@
 ## Packaging
 
 - `bun run render-ico` regenerates `assets/icon.ico` from `assets/tray-icon.svg`. Run it after SVG changes.
-- `bun run pack:dir` produces `apps/windows/release/win-unpacked/`, which contains the portable directory build including `Munkel.exe`.
-- `bun run pack` produces `apps/windows/release/Munkel-<version>-win.zip` plus the `win-unpacked` directory.
-- Fork beta builds are currently unsigned.
+- `bun run pack:installer` produces `apps/windows/release/Munkel-Setup-<version>.exe` — **recommended for end users**. One-click NSIS installer: installs to `%LOCALAPPDATA%\Programs\@munkelwindows\` (electron-builder folder name from `@munkel/windows`), creates Start Menu + Desktop shortcuts (searchable as “Munkel” in Windows Search), and launches the app when done.
+- `bun run pack:dir` produces `apps/windows/release/win-unpacked/`, which contains the portable directory build including `Munkel.exe` (for dev/QA).
+- `bun run pack` produces the NSIS installer, zip, and portable dir in one run.
+- Fork beta builds are currently unsigned. SmartScreen may warn on first run — click **More info** → **Run anyway**.
 
 For v1, the Windows Electron app is a standalone bundle. The `munkel` CLI is installed separately and communicates with the app over the named pipe. Bundling the CLI via `extraResources` is an optional future follow-up.
 
 ## Open packaging tasks
 
-- NSIS installer target: deferred; zip + portable dir suffice for the fork beta. Add an `nsis` entry to `win.target` and installer config when a guided installer is needed.
 - Authenticode code-signing: deferred; fork beta ships unsigned. For public release, obtain a code-signing certificate (`.pfx`), store it in GitHub secrets such as `WINDOWS_CERTIFICATE_PFX` and `WINDOWS_CERTIFICATE_PASSWORD`, and configure `win.certificateFile` / `win.certificatePassword` in `electron-builder.yml`. SmartScreen reputation still builds over time; EV certificates help but cost more. Rationale: an unsigned fork beta is acceptable; signing is a public-release concern.
+- **E4 (pending):** Integrate official logo file + SVG logo across app icon, tray, and installer — see `.planning/todos/pending/E4-logo-svg-einarbeiten.md`.
 [![CI](https://github.com/rodgi040/munkel/actions/workflows/ci.yml/badge.svg)](https://github.com/rodgi040/munkel/actions/workflows/ci.yml)
 
 Munkel for Windows — Electron + Vite + React + TypeScript client.

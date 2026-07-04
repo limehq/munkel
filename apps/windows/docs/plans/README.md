@@ -56,14 +56,18 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 - Do not push to `main` or upstream `limehq/munkel`.
 - macOS-only verification steps are marked **human** — skip on Windows-only agents.
 
-## Current status (2026-06-25)
+## Current status (2026-06-29)
 
 - **windows-native-full-build COMPLETE.** Phase 2 + Plans 01–04 all merged via
   PR #12–#16 into `platform/windows/v2-clean` (tip `14b9ffc`); CI green.
-- Per-feature tracking artifacts live in `.planning/phases/{0,A,B,C,D}-*/`.
+- **Post-plan features merged into `v2-clean`:** packaged renderer path fix
+  (`3555a62`), near-opaque/darker UI + notch fill (`01b8efa`, `aed3267`), and the
+  NSIS one-click installer with Start-Menu shortcuts (`fdf29d4`) — landed via the
+  `installer-shortcuts` PR (supersedes the separate fix-renderer-path / ui-darken branches).
+- Per-feature tracking artifacts live in `.planning/phases/{0,A,B,C,D,E}-*/`.
 - Next gate is the human-owned final PR from the Windows integration to `main`
   (see `AGENTS.md` — main is reached exactly once, manually reviewed). Plus the
-  non-blocking human gates: real GitHub login test, fresh-VM QA, NSIS+signing.
+  non-blocking human gates: real GitHub login test, fresh-VM QA, Authenticode signing.
 
 ## Maintenance (2026-06-30)
 
