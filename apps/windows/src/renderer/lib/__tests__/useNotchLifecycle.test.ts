@@ -317,12 +317,13 @@ describe('useNotchLifecycle', () => {
 			result.current.onNotchMessage(makeMessage({ text: 'copy this' }));
 		});
 
+		const entry = result.current.history[0];
 		await act(async () => {
-			result.current.copyText('copy this');
+			result.current.copyText(entry);
 		});
 
 		expect(writeSpy).toHaveBeenCalledWith('copy this');
-		expect(result.current.copiedId).toBe(result.current.history[0].id);
+		expect(result.current.copiedId).toBe(entry.id);
 
 		await act(async () => {
 			timers.advance(1_500);

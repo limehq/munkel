@@ -33,7 +33,7 @@ export interface UseNotchLifecycleReturn {
 	openReply: (entry: NotchHistoryEntry) => void;
 	closeReply: () => void;
 	onNotchMessage: (message: NotchMessage) => void;
-	copyText: (text: string) => void;
+	copyText: (entry: NotchHistoryEntry) => void;
 	scheduleHoverLeave: () => void;
 	cancelHoverLeave: () => void;
 	reopenFromHoverTarget: () => void;
@@ -94,9 +94,10 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		setReplyingTo(null);
 	}, []);
 
-	const copyText = (text: string) => {
-		void navigator.clipboard.writeText(text);
-	};
+	const copyText = useCallback((entry: NotchHistoryEntry) => {
+		void navigator.clipboard.writeText(entry.text);
+		setCopiedId(entry.id);
+	}, []);
 
 	const onNotchMessage = useCallback((message: NotchMessage) => {
 		const entry: NotchHistoryEntry = {
@@ -208,18 +209,6 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		};
 	}, [copiedId]);
 
-	// Internal copyText sets copiedId so the hook can drive the UI feedback.
-	const copyTextWithFeedback = (text: string) => {
-		// Identify the newest entry with matching text as the copied one.
-		// This matches the previous per-entry behavior: only one item can show
-		// feedback at a time.
-		const entry = history.find((item) => item.text === text);
-		copyText(text);
-		if (entry) {
-			setCopiedId(entry.id);
-		}
-	};
-
 	return {
 		history,
 		newest,
@@ -235,7 +224,7 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		openReply,
 		closeReply,
 		onNotchMessage,
-		copyText: copyTextWithFeedback,
+		copyText,
 		scheduleHoverLeave,
 		cancelHoverLeave,
 		reopenFromHoverTarget,

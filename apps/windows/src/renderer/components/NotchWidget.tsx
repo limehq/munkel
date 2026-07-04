@@ -113,7 +113,7 @@ export default function NotchWidget() {
 
 	function handleCopyText(entry: NotchHistoryEntry, e: React.MouseEvent) {
 		e.stopPropagation();
-		copyText(entry.text);
+		copyText(entry);
 	}
 
 	/**
