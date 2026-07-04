@@ -33,17 +33,17 @@ Windows-specific plans and contracts live under
 
 ## Next task
 
-> **Review the [Ponytail audit report](./audits/ponytail-audit-2026-06-30.md)**
+> **Implement Ponytail audit quick wins**
 >
-> - **Goal:** Walk findings #1–#25, confirm line/dep estimates, decide which cuts to implement vs. defer/reject, and resolve whether the Swift/TS shared core (#1) becomes a milestone or stays deferred.
-> - **Why now:** Blocks the scope and timeline for the final PR to `main`. The audit itself mandates: *"No code changes until reviewed."*
-> - **Acceptance criteria:** A written decision list is recorded in the audit doc or a new review file; no implementation branches are opened until the review is complete.
+> - **Goal:** Execute the decisions recorded in [`ponytail-audit-review.md`](./audits/ponytail-audit-review.md): implement 19 findings, defer 4, reject 1.
+> - **Why now:** The audit review is complete; the next step is to land the low- and medium-risk cuts before the final PR to `main`.
+> - **Acceptance criteria:** Phase 0–3 findings from the review are merged into `platform/windows/v2-clean`; the Swift/TS shared core (#1) is scheduled as a post-integration milestone.
 
 ## Open tasks
 
 | Task | Status | Owner | Notes |
 |------|--------|-------|-------|
-| **➡️ Review [ponytail audit report](./audits/ponytail-audit-2026-06-30.md)** | Open / Next | — | Walk findings #1–#25; confirm line/dep estimates; decide which cuts to implement and in what order; resolve whether Swift/TS shared core (#1) becomes a milestone or stays deferred. No code changes until reviewed. |
+| **➡️ Implement [Ponytail audit](./audits/ponytail-audit-2026-06-30.md) quick wins** | Open / Next | — | Review completed in [`ponytail-audit-review.md`](./audits/ponytail-audit-review.md). Decision: implement 19 findings, defer 4 (#1, #8, #12, #24), reject #18. Start with Phase 0 deletions (#17, #21), then shared packages (#2/#3/#7/#13). |
 | **Fix [Windows notch UX bugs](./bugs/windows-notch-ux-2026-06-30.md)** | Fixed | — | All P0–P2 issues (WIN-NOTCH-001/002/003) are addressed. Plan 05 (history/peek, PR #22), Plan 06 (menu click-away dismiss, merge `1c7c0c2`), and Plan 07 (hover-stuck retract deadlock, merge `1b63d37`) are merged into `platform/windows/v2-clean`. See the bug doc for details. |
 | **Remove "Test notch" demo pipeline** | Done | — | Demo pipeline removed: `runNotchDemo`, `test-notch` IPC, preload/types bindings, renderer button, and doc references. Real notch behavior is untouched. |
 | **Integrate official logo assets** | Partially done | — | Placeholder assets are wired throughout the app, tray, and installer. Official logo assets are still missing. |
