@@ -4,7 +4,7 @@
 > - Extracted `useNotchLifecycle` hook from `NotchWidget.tsx`.
 > - Added `useNotchLifecycle` unit tests covering the happy path and the hover-stuck repro.
 > - Removed the `!hovering` guard from the empty-hide timer so the notch hides reliably even when `mouseleave` is never delivered.
-> - `bun run typecheck` and `bun test` green (156 pass / 2 skip / 0 fail).
+> - `bun run typecheck` and `bun test` green (159 pass / 2 skip / 0 fail).
 
 **Branch:** `platform/windows/notch-retract-fix`
 **Base:** `platform/windows/v2-clean`
@@ -50,7 +50,7 @@ bun run typecheck
 bun test
 ```
 
-Result: `156 pass / 2 skip / 0 fail`.
+Result: `159 pass / 2 skip / 0 fail`.
 
 ## Definition of done
 
