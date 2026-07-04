@@ -431,7 +431,7 @@ select {
 .notch-widget {
   min-height: 100%;
 	width: 360px;
-	padding: 14px 18px 18px;
+	padding: 26px 18px 18px;
 	background: rgba(8, 8, 10, 0.99);
 	backdrop-filter: blur(20px) saturate(180%);
 	-webkit-backdrop-filter: blur(20px) saturate(180%);
@@ -440,10 +440,11 @@ select {
 	border-top: none;
 	position: relative;
 	color: white;
-	opacity: 0;
-	transform: translateY(-18px) scaleY(0.92);
-	transition: opacity 0.25s ease-out, transform 0.25s ease-out;
-	pointer-events: none;
+	opacity: 1;
+	transform-origin: top center;
+	transform: translateY(calc(-100% + 10px));
+	transition: transform 0.3s ease, opacity 0.25s ease-out;
+	pointer-events: auto;
 }
 
 .notch-widget::before {
@@ -459,21 +460,106 @@ select {
 	pointer-events: none;
 }
 
-.notch-widget.notch-visible {
-	opacity: 1;
+.notch-widget.notch-full,
+.notch-widget.notch-reopened {
 	transform: translateY(0) scaleY(1);
 	animation: notch-enter 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
-	pointer-events: auto;
+}
+
+.notch-widget.notch-peek {
+	transform: translateY(calc(-100% + 18px));
+}
+
+.notch-widget.notch-retracted {
+	transform: translateY(calc(-100% + 8px));
 }
 
 @keyframes notch-enter {
 	from {
-		opacity: 0;
 		transform: translateY(-18px) scaleY(0.92);
 	}
 	to {
-		opacity: 1;
 		transform: translateY(0) scaleY(1);
+	}
+}
+
+.notch-hover-target {
+	position: absolute;
+	top: 0;
+	left: 0;
+	right: 0;
+	height: 24px;
+	z-index: 4;
+}
+
+.notch-full .notch-hover-target,
+.notch-reopened .notch-hover-target {
+	pointer-events: none;
+}
+
+.notch-sliver {
+	position: absolute;
+	top: 8px;
+	left: 50%;
+	transform: translateX(-50%);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-width: 52px;
+	height: 20px;
+	opacity: 1;
+	transition: opacity 0.2s ease-out, transform 0.3s ease;
+}
+
+.notch-full .notch-sliver,
+.notch-reopened .notch-sliver {
+	opacity: 0;
+	transform: translate(-50%, -8px);
+}
+
+.notch-grabber {
+	width: 36px;
+	height: 4px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.42);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.notch-retracted .notch-grabber {
+	width: 28px;
+	opacity: 0.9;
+}
+
+.notch-ring {
+	display: block;
+	transform: rotate(-90deg) scaleX(-1);
+	transform-origin: center;
+}
+
+.notch-ring circle {
+	fill: none;
+}
+
+.notch-ring circle.track {
+	stroke: rgba(255, 255, 255, 0.18);
+	stroke-width: 2;
+}
+
+.notch-ring circle.progress {
+	stroke: #fff;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-dasharray: var(--ring-circumference);
+	animation: notch-ring-drain 30s linear forwards;
+}
+
+@keyframes notch-ring-drain {
+	from {
+		stroke-dashoffset: 0;
+	}
+	to {
+		stroke-dashoffset: var(--ring-circumference);
 	}
 }
 
@@ -481,6 +567,21 @@ select {
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
+}
+
+.notch-history-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+	max-height: 220px;
+	overflow-y: auto;
+	padding-right: 4px;
+}
+
+.history-entry {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
 }
 
 .message-row {
@@ -587,6 +688,21 @@ select {
 	padding: 0 4px;
 	font-size: 11px;
 	color: #ff6b6b;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.notch-widget,
+	.notch-widget.notch-full,
+	.notch-widget.notch-reopened,
+	.notch-sliver {
+		animation: none;
+		transition: none;
+	}
+
+	.notch-ring circle.progress {
+		animation: none;
+		stroke-dashoffset: calc(var(--ring-circumference) / 2);
+	}
 }
 
 /* Palette window */

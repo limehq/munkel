@@ -245,6 +245,8 @@ describe('GroupSession', () => {
 		expect(notches[0].text).toBe('Hello Windows!');
 		expect(notches[0].group).toBe(code);
 		expect(notches[0].senderMemberId).toBe('peer-1');
+		expect(notches[0].receivedAt).toEqual(expect.any(String));
+		expect(notches[0].receivedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 
 		session.disconnect();
 	});
@@ -370,6 +372,8 @@ describe('GroupSession', () => {
 		expect(notches[0]!.text).toBe('look at this');
 		expect(notches[0]!.senderMemberId).toBe('peer-1');
 		expect(notches[0]!.groupColor).toBe(getCircleColor(3));
+		expect(notches[0]!.receivedAt).toEqual(expect.any(String));
+		expect(notches[0]!.receivedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 
 		session.disconnect();
 	});

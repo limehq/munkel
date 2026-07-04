@@ -33,6 +33,8 @@ const api: IpcApi = {
 	testNotch: () => ipcRenderer.invoke('test-notch'),
 	beginNotchReply: () => ipcRenderer.invoke('notch-begin-reply'),
 	endNotchReply: () => ipcRenderer.invoke('notch-end-reply'),
+	notchSetInteractive: (interactive) => ipcRenderer.invoke('notch-set-interactive', interactive),
+	notchEmpty: () => ipcRenderer.invoke('notch-empty'),
 
 	onStateUpdate: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: StateUpdate) => callback(data);
@@ -68,6 +70,12 @@ const api: IpcApi = {
 		const handler = (_event: Electron.IpcRendererEvent, data: NotchMessage) => callback(data);
 		ipcRenderer.on('notch-update', handler);
 		return () => ipcRenderer.removeListener('notch-update', handler);
+	},
+	// Reserved fallback for cursor-polling reopen; do not remove as dead code.
+	onNotchReopen: (callback) => {
+		const handler = () => callback();
+		ipcRenderer.on('notch-reopen', handler);
+		return () => ipcRenderer.removeListener('notch-reopen', handler);
 	},
 };
 

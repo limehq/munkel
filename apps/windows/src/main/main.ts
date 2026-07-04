@@ -2,7 +2,7 @@ import { app, ipcMain, BrowserWindow, IpcMainInvokeEvent, Tray } from 'electron'
 import fs from 'node:fs';
 import path from 'node:path';
 import { createMenuWindow, showMenuWindow, toggleMenuWindow } from './menu-window';
-import { createNotchWindow, showNotch, hideNotch, updateNotch } from './notch-window';
+import { createNotchWindow, showNotch, requestNotchHide, updateNotch } from './notch-window';
 import { focusNotchForReply, unfocusNotchAfterReply } from './notch-focus';
 import { createPaletteWindow, showPalette, hidePalette } from './palette-window';
 import { createTray } from './tray';
@@ -65,16 +65,38 @@ function togglePalette() {
 
 function runNotchDemo() {
 	if (!notchWindow) return;
-	updateNotch(notchWindow, {
-		sender: 'Munkel',
-		text: 'This is a test notification. It will hide in 30 seconds.',
-		isDirect: false,
-		group: 'demo',
-		groupColor: '#34c759',
+	const demoMessages = [
+		{
+			sender: 'Munkel',
+			text: 'Notch history demo: newest messages reset the phase timer.',
+			isDirect: false,
+			group: 'demo',
+			groupColor: '#34c759',
+			receivedAt: new Date().toISOString(),
+		},
+		{
+			sender: 'Alice',
+			senderMemberId: 'demo-alice',
+			text: 'Hover the sliver later to reopen the last 60 seconds.',
+			isDirect: true,
+			group: 'demo',
+			groupColor: '#3b82f6',
+			receivedAt: new Date().toISOString(),
+		},
+		{
+			sender: 'Bob',
+			senderMemberId: 'demo-bob',
+			text: 'Reply stays scoped to the selected history entry.',
+			isDirect: false,
+			group: 'demo',
+			groupColor: '#a855f7',
+			receivedAt: new Date().toISOString(),
+		},
+	] satisfies import('../shared/types').NotchMessage[];
+
+	demoMessages.forEach((message, index) => {
+		setTimeout(() => showNotchMessage(message), index * 800);
 	});
-	showNotch(notchWindow);
-	// 30s gives enough time to exercise ↩ Reply during manual QA (was 5s).
-	setTimeout(() => hideNotch(notchWindow), 30_000);
 }
 
 function broadcastState(update: ReturnType<AppState['getState']>): void {
@@ -158,6 +180,14 @@ app.whenReady().then(async () => {
 	ipcMain.handle('notch-end-reply', (event) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
 		unfocusNotchAfterReply(notchWindow);
+	});
+	ipcMain.handle('notch-set-interactive', (event, interactive: boolean) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
+		notchWindow?.setIgnoreMouseEvents(!interactive, { forward: true });
+	});
+	ipcMain.handle('notch-empty', (event) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
+		requestNotchHide(notchWindow);
 	});
 	ipcMain.handle('start-github-login', async () => {
 		githubLoginService.startGitHubLogin();
