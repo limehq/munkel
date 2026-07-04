@@ -1,6 +1,7 @@
 # Plan 06: Menu Window Click-Away Dismiss
 
 > **Status:** Merged via merge commit `1c7c0c2` into `platform/windows/v2-clean`.
+> **Remaining human gate:** manual runtime QA on Windows (see Verification → Manual runtime QA).
 
 **Branch:** `platform/windows/menu-dismiss-on-blur`
 **Base:** `platform/windows/v2-clean`
