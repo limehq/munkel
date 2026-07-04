@@ -2,7 +2,7 @@
 
 **Reporter:** User (manual QA)  
 **Platform:** Windows client (`apps/windows`)  
-**Branch at report time:** `platform/windows/v2-clean` (tip `14b9ffc`)  
+**Branch at report time:** `platform/windows/v2-clean` (tip `14b9ffc` — historical; current tip is `f29c577`)  
 **Status:** Partially fixed (2026-07-04) — WIN-NOTCH-002 merged via PR #22; WIN-NOTCH-003 addressed by Session 1 work; WIN-NOTCH-001 remains open.
 
 ## Summary
@@ -74,9 +74,9 @@ macOS client keeps a **60-second RAM-only history** in the expanded notch (`Notc
 
 ### Actual behavior (Windows)
 
-`NotchWidget.tsx` renders **only the latest** `NotchMessage` from local state (`message`). No history list, no expand/collapse, no 60 s pruning.
+Before PR #22, `NotchWidget.tsx` rendered **only the latest** `NotchMessage` from local state (`message`). No history list, no expand/collapse, no 60 s pruning appeared.
 
-`app-store.tsx` accumulates `notchMessages[]` via `onNotchMessage`, but **NotchWidget does not consume that array** for display — only the most recent IPC update is shown.
+`app-store.tsx` accumulated `notchMessages[]` via `onNotchMessage`, but **NotchWidget did not consume that array** for display — only the most recent IPC update was shown.
 
 ### Classification
 

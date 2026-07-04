@@ -21,9 +21,10 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 > Phase 2 + Plans 01–05 shipped via PR #12–#16 and PR #22; the `v2-clean` tip is `f29c577`.
 > Plan 05 was implemented in branch `platform/windows/notch-peek-history` and merged via PR #22 (`a72b456`).
 > The feature sub-branches for #01–#04 were tagged (`feat/windows-*`) and deleted
-> after merge. The individual plan files below are kept as historical execution
-> references — their per-task "next step" wording reflects the state at authoring
-> time, not now.
+> after merge. Plan 05 used `platform/windows/notch-peek-history` and was also
+> deleted after merge via PR #22. The individual plan files below are kept as
+> historical execution references — their per-task "next step" wording reflects
+> the state at authoring time, not now.
 
 ## Agent workflow (every plan)
 
@@ -59,7 +60,7 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 - Do not push to `main` or upstream `limehq/munkel`.
 - macOS-only verification steps are marked **human** — skip on Windows-only agents.
 
-## Current status (2026-06-29)
+## Current status (2026-07-04)
 
 - **windows-native-full-build COMPLETE.** Phase 2 + Plans 01–05 all merged via
   PR #12–#16 and PR #22 into `platform/windows/v2-clean` (tip `f29c577`); CI green.
