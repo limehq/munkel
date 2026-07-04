@@ -77,6 +77,14 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 
 ## Next steps / human gates
 
+- **➡️ Review Ponytail audit report:** immediate next task before any large
+  architectural cuts or the final PR to `main`. Walk findings #1–#25 in
+  [`docs/audits/ponytail-audit-2026-06-30.md`](../../../../docs/audits/ponytail-audit-2026-06-30.md),
+  confirm line/dep estimates, decide implement/defer/reject for each, and
+  resolve whether Swift/TS shared core (#1) becomes a milestone or stays
+  deferred. Record the outcome in
+  [`docs/audits/ponytail-audit-review.md`](../../../../docs/audits/ponytail-audit-review.md).
+  **No code changes until reviewed.**
 - **Final PR to `main`:** human-owned, manually reviewed (see `AGENTS.md` —
   `main` is reached exactly once). Currently still a draft.
 - **Manual / QA gates (non-blocking):**
