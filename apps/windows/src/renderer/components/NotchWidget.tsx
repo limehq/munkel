@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Avatar } from './Avatar';
 import { useAppStore } from '../store/app-store';
 import { resolveReplyRecipient } from '../lib/resolve-reply-recipient';
@@ -11,13 +11,18 @@ const ringStyle = { '--ring-circumference': `${RING_CIRCUMFERENCE}` } as CSSProp
 
 export default function NotchWidget() {
 	const { sendChat } = useAppStore();
-	const lifecycle = useNotchLifecycle();
 
 	const [replyText, setReplyText] = useState('');
 	const [replyPrivate, setReplyPrivate] = useState(false);
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const replyInputRef = useRef<HTMLInputElement>(null);
+
+	const handleNotchHide = useCallback(() => {
+		setReplyText('');
+		setError(null);
+	}, []);
+	const lifecycle = useNotchLifecycle({ onNotchHide: handleNotchHide });
 	// Pointer-down position on the message body, so a click that was really a
 	// drag-to-select gesture does not open the reply field (see openReply).
 	const messagePointerDown = useRef<{ id: string; x: number; y: number } | null>(null);

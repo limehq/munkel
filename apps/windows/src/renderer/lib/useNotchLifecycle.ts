@@ -39,7 +39,7 @@ export interface UseNotchLifecycleReturn {
 	reopenFromHoverTarget: () => void;
 }
 
-export function useNotchLifecycle(): UseNotchLifecycleReturn {
+export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNotchLifecycleReturn {
 	const [history, setHistory] = useState<NotchHistoryEntry[]>([]);
 	const [phase, setPhase] = useState<NotchPhase>('retracted');
 	const [hovering, setHovering] = useState(false);
@@ -150,6 +150,7 @@ export function useNotchLifecycle(): UseNotchLifecycleReturn {
 		const removeHide = window.electronAPI.onNotchHide(() => {
 			setHovering(false);
 			closeReply();
+			options?.onNotchHide?.();
 		});
 		const removeReopen = window.electronAPI.onNotchReopen(() => {
 			if (historyRef.current.length > 0) {
@@ -161,7 +162,7 @@ export function useNotchLifecycle(): UseNotchLifecycleReturn {
 			removeHide();
 			removeReopen();
 		};
-	}, [cancelHoverLeave, closeReply]);
+	}, [cancelHoverLeave, closeReply, options?.onNotchHide]);
 
 	// Keep the notch window interactive whenever the user needs to interact with it.
 	useEffect(() => {
