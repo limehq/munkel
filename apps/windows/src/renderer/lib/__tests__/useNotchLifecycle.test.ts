@@ -75,6 +75,18 @@ function createElectronApi() {
 	return {
 		notchSetInteractive: () => Promise.resolve(),
 		notchEmpty: () => Promise.resolve(),
+		onNotchShow: (cb: () => void) => {
+			void cb;
+			return () => {};
+		},
+		onNotchHide: (cb: () => void) => {
+			void cb;
+			return () => {};
+		},
+		onNotchReopen: (cb: () => void) => {
+			void cb;
+			return () => {};
+		},
 	};
 }
 

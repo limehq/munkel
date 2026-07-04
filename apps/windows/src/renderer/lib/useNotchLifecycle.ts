@@ -49,6 +49,8 @@ export function useNotchLifecycle(): UseNotchLifecycleReturn {
 	const phaseTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 	const leaveHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const copyFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const historyRef = useRef(history);
+	historyRef.current = history;
 
 	const newest = history[0] ?? null;
 	const reopening = hovering;
@@ -138,6 +140,27 @@ export function useNotchLifecycle(): UseNotchLifecycleReturn {
 			});
 		}, PRUNE_INTERVAL_MS);
 		return () => clearInterval(pruneTimer);
+	}, []);
+
+	// Main-process push listeners that affect lifecycle state.
+	useEffect(() => {
+		const removeShow = window.electronAPI.onNotchShow(() => {
+			cancelHoverLeave();
+		});
+		const removeHide = window.electronAPI.onNotchHide(() => {
+			setHovering(false);
+			closeReply();
+		});
+		const removeReopen = window.electronAPI.onNotchReopen(() => {
+			if (historyRef.current.length > 0) {
+				setHovering(true);
+			}
+		});
+		return () => {
+			removeShow();
+			removeHide();
+			removeReopen();
+		};
 	}, []);
 
 	// Keep the notch window interactive whenever the user needs to interact with it.

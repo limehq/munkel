@@ -71,6 +71,9 @@ export default function NotchWidget() {
 	useEffect(() => {
 		const removeMessage = window.electronAPI.onNotchMessage((data) => {
 			onNotchMessage(data);
+			// A new message makes any in-flight reply text/context stale.
+			setReplyText('');
+			setError(null);
 		});
 		const removeUpdate = window.electronAPI.onNotchUpdate((data) => {
 			setReplyPrivate(data.isDirect);
