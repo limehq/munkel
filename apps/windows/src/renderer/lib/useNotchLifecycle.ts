@@ -28,8 +28,6 @@ export interface UseNotchLifecycleReturn {
 	replyingTo: string | null;
 	copiedId: string | null;
 	setHovering: (value: boolean) => void;
-	setReopening: (value: boolean) => void;
-	setReplyOpen: (value: boolean) => void;
 	openReply: (entry: NotchHistoryEntry) => void;
 	closeReply: () => void;
 	onNotchMessage: (message: NotchMessage) => void;
@@ -56,8 +54,6 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 	const reopening = hovering;
 	const replyOpen = replyingTo !== null;
 
-	const setReopening = (value: boolean) => setHovering(value);
-
 	const cancelHoverLeave = useCallback(() => {
 		if (leaveHoverTimer.current) {
 			clearTimeout(leaveHoverTimer.current);
@@ -79,12 +75,6 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		cancelHoverLeave();
 		setHovering(true);
 	}, [history.length, cancelHoverLeave]);
-
-	const setReplyOpen = (value: boolean) => {
-		if (!value) {
-			setReplyingTo(null);
-		}
-	};
 
 	const openReply = useCallback((entry: NotchHistoryEntry) => {
 		setReplyingTo(entry.id);
@@ -219,8 +209,6 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		replyingTo,
 		copiedId,
 		setHovering,
-		setReopening,
-		setReplyOpen,
 		openReply,
 		closeReply,
 		onNotchMessage,
