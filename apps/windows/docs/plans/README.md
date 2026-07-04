@@ -13,6 +13,9 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 | 3 | [Windows CI](./03-windows-ci.md) | `platform/windows/windows-ci` | Phase 2 | ✅ Merged (PR #14) |
 | 4 | [Release packaging](./04-packaging.md) | `platform/windows/packaging` | #3 green | ✅ Merged (PR #16) |
 | 5 | [Notch message auto-dismiss timer](./05-notch-message-timer.md) | `platform/windows/notch-message-timer` | #4 in `v2-clean` | 📝 Planned |
+| 6 | [Menu window click-away dismiss](./06-menu-window-dismiss.md) | `platform/windows/menu-dismiss-on-blur` | #23 (single-instance) in `v2-clean` | 🔨 Code done (typecheck+tests green; manual QA pending) |
+| 7 | [Notch auto-retract verify-first](./07-notch-retract-verify-fix.md) | `platform/windows/notch-retract-fix` (conditional) | PR #22 in `v2-clean` | 🔍 Re-QA gate (bug likely stale) |
+| 8 | [Orphaned Electron store cleanup](./08-electron-store-cleanup.md) | — (maintenance, no branch) | — | ✅ Done |
 
 > **Plans 01–04 are merged into `platform/windows/v2-clean`.**
 > Phase 2 + Plans 01–04 shipped via PR #12–#16; the `v2-clean` tip is `14b9ffc`.
