@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { buildControlHandler, type ControlAppState } from '../control-handlers';
 import type { CircleState } from '../../shared/types';
-import type { ControlRequest, ControlResponse } from '../../core/control';
+import type { ControlRequest, ControlResponse } from '@munkel/shared-wire/control';
 import type { SendResult } from '../group-session';
 
 function fakeState(opts: {
