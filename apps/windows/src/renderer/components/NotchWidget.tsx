@@ -1,53 +1,49 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Avatar } from './Avatar';
 import { useAppStore } from '../store/app-store';
-import { NOTCH_FULL_MS, NOTCH_HISTORY_MS, NOTCH_RETRACT_AT_MS, type NotchPhase } from '../lib/notch-phase';
-import { pruneNotchHistory } from '../lib/prune-notch-history';
 import { resolveReplyRecipient } from '../lib/resolve-reply-recipient';
 import { shouldOpenReplyOnMessageClick } from '../lib/should-open-reply-on-message-click';
-import type { NotchMessage } from '../../shared/types';
+import { useNotchLifecycle, type NotchHistoryEntry } from '../lib/useNotchLifecycle';
 
-interface NotchHistoryEntry extends NotchMessage {
-	id: string;
-}
-
-const HOVER_LEAVE_DELAY_MS = 150;
-const EMPTY_HIDE_DELAY_MS = 350;
-const COPY_FEEDBACK_MS = 1_500;
-const PRUNE_INTERVAL_MS = 1_000;
 const RING_RADIUS = 8;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 const ringStyle = { '--ring-circumference': `${RING_CIRCUMFERENCE}` } as CSSProperties;
 
-let notchIdCounter = 0;
-
-function nextNotchId(): string {
-	return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${notchIdCounter++}`;
-}
-
 export default function NotchWidget() {
 	const { sendChat } = useAppStore();
-	const [history, setHistory] = useState<NotchHistoryEntry[]>([]);
-	const [phase, setPhase] = useState<NotchPhase>('retracted');
-	const [hovering, setHovering] = useState(false);
-	const [replyingTo, setReplyingTo] = useState<string | null>(null);
+
 	const [replyText, setReplyText] = useState('');
-	const [copiedId, setCopiedId] = useState<string | null>(null);
 	const [replyPrivate, setReplyPrivate] = useState(false);
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const replyInputRef = useRef<HTMLInputElement>(null);
-	const historyLenRef = useRef(0);
-	const phaseTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
-	const leaveHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-	const copyFeedbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const handleNotchHide = useCallback(() => {
+		setReplyText('');
+		setError(null);
+	}, []);
+	const lifecycle = useNotchLifecycle({ onNotchHide: handleNotchHide });
 	// Pointer-down position on the message body, so a click that was really a
 	// drag-to-select gesture does not open the reply field (see openReply).
 	const messagePointerDown = useRef<{ id: string; x: number; y: number } | null>(null);
 
-	const newest = history[0] ?? null;
-	const reopening = hovering;
-	const replyOpen = replyingTo !== null;
+	const {
+		history,
+		newest,
+		phase,
+		reopening,
+		replyOpen,
+		replyingTo,
+		copiedId,
+		openReply: openReplyLifecycle,
+		closeReply,
+		onNotchMessage,
+		copyText,
+		scheduleHoverLeave,
+		cancelHoverLeave,
+		reopenFromHoverTarget,
+	} = lifecycle;
+
 	const expanded = reopening || replyOpen;
 	const widgetClass = newest
 		? reopening
@@ -56,7 +52,6 @@ export default function NotchWidget() {
 				? 'notch-full'
 				: `notch-${phase}`
 		: 'notch-retracted';
-	historyLenRef.current = history.length;
 
 	useEffect(() => {
 		if (!replyingTo) return;
@@ -79,104 +74,33 @@ export default function NotchWidget() {
 	}, [replyingTo]);
 
 	useEffect(() => {
-		const removeShow = window.electronAPI.onNotchShow(() => {
-			if (leaveHoverTimer.current) {
-				clearTimeout(leaveHoverTimer.current);
-				leaveHoverTimer.current = null;
-			}
-		});
-		const removeHide = window.electronAPI.onNotchHide(() => {
-			setHovering(false);
-			setReplyingTo(null);
+		const removeMessage = window.electronAPI.onNotchMessage((data) => {
+			onNotchMessage(data);
+			// A new message makes any in-flight reply text/context stale.
 			setReplyText('');
 			setError(null);
 		});
 		const removeUpdate = window.electronAPI.onNotchUpdate((data) => {
 			setReplyPrivate(data.isDirect);
 		});
-		const removeMessage = window.electronAPI.onNotchMessage((data) => {
-			const entry: NotchHistoryEntry = {
-				...data,
-				id: nextNotchId(),
-				receivedAt: data.receivedAt ?? new Date().toISOString(),
-			};
-			setHistory((current) => pruneNotchHistory([entry, ...current], Date.now(), NOTCH_HISTORY_MS));
-			setHovering(false);
-			setReplyPrivate(data.isDirect);
-			// Reset compose state: a new message means the prior reply
-			// context (recipient, text) is stale.
-			setReplyingTo(null);
-			setReplyText('');
-			setError(null);
-		});
-		const removeReopen = window.electronAPI.onNotchReopen(() => {
-			if (historyLenRef.current > 0) {
-				setHovering(true);
-			}
-		});
 		return () => {
-			removeShow();
-			removeHide();
-			removeUpdate();
 			removeMessage();
-			removeReopen();
+			removeUpdate();
 		};
-	}, []);
+	}, [onNotchMessage]);
 
 	useEffect(() => {
-		if (!newest) {
-			setPhase('retracted');
-			phaseTimers.current = [];
-			return;
-		}
-		setPhase('full');
-		const fullTimer = setTimeout(() => setPhase('peek'), NOTCH_FULL_MS);
-		const retractTimer = setTimeout(() => setPhase('retracted'), NOTCH_RETRACT_AT_MS);
-		phaseTimers.current = [fullTimer, retractTimer];
-		return () => {
-			clearTimeout(fullTimer);
-			clearTimeout(retractTimer);
-			phaseTimers.current = [];
-		};
+		if (!newest) return;
+		setReplyPrivate(newest.isDirect);
 	}, [newest?.id]);
-
-	useEffect(() => {
-		const pruneTimer = setInterval(() => {
-			setHistory((current) => {
-				const pruned = pruneNotchHistory(current, Date.now(), NOTCH_HISTORY_MS);
-				return pruned.length === current.length ? current : pruned;
-			});
-		}, PRUNE_INTERVAL_MS);
-		return () => clearInterval(pruneTimer);
-	}, []);
-
-	useEffect(() => {
-		const interactive = !!newest && (phase === 'full' || reopening || replyOpen);
-		void window.electronAPI.notchSetInteractive(interactive);
-	}, [newest?.id, phase, reopening, replyOpen]);
-
-	useEffect(() => {
-		if (history.length > 0 || hovering) return;
-		const emptyTimer = setTimeout(() => {
-			void window.electronAPI.notchEmpty();
-		}, EMPTY_HIDE_DELAY_MS);
-		return () => clearTimeout(emptyTimer);
-	}, [history.length, hovering]);
 
 	useEffect(() => {
 		if (!replyingTo) return;
 		if (history.some((entry) => entry.id === replyingTo)) return;
-		setReplyingTo(null);
+		closeReply();
 		setReplyText('');
 		setError(null);
-	}, [history, replyingTo]);
-
-	useEffect(() => {
-		return () => {
-			if (leaveHoverTimer.current) clearTimeout(leaveHoverTimer.current);
-			if (copyFeedbackTimer.current) clearTimeout(copyFeedbackTimer.current);
-		};
-	}, []);
+	}, [history, replyingTo, closeReply]);
 
 	function openReply(entry: NotchHistoryEntry) {
 		if (replyingTo !== entry.id) {
@@ -184,20 +108,12 @@ export default function NotchWidget() {
 			setError(null);
 		}
 		setReplyPrivate(entry.isDirect);
-		setReplyingTo(entry.id);
+		openReplyLifecycle(entry);
 	}
 
-	function copyText(entry: NotchHistoryEntry, e: React.MouseEvent) {
+	function handleCopyText(entry: NotchHistoryEntry, e: React.MouseEvent) {
 		e.stopPropagation();
-		void navigator.clipboard.writeText(entry.text);
-		setCopiedId(entry.id);
-		if (copyFeedbackTimer.current) {
-			clearTimeout(copyFeedbackTimer.current);
-		}
-		copyFeedbackTimer.current = setTimeout(() => {
-			setCopiedId(null);
-			copyFeedbackTimer.current = null;
-		}, COPY_FEEDBACK_MS);
+		copyText(entry);
 	}
 
 	/**
@@ -247,35 +163,10 @@ export default function NotchWidget() {
 				return; // keep text, leave field open
 			}
 			setReplyText('');
-			setReplyingTo(null);
+			closeReply();
 		} finally {
 			setSending(false);
 		}
-	}
-
-	function reopenFromHoverTarget() {
-		if (history.length === 0) return;
-		if (leaveHoverTimer.current) {
-			clearTimeout(leaveHoverTimer.current);
-			leaveHoverTimer.current = null;
-		}
-		setHovering(true);
-	}
-
-	function cancelHoverLeave() {
-		if (leaveHoverTimer.current) {
-			clearTimeout(leaveHoverTimer.current);
-			leaveHoverTimer.current = null;
-		}
-	}
-
-	function scheduleHoverLeave() {
-		if (replyingTo) return;
-		cancelHoverLeave();
-		leaveHoverTimer.current = setTimeout(() => {
-			setHovering(false);
-			leaveHoverTimer.current = null;
-		}, HOVER_LEAVE_DELAY_MS);
 	}
 
 	function renderMessageRow(entry: NotchHistoryEntry) {
@@ -315,7 +206,7 @@ export default function NotchWidget() {
 							</div>
 						)}
 					</div>
-					<button className="icon-button copy-button" onClick={(e) => copyText(entry, e)}>
+					<button className="icon-button copy-button" onClick={(e) => handleCopyText(entry, e)}>
 						{copiedId === entry.id ? '✓' : '📋'}
 					</button>
 					<button
@@ -352,7 +243,7 @@ export default function NotchWidget() {
 								}}
 								onKeyDown={(e) => {
 									if (e.key === 'Enter') void sendReply(entry);
-									if (e.key === 'Escape') setReplyingTo(null);
+									if (e.key === 'Escape') closeReply();
 								}}
 							/>
 							<button
