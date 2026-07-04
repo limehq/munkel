@@ -173,11 +173,16 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		return () => clearTimeout(emptyTimer);
 	}, [history.length]);
 
-	// Copy feedback timer cleanup.
+	// Hover-leave and copy-feedback timer cleanup.
 	useEffect(() => {
 		return () => {
+			if (leaveHoverTimer.current) {
+				clearTimeout(leaveHoverTimer.current);
+				leaveHoverTimer.current = null;
+			}
 			if (copyFeedbackTimer.current) {
 				clearTimeout(copyFeedbackTimer.current);
+				copyFeedbackTimer.current = null;
 			}
 		};
 	}, []);
