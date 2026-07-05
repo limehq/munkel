@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/app-store';
 import { Avatar } from './Avatar';
 import { getCircleColor } from '../../shared/group-color';
@@ -19,6 +19,7 @@ export default function MenuWindow() {
 	const [joinCode, setJoinCode] = useState('');
 	const [joinRelay, setJoinRelay] = useState('');
 	const [settingsOpen, setSettingsOpen] = useState(false);
+	const [confirmingLeave, setConfirmingLeave] = useState<string | null>(null);
 	const [displayName, setDisplayName] = useState(state.identity?.displayName ?? '');
 	const [messages, setMessages] = useState<Record<string, string>>({});
 	const [recipients, setRecipients] = useState<Record<string, string>>({});
@@ -29,6 +30,12 @@ export default function MenuWindow() {
 			setDisplayName(state.identity.displayName);
 		}
 	}, [state.identity?.displayName]);
+
+	useEffect(() => {
+		if (confirmingLeave && !state.circles.some((c) => c.code === confirmingLeave)) {
+			setConfirmingLeave(null);
+		}
+	}, [state.circles, confirmingLeave]);
 
 	function rollCode() {
 		const parts = Array.from({ length: 2 }, () =>
@@ -146,7 +153,7 @@ export default function MenuWindow() {
 							setRecipients((prev) => ({ ...prev, [circle.code]: to }))
 						}
 						onSend={() => handleSend(circle.code)}
-						onLeave={() => handleLeave(circle.code)}
+						onLeave={() => setConfirmingLeave(circle.code)}
 					/>
 				))}
 			</div>
@@ -202,6 +209,17 @@ export default function MenuWindow() {
 					onLogout={() => void githubLogout()}
 				/>
 			</div>
+
+			{confirmingLeave && (
+				<LeaveConfirmationDialog
+					code={confirmingLeave}
+					onConfirm={() => {
+						void handleLeave(confirmingLeave);
+						setConfirmingLeave(null);
+					}}
+					onCancel={() => setConfirmingLeave(null)}
+				/>
+			)}
 		</div>
 	);
 }
@@ -344,7 +362,12 @@ function CircleSection({
 					style={{ background: color, width: 8, height: 8, borderRadius: '50%', marginLeft: 4 }}
 				/>
 				<div style={{ flex: 1 }} />
-				<button className="icon-button" title="Leave circle" onClick={onLeave}>
+				<button
+					className="icon-button"
+					title="Leave circle"
+					data-testid="leave-circle-button"
+					onClick={onLeave}
+				>
 					➡️
 				</button>
 			</div>
@@ -397,6 +420,91 @@ function CircleSection({
 				</button>
 			</div>
 			{sendError && <p className="compose-error">{sendError}</p>}
+		</div>
+	);
+}
+
+interface LeaveConfirmationDialogProps {
+	code: string;
+	onConfirm: () => void;
+	onCancel: () => void;
+}
+
+function getDataTestId(target: unknown): string | undefined {
+	if (!target || typeof target !== 'object') return undefined;
+	const node = target as HTMLElement;
+	if (node.dataset?.testid) return node.dataset.testid;
+	const instance = target as { props?: { 'data-testid'?: string } };
+	return instance.props?.['data-testid'];
+}
+
+function LeaveConfirmationDialog({ code, onConfirm, onCancel }: LeaveConfirmationDialogProps) {
+	const cancelRef = useRef<HTMLButtonElement>(null);
+	const confirmRef = useRef<HTMLButtonElement>(null);
+
+	useEffect(() => {
+		cancelRef.current?.focus();
+	}, []);
+
+	const titleId = `leave-dialog-title-${code}`;
+
+	function handleOverlayKeyDown(e: React.KeyboardEvent) {
+		if (e.key === 'Escape') {
+			onCancel();
+			return;
+		}
+
+		if (e.key !== 'Tab') return;
+
+		const targetTestId = getDataTestId(e.target);
+		if (e.shiftKey && targetTestId === 'leave-dialog-cancel') {
+			e.preventDefault();
+			confirmRef.current?.focus();
+		} else if (!e.shiftKey && targetTestId === 'leave-dialog-confirm') {
+			e.preventDefault();
+			cancelRef.current?.focus();
+		}
+	}
+
+	return (
+		<div
+			className="leave-dialog-overlay"
+			data-testid="leave-dialog-overlay"
+			role="presentation"
+			onClick={(e) => {
+				if (e.target === e.currentTarget) onCancel();
+			}}
+			onKeyDown={handleOverlayKeyDown}
+		>
+			<div
+				className="leave-dialog glass"
+				role="dialog"
+				aria-modal="true"
+				aria-labelledby={titleId}
+				onClick={(e) => e.stopPropagation()}
+			>
+				<h3 id={titleId} className="leave-dialog-title" data-testid="leave-dialog-title">
+					Leave circle &apos;{code}&apos;?
+				</h3>
+				<div className="leave-dialog-actions">
+					<button
+						ref={cancelRef}
+						className="button-small"
+						data-testid="leave-dialog-cancel"
+						onClick={onCancel}
+					>
+						Cancel
+					</button>
+					<button
+						ref={confirmRef}
+						className="button-primary"
+						data-testid="leave-dialog-confirm"
+						onClick={onConfirm}
+					>
+						Leave
+					</button>
+				</div>
+			</div>
 		</div>
 	);
 }

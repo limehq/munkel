@@ -16,6 +16,7 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 | 6 | [Menu window click-away dismiss](./06-menu-window-dismiss.md) | `platform/windows/menu-dismiss-on-blur` | #23 (single-instance) in `v2-clean` | ✅ Merged (merge commit `1c7c0c2`) |
 | 7 | [Notch hover-stuck / retract deadlock fix](./07-notch-retract-verify-fix.md) | `platform/windows/notch-retract-fix` | PR #22 in `v2-clean` | ✅ Merged (merge commit `1b63d37`) |
 | 8 | [Orphaned Electron store cleanup](./08-electron-store-cleanup.md) | — (maintenance, no branch) | — | ✅ Done |
+| 9 | [Circle leave confirmation dialog](./09-circle-leave-confirmation.md) | `platform/windows/circle-leave-confirmation` | `v2-clean` | 🔄 In review |
 
 > **Plans 01–07 are merged into `platform/windows/v2-clean`.**
 > Phase 2 + Plans 01–05 shipped via PR #12–#16 and PR #22; Plan 06 merged via
@@ -95,7 +96,7 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 - **Open implementation work:**
   - Ponytail audit review.
   - Auto-update architecture + implementation.
-  - Circle leave confirmation dialog.
+  - Circle leave confirmation dialog (Plan 09 — in review).
   - Complete "Test notch" removal (button already hidden in production; demo
     pipeline still present).
   - Integrate official logo assets (placeholders wired, official assets missing).

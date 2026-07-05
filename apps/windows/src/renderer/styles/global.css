@@ -215,6 +215,7 @@ select {
 
 /* Menu window */
 .menu-window {
+	position: relative;
 	width: 320px;
 	height: 100%;
 	border-radius: var(--munkel-radius-md);
@@ -425,6 +426,43 @@ select {
 	font-size: 17px;
 	font-weight: 700;
 	letter-spacing: 0.05em;
+}
+
+/* Leave confirmation dialog */
+.leave-dialog-overlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.35);
+	border-radius: var(--munkel-radius-md);
+	z-index: 200;
+}
+
+.leave-dialog {
+	min-width: 220px;
+	max-width: 280px;
+	padding: 16px;
+	border-radius: var(--munkel-radius-md);
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.leave-dialog-title {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--munkel-text-primary);
+	line-height: 1.3;
+}
+
+.leave-dialog-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
 }
 
 /* Notch widget */
