@@ -33,6 +33,30 @@ No other asset files need to be edited when the official logo arrives.
 
 Munkel for Windows — Electron + Vite + React + TypeScript client.
 
+## Auto-updates
+
+The Windows app uses `electron-updater` with a GitHub Releases feed
+(`rodgi040/munkel`).
+
+- Packaged builds automatically check for updates on launch and every 24 hours.
+- When an update finishes downloading, the menu shows an **Install** button.
+- The app never installs an update without user consent.
+- Dev mode (`bun run dev`) skips auto-checks to avoid updater noise.
+
+Fork beta builds are currently unsigned, so `electron-builder.yml` disables
+update signature verification (`verifyUpdateCodeSignature: false`) with a clear
+TODO to re-enable once Authenticode signing is configured.
+
+To create a release-ready installer locally:
+
+```bash
+cd apps/windows
+bun run pack:release
+```
+
+This produces `release/Munkel-Setup-<version>.exe` and `release/latest.yml`.
+The release workflow uploads these (plus blockmap files) to the GitHub release.
+
 ## Status
 
 Phase 1 is feature-complete for day-to-day messaging:

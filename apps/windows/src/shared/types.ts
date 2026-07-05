@@ -35,6 +35,18 @@ export interface GitHubLoginState {
 	error?: string;
 }
 
+export type UpdatePhase = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error';
+
+export interface UpdateState {
+	phase: UpdatePhase;
+	/** Available or downloaded update version, when known. */
+	version?: string;
+	/** Download progress percent (0–100) during the downloading phase. */
+	progress?: number;
+	/** User-facing error message in the error phase. */
+	error?: string;
+}
+
 export interface IncomingImage {
 	id: string;       // = r2Key
 	thumb: string;    // base64 AVIF
@@ -84,9 +96,13 @@ export interface IpcApi {
 	notchSetInteractive: (interactive: boolean) => Promise<void>;
 	notchEmpty: () => Promise<void>;
 
+	checkForUpdates: () => Promise<void>;
+	installUpdate: () => Promise<void>;
+
 	// Main → renderer push channels.
 	onStateUpdate: (callback: (update: StateUpdate) => void) => () => void;
 	onGitHubLoginState: (callback: (state: GitHubLoginState) => void) => () => void;
+	onUpdateState: (callback: (state: UpdateState) => void) => () => void;
 	onNotchMessage: (callback: (message: NotchMessage) => void) => () => void;
 	onRelayError: (callback: (message: string) => void) => () => void;
 	onNotchShow: (callback: () => void) => () => void;

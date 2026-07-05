@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/app-store';
 import { Avatar } from './Avatar';
 import { getCircleColor } from '../../shared/group-color';
-import type { CircleState, GitHubLoginState, IdentityState } from '../../shared/types';
+import type { CircleState, GitHubLoginState, IdentityState, UpdateState } from '../../shared/types';
 
 export default function MenuWindow() {
 	const {
@@ -14,6 +14,8 @@ export default function MenuWindow() {
 		startGitHubLogin,
 		cancelGitHubLogin,
 		githubLogout,
+		checkForUpdates,
+		installUpdate,
 	} = useAppStore();
 
 	const [joinCode, setJoinCode] = useState('');
@@ -124,11 +126,15 @@ export default function MenuWindow() {
 							<div className="popover-divider" />
 							<button onClick={() => window.electronAPI.showPalette()}>Quick send…</button>
 							<div className="popover-divider" />
+							<button onClick={() => void checkForUpdates()}>Check for Updates…</button>
+							<div className="popover-divider" />
 							<button onClick={() => window.electronAPI.quitApp()}>Quit</button>
 						</div>
 					)}
 				</div>
 			</div>
+
+			<UpdateStatus state={state.updateState} onCheck={() => void checkForUpdates()} onInstall={() => void installUpdate()} />
 
 			{state.circles.length === 0 && (
 				<p className="hint">No circles yet. Create one or join with a code.</p>
@@ -219,6 +225,37 @@ export default function MenuWindow() {
 					}}
 					onCancel={() => setConfirmingLeave(null)}
 				/>
+			)}
+		</div>
+	);
+}
+
+function UpdateStatus({ state, onCheck, onInstall }: { state: UpdateState; onCheck: () => void; onInstall: () => void }) {
+	if (state.phase === 'idle') return null;
+
+	const labels: Record<Exclude<UpdateState['phase'], 'idle'>, string> = {
+		checking: 'Checking for updates…',
+		available: `Update available${state.version ? ` (v${state.version})` : ''}`,
+		downloading: state.progress ? `Downloading update… ${Math.round(state.progress)}%` : 'Downloading update…',
+		downloaded: `Update ready${state.version ? ` (v${state.version})` : ''}`,
+		error: state.error ?? 'Update error',
+	};
+
+	const isError = state.phase === 'error';
+	const isDownloaded = state.phase === 'downloaded';
+
+	return (
+		<div className={isError ? 'update-status update-error' : 'update-status'}>
+			<span className="update-status-text">{labels[state.phase]}</span>
+			{isError && (
+				<button className="button-small" onClick={onCheck}>
+					Retry
+				</button>
+			)}
+			{isDownloaded && (
+				<button className="button-small" onClick={onInstall}>
+					Install
+				</button>
 			)}
 		</div>
 	);

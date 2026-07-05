@@ -27,6 +27,8 @@ the main process by `ipcMain.handle(...)`.
 | `start-github-login` | `() => Promise<void>` | `main.ts` | Starts the GitHub OAuth device flow. The renderer never receives the access token. |
 | `cancel-github-login` | `() => Promise<void>` | `main.ts` | Cancels any in-flight GitHub device-flow attempt and resets the menu state to `idle`. |
 | `github-logout` | `() => Promise<void>` | `session-handlers.ts` | Clears persisted `githubLogin` + avatar, keeps `displayName`, and triggers a profile broadcast. |
+| `check-for-updates` | `() => Promise<void>` | `main.ts` | Triggers an update check via `electron-updater`. No-op in development. |
+| `install-update` | `() => Promise<void>` | `main.ts` | Quits and installs a previously downloaded update. No-op unless an update is in the `downloaded` phase. |
 | `notch-begin-reply` | `() => Promise<void>` | `main.ts` | Promotes the notch window to focusable and focuses it so the inline reply field accepts keyboard input. **Sender must be the notch window** — other windows are ignored. |
 | `notch-end-reply` | `() => Promise<void>` | `main.ts` | Blurs the notch and restores `focusable: false` after reply closes. **Sender must be the notch window.** |
 | `notch-set-interactive` | `(interactive: boolean) => Promise<void>` | `main.ts` | **Sender must be the notch window.** Toggles `win.setIgnoreMouseEvents(!interactive, { forward: true })` so the renderer can switch between passthrough and interactive states. |
@@ -41,6 +43,7 @@ renderer registers listeners through `window.electronAPI`.
 |---------|---------|---------|
 | `state-update` | `{ identity, circles }` | Broadcast current app state to menu, palette, and notch windows. |
 | `github-login-state` | `GitHubLoginState` | Push the GitHub login UI state to the menu window only. |
+| `update-state` | `UpdateState` | Push auto-update phase/progress/errors to menu and palette windows. |
 | `notch-message` | `NotchMessage` | New incoming message for the notch widget. `senderMemberId` is the relay `frame.from` UUID (required for private replies). `images?` is populated for image albums. |
 | `notch-show` | *none* | Tell the notch window to animate in. |
 | `notch-hide` | *none* | Tell the notch window to animate out. |
@@ -84,6 +87,15 @@ type GitHubLoginPhase = 'idle' | 'requesting' | 'awaiting' | 'fetching' | 'faile
 interface GitHubLoginState {
   phase: GitHubLoginPhase;
   userCode?: string;
+  error?: string;
+}
+
+type UpdatePhase = 'idle' | 'checking' | 'available' | 'downloading' | 'downloaded' | 'error';
+
+interface UpdateState {
+  phase: UpdatePhase;
+  version?: string;
+  progress?: number;
   error?: string;
 }
 
