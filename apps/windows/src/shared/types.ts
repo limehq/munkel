@@ -79,11 +79,6 @@ export interface IpcApi {
 	// Image picker (main-process dialog; returns file paths).
 	selectImages: () => Promise<string[] | undefined>;
 
-	// Crypto (main-process only; raw keys never cross the bridge).
-	deriveGroupId: (code: string) => Promise<string>;
-	sealChat: (code: string, text: string, sentAt?: string) => Promise<string>;
-	openChat: (code: string, payload: string) => Promise<{ kind: 'chat'; text: string; sentAt: string } | null>;
-
 	beginNotchReply: () => Promise<void>;
 	endNotchReply: () => Promise<void>;
 	notchSetInteractive: (interactive: boolean) => Promise<void>;

@@ -7,8 +7,8 @@ import { focusNotchForReply, unfocusNotchAfterReply } from './notch-focus';
 import { createPaletteWindow, showPalette, hidePalette } from './palette-window';
 import { createTray } from './tray';
 import { registerTogglePalette, unregisterShortcuts } from './shortcuts';
-import { registerCryptoHandlers, deriveGroupId } from './crypto-channel';
 import { IdentityStore } from './identity-store';
+import { deriveGroupKeys } from '@munkel/shared-wire/crypto';
 import { AppState } from './session-store';
 import { registerSessionHandlers } from './session-handlers';
 import { GitHubLoginService } from './github-login';
@@ -117,7 +117,6 @@ app.whenReady().then(async () => {
 	}
 
 	registerTogglePalette(togglePalette);
-	registerCryptoHandlers();
 
 	// Phase-0 diagnostics (presence bug, H-D): the actual userData dir the app
 	// reads state.json from. A mismatch vs the inspected file would mean persisted
@@ -183,8 +182,8 @@ app.whenReady().then(async () => {
 	appState.broadcast();
 
 	if (process.env.NODE_ENV === 'development') {
-		const groupId = await deriveGroupId('blue-table-42');
-		console.log('[munkel-smoke] deriveGroupId(blue-table-42) =', groupId);
+		const { groupId } = await deriveGroupKeys('blue-table-42');
+		console.log('[munkel-smoke] deriveGroupKeys(blue-table-42) =', groupId);
 		if (groupId !== 'aaf5dc7308fe4bede46cdebc9390813d') {
 			console.error('[munkel-smoke] GOLDEN VECTOR MISMATCH');
 		}

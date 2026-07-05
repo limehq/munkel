@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { deriveGroupKeys, seal, open, CryptoError } from '../crypto';
-import { normalizeCircleCode } from '../normalize';
+import { deriveGroupKeys, seal, open, CryptoError } from '@munkel/shared-wire/crypto';
 
 describe('crypto', () => {
   it('derives the golden vector groupId for blue-table-42', async () => {
@@ -42,11 +41,9 @@ describe('crypto', () => {
     await expect(open('aGVsbG8=', messageKey)).rejects.toBeInstanceOf(CryptoError);
   });
 
-  it('matches the server dev-send normalization', async () => {
+  it('normalizes raw codes before deriving keys', async () => {
     const raw = '  Blue-Table-42  ';
-    const normalized = normalizeCircleCode(raw);
     const { groupId } = await deriveGroupKeys(raw);
-    expect(normalized).toBe('blue-table-42');
     expect(groupId).toBe('aaf5dc7308fe4bede46cdebc9390813d');
   });
 });

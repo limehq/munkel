@@ -27,10 +27,6 @@ const api: IpcApi = {
 
 	selectImages: () => ipcRenderer.invoke('select-images'),
 
-	deriveGroupId: (code) => ipcRenderer.invoke('derive-group-id', code),
-	sealChat: (code, text, sentAt) => ipcRenderer.invoke('seal-chat', code, text, sentAt),
-	openChat: (code, payload) => ipcRenderer.invoke('open-chat', code, payload),
-
 	beginNotchReply: () => ipcRenderer.invoke('notch-begin-reply'),
 	endNotchReply: () => ipcRenderer.invoke('notch-end-reply'),
 	notchSetInteractive: (interactive) => ipcRenderer.invoke('notch-set-interactive', interactive),

@@ -5,6 +5,7 @@
     "": {
       "name": "munkel",
       "devDependencies": {
+        "@munkel/shared-wire": "workspace:*",
         "turbo": "^2.5.0",
       },
     },

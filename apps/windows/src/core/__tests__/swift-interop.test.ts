@@ -14,8 +14,8 @@ import {
 	perThumbBudget,
 } from '../image-codec';
 import { MAX_AVATAR_BYTES, MAX_DECODED_PIXELS } from '../avatar';
-import { deriveGroupKeys, open, sealWithNonce } from '../crypto';
-import { decodePayload } from '../payload';
+import { deriveGroupKeys, open, sealWithNonce } from '@munkel/shared-wire/crypto';
+import { decodePayload } from '@munkel/shared-wire/payload';
 
 interface VectorsFile {
 	version: number;

@@ -7,8 +7,8 @@
 //
 // Set RELAY_URL, MEMBER_ID, and TO env vars as in dev-send.ts.
 
-import { deriveGroupKeys, seal } from '../crypto';
-import { encodeChat, encodeProfile } from '../payload';
+import { deriveGroupKeys, seal } from '@munkel/shared-wire/crypto';
+import { encodeChat, encodeProfile } from '@munkel/shared-wire/payload';
 
 const listenMode = process.argv[2] === '--listen';
 const positional = process.argv.slice(listenMode ? 3 : 2);

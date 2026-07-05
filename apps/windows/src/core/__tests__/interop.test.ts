@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'bun:test';
-import { deriveGroupKeys, seal, open } from '../crypto';
-import { encodeChat, encodeProfile } from '../payload';
+import { deriveGroupKeys, seal, open } from '@munkel/shared-wire/crypto';
+import { encodeChat, encodeProfile } from '@munkel/shared-wire/payload';
 
 /**
  * Mirror of apps/server/scripts/dev-send.ts decryption logic. Proves a

@@ -63,6 +63,11 @@ function concatBytes(a: Uint8Array, b: Uint8Array): Uint8Array {
   return combined;
 }
 
+/** Bridge Node/Bun `Uint8Array<ArrayBufferLike>` to DOM `BufferSource`. */
+function asBufferSource(data: Uint8Array): BufferSource {
+  return data as unknown as BufferSource;
+}
+
 /**
  * Encrypt a plaintext payload with AES-256-GCM under the given message key.
  *
@@ -88,9 +93,8 @@ export async function sealWithNonce(
     throw new CryptoError('AES-GCM nonce must be exactly 12 bytes');
   }
   try {
-    const iv = nonce as Uint8Array<ArrayBuffer>;
     const ciphertext = new Uint8Array(
-      await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, messageKey, toUint8Array(plaintext) as ArrayBufferView<ArrayBuffer>),
+      await crypto.subtle.encrypt({ name: 'AES-GCM', iv: asBufferSource(nonce) }, messageKey, asBufferSource(toUint8Array(plaintext))),
     );
     return Buffer.from(concatBytes(nonce, ciphertext)).toString('base64');
   } catch (err) {
@@ -102,7 +106,7 @@ export async function sealRaw(plaintext: Uint8Array, messageKey: CryptoKey): Pro
   const nonce = crypto.getRandomValues(new Uint8Array(12));
   try {
     const ciphertext = new Uint8Array(
-      await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, messageKey, plaintext as ArrayBufferView<ArrayBuffer>),
+      await crypto.subtle.encrypt({ name: 'AES-GCM', iv: asBufferSource(nonce) }, messageKey, asBufferSource(plaintext)),
     );
     return concatBytes(nonce, ciphertext);
   } catch (err) {
@@ -119,13 +123,13 @@ export async function openRaw(payload: Uint8Array, messageKey: CryptoKey): Promi
   if (payload.length < 12 + 16) {
     throw new CryptoError('Payload is too short to contain a nonce and tag');
   }
-  const nonce = payload.subarray(0, 12) as Uint8Array<ArrayBuffer>;
-  const ciphertextAndTag = payload.subarray(12) as Uint8Array<ArrayBuffer>;
+  const nonce = payload.subarray(0, 12);
+  const ciphertextAndTag = payload.subarray(12);
   try {
     const plaintext = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: nonce },
+      { name: 'AES-GCM', iv: asBufferSource(nonce) },
       messageKey,
-      ciphertextAndTag,
+      asBufferSource(ciphertextAndTag),
     );
     return new Uint8Array(plaintext);
   } catch (err) {
@@ -137,9 +141,9 @@ export async function openRaw(payload: Uint8Array, messageKey: CryptoKey): Promi
  * Decrypt a sealed payload and return the UTF-8 plaintext string.
  */
 export async function open(payload: string, messageKey: CryptoKey): Promise<string> {
-  let combined: Uint8Array<ArrayBuffer>;
+  let combined: Uint8Array;
   try {
-    combined = new Uint8Array(Buffer.from(payload, 'base64')) as Uint8Array<ArrayBuffer>;
+    combined = new Uint8Array(Buffer.from(payload, 'base64'));
   } catch (err) {
     throw new CryptoError('Payload is not valid base64', err);
   }
@@ -148,11 +152,11 @@ export async function open(payload: string, messageKey: CryptoKey): Promise<stri
     throw new CryptoError('Payload is too short to contain a nonce and tag');
   }
 
-  const nonce = combined.subarray(0, 12) as Uint8Array<ArrayBuffer>;
-  const ciphertextAndTag = combined.subarray(12) as Uint8Array<ArrayBuffer>;
+  const nonce = combined.subarray(0, 12);
+  const ciphertextAndTag = combined.subarray(12);
 
   try {
-    const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: nonce }, messageKey, ciphertextAndTag as ArrayBufferView<ArrayBuffer>);
+    const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: asBufferSource(nonce) }, messageKey, asBufferSource(ciphertextAndTag));
     return new TextDecoder().decode(plaintext);
   } catch (err) {
     throw new CryptoError('Failed to open payload (bad key or corrupted data)', err);
