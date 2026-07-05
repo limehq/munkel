@@ -33,17 +33,16 @@ Windows-specific plans and contracts live under
 
 ## Next task
 
-> **Implement Ponytail audit quick wins**
+> **Ponytail audit quick wins — DONE**
 >
-> - **Goal:** Execute the decisions recorded in [`ponytail-audit-review.md`](./audits/ponytail-audit-review.md): implement 19 findings, defer 4, reject 1.
-> - **Why now:** The audit review is complete; the next step is to land the low- and medium-risk cuts before the final PR to `main`.
-> - **Acceptance criteria:** Phase 0–3 findings from the review are merged into `platform/windows/v2-clean`; the Swift/TS shared core (#1) is scheduled as a post-integration milestone.
+> - **Outcome:** All implementable quick-win findings are merged into `platform/windows/v2-clean`. Deferred: #1 (Swift/TS shared core, post-`main` milestone), #8 (window factories, after scratchpad drafts), #12 (Unix socket client, after transport settles), #24 (landing Button refactor, UI refresh). Rejected: #18 (keep `Logger` abstraction).
+> - **Next:** Update the audit review doc status and proceed with the remaining open tasks below.
 
 ## Open tasks
 
 | Task | Status | Owner | Notes |
 |------|--------|-------|-------|
-| **➡️ Implement [Ponytail audit](./audits/ponytail-audit-2026-06-30.md) quick wins** | Open / Next | — | Review completed in [`ponytail-audit-review.md`](./audits/ponytail-audit-review.md). Decision: implement 19 findings, defer 4 (#1, #8, #12, #24), reject #18. Start with Phase 0 deletions (#17, #21), then shared packages (#2/#3/#7/#13). |
+| **Implement [Ponytail audit](./audits/ponytail-audit-2026-06-30.md) quick wins** | Done | — | All implementable findings merged via PRs #31, #33, #34, #35, #36. Deferred: #1, #8, #12, #24. Rejected: #18. See [`ponytail-implementation-tracker.md`](../.planning/ponytail-implementation-tracker.md) for details. |
 | **Fix [Windows notch UX bugs](./bugs/windows-notch-ux-2026-06-30.md)** | Fixed | — | All P0–P2 issues (WIN-NOTCH-001/002/003) are addressed. Plan 05 (history/peek, PR #22), Plan 06 (menu click-away dismiss, merge `1c7c0c2`), and Plan 07 (hover-stuck retract deadlock, merge `1b63d37`) are merged into `platform/windows/v2-clean`. See the bug doc for details. |
 | **Remove "Test notch" demo pipeline** | Done | — | Demo pipeline removed: `runNotchDemo`, `test-notch` IPC, preload/types bindings, renderer button, and doc references. Real notch behavior is untouched. |
 | **Integrate official logo assets** | Partially done | — | Placeholder assets are wired throughout the app, tray, and installer. Official logo assets are still missing. |
