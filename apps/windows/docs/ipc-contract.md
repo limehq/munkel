@@ -27,3 +27,123 @@ the main process by `ipcMain.handle(...)`.
 | `start-github-login` | `() => Promise<void>` | `main.ts` | Starts the GitHub OAuth device flow. The renderer never receives the access token. |
 | `cancel-github-login` | `() => Promise<void>` | `main.ts` | Cancels any in-flight GitHub device-flow attempt and resets the menu state to `idle`. |
 | `github-logout` | `() => Promise<void>` | `session-handlers.ts` | Clears persisted `githubLogin` + avatar, keeps `displayName`, and triggers a profile broadcast. |
+| `notch-begin-reply` | `() => Promise<void>` | `main.ts` | Promotes the notch window to focusable and focuses it so the inline reply field accepts keyboard input. **Sender must be the notch window** — other windows are ignored. |
+| `notch-end-reply` | `() => Promise<void>` | `main.ts` | Blurs the notch and restores `focusable: false` after reply closes. **Sender must be the notch window.** |
+| `notch-set-interactive` | `(interactive: boolean) => Promise<void>` | `main.ts` | **Sender must be the notch window.** Toggles `win.setIgnoreMouseEvents(!interactive, { forward: true })` so the renderer can switch between passthrough and interactive states. |
+| `notch-empty` | `() => Promise<void>` | `main.ts` | **Sender must be the notch window.** Debounced renderer signal that history is empty, triggering `requestNotchHide` / `hideNotch`. |
+
+## Main → Renderer (push)
+
+Main pushes events to renderer windows via `webContents.send(...)` and the
+renderer registers listeners through `window.electronAPI`.
+
+| Channel | Payload | Purpose |
+|---------|---------|---------|
+| `state-update` | `{ identity, circles }` | Broadcast current app state to menu, palette, and notch windows. |
+| `github-login-state` | `GitHubLoginState` | Push the GitHub login UI state to the menu window only. |
+| `notch-message` | `NotchMessage` | New incoming message for the notch widget. `senderMemberId` is the relay `frame.from` UUID (required for private replies). `images?` is populated for image albums. |
+| `notch-show` | *none* | Tell the notch window to animate in. |
+| `notch-hide` | *none* | Tell the notch window to animate out. |
+| `notch-update` | `NotchMessage` | Update the message shown by the notch widget. |
+| `notch-reopen` | *none* | Reserved fallback channel for future cursor-polling reopen logic. Keep wired even if currently idle. |
+| `relay-error` | `string` | Relay or session error message. |
+| `global-shortcut` | *none* | Fired when the global hotkey is pressed. |
+
+## Types
+
+```ts
+interface Member {
+  memberId: string;
+  displayName?: string;
+  avatar?: string;
+  joinedAt: string;
+}
+
+interface CircleState {
+  code: string;
+  groupId: string;
+  isConnected: boolean;
+  members: Member[];
+  relayUrl: string;
+}
+
+interface IdentityState {
+  memberId: string;
+  displayName: string;
+  avatar?: string;
+  githubLogin?: string;
+}
+
+interface StateUpdate {
+  identity: IdentityState;
+  circles: CircleState[];
+}
+
+type GitHubLoginPhase = 'idle' | 'requesting' | 'awaiting' | 'fetching' | 'failed';
+
+interface GitHubLoginState {
+  phase: GitHubLoginPhase;
+  userCode?: string;
+  error?: string;
+}
+
+interface IncomingImage {
+  id: string;       // = r2Key
+  thumb: string;    // base64 AVIF thumbnail
+  width: number;
+  height: number;
+}
+
+interface NotchMessage {
+  sender: string;
+  senderMemberId?: string;  // relay member UUID (frame.from); set on real messages
+  text: string;
+  isDirect: boolean;
+  group: string;
+  groupColor: string;
+  receivedAt: string;       // local receiver timestamp (ISO-8601), required for 60s history expiry
+  images?: IncomingImage[];
+}
+```
+
+## Control pipe contract (CLI → Main)
+
+The `munkel` CLI connects to the Windows app over a per-user named pipe
+(`\\.\pipe\Munkel-<username>-Control`). Each connection carries one
+newline-delimited JSON request and one JSON response.
+
+### `ControlRequest`
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `action` | `string` | Command to execute, e.g. `"send"`, `"groups"`, `"image"`. |
+| `group?` | `string` | Target circle code. |
+| `to?` | `string` | Recipient display name for direct messages. |
+| `text?` | `string` | Message text or image caption. |
+| `imagePaths?` | `string[]` | Absolute paths to image files. The app reads, seals and uploads them, so the bytes never cross the pipe. Supported formats: jpg/jpeg, png, webp, avif, heic, heif. Maximum 8 images per request. |
+
+### `ControlResponse`
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `ok` | `boolean` | Whether the command succeeded. |
+| `error?` | `string` | User-facing error message when `ok` is `false`. |
+| `groups?` | `ControlGroupInfo[]` | List of joined circles for the `"groups"` action. |
+
+```ts
+interface ControlGroupInfo {
+  code: string;
+  connected: boolean;
+  members: string[];
+}
+```
+
+## Security notes
+
+- Raw `messageKey` values never leave the main process.
+- GitHub OAuth access tokens stay in main-process RAM only and are never sent
+  over IPC. The renderer receives `GitHubLoginState`, `githubLogin`, and the
+  base64 JPEG avatar only.
+- The preload script exposes a typed allowlist (`window.electronAPI`) and does
+  not expose `ipcRenderer` directly.
+- Renderer code must use `window.electronAPI` only.
