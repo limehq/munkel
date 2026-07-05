@@ -55,9 +55,6 @@ export class AppState {
 
 		const session = await GroupSession.create(normalized, url, this.identity.memberId, this.identity, {
 			onStateChange: () => this.broadcast(),
-			onChat: () => {
-				// Intentionally empty: chat log UI is not implemented yet.
-			},
 			onNotch: (message) => this.onNotch(message),
 			onError: (message) => this.onRelayError?.(message),
 			getColorIndex: () => {

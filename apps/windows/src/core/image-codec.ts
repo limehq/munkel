@@ -186,27 +186,6 @@ export const imageCodec = {
 	},
 
 	/**
-	 * Decode bytes for display with a hard longest-side cap (decompression-
-	 * bomb safe). Returns an `ImageBitmap` ready to paint via `drawImage`.
-	 */
-	async decode(
-		bytes: Uint8Array,
-		maxPixels: number = 1024,
-	): Promise<ImageBitmap | null> {
-		await ensureAvifReady();
-		try {
-			const blob = new Blob([bytes as BlobPart]);
-			return await createImageBitmap(blob, {
-				resizeWidth: maxPixels,
-				resizeHeight: maxPixels,
-				resizeQuality: 'high',
-			});
-		} catch {
-			return null;
-		}
-	},
-
-	/**
 	 * Header-only pixel/dimension probe (no full decode). Returns null for
 	 * unrecognized formats or corrupt headers.
 	 */

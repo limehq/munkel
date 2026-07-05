@@ -1,5 +1,5 @@
 import { clipboard, shell } from 'electron';
-import { createAvatarCodec, MAX_DECODED_PIXELS } from '../core/avatar';
+import { SharpAvatarCodec, MAX_DECODED_PIXELS } from '../core/avatar';
 import {
 	GitHubAuthErrorResponse,
 	GitHubDeviceAuth,
@@ -18,7 +18,7 @@ class GitHubLoginCancelledError extends Error {
 }
 
 export class GitHubLoginService {
-	private readonly avatarCodec = createAvatarCodec();
+	private readonly avatarCodec = new SharpAvatarCodec();
 	private githubLoginTask: Promise<void> | null = null;
 	private githubLoginGeneration = 0;
 	private state: GitHubLoginState = { phase: 'idle' };
