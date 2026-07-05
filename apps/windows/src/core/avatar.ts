@@ -7,21 +7,10 @@ export const MAX_DECODED_PIXELS = 256;
 /** Longest side for ENCODED avatars; matches macOS AvatarCodec.maxEncodedPixels (vectors.json codecConstants.avatar.maxEncodedPixels). */
 export const MAX_ENCODED_PIXELS = 128;
 
-export interface ImageData {
-  width: number;
-  height: number;
-  data: Uint8Array;
-}
-
-export interface AvatarCodec {
-  encode(imageData: Uint8Array): Promise<Uint8Array>;
-  decode(imageData: Uint8Array): Promise<ImageData | null>;
-}
-
 const JPEG_QUALITIES = [80, 60, 40] as const;
 const DOWNSCALE_FACTOR = 0.75;
 
-class SharpAvatarCodec implements AvatarCodec {
+export class SharpAvatarCodec {
 	async encode(imageData: Uint8Array): Promise<Uint8Array> {
 		const input = Buffer.from(imageData);
 		const metadata = await sharp(input).metadata();
@@ -59,13 +48,6 @@ class SharpAvatarCodec implements AvatarCodec {
 
 		throw new Error(`Avatar exceeds ${MAX_AVATAR_BYTES} bytes after JPEG encoding`);
 	}
-
-	async decode(imageData: Uint8Array): Promise<ImageData | null> {
-		if (imageData.length === 0) {
-			return null;
-		}
-		return { width: 1, height: 1, data: new Uint8Array([0, 0, 0, 255]) };
-	}
 }
 
 function fitWithinBounds(width: number, height: number, maxSide: number): [number, number] {
@@ -79,10 +61,4 @@ function fitWithinBounds(width: number, height: number, maxSide: number): [numbe
 		Math.max(1, Math.round(width * scale)),
 		Math.max(1, Math.round(height * scale)),
 	];
-}
-
-export const avatarCodec: AvatarCodec = new SharpAvatarCodec();
-
-export function createAvatarCodec(): AvatarCodec {
-	return new SharpAvatarCodec();
 }

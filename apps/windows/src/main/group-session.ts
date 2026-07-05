@@ -29,27 +29,10 @@ import type { ChatPayload, ClientMessage, ProfilePayload, ServerMessage } from '
  */
 export type SendResult = { ok: true } | { ok: false; error: string };
 
-/**
- * Carried by the optional `onImage` callback when an incoming image
- * album frame is received. The notch already gets a `NotchMessage`
- * with `images?` populated; `onImage` is for callers that want to
- * differentiate text from image (e.g. AppState routing).
- */
-export interface ImageMessage {
-	sender: string;
-	images: IncomingImage[];
-	caption: string;
-	isDirect: boolean;
-	sentAt: string;
-	group: string;
-	groupColor: string;
-}
-
 export interface GroupSessionCallbacks {
 	onStateChange(state: CircleState): void;
-	onChat(payload: { sender: string; text: string; isDirect: boolean; sentAt: string }): void;
+	onChat?(payload: { sender: string; text: string; isDirect: boolean; sentAt: string }): void;
 	onNotch(message: NotchMessage): void;
-	onImage?(message: ImageMessage): void;
 	onError?(message: string): void;
 	/**
 	 * Current joined-list index for this circle. Read at every call site
@@ -303,7 +286,7 @@ export class GroupSession {
 					const colorIndex = this.callbacks.getColorIndex();
 
 					if (decoded.kind === 'chat') {
-						this.callbacks.onChat({
+						this.callbacks.onChat?.({
 							sender: senderLabel,
 							text: decoded.text,
 							isDirect,
@@ -347,17 +330,6 @@ export class GroupSession {
 							width: it.width,
 							height: it.height,
 						}));
-						if (this.callbacks.onImage) {
-							this.callbacks.onImage({
-								sender: senderLabel,
-								images,
-								caption: decoded.caption,
-								isDirect,
-								sentAt: decoded.sentAt,
-								group: this.code,
-								groupColor: getCircleColor(colorIndex),
-							});
-						}
 						this.callbacks.onNotch({
 							sender: senderLabel,
 							senderMemberId: frame.from,
