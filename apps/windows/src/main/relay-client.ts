@@ -2,11 +2,6 @@ import { EventEmitter } from 'node:events';
 import WebSocket from 'ws';
 import type { ClientMessage, ServerMessage } from '../core';
 
-export type RelayEvent =
-	| { kind: 'frame'; frame: ServerMessage }
-	| { kind: 'disconnected' }
-	| { kind: 'error'; error: Error };
-
 /**
  * Reconnecting WebSocket client for one group relay.
  *

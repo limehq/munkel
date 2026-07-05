@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 
-import { getGitHubClientID } from '../../main/github-config';
 import {
+	getGitHubClientID,
 	GitHubAuthErrorResponse,
 	GitHubDeviceAuth,
 	type GitHubDeviceCodeGrant,
