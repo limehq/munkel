@@ -100,7 +100,7 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
   - Circle leave confirmation dialog (Plan 09 — in review).
   - Complete "Test notch" removal (button already hidden in production; demo
     pipeline still present).
-  - Integrate official logo assets (placeholders wired, official assets missing).
+  - Integrate official logo assets — placeholder pipeline is in review via Plan 10 / PR #39; official brand SVG assets still pending.
 - **Backlog:** optional cluster hardening (defense-in-depth, non-blocking).
 
 ## Maintenance (2026-06-30)
