@@ -47,7 +47,7 @@ Windows-specific plans and contracts live under
 | **Remove "Test notch" demo pipeline** | Done | — | Demo pipeline removed: `runNotchDemo`, `test-notch` IPC, preload/types bindings, renderer button, and doc references. Real notch behavior is untouched. |
 | **Integrate official logo assets** | Partially done | — | Placeholder assets are wired throughout the app, tray, and installer. Official logo assets are still missing. |
 | **Implement auto-update** | Open | — | Architecture and implementation not started. Decide on update provider (e.g., `electron-updater`), release feed, and code-signing flow. |
-| **Circle leave confirmation dialog** | In review | — | Implemented in `platform/windows/circle-leave-confirmation` (Plan 09); confirmation dialog with Cancel/Escape/backdrop dismissal and safer Cancel focus. Awaiting PR #38 review. |
+| **Circle leave confirmation dialog** | Done | — | Merged via PR #38 (`803f0fc`). Frosted confirmation mini-popup with Leave/Cancel, Escape/backdrop dismissal, focus trap, and ARIA attributes. |
 | **Hand over NSIS installer to `main`** | Partially done | — | NSIS one-click installer with Start-Menu shortcuts is merged into `platform/windows/v2-clean` (PR #25). The PR from the Windows integration branch to `main` is still a draft. |
 | **Circle Presence 2-person visual confirmation** | Manual/QA gate | — | Code fix is merged (PR #19). Final visual confirmation with a second person is still outstanding. |
 | **Manual QA: menu click-away dismiss** | Manual/QA gate | — | Plan 06 code merged; live Windows runtime validation required. |
