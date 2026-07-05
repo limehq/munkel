@@ -8,6 +8,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 export interface TrayHandlers {
 	toggleMenu: () => void;
 	showPalette: () => void;
+	checkForUpdates: () => void;
 	quit: () => void;
 }
 
@@ -41,6 +42,7 @@ export function createTray(handlers: TrayHandlers): Tray {
 	const contextMenu = Menu.buildFromTemplate([
 		{ label: 'Show Menu', click: handlers.toggleMenu },
 		{ label: 'Quick send…', click: handlers.showPalette },
+		{ label: 'Check for Updates…', click: handlers.checkForUpdates },
 		{ type: 'separator' },
 		{ label: 'Quit', click: handlers.quit },
 	]);

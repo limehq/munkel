@@ -17,7 +17,8 @@ import { createControlServer } from '@munkel/shared-wire/transport';
 import { buildPipeName } from '@munkel/shared-wire/control';
 import { broadcastStateUpdate } from './broadcast-state';
 import { isDismissSuppressed, isGitHubLoginActive } from './menu-dismiss';
-import type { WindowType } from '../shared/types';
+import { initUpdateService } from './update-service';
+import type { UpdateState, WindowType } from '../shared/types';
 
 // Pin the app name BEFORE anything reads userData. Without this, `electron`
 // launched directly in dev falls back to the generic "Electron" name, so dev
@@ -40,6 +41,7 @@ let notchWindow: BrowserWindow | null = null;
 let paletteWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let controlServer: { close(): Promise<void> } | null = null;
+let updateService: ReturnType<typeof initUpdateService> | null = null;
 // Menu click-away-to-dismiss suppression state (Plan 06).
 let pickerOpen = false;
 let githubLoginActive = false;
@@ -93,6 +95,11 @@ function pushGitHubLoginState(state: import('../shared/types').GitHubLoginState)
 	menuWindow?.webContents.send('github-login-state', state);
 }
 
+function pushUpdateState(state: UpdateState): void {
+	menuWindow?.webContents.send('update-state', state);
+	paletteWindow?.webContents.send('update-state', state);
+}
+
 app.whenReady().then(async () => {
 	menuWindow = createMenuWindow({
 		isDismissSuppressed: () =>
@@ -110,6 +117,7 @@ app.whenReady().then(async () => {
 		tray = createTray({
 			toggleMenu: () => toggleMenuWindow(menuWindow),
 			showPalette: () => showPalette(paletteWindow),
+			checkForUpdates: () => updateService?.check(),
 			quit: () => app.quit(),
 		});
 	} catch (err) {
@@ -126,6 +134,9 @@ app.whenReady().then(async () => {
 	const appState = new AppState(identityStore, broadcastState, showNotchMessage, relayError);
 	const githubLoginService = new GitHubLoginService(appState, pushGitHubLoginState);
 	registerSessionHandlers(appState, githubLoginService);
+
+	// Auto-update service. Packaged builds check on launch and every 24h; dev skips.
+	updateService = initUpdateService(pushUpdateState, { isDev });
 
 	// Named-pipe control server for the `munkel` CLI. Mirrors the macOS app's
 	// Unix-domain-socket `ControlServer` — one request/response per connection,
@@ -177,6 +188,12 @@ app.whenReady().then(async () => {
 	ipcMain.handle('cancel-github-login', async () => {
 		githubLoginService.cancelGitHubLogin();
 	});
+	ipcMain.handle('check-for-updates', async () => {
+		updateService?.check();
+	});
+	ipcMain.handle('install-update', async () => {
+		updateService?.install();
+	});
 
 	await appState.restoreCircles();
 	appState.broadcast();
@@ -198,4 +215,6 @@ app.on('before-quit', () => {
 	unregisterShortcuts();
 	void controlServer?.close();
 	controlServer = null;
+	updateService?.dispose();
+	updateService = null;
 });

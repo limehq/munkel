@@ -393,6 +393,34 @@ select {
 	gap: 6px;
 }
 
+.update-status {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	margin-bottom: 10px;
+	background: rgba(10, 132, 255, 0.12);
+	border: 1px solid rgba(10, 132, 255, 0.25);
+	border-radius: var(--munkel-radius-sm);
+	font-size: 12px;
+	color: var(--munkel-text-primary);
+}
+
+.update-status.update-error {
+	background: rgba(255, 69, 58, 0.12);
+	border-color: rgba(255, 69, 58, 0.35);
+}
+
+.update-status-text {
+	flex: 1;
+	min-width: 0;
+	line-height: 1.35;
+}
+
+.update-status .button-small {
+	flex-shrink: 0;
+}
+
 .github-panel {
 	display: flex;
 	flex-direction: column;

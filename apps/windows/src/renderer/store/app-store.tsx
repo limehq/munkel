@@ -13,12 +13,14 @@ import type {
 	IdentityState,
 	Member,
 	StateUpdate,
+	UpdateState,
 } from '../../shared/types';
 
 interface AppState {
 	identity: IdentityState | null;
 	circles: CircleState[];
 	githubLoginState: GitHubLoginState;
+	updateState: UpdateState;
 }
 
 interface AppStore {
@@ -38,6 +40,9 @@ interface AppStore {
 	startGitHubLogin: () => Promise<void>;
 	cancelGitHubLogin: () => Promise<void>;
 	githubLogout: () => Promise<void>;
+
+	checkForUpdates: () => Promise<void>;
+	installUpdate: () => Promise<void>;
 }
 
 const AppContext = createContext<AppStore | null>(null);
@@ -47,6 +52,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		identity: null,
 		circles: [],
 		githubLoginState: { phase: 'idle' },
+		updateState: { phase: 'idle' },
 	});
 
 	const setIdentity = useCallback((identity: IdentityState | null) => {
@@ -77,6 +83,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		setState((s) => ({ ...s, githubLoginState }));
 	}, []);
 
+	const setUpdateState = useCallback((updateState: UpdateState) => {
+		setState((s) => ({ ...s, updateState }));
+	}, []);
+
 	useEffect(() => {
 		let mounted = true;
 
@@ -95,12 +105,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			setGitHubLoginState(githubLoginState);
 		});
 
+		const removeUpdateState = window.electronAPI.onUpdateState((updateState) => {
+			setUpdateState(updateState);
+		});
+
 		return () => {
 			mounted = false;
 			removeStateUpdate();
 			removeGitHubLoginState();
+			removeUpdateState();
 		};
-	}, [applyUpdate, setGitHubLoginState]);
+	}, [applyUpdate, setGitHubLoginState, setUpdateState]);
 
 	const joinCircle = useCallback(async (code: string, relayUrl?: string) => {
 		await window.electronAPI.joinCircle(code, relayUrl);
@@ -142,6 +157,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		await window.electronAPI.githubLogout();
 	}, []);
 
+	const checkForUpdates = useCallback(async () => {
+		await window.electronAPI.checkForUpdates();
+	}, []);
+
+	const installUpdate = useCallback(async () => {
+		await window.electronAPI.installUpdate();
+	}, []);
+
 	const store = useMemo<AppStore>(
 		() => ({
 			state,
@@ -159,6 +182,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			startGitHubLogin,
 			cancelGitHubLogin,
 			githubLogout,
+			checkForUpdates,
+			installUpdate,
 		}),
 		[
 			state,
@@ -176,6 +201,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			startGitHubLogin,
 			cancelGitHubLogin,
 			githubLogout,
+			checkForUpdates,
+			installUpdate,
 		],
 	);
 
