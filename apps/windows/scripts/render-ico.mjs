@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const svgPath = path.join(__dirname, '../assets/tray-icon.svg');
+const svgPath = path.join(__dirname, '../assets/logo.svg');
 const outPath = path.join(__dirname, '../assets/icon.ico');
 const sizes = [16, 20, 24, 32, 40, 48, 64, 128, 256];
 
