@@ -2,7 +2,9 @@
 
 ## Packaging
 
-- `bun run render-ico` regenerates `assets/icon.ico` from `assets/tray-icon.svg`. Run it after SVG changes.
+- `assets/logo.svg` is the canonical brand logo source for the Windows app.
+- `bun run render-ico` regenerates `assets/icon.ico` (multi-size, 16×16 through 256×256) from `assets/logo.svg`. Run it after SVG changes.
+- `bun run render-tray-icon` regenerates the tray PNGs (`tray-icon.png`, `tray-icon-24.png`, `tray-icon-32.png`, `tray-icon-48.png`) from `assets/logo.svg`.
 - `bun run pack:installer` produces `apps/windows/release/Munkel-Setup-<version>.exe` — **recommended for end users**. One-click NSIS installer: installs to `%LOCALAPPDATA%\Programs\@munkelwindows\` (electron-builder folder name from `@munkel/windows`), creates Start Menu + Desktop shortcuts (searchable as “Munkel” in Windows Search), and launches the app when done.
 - `bun run pack:dir` produces `apps/windows/release/win-unpacked/`, which contains the portable directory build including `Munkel.exe` (for dev/QA).
 - `bun run pack` produces the NSIS installer, zip, and portable dir in one run.
@@ -10,10 +12,23 @@
 
 For v1, the Windows Electron app is a standalone bundle. The `munkel` CLI is installed separately and communicates with the app over the named pipe. Bundling the CLI via `extraResources` is an optional future follow-up.
 
+## Logo assets
+
+`assets/logo.svg` is the single source of truth for the app icon, tray icon, and installer icon. The checked-in file is a placeholder copy of the old `tray-icon.svg`; replace it with the official brand SVG when available, then rerun:
+
+```bash
+cd apps/windows
+bun run render-ico
+bun run render-tray-icon
+bun run build
+bun run pack:dir
+```
+
+No other asset files need to be edited when the official logo arrives.
+
 ## Open packaging tasks
 
 - Authenticode code-signing: deferred; fork beta ships unsigned. For public release, obtain a code-signing certificate (`.pfx`), store it in GitHub secrets such as `WINDOWS_CERTIFICATE_PFX` and `WINDOWS_CERTIFICATE_PASSWORD`, and configure `win.certificateFile` / `win.certificatePassword` in `electron-builder.yml`. SmartScreen reputation still builds over time; EV certificates help but cost more. Rationale: an unsigned fork beta is acceptable; signing is a public-release concern.
-- **E4 (pending):** Integrate official logo file + SVG logo across app icon, tray, and installer — see `.planning/todos/pending/E4-logo-svg-einarbeiten.md`.
 [![CI](https://github.com/rodgi040/munkel/actions/workflows/ci.yml/badge.svg)](https://github.com/rodgi040/munkel/actions/workflows/ci.yml)
 
 Munkel for Windows — Electron + Vite + React + TypeScript client.

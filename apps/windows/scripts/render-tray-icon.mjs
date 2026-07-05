@@ -3,10 +3,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const svgPath = path.join(__dirname, '../assets/tray-icon.svg');
+const svgPath = path.join(__dirname, '../assets/logo.svg');
 const outDir = path.join(__dirname, '../assets');
 
-const sizes = [16, 32, 48];
+const sizes = [16, 24, 32, 48];
 
 for (const size of sizes) {
 	const outName = size === 16 ? 'tray-icon.png' : `tray-icon-${size}.png`;

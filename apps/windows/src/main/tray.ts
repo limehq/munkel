@@ -19,6 +19,7 @@ function loadTrayIcon(): Electron.NativeImage {
 	// unreliable there.
 	const candidates = [
 		path.join(assetDir, 'tray-icon-32.png'),
+		path.join(assetDir, 'tray-icon-24.png'),
 		path.join(assetDir, 'tray-icon.png'),
 	];
 	for (const iconPath of candidates) {

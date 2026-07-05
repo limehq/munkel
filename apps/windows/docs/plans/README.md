@@ -17,6 +17,7 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 | 7 | [Notch hover-stuck / retract deadlock fix](./07-notch-retract-verify-fix.md) | `platform/windows/notch-retract-fix` | PR #22 in `v2-clean` | ✅ Merged (merge commit `1b63d37`) |
 | 8 | [Orphaned Electron store cleanup](./08-electron-store-cleanup.md) | — (maintenance, no branch) | — | ✅ Done |
 | 9 | [Circle leave confirmation dialog](./09-circle-leave-confirmation.md) | `platform/windows/circle-leave-confirmation` | `v2-clean` | 🔄 In review |
+| 10 | [Logo assets integration](./10-logo-assets-integration.md) | `platform/windows/logo-assets-integration` | Plan 04 in `v2-clean` | 🔄 In review |
 
 > **Plans 01–07 are merged into `platform/windows/v2-clean`.**
 > Phase 2 + Plans 01–05 shipped via PR #12–#16 and PR #22; Plan 06 merged via
@@ -99,7 +100,7 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
   - Circle leave confirmation dialog (Plan 09 — in review).
   - Complete "Test notch" removal (button already hidden in production; demo
     pipeline still present).
-  - Integrate official logo assets (placeholders wired, official assets missing).
+  - Integrate official logo assets — placeholder pipeline is in review via Plan 10 / PR #39; official brand SVG assets still pending.
 - **Backlog:** optional cluster hardening (defense-in-depth, non-blocking).
 
 ## Maintenance (2026-06-30)
