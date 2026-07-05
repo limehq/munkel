@@ -9,8 +9,8 @@ import { writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { deriveGroupKeys, sealWithNonce } from '../apps/windows/src/core/crypto';
-import { decodePayload } from '../apps/windows/src/core/payload';
+import { deriveGroupKeys, sealWithNonce } from '@munkel/shared-wire/crypto';
+import { decodePayload } from '@munkel/shared-wire/payload';
 import {
 	ALBUM_THUMB_BUDGET,
 	MAX_FULL_BYTES,
@@ -109,7 +109,7 @@ for (const payload of payloads) {
 for (const entry of sealed) {
 	const { messageKey } = await deriveGroupKeys(entry.code);
 	const opened = await (async () => {
-		const { open } = await import('../apps/windows/src/core/crypto');
+		const { open } = await import('@munkel/shared-wire/crypto');
 		return open(entry.sealedBase64, messageKey);
 	})();
 	const payload = payloads.find((p) => p.id === entry.payloadId)!;

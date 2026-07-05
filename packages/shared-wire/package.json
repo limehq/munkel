@@ -9,7 +9,10 @@
     "./control": "./src/control.ts",
     "./transport": "./src/transport.ts",
     "./protocol": "./src/protocol.ts",
-    "./wire-constants": "./src/wire-constants.ts"
+    "./wire-constants": "./src/wire-constants.ts",
+    "./crypto": "./src/crypto.ts",
+    "./payload": "./src/payload.ts",
+    "./normalize": "./src/normalize.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

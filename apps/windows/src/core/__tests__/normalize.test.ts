@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'bun:test';
-import { normalizeCircleCode } from '../normalize';
+import { normalizeCircleCode } from '@munkel/shared-wire/normalize';
 
 describe('normalizeCircleCode', () => {
   it('trims whitespace and lowercases', () => {

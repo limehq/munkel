@@ -30,7 +30,7 @@
  */
 
 import { GroupSession } from '../apps/windows/src/main/group-session';
-import { encodeChat, encodeProfile } from '../apps/windows/src/core/payload';
+import { encodeChat } from '@munkel/shared-wire/payload';
 
 const code = process.env.CODE ?? 'interop-script-' + Math.random().toString(36).slice(2, 8);
 const relayUrl = process.env.RELAY_URL ?? 'ws://127.0.0.1:8787';

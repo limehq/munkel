@@ -10,6 +10,9 @@
 // Set TO=<memberId> to direct the chat at a single member (a "whisper")
 // instead of broadcasting to the whole group; unset means broadcast.
 
+import { deriveGroupKeys, seal, open as openPayload } from '@munkel/shared-wire/crypto';
+import { encodeChat, encodeProfile } from '@munkel/shared-wire/payload';
+
 const listenMode = process.argv[2] === '--listen';
 const positional = process.argv.slice(listenMode ? 3 : 2);
 const [code, sender = 'Alex', text = 'Hello from TypeScript!'] = positional;
@@ -18,52 +21,7 @@ if (!code) {
   process.exit(1);
 }
 
-const encoder = new TextEncoder();
-const normalized = code.normalize('NFC').trim().toLowerCase();
-const salt = encoder.encode('munkel-v1');
-
-const ikm = await crypto.subtle.importKey('raw', encoder.encode(normalized), 'HKDF', false, ['deriveBits']);
-
-async function derive(info: string, bits: number): Promise<Uint8Array> {
-  const derived = await crypto.subtle.deriveBits(
-    { name: 'HKDF', hash: 'SHA-256', salt, info: encoder.encode(info) },
-    ikm,
-    bits,
-  );
-  return new Uint8Array(derived);
-}
-
-const groupId = [...await derive('group-id', 128)].map((b) => b.toString(16).padStart(2, '0')).join('');
-const key = await crypto.subtle.importKey(
-  'raw',
-  (await derive('message-key', 256)).buffer as ArrayBuffer,
-  'AES-GCM',
-  false,
-  ['encrypt', 'decrypt'],
-);
-
-async function seal(payload: Record<string, unknown>): Promise<string> {
-  const nonce = crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext = new Uint8Array(
-    await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, encoder.encode(JSON.stringify(payload))),
-  );
-  const combined = new Uint8Array(nonce.length + ciphertext.length);
-  combined.set(nonce);
-  combined.set(ciphertext, nonce.length);
-  return Buffer.from(combined).toString('base64');
-}
-
-// Inverse of seal(). Deliberately not named `open`: that shadows the
-// window.open global and trips CodeQL's open-redirect heuristic (CWE-601).
-async function unseal(payload: string): Promise<unknown> {
-  const combined = Buffer.from(payload, 'base64');
-  const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: combined.subarray(0, 12) },
-    key,
-    combined.subarray(12),
-  );
-  return JSON.parse(new TextDecoder().decode(plaintext));
-}
+const { groupId, messageKey } = await deriveGroupKeys(code);
 
 function relayEndpoint(raw: string, group: string, member: string): string {
   const base = new URL(raw);
@@ -99,7 +57,7 @@ const ws = new WebSocket(relayEndpoint(relayURL, groupId, memberId));
 ws.onmessage = async (event) => {
   const frame = JSON.parse(String(event.data));
   if (listenMode && frame.type === 'message') {
-    const decrypted = await unseal(frame.payload);
+    const decrypted = JSON.parse(await openPayload(frame.payload, messageKey));
     process.stdout.write(`DECRYPTED from=${safeLog(frame.from)} to=${safeLog(frame.to ?? 'all')}: ${safeLog(decrypted)}\n`);
     return;
   }
@@ -107,17 +65,19 @@ ws.onmessage = async (event) => {
 };
 
 ws.onopen = async () => {
-  ws.send(JSON.stringify({ type: 'send', payload: await seal({ kind: 'profile', displayName: sender }) }));
+  const profile = await seal(JSON.stringify(encodeProfile(sender)), messageKey);
+  ws.send(JSON.stringify({ type: 'send', payload: profile }));
   if (listenMode) {
     process.stdout.write(`listening as "${sender}" (${memberId})…\n`);
     setInterval(() => ws.send(JSON.stringify({ type: 'ping' })), 30_000);
     return;
   }
   const to = process.env.TO;
+  const chat = encodeChat(text);
   ws.send(JSON.stringify({
     type: 'send',
     ...(to ? { to } : {}),
-    payload: await seal({ kind: 'chat', text, sentAt: new Date().toISOString() }),
+    payload: await seal(JSON.stringify(chat), messageKey),
   }));
   process.stdout.write(`sent profile + chat as "${sender}"${to ? ` → ${to}` : ''}\n`);
   setTimeout(() => {

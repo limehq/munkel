@@ -8,7 +8,7 @@ import {
   PayloadTooLargeError,
   MAX_PAYLOAD_CHARS,
   type ImageItem,
-} from '../payload';
+} from '@munkel/shared-wire/payload';
 
 describe('payload encoding', () => {
   it('encodes a chat payload with ISO-8601 sentAt', () => {

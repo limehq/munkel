@@ -1,4 +1,4 @@
-import { BLOB_KEY_REGEX, MAX_PAYLOAD_CHARS } from '@munkel/shared-wire/wire-constants';
+import { BLOB_KEY_REGEX, MAX_PAYLOAD_CHARS } from './wire-constants.js';
 export { BLOB_KEY_REGEX, MAX_PAYLOAD_CHARS };
 
 export type ChatPayload = {
