@@ -1,7 +1,6 @@
 import { normalizeCircleCode } from '../core';
 import { IdentityStore } from './identity-store';
 import { GroupSession, type SendResult } from './group-session';
-import { ProfileBroadcaster } from './profile-broadcaster';
 import type { CircleState, IdentityState, NotchMessage, StateUpdate } from '../shared/types';
 
 // Relay endpoint. Defaults to PRODUCTION in all builds so fresh joins (incl.
@@ -21,7 +20,7 @@ interface IdentityUpdate {
 export class AppState {
 	private readonly sessions = new Map<string, GroupSession>();
 	private identity: IdentityState;
-	private readonly broadcaster: ProfileBroadcaster;
+	private profileTimer: ReturnType<typeof setTimeout> | null = null;
 
 	constructor(
 		private readonly identityStore: IdentityStore,
@@ -36,7 +35,6 @@ export class AppState {
 			avatar: persisted.avatar,
 			githubLogin: persisted.githubLogin,
 		};
-		this.broadcaster = new ProfileBroadcaster(() => this.broadcastProfiles());
 	}
 
 	async joinCircle(code: string, relayUrl?: string): Promise<void> {
@@ -111,7 +109,11 @@ export class AppState {
 			session.updateIdentity(this.identity);
 		}
 		this.broadcast();
-		this.broadcaster.trigger();
+		if (this.profileTimer) clearTimeout(this.profileTimer);
+		this.profileTimer = setTimeout(() => {
+			this.profileTimer = null;
+			void this.broadcastProfiles();
+		}, 1000);
 	}
 
 	getIdentity(): IdentityState {
@@ -119,7 +121,11 @@ export class AppState {
 	}
 
 	flushProfileBroadcast(): void {
-		this.broadcaster.flushNow();
+		if (this.profileTimer) {
+			clearTimeout(this.profileTimer);
+			this.profileTimer = null;
+		}
+		void this.broadcastProfiles();
 	}
 
 	async setRelayUrl(code: string, relayUrl: string): Promise<void> {

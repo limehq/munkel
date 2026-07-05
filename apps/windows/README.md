@@ -31,7 +31,7 @@ Phase 1 is feature-complete for day-to-day messaging:
 
 GitHub login is optional. The app still works with a manual display name and
 joined circles even when no GitHub account is connected. A real
-device-flow-enabled OAuth app is a later human gate: `github-config.ts` uses
+device-flow-enabled OAuth app is a later human gate: `github-device-auth.ts` uses
 the public macOS client ID by default, and production verification can later
 override it with `MUNKEL_GITHUB_CLIENT_ID`.
 

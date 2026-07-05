@@ -1,12 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useIpc } from '../hooks/useIpc';
 import { useAppStore } from '../store/app-store';
 import { Avatar } from './Avatar';
 import { getCircleColor } from '../../shared/group-color';
 import type { CircleState, GitHubLoginState, IdentityState } from '../../shared/types';
 
 export default function MenuWindow() {
-	const ipc = useIpc();
 	const {
 		state,
 		joinCircle,
@@ -117,9 +115,9 @@ export default function MenuWindow() {
 								placeholder="Your name"
 							/>
 							<div className="popover-divider" />
-							<button onClick={() => ipc.showPalette()}>Quick send…</button>
+							<button onClick={() => window.electronAPI.showPalette()}>Quick send…</button>
 							<div className="popover-divider" />
-							<button onClick={() => ipc.quitApp()}>Quit</button>
+							<button onClick={() => window.electronAPI.quitApp()}>Quit</button>
 						</div>
 					)}
 				</div>
