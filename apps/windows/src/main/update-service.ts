@@ -23,8 +23,22 @@ function userMessageForError(error: unknown): string {
 	if (isSignatureError(error)) {
 		return 'Update failed: the downloaded installer is not signed. Unsigned beta builds require signature verification to be disabled.';
 	}
-	const message = (error as Error | undefined)?.message ?? 'Update check failed.';
-	return message;
+	const message = String((error as Error | undefined)?.message ?? '').toLowerCase();
+	if (
+		message.includes('net::') ||
+		message.includes('network') ||
+		message.includes('econnrefused') ||
+		message.includes('econnreset') ||
+		message.includes('etimedout') ||
+		message.includes('enotfound') ||
+		message.includes('getaddrinfo')
+	) {
+		return 'Update check failed: network error.';
+	}
+	if (message.includes('certificate') || message.includes('tls') || message.includes('ssl')) {
+		return 'Update check failed: secure connection error.';
+	}
+	return 'Update check failed.';
 }
 
 class UpdateServiceImpl implements UpdateService {
@@ -32,6 +46,8 @@ class UpdateServiceImpl implements UpdateService {
 	private error?: string;
 	private downloadedVersion?: string;
 	private intervalId: ReturnType<typeof setInterval> | null = null;
+	private checking = false;
+	private installing = false;
 	private readonly send: UpdateSend;
 	private readonly autoUpdater: AppUpdater;
 	private readonly isDev: boolean;
@@ -67,20 +83,29 @@ class UpdateServiceImpl implements UpdateService {
 		});
 
 		this.autoUpdater.on('error', (error) => {
+			console.error('[update-service] autoUpdater error:', error);
 			this.setPhase('error', { error: userMessageForError(error) });
 		});
 	}
 
 	check(): void {
-		if (this.isDev) return;
-		this.autoUpdater.checkForUpdates().catch((error: unknown) => {
-			// Errors are also emitted via the 'error' event; keep the state in sync.
-			this.setPhase('error', { error: userMessageForError(error) });
-		});
+		if (this.isDev || this.checking || this.phase === 'downloaded') return;
+		this.checking = true;
+		this.autoUpdater
+			.checkForUpdates()
+			.catch((error: unknown) => {
+				console.error('[update-service] checkForUpdates rejected:', error);
+				// Errors are also emitted via the 'error' event; keep the state in sync.
+				this.setPhase('error', { error: userMessageForError(error) });
+			})
+			.finally(() => {
+				this.checking = false;
+			});
 	}
 
 	install(): void {
-		if (this.phase !== 'downloaded') return;
+		if (this.phase !== 'downloaded' || this.installing) return;
+		this.installing = true;
 		this.autoUpdater.quitAndInstall(false, true);
 	}
 

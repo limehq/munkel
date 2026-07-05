@@ -164,7 +164,6 @@ jobs:
         run: security delete-keychain build.keychain || true
 
   windows:
-    needs: release
     runs-on: windows-latest
     timeout-minutes: 30
     permissions:

@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from 'bun:test';
+import { describe, expect, it, beforeEach, afterEach, jest } from 'bun:test';
 import { EventEmitter } from 'node:events';
 import { initUpdateService, type UpdateSend } from '../update-service';
 import type { UpdateState } from '../../shared/types';
@@ -65,6 +65,36 @@ describe('initUpdateService', () => {
 		expect(checkSpy.calls).toBe(1);
 		expect(states).toHaveLength(0); // checkForUpdates resolves to nothing by default.
 	});
+
+	it('checks again every 24 hours in packaged mode', async () => {
+		jest.useFakeTimers({ legacyFakeTimers: true });
+		const updater = new MockAppUpdater();
+		let checkCount = 0;
+		updater.checkForUpdates = () => {
+			checkCount += 1;
+			return Promise.resolve({} as unknown);
+		};
+		const { send } = createSend();
+
+		const service = initUpdateService(send, { autoUpdater: updater as never, isDev: false });
+		expect(checkCount).toBe(1);
+
+		// Let the init auto-check's promise chain settle before advancing the interval.
+		await Promise.resolve();
+		await Promise.resolve();
+		await Promise.resolve();
+
+		jest.advanceTimersByTime(24 * 60 * 60 * 1000);
+		await Promise.resolve();
+		expect(checkCount).toBe(2);
+
+		jest.advanceTimersByTime(24 * 60 * 60 * 1000);
+		await Promise.resolve();
+		expect(checkCount).toBe(3);
+
+		service.dispose();
+		jest.useRealTimers();
+	});
 });
 
 describe('UpdateService state transitions', () => {
@@ -104,7 +134,7 @@ describe('UpdateService state transitions', () => {
 		expect(states.at(-1)).toEqual({ phase: 'idle' });
 	});
 
-	it('manual check invokes checkForUpdates', () => {
+	it('manual check invokes checkForUpdates', async () => {
 		const mock = createMockUpdater();
 		const sendCapture = createSend();
 		const localService = initUpdateService(sendCapture.send, {
@@ -112,6 +142,7 @@ describe('UpdateService state transitions', () => {
 			isDev: false,
 		});
 		expect(mock.checkSpy.calls).toBe(1); // auto-check on init
+		await new Promise((resolve) => setImmediate(resolve));
 		localService.check();
 		expect(mock.checkSpy.calls).toBe(2);
 		localService.dispose();
@@ -132,6 +163,63 @@ describe('UpdateService state transitions', () => {
 		expect(mock.installSpy.calls).toBe(1);
 		localService.dispose();
 	});
+
+	it('skips manual check while a check is already in flight', async () => {
+		const updater = new MockAppUpdater();
+		let resolveCheck: (() => void) | null = null;
+		let checkCount = 0;
+		updater.checkForUpdates = () => {
+			checkCount += 1;
+			return new Promise((resolve) => {
+				resolveCheck = () => resolve({} as unknown);
+			});
+		};
+
+		const sendCapture = createSend();
+		const localService = initUpdateService(sendCapture.send, {
+			autoUpdater: updater as never,
+			isDev: false,
+		});
+
+		// The auto-check from init is in flight.
+		expect(checkCount).toBe(1);
+		localService.check();
+		localService.check();
+		expect(checkCount).toBe(1); // duplicate calls ignored while in flight
+
+		expect(resolveCheck).not.toBeNull();
+		resolveCheck!();
+		await new Promise((resolve) => setImmediate(resolve));
+
+		// After the in-flight check resolves, subsequent manual checks are allowed.
+		localService.check();
+		expect(checkCount).toBe(2);
+
+		localService.dispose();
+	});
+
+	it('skips check and install when an update is already downloaded', () => {
+		const mock = createMockUpdater();
+		const sendCapture = createSend();
+		const localService = initUpdateService(sendCapture.send, {
+			autoUpdater: mock.updater as never,
+			isDev: false,
+		});
+
+		mock.updater.emit('update-downloaded', { version: '0.2.0' });
+		expect(sendCapture.states.at(-1)).toEqual({ phase: 'downloaded', version: '0.2.0' });
+
+		// A new check should be ignored while an update is downloaded.
+		localService.check();
+		expect(mock.checkSpy.calls).toBe(1); // only the init auto-check
+
+		// Install should be a one-shot action.
+		localService.install();
+		localService.install();
+		expect(mock.installSpy.calls).toBe(1);
+
+		localService.dispose();
+	});
 });
 
 describe('UpdateService error handling', () => {
@@ -147,14 +235,27 @@ describe('UpdateService error handling', () => {
 		service.dispose();
 	});
 
-	it('reports the original message for generic errors', () => {
+	it('reports a user-friendly message for network errors', () => {
 		const { updater } = createMockUpdater();
 		const { send, states } = createSend();
 		const service = initUpdateService(send, { autoUpdater: updater as never, isDev: false });
 
-		updater.emit('error', new Error('Network request failed'));
+		updater.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'));
 		expect(states.at(-1)?.phase).toBe('error');
-		expect(states.at(-1)?.error).toBe('Network request failed');
+		expect(states.at(-1)?.error).toBe('Update check failed: network error.');
+
+		service.dispose();
+	});
+
+	it('does not leak raw error details for generic failures', () => {
+		const { updater } = createMockUpdater();
+		const { send, states } = createSend();
+		const service = initUpdateService(send, { autoUpdater: updater as never, isDev: false });
+
+		updater.emit('error', new Error('internal C:\\Users\\secret\\path leaked'));
+		expect(states.at(-1)?.phase).toBe('error');
+		expect(states.at(-1)?.error).toBe('Update check failed.');
+		expect(states.at(-1)?.error).not.toContain('secret');
 
 		service.dispose();
 	});
