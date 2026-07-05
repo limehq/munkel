@@ -6,7 +6,10 @@ import MenuWindow from '../MenuWindow';
 import type { StateUpdate } from '../../../shared/types';
 
 function createMockElectronApi(initialState: StateUpdate) {
-	return {
+	let stateUpdateCb: ((update: StateUpdate) => void) | null = null;
+	let githubLoginStateCb: ((state: unknown) => void) | null = null;
+
+	const api = {
 		getWindowType: () => Promise.resolve('menu' as const),
 		hideWindow: () => Promise.resolve(),
 		showPalette: () => Promise.resolve(),
@@ -30,15 +33,30 @@ function createMockElectronApi(initialState: StateUpdate) {
 		endNotchReply: () => Promise.resolve(),
 		notchSetInteractive: (_interactive: boolean) => Promise.resolve(),
 		notchEmpty: () => Promise.resolve(),
-		onStateUpdate: (_cb: (update: StateUpdate) => void) => () => {},
-		onGitHubLoginState: (_cb: (state: unknown) => void) => () => {},
+		onStateUpdate: (cb: (update: StateUpdate) => void) => {
+			stateUpdateCb = cb;
+			return () => {
+				stateUpdateCb = null;
+			};
+		},
+		onGitHubLoginState: (cb: (state: unknown) => void) => {
+			githubLoginStateCb = cb;
+			return () => {
+				githubLoginStateCb = null;
+			};
+		},
 		onNotchMessage: (_cb: unknown) => () => {},
 		onRelayError: (_cb: unknown) => () => {},
 		onNotchShow: (_cb: unknown) => () => {},
 		onNotchHide: (_cb: unknown) => () => {},
 		onNotchUpdate: (_cb: unknown) => () => {},
 		onNotchReopen: (_cb: unknown) => () => {},
+
+		simulateStateUpdate: (update: StateUpdate) => stateUpdateCb?.(update),
+		simulateGitHubLoginState: (state: unknown) => githubLoginStateCb?.(state),
 	};
+
+	return api;
 }
 
 function makeState(circles: StateUpdate['circles']): StateUpdate {
@@ -167,5 +185,94 @@ describe('MenuWindow circle leave confirmation', () => {
 		expect(leaveCircleSpy).toHaveBeenCalledTimes(1);
 		expect(leaveCircleSpy).toHaveBeenCalledWith('blue-table-42');
 		expect(root.root.findAllByProps({ 'data-testid': 'leave-dialog-overlay' }).length).toBe(0);
+	});
+
+	it('exposes modal ARIA attributes on the dialog', async () => {
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'leave-circle-button' }).props.onClick();
+		});
+
+		const dialog = root.root.findByProps({ 'data-testid': 'leave-dialog-overlay' });
+		expect(dialog).toBeDefined();
+
+		const card = dialog.children.find(
+			(child: { props?: { role?: string } }) => child.props?.role === 'dialog',
+		);
+		expect(card).toBeDefined();
+		expect(card.props['aria-modal']).toBe('true');
+		expect(card.props['aria-labelledby']).toBeDefined();
+		expect(card.props['aria-labelledby']).toContain('leave-dialog-title-');
+	});
+
+	it('auto-closes the dialog when the circle is removed from state', async () => {
+		const leaveCircleSpy = spyOn(electronApi, 'leaveCircle');
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'leave-circle-button' }).props.onClick();
+		});
+
+		expect(root.root.findAllByProps({ 'data-testid': 'leave-dialog-overlay' }).length).toBe(1);
+
+		await act(async () => {
+			electronApi.simulateStateUpdate(makeState([]));
+		});
+
+		expect(leaveCircleSpy).toHaveBeenCalledTimes(0);
+		expect(root.root.findAllByProps({ 'data-testid': 'leave-dialog-overlay' }).length).toBe(0);
+	});
+
+	it('wraps Tab focus from the last button back to the first', async () => {
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'leave-circle-button' }).props.onClick();
+		});
+
+		const overlay = root.root.findByProps({ 'data-testid': 'leave-dialog-overlay' });
+		const confirmButton = root.root.findByProps({ 'data-testid': 'leave-dialog-confirm' });
+		let prevented = false;
+
+		await act(async () => {
+			overlay.props.onKeyDown({
+				target: confirmButton,
+				key: 'Tab',
+				shiftKey: false,
+				preventDefault: () => {
+					prevented = true;
+				},
+				stopPropagation: () => {},
+			});
+		});
+
+		expect(prevented).toBe(true);
+	});
+
+	it('wraps Shift+Tab focus from the first button back to the last', async () => {
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'leave-circle-button' }).props.onClick();
+		});
+
+		const overlay = root.root.findByProps({ 'data-testid': 'leave-dialog-overlay' });
+		const cancelButton = root.root.findByProps({ 'data-testid': 'leave-dialog-cancel' });
+		let prevented = false;
+
+		await act(async () => {
+			overlay.props.onKeyDown({
+				target: cancelButton,
+				key: 'Tab',
+				shiftKey: true,
+				preventDefault: () => {
+					prevented = true;
+				},
+				stopPropagation: () => {},
+			});
+		});
+
+		expect(prevented).toBe(true);
 	});
 });

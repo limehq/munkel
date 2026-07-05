@@ -215,6 +215,7 @@ select {
 
 /* Menu window */
 .menu-window {
+	position: relative;
 	width: 320px;
 	height: 100%;
 	border-radius: var(--munkel-radius-md);

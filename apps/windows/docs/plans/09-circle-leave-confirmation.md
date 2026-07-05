@@ -14,10 +14,11 @@
 
 ## Problem
 
-The menu window (`MenuWindow.tsx:354`) shows a small "➡️" leave button on every
-joined circle. Clicking it immediately calls `leaveCircle(code)` and removes the
-circle from state. There is no confirmation step, so an accidental click boots
-the user out of a circle with no way to undo short of rejoining with the code.
+The menu window (`MenuWindow.tsx`, leave button with `data-testid="leave-circle-button"`)
+shows a small "➡️" leave button on every joined circle. Clicking it immediately
+calls `leaveCircle(code)` and removes the circle from state. There is no
+confirmation step, so an accidental click boots the user out of a circle with no
+way to undo short of rejoining with the code.
 
 ## Goal
 
@@ -27,6 +28,8 @@ actually leaving a circle. The dialog must:
 - Be easy to dismiss (Cancel, Escape, backdrop click).
 - Use the safer default of focusing **Cancel**, not **Leave**.
 - Stay accessible (`role="dialog"`, `aria-modal="true"`, labelled title).
+- Trap focus inside the dialog while it is open (Tab / Shift+Tab wrap between
+  the two buttons).
 - Match the existing frosted/dark Windows UI.
 - Auto-close if the underlying circle disappears while the dialog is open.
 
@@ -53,6 +56,14 @@ The **Cancel** button receives an auto-focus `ref` in a `useEffect` on mount so
 that pressing `Enter` or `Space` dismisses without leaving, and an accidental
 extra click/enter does not confirm the destructive action.
 
+### Focus trap
+
+Keyboard focus is contained within the two dialog buttons. Pressing **Tab**
+while focus is on the **Leave** button wraps focus back to **Cancel**; pressing
+**Shift+Tab** while focus is on **Cancel** wraps focus to **Leave**. The overlay
+listens for bubbled `keydown` events and calls `preventDefault()` only at the
+boundaries, so normal Tab navigation between the two buttons is unchanged.
+
 ### Styling
 
 The dialog uses the existing `.glass` class for the frosted panel and adds
@@ -78,12 +89,13 @@ tokens (`--munkel-radius-md`, `--munkel-text-primary`, etc.).
 2. Wire the circle leave button to `setConfirmingLeave(code)` instead of
    `handleLeave(code)`.
 3. Implement `LeaveConfirmationDialog` with Cancel focus, Escape/backdrop
-   dismissal, and ARIA attributes.
+   dismissal, ARIA attributes, and focus trap.
 4. Add scoped CSS classes to `global.css` using existing tokens and `.glass`.
 5. Add `data-testid` attributes to the leave button and dialog controls for
    robust tests.
 6. Add `MenuWindow.test.tsx` covering: open dialog without leaving, Cancel,
-   Escape, backdrop, and confirm-leave exactly once.
+   Escape, backdrop, confirm-leave exactly once, ARIA attributes, auto-close on
+   circle removal, and focus-trap boundary wrapping.
 7. Update plan docs, open-tasks table, and Windows README status.
 8. Run `bun run typecheck`, `bun test`, and `bun run build`.
 
@@ -104,6 +116,7 @@ bun run build
 - [x] The Leave button calls `leaveCircle(code)` exactly once and closes the dialog.
 - [x] Cancel button receives auto-focus.
 - [x] Dialog has `role="dialog"`, `aria-modal="true"`, and `aria-labelledby`.
+- [x] Focus is trapped inside the dialog (Tab / Shift+Tab wrap between buttons).
 - [x] Dialog auto-closes if the circle is removed from state.
 - [x] Styles match the existing frosted/dark Windows UI.
 - [x] Component tests pass; full `bun test` suite passes.
@@ -120,6 +133,9 @@ bun run build
   target is the overlay itself, not the dialog card.
 - **Guard effect:** A small `useEffect` watches `state.circles`; if the
   confirming circle disappears, the dialog closes automatically.
+- **Focus trap:** The dialog has only two focusable controls, so a lightweight
+  boundary check on the overlay's `keydown` event is sufficient. If more dialogs
+  are added, this should be replaced by a reusable focus-trap hook.
 
 ## Open questions / deferred (non-blocking)
 

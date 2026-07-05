@@ -430,14 +430,41 @@ interface LeaveConfirmationDialogProps {
 	onCancel: () => void;
 }
 
+function getDataTestId(target: unknown): string | undefined {
+	if (!target || typeof target !== 'object') return undefined;
+	const node = target as HTMLElement;
+	if (node.dataset?.testid) return node.dataset.testid;
+	const instance = target as { props?: { 'data-testid'?: string } };
+	return instance.props?.['data-testid'];
+}
+
 function LeaveConfirmationDialog({ code, onConfirm, onCancel }: LeaveConfirmationDialogProps) {
 	const cancelRef = useRef<HTMLButtonElement>(null);
+	const confirmRef = useRef<HTMLButtonElement>(null);
 
 	useEffect(() => {
 		cancelRef.current?.focus();
 	}, []);
 
 	const titleId = `leave-dialog-title-${code}`;
+
+	function handleOverlayKeyDown(e: React.KeyboardEvent) {
+		if (e.key === 'Escape') {
+			onCancel();
+			return;
+		}
+
+		if (e.key !== 'Tab') return;
+
+		const targetTestId = getDataTestId(e.target);
+		if (e.shiftKey && targetTestId === 'leave-dialog-cancel') {
+			e.preventDefault();
+			confirmRef.current?.focus();
+		} else if (!e.shiftKey && targetTestId === 'leave-dialog-confirm') {
+			e.preventDefault();
+			cancelRef.current?.focus();
+		}
+	}
 
 	return (
 		<div
@@ -447,9 +474,7 @@ function LeaveConfirmationDialog({ code, onConfirm, onCancel }: LeaveConfirmatio
 			onClick={(e) => {
 				if (e.target === e.currentTarget) onCancel();
 			}}
-			onKeyDown={(e) => {
-				if (e.key === 'Escape') onCancel();
-			}}
+			onKeyDown={handleOverlayKeyDown}
 		>
 			<div
 				className="leave-dialog glass"
@@ -471,6 +496,7 @@ function LeaveConfirmationDialog({ code, onConfirm, onCancel }: LeaveConfirmatio
 						Cancel
 					</button>
 					<button
+						ref={confirmRef}
 						className="button-primary"
 						data-testid="leave-dialog-confirm"
 						onClick={onConfirm}
