@@ -112,3 +112,11 @@ changes (outputs are deterministic). Visually confirm that
 - [x] README and project docs reflect the new canonical source.
 - [x] `bun run typecheck`, `bun test`, `bun run build`, and `bun run pack:dir` are green.
 - [x] PR opened to `platform/windows/v2-clean`; not self-merged.
+
+## Post-completion note (2026-07-06)
+
+Plan 10 established the placeholder pipeline and the canonical `logo.svg` source.
+The official brand SVG was later copied from `apps/landing/public/favicon.svg` on
+`main` into `apps/windows/assets/logo.svg`, and the icon/tray images were
+regenerated. This final integration was done in PR #41
+(`platform/windows/docs-logo-update`).

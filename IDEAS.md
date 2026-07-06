@@ -12,9 +12,9 @@
 - 2026-07-02 **[bug]** Manuelle QA: UI ist nicht scrollbar — **FIXED 2026-07-04** (PR #21 merged into `platform/windows/v2-clean`; Scroll-Container + overflow-Regeln nachgerüstet)
 - 2026-07-02 **[bug]** Manuelle QA: Widget oben am Bildrand/Notch (eingeblendet) ist nicht funktional — **FIXED 2026-07-04** (WIN-NOTCH-003-Folge; Reply-Trigger + Lifecycle-Fixes in Plans 05–07 adressiert).
 - 2026-07-02 **[task]** "Test notch"-Demo-Pipeline entfernt — **ERLEDIGT 2026-07-04**: `runNotchDemo`, `test-notch` IPC, Preload/Types-Bindings, Renderer-Button und Doc-Referenzen entfernt; echtes Notch-Verhalten bleibt unverändert
-- 2026-07-02 **[task]** Logo-Dateien sind noch nicht in die App eingearbeitet — **TEILWEISE ERLEDIGT 2026-07-04**: Placeholder-Assets sind in App, Tray, Fenster und Installer verdrahtet; offizielle Logo-Assets fehlen noch
-- 2026-07-02 **[task]** Auto-Update-Funktion muss noch geplant und erstellt werden
-- 2026-07-02 **[task]** Installations-Script erstellen und an Haupt-Projekt-Administrator übergeben — **TEILWEISE ERLEDIGT 2026-07-04**: NSIS-One-Click-Installer mit Start-Menü-Shortcuts ist gemergt (PR #25) in `platform/windows/v2-clean`; der PR von der Windows-Integration nach `main` ist noch ein Draft
+- 2026-07-02 **[task]** Logo-Dateien sind noch nicht in die App eingearbeitet — **DONE 2026-07-06**: Offizielles Brand-Logo (`favicon.svg`) von `main` nach `apps/windows/assets/logo.svg` kopiert; `icon.ico` und Tray-PNGs neu gerendert; in `pack:dir`-Build verifiziert (PR #41).
+- 2026-07-02 **[task]** Auto-Update-Funktion muss noch geplant und erstellt werden — **DONE 2026-07-05**: Implementiert via `electron-updater`, GitHub Releases Feed, Renderer-Status-Pill, Tray-Menü-Eintrag; gemergt in `v2-clean` (PR #40).
+- 2026-07-02 **[task]** Installations-Script erstellen und an Haupt-Projekt-Administrator übergeben — **TEILWEISE ERLEDIGT 2026-07-04**: NSIS-One-Click-Installer mit Start Menu shortcuts ist gemergt (PR #25) in `platform/windows/v2-clean`; kein Draft-PR zu `main` vorhanden.
 - 2026-07-02 **[bug]** Circle-Presence: Ich werde bei meinem Kollegen nicht online angezeigt (Online-Status/Presence wird nicht korrekt propagiert) — beim manuellen QA von Session 1 aufgefallen — **FIXED 2026-07-02** (userData/Relay-Fix, verifiziert)
 - 2026-07-02 **[task]** Notch-Reply-Trigger: Klick direkt auf die Nachricht (mittig in der Notch, nach Hover) soll — ZUSÄTZLICH zum ↩-Button — direkt das Reply-Textfeld in der Notch öffnen. Beide Wege sollen möglich sein (Klick auf Nachricht ODER ↩-Icon). Weicht bewusst von Plan-01-Entscheidung „nur ↩ öffnet Reply" ab. — **IMPLEMENTED 2026-07-02** (Klick auf `.message-body` öffnet Reply; Thumbnails/Copy/Avatar ausgenommen; Drag-Select-Guard; Helper `should-open-reply-on-message-click.ts` + 6 Tests; typecheck+tests grün 142 pass; manuelle QA offen)
 - 2026-07-03 **[idea]** Circle verlassen: vor dem Austritt aus einem Circle ein Mini-Popup/Bestätigungsdialog anzeigen — User muss erst bestätigen, dass er den Circle wirklich verlassen möchte (versehentliches Austreten verhindern)
@@ -191,7 +191,7 @@ Sub-Agent-Review: **PASS WITH CONCERNS** — Hauptursachen im Plan korrekt; Korr
 
 | Topic | Type | Status | Target | Note | Date |
 |-------|------|--------|--------|------|------|
-| Ponytail audit review | task | **in progress** | `docs/audits/ponytail-audit-review.md` | Active next task; blocks final PR to `main`. No code changes until reviewed. | 2026-07-04 |
+| Ponytail audit review | task | **done** | `docs/audits/ponytail-audit-review.md` | 19/25 findings implemented; 4 deferred, 1 rejected. Review completed; no longer blocks `main` PR. | 2026-07-04 |
 | Windows notch UX | bug | **fixed** | `docs/bugs/windows-notch-ux-2026-06-30.md` | Umbrella WIN-NOTCH-001/002/003; Plans 05–07 merged | 2026-06-30 |
 | Session 1 — Notch Reply/Send (P0) | task | **done** | IDEAS.md § Session 1 | WIN-NOTCH-003: broadcastState, senderMemberId, focus 80ms | 2026-06-30 |
 | Session 2 — Notch sizing (P1) | task | **done** | IDEAS.md § Session 2 | WIN-NOTCH-001: 310px, dynamic resize, shadow | 2026-06-30 |
@@ -201,7 +201,7 @@ Sub-Agent-Review: **PASS WITH CONCERNS** — Hauptursachen im Plan korrekt; Korr
 | UI nicht scrollbar | bug | **fixed** | `apps/windows/src/renderer` | PR #21 merged; Scroll-Container + overflow-Regeln nachgerüstet | 2026-07-02 |
 | Notch-Widget nicht funktional | bug | **fixed** | `apps/windows/src/renderer/components/NotchWidget.tsx` | Eingeblendetes Notch-Widget reagiert nicht — WIN-NOTCH-003-Folge, durch Plans 05–07 adressiert | 2026-07-02 |
 | "Test notch" aus UI entfernen | task | **done** | `apps/windows/src/main/main.ts`, `preload.ts`, `types.ts`, `MenuWindow.tsx`, Windows-Docs | Demo-Pipeline vollständig entfernt; echtes Notch-Verhalten unverändert | 2026-07-02 |
-| Logo-Assets einarbeiten | task | **partially done** | `apps/windows` (Icons/Tray/Installer) | Placeholder-Assets verdrahtet; offizielle Logo-Assets fehlen noch | 2026-07-02 |
+| Logo-Assets einarbeiten | task | **done** | `apps/windows` (Icons/Tray/Installer) | Official brand SVG from `main` integrated; icon + tray images regenerated and verified | 2026-07-02 |
 | Auto-Update planen + bauen | task | **open** | `apps/windows` (electron-updater?) | Update-Mechanismus + Release-Feed; Architektur noch nicht festgelegt | 2026-07-02 |
 | Installations-Script + Handover | task | **partially done** | `apps/windows` (Packaging) | NSIS-Installer gemergt (PR #25); PR nach `main` noch Draft | 2026-07-02 |
 | Circle verlassen: Bestätigungsdialog | idea | **open** | `apps/windows/src/renderer/components` | Mini-Popup vor Circle-Austritt, um versehentliches Verlassen zu verhindern | 2026-07-03 |

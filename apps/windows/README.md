@@ -14,7 +14,7 @@ For v1, the Windows Electron app is a standalone bundle. The `munkel` CLI is ins
 
 ## Logo assets
 
-`assets/logo.svg` is the single source of truth for the app icon, tray icon, and installer icon. The checked-in file is a placeholder copy of the old `tray-icon.svg`; replace it with the official brand SVG when available, then rerun:
+`assets/logo.svg` is the single source of truth for the app icon, tray icon, and installer icon. It is copied from the official brand asset at `apps/landing/public/favicon.svg` on `main`. After changing it, rerun:
 
 ```bash
 cd apps/windows
@@ -24,7 +24,7 @@ bun run build
 bun run pack:dir
 ```
 
-No other asset files need to be edited when the official logo arrives.
+No other asset files need to be edited when the logo changes.
 
 ## Open packaging tasks
 
