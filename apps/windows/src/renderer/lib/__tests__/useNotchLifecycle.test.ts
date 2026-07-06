@@ -158,6 +158,7 @@ describe('useNotchLifecycle', () => {
 
 		expect(result.current.history.length).toBe(0);
 		expect(result.current.phase).toBe('retracted');
+		expect(result.current.ui).toBe('collapsed');
 
 		await act(async () => {
 			result.current.onNotchMessage(makeMessage());
@@ -166,12 +167,14 @@ describe('useNotchLifecycle', () => {
 		expect(result.current.history.length).toBe(1);
 		expect(result.current.phase).toBe('full');
 		expect(result.current.newest?.text).toBe('Hello');
+		expect(result.current.ui).toBe('collapsed');
 		expect(setInteractiveSpy).toHaveBeenCalledWith(true);
 
 		await act(async () => {
 			timers.advance(5_000);
 		});
 		expect(result.current.phase).toBe('peek');
+		expect(result.current.ui).toBe('collapsed');
 		expect(setInteractiveSpy).toHaveBeenLastCalledWith(false);
 
 		await act(async () => {
@@ -185,6 +188,7 @@ describe('useNotchLifecycle', () => {
 		expect(result.current.history.length).toBe(0);
 		expect(result.current.newest).toBeNull();
 		expect(result.current.phase).toBe('retracted');
+		expect(result.current.ui).toBe('collapsed');
 
 		await act(async () => {
 			timers.advance(350);
@@ -192,34 +196,152 @@ describe('useNotchLifecycle', () => {
 		expect(emptySpy).toHaveBeenCalledTimes(1);
 	});
 
-	it('hover-stuck repro: hovering never clears but empty-hide still fires', async () => {
+	it('hover over collapsed notch enters preview, not open', async () => {
 		const setInteractiveSpy = spyOn(electronApi, 'notchSetInteractive');
-		const emptySpy = spyOn(electronApi, 'notchEmpty');
-
 		const { result } = renderHook(useNotchLifecycle);
 
 		await act(async () => {
 			result.current.onNotchMessage(makeMessage());
 		});
-		expect(result.current.hovering).toBe(false);
-
-		await act(async () => {
-			result.current.reopenFromHoverTarget();
-		});
-		expect(result.current.hovering).toBe(true);
-		expect(result.current.reopening).toBe(true);
-		expect(setInteractiveSpy).toHaveBeenLastCalledWith(true);
 
 		await act(async () => {
 			timers.advance(5_000);
 		});
 		expect(result.current.phase).toBe('peek');
-		// hovering is still true, so the window remains interactive via reopening.
+		expect(result.current.ui).toBe('collapsed');
+		expect(setInteractiveSpy).toHaveBeenLastCalledWith(false);
+
+		await act(async () => {
+			result.current.reopenFromHoverTarget();
+		});
+		expect(result.current.ui).toBe('preview');
+		expect(result.current.previewing).toBe(true);
+		expect(result.current.reopening).toBe(false);
+		expect(result.current.phase).toBe('peek');
 		expect(setInteractiveSpy).toHaveBeenLastCalledWith(true);
+	});
 
-		// Simulate a missing mouseleave event — hovering stays true.
-		expect(result.current.hovering).toBe(true);
+	it('hover target does nothing while phase is full', async () => {
+		const { result } = renderHook(useNotchLifecycle);
 
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage());
+		});
+		expect(result.current.phase).toBe('full');
+		expect(result.current.ui).toBe('collapsed');
+
+		await act(async () => {
+			result.current.reopenFromHoverTarget();
+		});
+		expect(result.current.ui).toBe('collapsed');
+		expect(result.current.previewing).toBe(false);
+	});
+
+	it('clicking preview opens full view', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage());
+		});
+		await act(async () => {
+			timers.advance(5_000);
+		});
+		await act(async () => {
+			result.current.reopenFromHoverTarget();
+		});
+		expect(result.current.ui).toBe('preview');
+
+		await act(async () => {
+			result.current.openFromPreview();
+		});
+		expect(result.current.ui).toBe('open');
+		expect(result.current.reopening).toBe(true);
+	});
+
+	it('mouse leave from preview returns to collapsed', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage());
+		});
+		await act(async () => {
+			timers.advance(5_000);
+		});
+		await act(async () => {
+			result.current.reopenFromHoverTarget();
+		});
+		expect(result.current.ui).toBe('preview');
+
+		await act(async () => {
+			result.current.scheduleHoverLeave();
+			timers.advance(150);
+		});
+		expect(result.current.ui).toBe('collapsed');
+	});
+
+	it('mouse leave from open does nothing', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage());
+		});
+		await act(async () => {
+			timers.advance(5_000);
+		});
+		await act(async () => {
+			result.current.reopenFromHoverTarget();
+		});
+		await act(async () => {
+			result.current.openFromPreview();
+		});
+		expect(result.current.ui).toBe('open');
+
+		await act(async () => {
+			result.current.scheduleHoverLeave();
+			timers.advance(150);
+		});
+		expect(result.current.ui).toBe('open');
+	});
+
+	it('timer expiry still prunes while in preview', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage());
+		});
+		await act(async () => {
+			timers.advance(5_000);
+		});
+		await act(async () => {
+			result.current.reopenFromHoverTarget();
+		});
+		expect(result.current.ui).toBe('preview');
+
+		await act(async () => {
+			timers.advance(55_000);
+		});
+		expect(result.current.history.length).toBe(0);
+		expect(result.current.newest).toBeNull();
+		expect(result.current.ui).toBe('collapsed');
+	});
+
+	it('hover-stuck repro: preview does not block empty-hide', async () => {
+		const emptySpy = spyOn(electronApi, 'notchEmpty');
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage());
+		});
+		await act(async () => {
+			timers.advance(5_000);
+		});
+		await act(async () => {
+			result.current.reopenFromHoverTarget();
+		});
+		expect(result.current.ui).toBe('preview');
+
+		// Simulate a missing mouseleave event — preview stays visible but the
+		// history timer keeps running.
 		await act(async () => {
 			timers.advance(55_000);
 		});
@@ -229,9 +351,67 @@ describe('useNotchLifecycle', () => {
 			timers.advance(350);
 		});
 		expect(emptySpy).toHaveBeenCalledTimes(1);
-		// hovering is still stuck to demonstrate the bug condition, but the hide
-		// deadline no longer depends on it.
-		expect(result.current.hovering).toBe(true);
+		expect(result.current.ui).toBe('collapsed');
+	});
+
+	it('external reopen opens full view', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		let reopenCallback: (() => void) | null = null;
+		(globalThis as any).window = {
+			electronAPI: {
+				...electronApi,
+				onNotchReopen: (cb: () => void) => {
+					reopenCallback = cb;
+					return () => {};
+				},
+			},
+		};
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage());
+		});
+		expect(reopenCallback).not.toBeNull();
+		expect(result.current.ui).toBe('collapsed');
+
+		await act(async () => {
+			reopenCallback!();
+		});
+		expect(result.current.ui).toBe('open');
+	});
+
+	it('external hide collapses UI and closes reply', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		let hideCallback: (() => void) | null = null;
+		const onNotchHide = () => {};
+		(globalThis as any).window = {
+			electronAPI: {
+				...electronApi,
+				onNotchHide: (cb: () => void) => {
+					hideCallback = cb;
+					return () => {};
+				},
+			},
+		};
+
+		// Render a new instance with the onNotchHide option so the listener is wired.
+		const { result: result2 } = renderHook(() => useNotchLifecycle({ onNotchHide }));
+
+		await act(async () => {
+			result2.current.onNotchMessage(makeMessage());
+		});
+		const entry = result2.current.history[0];
+		await act(async () => {
+			result2.current.openReply(entry);
+		});
+		expect(result2.current.replyOpen).toBe(true);
+
+		await act(async () => {
+			hideCallback!();
+		});
+		expect(result2.current.ui).toBe('collapsed');
+		expect(result2.current.replyOpen).toBe(false);
 	});
 
 	it('keeps newest message first when multiple messages arrive', async () => {
@@ -252,6 +432,7 @@ describe('useNotchLifecycle', () => {
 		expect(result.current.history.map((e) => e.text)).toEqual(['second', 'first']);
 		expect(result.current.newest?.text).toBe('second');
 		expect(result.current.phase).toBe('full');
+		expect(result.current.ui).toBe('collapsed');
 	});
 
 	it('prune removes only entries older than 60 s', async () => {
@@ -277,6 +458,38 @@ describe('useNotchLifecycle', () => {
 		expect(result.current.newest?.text).toBe('new');
 	});
 
+	it('keeps multiple messages within the 60 s window and prunes the oldest first', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'first' }));
+		});
+		await act(async () => {
+			timers.advance(20_000);
+		});
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'second' }));
+		});
+		await act(async () => {
+			timers.advance(20_000);
+		});
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'third' }));
+		});
+
+		expect(result.current.history.map((e) => e.text)).toEqual(['third', 'second', 'first']);
+
+		await act(async () => {
+			timers.advance(21_000);
+		});
+		expect(result.current.history.map((e) => e.text)).toEqual(['third', 'second']);
+
+		await act(async () => {
+			timers.advance(20_000);
+		});
+		expect(result.current.history.map((e) => e.text)).toEqual(['third']);
+	});
+
 	it('reply open keeps the notch interactive even in peek phase', async () => {
 		const setInteractiveSpy = spyOn(electronApi, 'notchSetInteractive');
 		const { result } = renderHook(useNotchLifecycle);
@@ -299,7 +512,7 @@ describe('useNotchLifecycle', () => {
 		expect(setInteractiveSpy).toHaveBeenLastCalledWith(true);
 	});
 
-	it('reopening keeps the notch interactive in peek phase', async () => {
+	it('preview keeps the notch interactive in peek phase', async () => {
 		const setInteractiveSpy = spyOn(electronApi, 'notchSetInteractive');
 		const { result } = renderHook(useNotchLifecycle);
 
@@ -313,8 +526,33 @@ describe('useNotchLifecycle', () => {
 		expect(setInteractiveSpy).toHaveBeenLastCalledWith(false);
 
 		await act(async () => {
-			result.current.setHovering(true);
+			result.current.reopenFromHoverTarget();
 		});
+		expect(result.current.ui).toBe('preview');
+		expect(result.current.reopening).toBe(false);
+		expect(setInteractiveSpy).toHaveBeenLastCalledWith(true);
+	});
+
+	it('open keeps the notch interactive in peek phase', async () => {
+		const setInteractiveSpy = spyOn(electronApi, 'notchSetInteractive');
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'peek' }));
+		});
+
+		await act(async () => {
+			timers.advance(5_000);
+		});
+		expect(setInteractiveSpy).toHaveBeenLastCalledWith(false);
+
+		await act(async () => {
+			result.current.reopenFromHoverTarget();
+		});
+		await act(async () => {
+			result.current.openFromPreview();
+		});
+		expect(result.current.ui).toBe('open');
 		expect(result.current.reopening).toBe(true);
 		expect(setInteractiveSpy).toHaveBeenLastCalledWith(true);
 	});

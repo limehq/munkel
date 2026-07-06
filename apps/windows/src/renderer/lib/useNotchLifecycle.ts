@@ -7,6 +7,8 @@ export interface NotchHistoryEntry extends NotchMessage {
 	id: string;
 }
 
+export type NotchUiState = 'collapsed' | 'preview' | 'open';
+
 const HOVER_LEAVE_DELAY_MS = 150;
 const EMPTY_HIDE_DELAY_MS = 350;
 const COPY_FEEDBACK_MS = 1_500;
@@ -22,12 +24,12 @@ export interface UseNotchLifecycleReturn {
 	history: NotchHistoryEntry[];
 	newest: NotchHistoryEntry | null;
 	phase: NotchPhase;
-	hovering: boolean;
+	ui: NotchUiState;
+	previewing: boolean;
 	reopening: boolean;
 	replyOpen: boolean;
 	replyingTo: string | null;
 	copiedId: string | null;
-	setHovering: (value: boolean) => void;
 	openReply: (entry: NotchHistoryEntry) => void;
 	closeReply: () => void;
 	onNotchMessage: (message: NotchMessage) => void;
@@ -35,12 +37,13 @@ export interface UseNotchLifecycleReturn {
 	scheduleHoverLeave: () => void;
 	cancelHoverLeave: () => void;
 	reopenFromHoverTarget: () => void;
+	openFromPreview: () => void;
 }
 
 export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNotchLifecycleReturn {
 	const [history, setHistory] = useState<NotchHistoryEntry[]>([]);
 	const [phase, setPhase] = useState<NotchPhase>('retracted');
-	const [hovering, setHovering] = useState(false);
+	const [ui, setUi] = useState<NotchUiState>('collapsed');
 	const [replyingTo, setReplyingTo] = useState<string | null>(null);
 	const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -51,7 +54,8 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 	historyRef.current = history;
 
 	const newest = history[0] ?? null;
-	const reopening = hovering;
+	const reopening = ui === 'open';
+	const previewing = ui === 'preview';
 	const replyOpen = replyingTo !== null;
 
 	const cancelHoverLeave = useCallback(() => {
@@ -65,16 +69,21 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		if (replyOpen) return;
 		cancelHoverLeave();
 		leaveHoverTimer.current = setTimeout(() => {
-			setHovering(false);
+			setUi((current) => (current === 'open' ? 'open' : 'collapsed'));
 			leaveHoverTimer.current = null;
 		}, HOVER_LEAVE_DELAY_MS);
 	}, [replyOpen, cancelHoverLeave]);
 
-	const reopenFromHoverTarget = useCallback(() => {
-		if (history.length === 0) return;
+	const openFromPreview = useCallback(() => {
 		cancelHoverLeave();
-		setHovering(true);
-	}, [history.length, cancelHoverLeave]);
+		setUi('open');
+	}, [cancelHoverLeave]);
+
+	const reopenFromHoverTarget = useCallback(() => {
+		if (history.length === 0 || phase === 'full') return;
+		cancelHoverLeave();
+		setUi('preview');
+	}, [history.length, phase, cancelHoverLeave]);
 
 	const openReply = useCallback((entry: NotchHistoryEntry) => {
 		setReplyingTo(entry.id);
@@ -96,7 +105,7 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 			receivedAt: message.receivedAt ?? new Date().toISOString(),
 		};
 		setHistory((current) => pruneNotchHistory([entry, ...current], Date.now(), NOTCH_HISTORY_MS));
-		setHovering(false);
+		setUi('collapsed');
 		cancelHoverLeave();
 		closeReply();
 	}, [cancelHoverLeave, closeReply]);
@@ -139,13 +148,13 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 			cancelHoverLeave();
 		});
 		const removeHide = window.electronAPI.onNotchHide(() => {
-			setHovering(false);
+			setUi('collapsed');
 			closeReply();
 			options?.onNotchHide?.();
 		});
 		const removeReopen = window.electronAPI.onNotchReopen(() => {
 			if (historyRef.current.length > 0) {
-				setHovering(true);
+				setUi('open');
 			}
 		});
 		return () => {
@@ -155,16 +164,23 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		};
 	}, [cancelHoverLeave, closeReply, options?.onNotchHide]);
 
+	// Reset UI when history empties so the notch collapses cleanly.
+	useEffect(() => {
+		if (history.length === 0) {
+			setUi('collapsed');
+		}
+	}, [history.length]);
+
 	// Keep the notch window interactive whenever the user needs to interact with it.
 	useEffect(() => {
-		const interactive = !!newest && (phase === 'full' || reopening || replyOpen);
+		const interactive = !!newest && (phase === 'full' || ui !== 'collapsed' || replyOpen);
 		void window.electronAPI.notchSetInteractive(interactive);
-	}, [newest?.id, phase, reopening, replyOpen]);
+	}, [newest?.id, phase, ui, replyOpen]);
 
 	// Hide the notch window once the buffer has been empty briefly.
-	// NOTE: This is intentionally NOT gated on `!hovering`. On Windows the renderer
+	// NOTE: This is intentionally NOT gated on `ui`. On Windows the renderer
 	// may never receive a `mouseleave` after `setIgnoreMouseEvents(true, { forward: true })`,
-	// which would keep `hovering` stuck and prevent the notch from ever hiding.
+	// which would keep the UI stuck and prevent the notch from ever hiding.
 	useEffect(() => {
 		if (history.length > 0) return;
 		const emptyTimer = setTimeout(() => {
@@ -208,12 +224,12 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		history,
 		newest,
 		phase,
-		hovering,
+		ui,
+		previewing,
 		reopening,
 		replyOpen,
 		replyingTo,
 		copiedId,
-		setHovering,
 		openReply,
 		closeReply,
 		onNotchMessage,
@@ -221,5 +237,6 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		scheduleHoverLeave,
 		cancelHoverLeave,
 		reopenFromHoverTarget,
+		openFromPreview,
 	};
 }

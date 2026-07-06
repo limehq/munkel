@@ -31,6 +31,7 @@ export default function NotchWidget() {
 		history,
 		newest,
 		phase,
+		ui,
 		reopening,
 		replyOpen,
 		replyingTo,
@@ -42,14 +43,17 @@ export default function NotchWidget() {
 		scheduleHoverLeave,
 		cancelHoverLeave,
 		reopenFromHoverTarget,
+		openFromPreview,
 	} = lifecycle;
 
-	const expanded = reopening || replyOpen;
+	const expanded = ui === 'open' || replyOpen || phase === 'full';
 	const widgetClass = newest
-		? reopening
-			? 'notch-reopened'
-			: replyOpen || phase === 'full'
-				? 'notch-full'
+		? expanded
+			? ui === 'open'
+				? 'notch-reopened'
+				: 'notch-full'
+			: ui === 'preview'
+				? 'notch-preview'
 				: `notch-${phase}`
 		: 'notch-retracted';
 
@@ -262,13 +266,31 @@ export default function NotchWidget() {
 		);
 	}
 
+	function renderPreview(entry: NotchHistoryEntry) {
+		return (
+			<div className="preview-row">
+				<Avatar name={entry.sender} size={40} />
+				<div className="preview-body">
+					<div className="message-meta">
+						<span className="sender">{entry.sender}</span>
+						<span className="circle-dot" style={{ background: entry.groupColor }} />
+						<span className="circle-name">{entry.group}</span>
+					</div>
+					<p className="preview-text">{entry.text}</p>
+				</div>
+			</div>
+		);
+	}
+
 	return (
 		<div
 			className={`notch-widget ${widgetClass}`}
 			onMouseEnter={cancelHoverLeave}
 			onMouseLeave={scheduleHoverLeave}
 		>
-			{history.length > 0 && <div className="notch-hover-target" onMouseEnter={reopenFromHoverTarget} />}
+			{history.length > 0 && ui === 'collapsed' && (
+				<div className="notch-hover-target" onMouseEnter={reopenFromHoverTarget} />
+			)}
 			<div className="notch-sliver" aria-hidden="true">
 				{phase === 'peek' && !expanded && (
 					<svg className="notch-ring" width="20" height="20" viewBox="0 0 20 20" style={ringStyle}>
@@ -279,13 +301,19 @@ export default function NotchWidget() {
 				<div className="notch-grabber" />
 			</div>
 
-			{reopening && history.length > 0 ? (
-				<div className="notch-content">
-					<div className="notch-history-list">{history.map((entry) => renderMessageRow(entry))}</div>
-				</div>
-			) : newest && (phase === 'full' || replyingTo === newest.id) ? (
-				<div className="notch-content">{renderMessageRow(newest)}</div>
-			) : null}
+			<div className="notch-inner">
+				{expanded && history.length > 0 ? (
+					<div className="notch-content">
+						<div className="notch-history-list">
+							{history.map((entry) => renderMessageRow(entry))}
+						</div>
+					</div>
+				) : ui === 'preview' && newest ? (
+					<div className="notch-preview-content" onClick={openFromPreview}>
+						{renderPreview(newest)}
+					</div>
+				) : null}
+			</div>
 		</div>
 	);
 }
