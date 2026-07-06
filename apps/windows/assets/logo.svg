@@ -1,6 +1,7 @@
-<!-- Canonical brand logo source for the Munkel Windows app. -->
-<!-- Copied from apps/landing/public/favicon.svg on main (official brand asset). -->
-<!-- Run `bun run render-ico` and `bun run render-tray-icon` after changing this file. -->
+<!-- Temporary placeholder logo for the Munkel Windows app. -->
+<!-- Copied from apps/landing/public/favicon.svg on main as a stand-in only. -->
+<!-- TODO: Replace with the final correct brand logo once it is delivered. -->
+<!-- Run `bun run render-ico` and `bun run render-tray-icon` after replacing this file. -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
   <rect width="64" height="64" rx="14" fill="#0a0d11"/>
   <path d="M18 6h28v7a7 7 0 0 1-7 7H25a7 7 0 0 1-7-7z" fill="#e9eef3"/>

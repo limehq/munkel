@@ -38,8 +38,9 @@
 - `apps/windows/docs/plans/README.md`: Plan 11 als Merged, `v2-clean` tip auf `0272dee`, Next Steps aktualisiert, Logo-Assets aus offener Arbeit entfernt.
 - `HANDOFF.md`: Veraltete Blocker entfernt, aktueller Stand reflektiert.
 - `apps/windows/README.md`: Logo-Assets-Section aktualisiert.
-- Offizielles Brand-Logo von `main` (`apps/landing/public/favicon.svg`) nach `apps/windows/assets/logo.svg` kopiert.
+- Brand-Logo von `main` (`apps/landing/public/favicon.svg`) nach `apps/windows/assets/logo.svg` kopiert.
 - `icon.ico` und `tray-icon*.png` neu gerendert.
+- ⚠️ **Das aktuelle `logo.svg` ist ein vorläufiges Stand-in.** Das endgültige korrekte Brand-Logo ist noch pending und muss `apps/windows/assets/logo.svg` ersetzen, sobald es zugestellt wird.
 - Verifikation: `bun run typecheck`, `bun test` (195/2/0), `bun run build`, `bun run pack:dir` grün.
 
 ## Offene Punkte

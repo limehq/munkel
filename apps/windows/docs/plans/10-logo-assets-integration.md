@@ -116,7 +116,11 @@ changes (outputs are deterministic). Visually confirm that
 ## Post-completion note (2026-07-06)
 
 Plan 10 established the placeholder pipeline and the canonical `logo.svg` source.
-The official brand SVG was later copied from `apps/landing/public/favicon.svg` on
-`main` into `apps/windows/assets/logo.svg`, and the icon/tray images were
-regenerated. This final integration was done in PR #41
-(`platform/windows/docs-logo-update`).
+The SVG from `apps/landing/public/favicon.svg` on `main` was later copied into
+`apps/windows/assets/logo.svg` and the icon/tray images were regenerated in
+PR #41 (`platform/windows/docs-logo-update`).
+
+> ⚠️ **The current `logo.svg` is not the final brand logo.** The correct logo
+> file is still pending and will be delivered separately. When it arrives,
+> overwrite `apps/windows/assets/logo.svg` and rerun `bun run render-ico` and
+> `bun run render-tray-icon`.

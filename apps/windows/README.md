@@ -2,7 +2,7 @@
 
 ## Packaging
 
-- `assets/logo.svg` is the canonical brand logo source for the Windows app.
+- `assets/logo.svg` is the canonical brand logo source for the Windows app (currently a placeholder copied from `apps/landing/public/favicon.svg`; the final logo is pending delivery).
 - `bun run render-ico` regenerates `assets/icon.ico` (multi-size, 16×16 through 256×256) from `assets/logo.svg`. Run it after SVG changes.
 - `bun run render-tray-icon` regenerates the tray PNGs (`tray-icon.png`, `tray-icon-24.png`, `tray-icon-32.png`, `tray-icon-48.png`) from `assets/logo.svg`.
 - `bun run pack:installer` produces `apps/windows/release/Munkel-Setup-<version>.exe` — **recommended for end users**. One-click NSIS installer: installs to `%LOCALAPPDATA%\Programs\@munkelwindows\` (electron-builder folder name from `@munkel/windows`), creates Start Menu + Desktop shortcuts (searchable as “Munkel” in Windows Search), and launches the app when done.
@@ -14,7 +14,9 @@ For v1, the Windows Electron app is a standalone bundle. The `munkel` CLI is ins
 
 ## Logo assets
 
-`assets/logo.svg` is the single source of truth for the app icon, tray icon, and installer icon. It is copied from the official brand asset at `apps/landing/public/favicon.svg` on `main`. After changing it, rerun:
+> ⚠️ **Placeholder logo:** `assets/logo.svg` currently contains the SVG copied from `apps/landing/public/favicon.svg` on `main`. This is **not the final brand logo**. The correct logo file is pending and will be delivered separately. Once it arrives, overwrite `assets/logo.svg` and rerun the render scripts below.
+
+`assets/logo.svg` is the single source of truth for the app icon, tray icon, and installer icon. After replacing it, rerun:
 
 ```bash
 cd apps/windows
