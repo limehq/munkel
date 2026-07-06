@@ -49,6 +49,9 @@ Windows-specific plans and contracts live under
 | **Implement auto-update** | Done | — | Implemented via `electron-updater` with GitHub Releases feed (`rodgi040/munkel`). Auto-check on launch and every 24h; user-consent install; dev-mode skip; signature-verification disabled for unsigned beta with TODO to re-enable after Authenticode signing. See Plan 11 / PR #40. |
 | **Circle leave confirmation dialog** | Done | — | Merged via PR #38 (`803f0fc`). Frosted confirmation mini-popup with Leave/Cancel, Escape/backdrop dismissal, focus trap, and ARIA attributes. |
 | **Hand over NSIS installer to `main`** | Partially done | — | NSIS one-click installer with Start Menu shortcuts is merged into `platform/windows/v2-clean` (PR #25). No draft PR to `main` currently exists; the final human-reviewed PR needs to be prepared. |
+| **Fix notch vertical oversize (WIN-NOTCH-004)** | Open | — | Notch renders too tall, showing multiple vertical frame/box artefacts below a single message. See [`docs/bugs/windows-notch-regression-2026-07-06.md`](./bugs/windows-notch-regression-2026-07-06.md). |
+| **Fix notch peek loading ring (WIN-NOTCH-005)** | Open | — | Loading/activity ring is not visible during the peek phase. See [`docs/bugs/windows-notch-regression-2026-07-06.md`](./bugs/windows-notch-regression-2026-07-06.md). |
+| **Fix notch hover reopen (WIN-NOTCH-006)** | Open | — | Hovering the retracted notch does not reopen it. See [`docs/bugs/windows-notch-regression-2026-07-06.md`](./bugs/windows-notch-regression-2026-07-06.md). |
 | **Circle Presence 2-person visual confirmation** | Manual/QA gate | — | Code fix is merged (PR #19). Final visual confirmation with a second person is still outstanding. |
 | **Manual QA: menu click-away dismiss** | Manual/QA gate | — | Plan 06 code merged; live Windows runtime validation required. |
 | **Manual QA: notch auto-hide/retract sequence** | Manual/QA gate | — | Plan 07 code merged; live animation QA on Windows required. |

@@ -2,6 +2,7 @@
 
 ## Inbox (unsorted)
 
+- 2026-07-06 **[bug]** Windows Notch-Regressionen — siehe `docs/bugs/windows-notch-regression-2026-07-06.md`: (1) Notch wird vertikal zu groß mit mehreren leeren Kasten/Frames dargestellt, (2) Ladekreis in Peek-Phase nicht sichtbar, (3) Hover über eingefahrene Notch öffnet sie nicht wieder. Offen; Repro + Diagnose + Fix nötig.
 - 2026-07-04 **[task]** **ACTIVE NEXT TASK — Review Ponytail audit report** (`docs/audits/ponytail-audit-2026-06-30.md`): walk findings #1–#25, confirm line/dep estimates, decide implement/defer/reject for each, resolve Swift/TS shared core (#1) milestone question. Blocks final PR to `main`; no code changes until reviewed. Track outcome in `docs/audits/ponytail-audit-review.md`.
 - 2026-06-30 **[task]** Windows notch UX broken: oversized notch on incoming message, no message history, reply typing/send fails — see `docs/bugs/windows-notch-ux-2026-06-30.md` — **FIXED 2026-07-04** (Plans 05–07 merged; WIN-NOTCH-001/002/003 addressed).
 - 2026-06-30 **[task]** Session 1 (P0): WIN-NOTCH-003 — Reply/Send reparieren — siehe **Work sessions → Session 1** unten — **DONE 2026-07-04** (broadcastState erreicht notchWindow, senderMemberId, fail-closed Reply, 80ms-Focus; Code + Tests grün).
