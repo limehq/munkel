@@ -53,7 +53,7 @@ export class IdentityStore {
 
 	save(state: PersistedState): void {
 		fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
-		fs.writeFileSync(this.filePath, JSON.stringify(state, null, 2));
+		fs.writeFileSync(this.filePath, JSON.stringify(state, null, 2), { mode: 0o600 });
 	}
 
 	patch(identity: Partial<Pick<PersistedState, 'displayName' | 'avatar' | 'githubLogin'>>): void {
