@@ -2,6 +2,7 @@ import {
 	deriveGroupKeys,
 	seal,
 	open,
+	openRaw,
 	sealRaw,
 	encodeChat,
 	encodeProfile,
@@ -15,6 +16,7 @@ import {
 	perThumbBudget,
 	MAX_IMAGES_PER_MESSAGE,
 	uploadBlob,
+	downloadBlob,
 	generateBlobKey,
 } from '../core';
 import type { ImageItem } from '../core';
@@ -55,6 +57,7 @@ export class GroupSession {
 	private readonly callbacks: GroupSessionCallbacks;
 	private readonly relayUrl: string;
 	private readonly memberId: string;
+	private readonly receivedImages = new Map<string, ImageItem>();
 
 	static async create(
 		code: string,
@@ -98,6 +101,22 @@ export class GroupSession {
 
 	updateIdentity(identity: { displayName: string; avatar?: string; presenceStatus: PresenceStatus }): void {
 		this.identity = identity;
+	}
+
+	/**
+	 * Download a sealed blob from R2 and decrypt it with this circle's
+	 * `messageKey`. The caller only sees plaintext bytes; the key stays private.
+	 */
+	async fetchFullImage(r2Key: string): Promise<Uint8Array> {
+		const result = await downloadBlob(this.relayUrl, this.groupId, r2Key);
+		if (!result.ok || !result.data) {
+			throw new Error(result.error ?? 'Download failed');
+		}
+		return openRaw(result.data, this.messageKey);
+	}
+
+	findImageMime(r2Key: string): string | undefined {
+		return this.receivedImages.get(r2Key)?.mime;
 	}
 
 	/**
@@ -353,11 +372,15 @@ export class GroupSession {
 						}
 						this.callbacks.onStateChange(this.toState());
 					} else if (decoded.kind === 'image') {
+						for (const it of decoded.items) {
+							this.receivedImages.set(it.r2Key, it);
+						}
 						const images: IncomingImage[] = decoded.items.map((it) => ({
 							id: it.r2Key,
 							thumb: it.thumb,
 							width: it.width,
 							height: it.height,
+							mime: it.mime,
 						}));
 						this.callbacks.onNotch({
 							sender: senderLabel,

@@ -34,7 +34,10 @@ const api: IpcApi = {
 	beginNotchReply: () => ipcRenderer.invoke('notch-begin-reply'),
 	endNotchReply: () => ipcRenderer.invoke('notch-end-reply'),
 	notchSetInteractive: (interactive) => ipcRenderer.invoke('notch-set-interactive', interactive),
+	notchSetPreviewMode: (preview) => ipcRenderer.invoke('notch-set-preview-mode', preview),
 	notchEmpty: () => ipcRenderer.invoke('notch-empty'),
+
+	fetchFullImage: (code, r2Key) => ipcRenderer.invoke('fetch-full-image', code, r2Key),
 
 	onStateUpdate: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: StateUpdate) => callback(data);

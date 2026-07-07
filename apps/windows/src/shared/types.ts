@@ -62,6 +62,7 @@ export interface IncomingImage {
 	thumb: string;    // base64 AVIF
 	width: number;
 	height: number;
+	mime?: string;    // original MIME type (e.g. image/gif for animation parity)
 }
 
 export interface NotchMessage {
@@ -107,7 +108,16 @@ export interface IpcApi {
 	beginNotchReply: () => Promise<void>;
 	endNotchReply: () => Promise<void>;
 	notchSetInteractive: (interactive: boolean) => Promise<void>;
+	notchSetPreviewMode: (preview: boolean) => Promise<void>;
 	notchEmpty: () => Promise<void>;
+
+	fetchFullImage: (
+		code: string,
+		r2Key: string,
+	) => Promise<
+		| { ok: true; data: string; mime: string }
+		| { ok: false; error: string }
+	>;
 
 	checkForUpdates: () => Promise<void>;
 	installUpdate: () => Promise<void>;

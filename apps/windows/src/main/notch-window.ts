@@ -81,3 +81,40 @@ export function updateNotch(win: BrowserWindow | null, data: NotchMessage): void
 	if (!win) return;
 	win.webContents.send('notch-update', data);
 }
+
+interface NotchBounds {
+	x: number;
+	y: number;
+	width: number;
+	height: number;
+}
+
+let previewOriginalBounds: NotchBounds | null = null;
+let previewMode = false;
+
+export function enterPreviewMode(win: BrowserWindow | null): void {
+	if (!win || win.isDestroyed() || previewMode) return;
+	previewMode = true;
+	const current = win.getBounds();
+	previewOriginalBounds = { x: current.x, y: current.y, width: current.width, height: current.height };
+	const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+	win.setBounds({ x: 0, y: 0, width, height });
+	win.setResizable(true);
+	win.setFocusable(true);
+	win.setIgnoreMouseEvents(false);
+}
+
+export function exitPreviewMode(win: BrowserWindow | null): void {
+	if (!win || win.isDestroyed() || !previewMode) return;
+	previewMode = false;
+	if (previewOriginalBounds) {
+		win.setBounds(previewOriginalBounds);
+	}
+	win.setResizable(false);
+	win.setFocusable(false);
+	win.setIgnoreMouseEvents(true, { forward: true });
+}
+
+export function isPreviewMode(): boolean {
+	return previewMode;
+}

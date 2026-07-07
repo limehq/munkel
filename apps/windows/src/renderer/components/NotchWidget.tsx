@@ -4,6 +4,7 @@ import { useAppStore } from '../store/app-store';
 import { resolveReplyRecipient } from '../lib/resolve-reply-recipient';
 import { shouldOpenReplyOnMessageClick } from '../lib/should-open-reply-on-message-click';
 import { useNotchLifecycle, type NotchHistoryEntry } from '../lib/useNotchLifecycle';
+import type { IncomingImage } from '../shared/types';
 
 const RING_RADIUS = 8;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
@@ -17,6 +18,12 @@ export default function NotchWidget() {
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const replyInputRef = useRef<HTMLInputElement>(null);
+
+	const [previewImage, setPreviewImage] = useState<IncomingImage | null>(null);
+	const [fullImage, setFullImage] = useState<{ data: string; mime: string } | null>(null);
+	const [previewLoading, setPreviewLoading] = useState(false);
+	const [previewError, setPreviewError] = useState<string | null>(null);
+	const fullImageCache = useRef<Map<string, { data: string; mime: string }>>(new Map());
 
 	const handleNotchHide = useCallback(() => {
 		setReplyText('');
@@ -101,6 +108,57 @@ export default function NotchWidget() {
 		setReplyText('');
 		setError(null);
 	}, [history, replyingTo, closeReply]);
+
+	useEffect(() => {
+		if (!previewImage) return;
+		const stillExists = history.some((entry) => entry.images?.some((img) => img.id === previewImage.id));
+		if (!stillExists) {
+			closePreview();
+		}
+	}, [history, previewImage]);
+
+	useEffect(() => {
+		if (!previewImage) return;
+		function onKeyDown(e: KeyboardEvent) {
+			if (e.key === 'Escape') {
+				e.stopPropagation();
+				closePreview();
+			}
+		}
+		window.addEventListener('keydown', onKeyDown);
+		return () => window.removeEventListener('keydown', onKeyDown);
+	}, [previewImage]);
+
+	function openPreview(group: string, img: IncomingImage, e: React.MouseEvent) {
+		e.stopPropagation();
+		setPreviewImage(img);
+		setPreviewError(null);
+		void window.electronAPI.notchSetPreviewMode(true);
+		const cached = fullImageCache.current.get(img.id);
+		if (cached) {
+			setFullImage(cached);
+			return;
+		}
+		setPreviewLoading(true);
+		setFullImage(null);
+		window.electronAPI.fetchFullImage(group, img.id).then((res) => {
+			setPreviewLoading(false);
+			if (res.ok) {
+				fullImageCache.current.set(img.id, { data: res.data, mime: res.mime });
+				setFullImage({ data: res.data, mime: res.mime });
+			} else {
+				setPreviewError(res.error);
+			}
+		});
+	}
+
+	function closePreview() {
+		setPreviewImage(null);
+		setFullImage(null);
+		setPreviewError(null);
+		setPreviewLoading(false);
+		void window.electronAPI.notchSetPreviewMode(false);
+	}
 
 	function openReply(entry: NotchHistoryEntry) {
 		if (replyingTo !== entry.id) {
@@ -198,9 +256,10 @@ export default function NotchWidget() {
 									<img
 										key={img.id}
 										className="image-preview-thumb"
-										src={`data:image/avif;base64,${img.thumb}`}
+										src={`data:${img.mime ?? 'image/avif'};base64,${img.thumb}`}
 										alt={`${img.width}×${img.height}`}
 										title={`${img.width}×${img.height}`}
+										onClick={(e) => openPreview(entry.group, img, e)}
 									/>
 								))}
 							</div>
@@ -286,6 +345,30 @@ export default function NotchWidget() {
 			) : newest && (phase === 'full' || replyingTo === newest.id) ? (
 				<div className="notch-content">{renderMessageRow(newest)}</div>
 			) : null}
+
+			{previewImage && (
+				<div className="image-preview-overlay" onClick={closePreview}>
+					<div className="image-preview-backdrop" />
+					<div className="image-preview-card" onClick={(e) => e.stopPropagation()}>
+						{previewLoading && !fullImage && (
+							<div className="image-preview-spinner">
+								<span className="spinner" />
+							</div>
+						)}
+						{previewError && (
+							<div className="image-preview-error">⚠️ {previewError}</div>
+						)}
+						{fullImage && (
+							<img
+								src={`data:${fullImage.mime};base64,${fullImage.data}`}
+								alt={`${previewImage.width}×${previewImage.height}`}
+								width={previewImage.width}
+								height={previewImage.height}
+							/>
+						)}
+					</div>
+				</div>
+			)}
 		</div>
 	);
 }

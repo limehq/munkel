@@ -50,4 +50,10 @@ export function registerSessionHandlers(appState: AppState, githubLoginService: 
 	ipcMain.handle('github-logout', async () => {
 		githubLoginService.logoutGitHub();
 	});
+
+	ipcMain.handle('fetch-full-image', async (_event, code: string, r2Key: string) => {
+		const result = await appState.fetchFullImage(code, r2Key);
+		if (!result.ok) return result;
+		return { ok: true, data: Buffer.from(result.data).toString('base64'), mime: result.mime };
+	});
 }
