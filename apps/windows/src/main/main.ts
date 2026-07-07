@@ -14,7 +14,7 @@ import { registerSessionHandlers } from './session-handlers';
 import { GitHubLoginService } from './github-login';
 import { buildControlHandler } from './control-handlers';
 import { createControlServer } from '@munkel/shared-wire/transport';
-import { buildPipeName } from '@munkel/shared-wire/control';
+import { buildPipeName, generatePipeName, getControlPipePath, writeControlPipeName } from '@munkel/shared-wire/control';
 import { broadcastStateUpdate } from './broadcast-state';
 import { isDismissSuppressed, isGitHubLoginActive } from './menu-dismiss';
 import { initUpdateService } from './update-service';
@@ -140,13 +140,16 @@ app.whenReady().then(async () => {
 
 	// Named-pipe control server for the `munkel` CLI. Mirrors the macOS app's
 	// Unix-domain-socket `ControlServer` — one request/response per connection,
-	// same wire format. The CLI discovers the pipe by `buildPipeName()`.
+	// same wire format. Use an unpredictable pipe name and publish it to a
+	// user-private file, because Node.js cannot set a Windows DACL directly.
+	const controlPipeName = generatePipeName();
 	try {
 		controlServer = await createControlServer(
-			buildPipeName(),
+			controlPipeName,
 			buildControlHandler(appState),
 		);
-		console.log(`[munkel] control pipe: ${buildPipeName()}`);
+		writeControlPipeName(controlPipeName);
+		console.log(`[munkel] control pipe: ${controlPipeName}`);
 	} catch (err) {
 		// Don't abort startup: another instance may already own the pipe and
 		// the single-instance lock above would have caught that. Surface a
@@ -217,4 +220,11 @@ app.on('before-quit', () => {
 	controlServer = null;
 	updateService?.dispose();
 	updateService = null;
+	// Remove the published pipe name so stale entries don't confuse a future
+	// CLI invocation after the app has quit.
+	try {
+		fs.unlinkSync(getControlPipePath());
+	} catch {
+		// ignore cleanup errors
+	}
 });
