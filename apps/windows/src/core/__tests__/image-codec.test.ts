@@ -2,6 +2,7 @@ import { describe, it, expect } from 'bun:test';
 import {
 	imageCodec,
 	isSourceSafe,
+	isCanvasDecodeAvailable,
 	MAX_FULL_BYTES,
 	MAX_FULL_PIXELS,
 	MAX_THUMB_PIXELS,
@@ -158,17 +159,29 @@ describe('isSourceSafe', () => {
 	});
 });
 
-describe('imageCodec pipeline (Electron-only)', () => {
-	// `prepareFull` / `makeThumbnail` / `decode` rely on `OffscreenCanvas`
-	// + `createImageBitmap`, which are Electron renderer globals and not
-	// exposed by `bun:test`. Coverage for these lands on the
-	// `platform/windows/windows-ci` runner. The pure-logic paths above
-	// keep the contract pinned.
-	it.skip('prepareFull returns an AVIF within MAX_FULL_BYTES', async () => {
-		// Placeholder; real test runs under Electron renderer context.
-	});
+describe('imageCodec pipeline', () => {
+	if (isCanvasDecodeAvailable()) {
+		it.skip('prepareFull returns an AVIF within MAX_FULL_BYTES (Electron renderer only)', async () => {});
+		it.skip('makeThumbnail produces a ≤256px AVIF within the per-album budget (Electron renderer only)', async () => {});
+	} else {
+		it('prepareFull returns null when canvas decode is unavailable', async () => {
+			const png = makeSolidPng(64, 64, 0xff, 0x00, 0x00);
+			const result = await imageCodec.prepareFull(png);
+			expect(result).toBeNull();
+		});
 
-	it.skip('makeThumbnail produces a ≤256px AVIF within the per-album budget', async () => {
-		// Placeholder; real test runs under Electron renderer context.
+		it('makeThumbnail returns null when canvas decode is unavailable', async () => {
+			const png = makeSolidPng(64, 64, 0xff, 0x00, 0x00);
+			const result = await imageCodec.makeThumbnail(png, MAX_THUMB_BYTES);
+			expect(result).toBeNull();
+		});
+	}
+});
+
+describe('isCanvasDecodeAvailable', () => {
+	it('reflects whether OffscreenCanvas and createImageBitmap are defined', () => {
+		const expected =
+			typeof createImageBitmap === 'function' && typeof OffscreenCanvas === 'function';
+		expect(isCanvasDecodeAvailable()).toBe(expected);
 	});
 });

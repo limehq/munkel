@@ -91,7 +91,15 @@ export interface ProbeResult {
 	mime: string;
 }
 
+export function isCanvasDecodeAvailable(): boolean {
+	return (
+		typeof createImageBitmap === 'function' &&
+		typeof OffscreenCanvas === 'function'
+	);
+}
+
 async function decodeToBitmap(source: Uint8Array): Promise<ImageBitmap | null> {
+	if (!isCanvasDecodeAvailable()) return null;
 	try {
 		const blob = new Blob([source as BlobPart]);
 		return await createImageBitmap(blob);
@@ -104,6 +112,7 @@ async function drawInto(
 	bitmap: ImageBitmap,
 	maxPixels: number,
 ): Promise<ImageData | null> {
+	if (!isCanvasDecodeAvailable()) return null;
 	// Compute target dims keeping aspect, longest side = maxPixels.
 	const ratio = bitmap.width >= bitmap.height
 		? maxPixels / bitmap.width
