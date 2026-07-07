@@ -1,7 +1,7 @@
 import { normalizeCircleCode } from '../core';
 import { IdentityStore } from './identity-store';
 import { GroupSession, type SendResult } from './group-session';
-import type { CircleState, IdentityState, NotchMessage, StateUpdate } from '../shared/types';
+import type { CircleState, IdentityState, NotchMessage, PresenceStatus, StateUpdate } from '../shared/types';
 
 // Relay endpoint. Defaults to PRODUCTION in all builds so fresh joins (incl.
 // dev) reach real peers. Point at a local `wrangler dev` relay by setting
@@ -29,11 +29,14 @@ export class AppState {
 		private readonly onRelayError?: (message: string) => void,
 	) {
 		const persisted = identityStore.load();
+		const presenceStatus = persisted.presenceStatus ?? 'online';
 		this.identity = {
 			memberId: persisted.memberId,
 			displayName: persisted.displayName,
 			avatar: persisted.avatar,
 			githubLogin: persisted.githubLogin,
+			presenceStatus,
+			effectiveStatus: presenceStatus,
 		};
 	}
 
@@ -111,6 +114,25 @@ export class AppState {
 			this.profileTimer = null;
 			void this.broadcastProfiles();
 		}, 1000);
+	}
+
+	setPresenceStatus(status: PresenceStatus): void {
+		if (this.identity.presenceStatus === status) return;
+		this.identity = { ...this.identity, presenceStatus: status };
+		this.identityStore.patch({ presenceStatus: status });
+		this.broadcast();
+	}
+
+	setLocalPresenceStatus(status: PresenceStatus): void {
+		if (this.identity.effectiveStatus === status) return;
+		this.identity = { ...this.identity, effectiveStatus: status };
+		this.broadcast();
+	}
+
+	broadcastPresenceStatus(status: PresenceStatus): void {
+		for (const session of this.sessions.values()) {
+			void session.broadcastPresence(status);
+		}
 	}
 
 	getIdentity(): IdentityState {

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/app-store';
 import { Avatar } from './Avatar';
 import { getCircleColor } from '../../shared/group-color';
-import type { CircleState, GitHubLoginState, IdentityState, UpdateState } from '../../shared/types';
+import type { CircleState, GitHubLoginState, IdentityState, PresenceStatus, UpdateState } from '../../shared/types';
 
 export default function MenuWindow() {
 	const {
@@ -11,6 +11,7 @@ export default function MenuWindow() {
 		leaveCircle,
 		sendChat,
 		updateProfile,
+		setPresenceStatus,
 		startGitHubLogin,
 		cancelGitHubLogin,
 		githubLogout,
@@ -110,6 +111,11 @@ export default function MenuWindow() {
 					</button>
 					{settingsOpen && (
 						<div className="settings-popover glass" onClick={(e) => e.stopPropagation()}>
+							<StatusSection
+								identity={state.identity}
+								onSetPresenceStatus={setPresenceStatus}
+							/>
+							<div className="popover-divider" />
 							<label className="caption" style={{ display: 'block', marginBottom: 4 }}>
 								Display name
 							</label>
@@ -226,6 +232,69 @@ export default function MenuWindow() {
 					onCancel={() => setConfirmingLeave(null)}
 				/>
 			)}
+		</div>
+	);
+}
+
+interface StatusSectionProps {
+	identity: IdentityState | null;
+	onSetPresenceStatus: (status: PresenceStatus) => Promise<void>;
+}
+
+const STATUS_OPTIONS: { value: PresenceStatus; label: string }[] = [
+	{ value: 'online', label: 'Online' },
+	{ value: 'dnd', label: 'Do Not Disturb' },
+	{ value: 'away', label: 'Away' },
+];
+
+function StatusSection({ identity, onSetPresenceStatus }: StatusSectionProps) {
+	const localStatus = identity?.presenceStatus ?? 'online';
+	const effectiveStatus = identity?.effectiveStatus ?? 'online';
+	const isAutoAway = effectiveStatus === 'away' && localStatus === 'online';
+
+	async function handleChange(value: PresenceStatus) {
+		await onSetPresenceStatus(value);
+	}
+
+	const displayName = identity?.displayName?.trim() || 'You';
+
+	return (
+		<div className="status-section">
+			<div className="status-row">
+				<Avatar
+					name={displayName}
+					imageBase64={identity?.avatar}
+					status={effectiveStatus}
+					size={34}
+				/>
+				<div className="status-copy">
+					<strong>{displayName}</strong>
+					{isAutoAway && <span className="caption status-auto">Away — auto</span>}
+				</div>
+			</div>
+			<div className="status-picker">
+				{STATUS_OPTIONS.map((option) => (
+					<button
+						key={option.value}
+						className={`status-option ${localStatus === option.value ? 'status-option-active' : ''}`}
+						onClick={() => void handleChange(option.value)}
+						title={option.label}
+					>
+						<span
+							className="status-dot"
+							style={{
+								background:
+									option.value === 'online'
+										? '#34c759'
+										: option.value === 'dnd'
+											? '#ff9f0a'
+											: '#ff453a',
+							}}
+						/>
+						<span className="status-label">{option.label}</span>
+					</button>
+				))}
+			</div>
 		</div>
 	);
 }
@@ -418,6 +487,9 @@ function CircleSection({
 							<Avatar
 								key={m.memberId}
 								name={m.displayName ?? m.memberId.slice(0, 8)}
+								imageBase64={m.avatar}
+								imageURL={m.avatarURL}
+								status={m.status}
 								size={16}
 							/>
 						))}

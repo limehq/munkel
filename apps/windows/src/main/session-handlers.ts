@@ -1,8 +1,9 @@
 import { dialog, ipcMain } from 'electron';
 import type { AppState } from './session-store';
 import type { GitHubLoginService } from './github-login';
+import type { PresenceMonitor } from './presence-monitor';
 
-export function registerSessionHandlers(appState: AppState, githubLoginService: GitHubLoginService): void {
+export function registerSessionHandlers(appState: AppState, githubLoginService: GitHubLoginService, presenceMonitor: PresenceMonitor): void {
 	ipcMain.handle('join-circle', async (_event, code: string, relayUrl?: string) => {
 		await appState.joinCircle(code, relayUrl);
 	});
@@ -21,6 +22,10 @@ export function registerSessionHandlers(appState: AppState, githubLoginService: 
 
 	ipcMain.handle('update-profile', async (_event, displayName: string, avatar?: string) => {
 		appState.updateIdentity(avatar === undefined ? { displayName } : { displayName, avatar });
+	});
+
+	ipcMain.handle('set-presence-status', async (_event, status: 'online' | 'dnd' | 'away') => {
+		presenceMonitor.chooseStatus(status);
 	});
 
 	ipcMain.handle('set-relay-url', async (_event, code: string, relayUrl: string) => {

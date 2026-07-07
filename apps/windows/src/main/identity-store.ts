@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import type { PresenceStatus } from '../shared/types';
 
 export interface PersistedState {
 	version: 1;
@@ -7,6 +8,7 @@ export interface PersistedState {
 	displayName: string;
 	avatar?: string;
 	githubLogin?: string;
+	presenceStatus: PresenceStatus;
 	circles: Array<{ code: string; relayUrl: string; joinedAt: string }>;
 }
 
@@ -15,6 +17,7 @@ function defaultState(): PersistedState {
 		version: 1,
 		memberId: crypto.randomUUID().toLowerCase(),
 		displayName: '',
+		presenceStatus: 'online',
 		circles: [],
 	};
 }
@@ -56,7 +59,7 @@ export class IdentityStore {
 		fs.writeFileSync(this.filePath, JSON.stringify(state, null, 2));
 	}
 
-	patch(identity: Partial<Pick<PersistedState, 'displayName' | 'avatar' | 'githubLogin'>>): void {
+	patch(identity: Partial<Pick<PersistedState, 'displayName' | 'avatar' | 'githubLogin' | 'presenceStatus'>>): void {
 		const state = this.load();
 		Object.assign(state, identity);
 		this.save(state);
@@ -95,6 +98,9 @@ export class IdentityStore {
 		}
 		if (typeof draft.displayName !== 'string') {
 			draft.displayName = '';
+		}
+		if (typeof draft.presenceStatus !== 'string' || !['online', 'dnd', 'away'].includes(draft.presenceStatus)) {
+			draft.presenceStatus = 'online';
 		}
 		if (!Array.isArray(draft.circles)) {
 			draft.circles = [];

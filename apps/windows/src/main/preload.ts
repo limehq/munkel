@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
-import type { GitHubLoginState, IpcApi, NotchMessage, StateUpdate, UpdateState } from '../shared/types';
+import type { GitHubLoginState, IpcApi, NotchMessage, PresenceStatus, StateUpdate, UpdateState } from '../shared/types';
 
 const api: IpcApi = {
 	getWindowType: () => ipcRenderer.invoke('get-window-type'),
@@ -19,6 +19,7 @@ const api: IpcApi = {
 	sendChat: (code, text, to) => ipcRenderer.invoke('send-chat', code, text, to),
 	sendImages: (code, paths, caption, to) => ipcRenderer.invoke('send-images', code, paths, caption, to),
 	updateProfile: (displayName, avatar) => ipcRenderer.invoke('update-profile', displayName, avatar),
+	setPresenceStatus: (status: PresenceStatus) => ipcRenderer.invoke('set-presence-status', status),
 	setRelayUrl: (code, relayUrl) => ipcRenderer.invoke('set-relay-url', code, relayUrl),
 	getState: () => ipcRenderer.invoke('get-state'),
 	startGitHubLogin: () => ipcRenderer.invoke('start-github-login'),

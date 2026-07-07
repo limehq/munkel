@@ -63,7 +63,7 @@ describe('GroupSession', () => {
 			'blue-table-42',
 			relayUrl,
 			memberId,
-			{ displayName: 'Windows User' },
+			{ displayName: 'Windows User', presenceStatus: 'online' },
 			{
 				onStateChange: (state) => states.push(state),
 				onChat: () => {},
@@ -95,7 +95,7 @@ describe('GroupSession', () => {
 			code,
 			relayUrl,
 			memberId,
-			{ displayName: 'Windows User' },
+			{ displayName: 'Windows User', presenceStatus: 'online' },
 			{
 				onStateChange: (state) => states.push(state),
 				onChat: () => {},
@@ -131,7 +131,7 @@ describe('GroupSession', () => {
 			code,
 			relayUrl,
 			memberId,
-			{ displayName: 'Windows User' },
+			{ displayName: 'Windows User', presenceStatus: 'online' },
 			{
 				onStateChange: (state) => states.push(state),
 				onChat: () => {},
@@ -178,7 +178,7 @@ describe('GroupSession', () => {
 			code,
 			relayUrl,
 			memberId,
-			{ displayName: 'Windows User' },
+			{ displayName: 'Windows User', presenceStatus: 'online' },
 			{
 				onStateChange: (state) => states.push(state),
 				onChat: () => {},
@@ -207,6 +207,119 @@ describe('GroupSession', () => {
 		session.disconnect();
 	});
 
+	test('decodes profile status and updates member status', async () => {
+		const wss = startServer();
+		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
+		const code = 'lunar-owl';
+		const { messageKey } = await deriveGroupKeys(code);
+
+		const states: CircleState[] = [];
+		const session = await GroupSession.create(
+			code,
+			relayUrl,
+			memberId,
+			{ displayName: 'Windows User', presenceStatus: 'online' },
+			{
+				onStateChange: (state) => states.push(state),
+				onChat: () => {},
+				onNotch: () => {},
+				getColorIndex: () => 0,
+			},
+		);
+		session.connect();
+
+		await waitFor(() => serverSocket !== null);
+		serverSocket!.send(JSON.stringify({ type: 'welcome', members: ['peer-1'] }));
+		await waitFor(() => states.some((s) => s.isConnected));
+
+		const profilePayload = encodeProfile('Alice', { status: 'dnd' });
+		const sealed = await seal(JSON.stringify(profilePayload), messageKey);
+		serverSocket!.send(JSON.stringify({ type: 'message', from: 'peer-1', payload: sealed }));
+
+		await waitFor(
+			() => states.some((s) => s.members.some((m) => m.memberId === 'peer-1' && m.status === 'dnd')),
+		);
+
+		session.disconnect();
+	});
+
+	test('decodes presence payload and updates member status', async () => {
+		const wss = startServer();
+		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
+		const code = 'lunar-owl';
+		const { messageKey } = await deriveGroupKeys(code);
+
+		const states: CircleState[] = [];
+		const session = await GroupSession.create(
+			code,
+			relayUrl,
+			memberId,
+			{ displayName: 'Windows User', presenceStatus: 'online' },
+			{
+				onStateChange: (state) => states.push(state),
+				onChat: () => {},
+				onNotch: () => {},
+				getColorIndex: () => 0,
+			},
+		);
+		session.connect();
+
+		await waitFor(() => serverSocket !== null);
+		serverSocket!.send(JSON.stringify({ type: 'welcome', members: ['peer-1'] }));
+		await waitFor(() => states.some((s) => s.isConnected));
+
+		const presencePayload = { kind: 'presence', status: 'away' };
+		const sealed = await seal(JSON.stringify(presencePayload), messageKey);
+		serverSocket!.send(JSON.stringify({ type: 'message', from: 'peer-1', payload: sealed }));
+
+		await waitFor(
+			() => states.some((s) => s.members.some((m) => m.memberId === 'peer-1' && m.status === 'away')),
+		);
+
+		session.disconnect();
+	});
+
+	test('broadcasts presence payload on status change', async () => {
+		const wss = startServer();
+		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
+		const code = 'lunar-owl';
+		const { messageKey } = await deriveGroupKeys(code);
+
+		const session = await GroupSession.create(
+			code,
+			relayUrl,
+			memberId,
+			{ displayName: 'Windows User', presenceStatus: 'online' },
+			{
+				onStateChange: () => {},
+				onChat: () => {},
+				onNotch: () => {},
+				getColorIndex: () => 0,
+			},
+		);
+		session.connect();
+
+		await waitFor(() => serverSocket !== null);
+		serverSocket!.send(JSON.stringify({ type: 'welcome', members: [] }));
+
+		const frames: unknown[] = [];
+		serverSocket!.on('message', (data) => {
+			frames.push(JSON.parse(data.toString()));
+		});
+
+		await session.broadcastPresence('dnd');
+
+		await waitFor(() => frames.length >= 1);
+		const presenceFrame = frames.find((f) => (f as { type: string }).type === 'send') as { type: string; payload: string } | undefined;
+		expect(presenceFrame).toBeDefined();
+		const plaintext = await open(presenceFrame!.payload, messageKey);
+		const decoded = JSON.parse(plaintext);
+		expect(decoded.kind).toBe('presence');
+		expect(decoded.status).toBe('dnd');
+
+		session.disconnect();
+	});
+
 	test('receives chat messages and fires onChat + onNotch', async () => {
 		const wss = startServer();
 		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
@@ -219,7 +332,7 @@ describe('GroupSession', () => {
 			code,
 			relayUrl,
 			memberId,
-			{ displayName: 'Windows User' },
+			{ displayName: 'Windows User', presenceStatus: 'online' },
 			{
 				onStateChange: () => {},
 				onChat: (payload) => chats.push(payload),
@@ -261,7 +374,7 @@ describe('GroupSession', () => {
 			code,
 			relayUrl,
 			memberId,
-			{ displayName: 'Windows User' },
+			{ displayName: 'Windows User', presenceStatus: 'online' },
 			{
 				onStateChange: () => {},
 				onChat: () => {},
@@ -306,7 +419,7 @@ describe('GroupSession', () => {
 			code,
 			relayUrl,
 			memberId,
-			{ displayName: 'Windows User' },
+			{ displayName: 'Windows User', presenceStatus: 'online' },
 			{
 				onStateChange: () => {},
 				onChat: () => {},
@@ -338,7 +451,7 @@ describe('GroupSession', () => {
 			code,
 			relayUrl,
 			memberId,
-			{ displayName: 'Windows User' },
+			{ displayName: 'Windows User', presenceStatus: 'online' },
 			{
 				onStateChange: () => {},
 				onChat: () => {},

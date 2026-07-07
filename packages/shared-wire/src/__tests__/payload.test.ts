@@ -2,13 +2,14 @@ import { describe, it, expect } from 'bun:test';
 import {
   encodeChat,
   encodeProfile,
+  encodePresence,
   encodeImage,
   decodePayload,
   assertPayloadFits,
   PayloadTooLargeError,
   MAX_PAYLOAD_CHARS,
   type ImageItem,
-} from '@munkel/shared-wire/payload';
+} from '../payload.js';
 
 describe('payload encoding', () => {
   it('encodes a chat payload with ISO-8601 sentAt', () => {
@@ -42,6 +43,10 @@ describe('payload encoding', () => {
     expect(payload.avatar).toBe('aGVsbG8=');
   });
 
+  it('encodes a profile payload with avatarURL and status', () => {
+    const payload = encodeProfile('Alex', { avatarURL: 'https://example.com/a.jpg', status: 'dnd' });
+    expect(payload).toEqual({ kind: 'profile', displayName: 'Alex', avatarURL: 'https://example.com/a.jpg', status: 'dnd' });
+  });
 
   it('round-trips chat and profile payloads', () => {
     const chat = encodeChat('round trip', new Date('2025-06-01T12:00:00.000Z'));
@@ -52,13 +57,8 @@ describe('payload encoding', () => {
     expect(decodePayload(JSON.stringify(profile))).toEqual({ ...profile, status: 'online' });
   });
 
-  it('round-trips a profile payload with status and avatarURL', () => {
-    const profile = encodeProfile('Sam', { avatarURL: 'https://example.com/avatar.jpg', status: 'dnd' });
-    expect(decodePayload(JSON.stringify(profile))).toEqual(profile);
-  });
-
   it('round-trips a presence payload', () => {
-    const payload = { kind: 'presence' as const, status: 'away' as const };
+    const payload = encodePresence('away');
     expect(decodePayload(JSON.stringify(payload))).toEqual(payload);
   });
 

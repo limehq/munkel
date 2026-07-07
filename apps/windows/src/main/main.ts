@@ -12,6 +12,8 @@ import { deriveGroupKeys } from '@munkel/shared-wire/crypto';
 import { AppState } from './session-store';
 import { registerSessionHandlers } from './session-handlers';
 import { GitHubLoginService } from './github-login';
+import { PresenceMonitor } from './presence-monitor';
+import { ElectronIdleTimeSource } from './electron-idle-source';
 import { buildControlHandler } from './control-handlers';
 import { createControlServer } from '@munkel/shared-wire/transport';
 import { buildPipeName } from '@munkel/shared-wire/control';
@@ -78,10 +80,10 @@ function broadcastState(update: ReturnType<AppState['getState']>): void {
 	});
 }
 
-function showNotchMessage(message: import('../shared/types').NotchMessage): void {
+function showNotchMessage(message: import('../shared/types').NotchMessage, opts?: { silent?: boolean }): void {
 	updateNotch(notchWindow, message);
 	showNotch(notchWindow);
-	notchWindow?.webContents.send('notch-message', message);
+	notchWindow?.webContents.send('notch-message', { ...message, silent: opts?.silent ?? false });
 }
 
 function relayError(message: string): void {
@@ -131,9 +133,25 @@ app.whenReady().then(async () => {
 	// circles never load → 0 sessions → 0 relay connections.
 	console.error('[munkel] userData path:', app.getPath('userData'));
 	const identityStore = new IdentityStore(app.getPath('userData'));
-	const appState = new AppState(identityStore, broadcastState, showNotchMessage, relayError);
+	let presenceMonitor: PresenceMonitor;
+	const appState = new AppState(
+		identityStore,
+		broadcastState,
+		(message) => showNotchMessage(message, { silent: presenceMonitor?.effectiveStatus !== 'online' }),
+		relayError,
+	);
 	const githubLoginService = new GitHubLoginService(appState, pushGitHubLoginState);
-	registerSessionHandlers(appState, githubLoginService);
+	const idleSource = new ElectronIdleTimeSource();
+	presenceMonitor = new PresenceMonitor({
+		idleSource,
+		identityStore,
+		sessionStore: appState,
+		onStatusChange: (status) => {
+			// Broadcast a lightweight presence delta to every joined circle.
+			appState.broadcastPresenceStatus(status);
+		},
+	});
+	registerSessionHandlers(appState, githubLoginService, presenceMonitor);
 
 	// Auto-update service. Packaged builds check on launch and every 24h; dev skips.
 	updateService = initUpdateService(pushUpdateState, { isDev });

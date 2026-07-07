@@ -12,6 +12,7 @@ import type {
 	GitHubLoginState,
 	IdentityState,
 	Member,
+	PresenceStatus,
 	StateUpdate,
 	UpdateState,
 } from '../../shared/types';
@@ -36,6 +37,7 @@ interface AppStore {
 	sendImages: (code: string, paths: string[], caption: string, to?: string) => Promise<{ ok: boolean; error?: string }>;
 	selectImages: () => Promise<string[] | undefined>;
 	updateProfile: (displayName: string, avatar?: string) => Promise<void>;
+	setPresenceStatus: (status: PresenceStatus) => Promise<void>;
 	setRelayUrl: (code: string, relayUrl: string) => Promise<void>;
 	startGitHubLogin: () => Promise<void>;
 	cancelGitHubLogin: () => Promise<void>;
@@ -141,6 +143,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		await window.electronAPI.updateProfile(displayName, avatar);
 	}, []);
 
+	const setPresenceStatus = useCallback(async (status: PresenceStatus) => {
+		await window.electronAPI.setPresenceStatus(status);
+	}, []);
+
 	const setRelayUrl = useCallback(async (code: string, relayUrl: string) => {
 		await window.electronAPI.setRelayUrl(code, relayUrl);
 	}, []);
@@ -178,6 +184,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			sendImages,
 			selectImages,
 			updateProfile,
+			setPresenceStatus,
 			setRelayUrl,
 			startGitHubLogin,
 			cancelGitHubLogin,
@@ -197,6 +204,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			sendImages,
 			selectImages,
 			updateProfile,
+			setPresenceStatus,
 			setRelayUrl,
 			startGitHubLogin,
 			cancelGitHubLogin,

@@ -102,6 +102,7 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 	}, [cancelHoverLeave, closeReply]);
 
 	// Phase lifecycle: FULL → PEEK → RETRACTED for each new newest message.
+	// Silent messages skip the full preview and go straight to peek (ring/sliver).
 	useEffect(() => {
 		phaseTimers.current.forEach(clearTimeout);
 		phaseTimers.current = [];
@@ -111,10 +112,16 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 			return;
 		}
 
-		setPhase('full');
-		const fullTimer = setTimeout(() => setPhase('peek'), NOTCH_FULL_MS);
-		const retractTimer = setTimeout(() => setPhase('retracted'), NOTCH_RETRACT_AT_MS);
-		phaseTimers.current = [fullTimer, retractTimer];
+		if (newest.silent) {
+			setPhase('peek');
+			const retractTimer = setTimeout(() => setPhase('retracted'), NOTCH_RETRACT_AT_MS - NOTCH_FULL_MS);
+			phaseTimers.current = [retractTimer];
+		} else {
+			setPhase('full');
+			const fullTimer = setTimeout(() => setPhase('peek'), NOTCH_FULL_MS);
+			const retractTimer = setTimeout(() => setPhase('retracted'), NOTCH_RETRACT_AT_MS);
+			phaseTimers.current = [fullTimer, retractTimer];
+		}
 
 		return () => {
 			phaseTimers.current.forEach(clearTimeout);
