@@ -19,6 +19,7 @@ interface IdentityUpdate {
 
 export class AppState {
 	private readonly sessions = new Map<string, GroupSession>();
+	private readonly joinLocks = new Map<string, Promise<void>>();
 	private identity: IdentityState;
 	private profileTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -39,35 +40,54 @@ export class AppState {
 
 	async joinCircle(code: string, relayUrl?: string): Promise<void> {
 		const normalized = normalizeCircleCode(code);
+
+		// Serialize join attempts for the same circle so parallel callers
+		// (restoreCircles, setRelayUrl, CLI/Renderer) never create duplicate
+		// sessions or race on the identity-store persist step. If a previous
+		// attempt failed, wait for it to finish and then try ourselves.
+		while (this.joinLocks.has(normalized)) {
+			await this.joinLocks.get(normalized);
+		}
 		if (this.sessions.has(normalized)) {
 			return;
 		}
 
-		const persisted = this.identityStore.load().circles.find((c) => c.code === normalized);
-		const url = relayUrl ?? persisted?.relayUrl ?? DEFAULT_RELAY_URL;
-		// Phase-0 diagnostics (presence bug): make the chosen relay URL + member
-		// visible so we can tell a dead-localhost dev join (H-A) from a real
-		// connect failure, and confirm which memberId this client actually uses.
-		console.error(
-			'[session] joinCircle',
-			JSON.stringify({ code: normalized, relayUrl: url, memberId: `${this.identity.memberId.slice(0, 8)}…` }),
-		);
-
-		const session = await GroupSession.create(normalized, url, this.identity.memberId, this.identity, {
-			onStateChange: () => this.broadcast(),
-			onNotch: (message) => this.onNotch(message),
-			onError: (message) => this.onRelayError?.(message),
-			getColorIndex: () => {
-				// Read at call time so the color follows the live joined
-				// order after `leaveCircle` / `setRelayUrl`.
-				return this.getState().circles.findIndex((c) => c.code === normalized);
-			},
+		let releaseLock: () => void;
+		const lock = new Promise<void>((resolve) => {
+			releaseLock = resolve;
 		});
+		this.joinLocks.set(normalized, lock);
 
-		this.sessions.set(normalized, session);
-		this.identityStore.addCircle(normalized, url);
-		session.connect();
-		this.broadcast();
+		try {
+			const persisted = this.identityStore.load().circles.find((c) => c.code === normalized);
+			const url = relayUrl ?? persisted?.relayUrl ?? DEFAULT_RELAY_URL;
+			// Phase-0 diagnostics (presence bug): make the chosen relay URL + member
+			// visible so we can tell a dead-localhost dev join (H-A) from a real
+			// connect failure, and confirm which memberId this client actually uses.
+			console.error(
+				'[session] joinCircle',
+				JSON.stringify({ code: normalized, relayUrl: url, memberId: `${this.identity.memberId.slice(0, 8)}…` }),
+			);
+
+			const session = await GroupSession.create(normalized, url, this.identity.memberId, this.identity, {
+				onStateChange: () => this.broadcast(),
+				onNotch: (message) => this.onNotch(message),
+				onError: (message) => this.onRelayError?.(message),
+				getColorIndex: () => {
+					// Read at call time so the color follows the live joined
+					// order after `leaveCircle` / `setRelayUrl`.
+					return this.getState().circles.findIndex((c) => c.code === normalized);
+				},
+			});
+
+			this.sessions.set(normalized, session);
+			this.identityStore.addCircle(normalized, url);
+			session.connect();
+			this.broadcast();
+		} finally {
+			this.joinLocks.delete(normalized);
+			releaseLock!();
+		}
 	}
 
 	leaveCircle(code: string): void {
@@ -127,6 +147,15 @@ export class AppState {
 
 	async setRelayUrl(code: string, relayUrl: string): Promise<void> {
 		const normalized = normalizeCircleCode(code);
+
+		// Wait for any in-flight join for this circle to finish before we tear
+		// it down. Without this, joinCircle could see the old session, recreate
+		// it, or race with the deletion below.
+		const existingLock = this.joinLocks.get(normalized);
+		if (existingLock) {
+			await existingLock;
+		}
+
 		const hadSession = this.sessions.get(normalized);
 		if (hadSession) {
 			hadSession.disconnect();
