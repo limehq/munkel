@@ -196,7 +196,9 @@ export function decodePayload(json: string): AppPayload {
     const payload: ProfilePayload = { kind: 'profile', displayName: parsed.displayName };
     if (parsed.avatar !== undefined) payload.avatar = parsed.avatar;
     if (parsed.avatarURL !== undefined) payload.avatarURL = parsed.avatarURL;
-    payload.status = normalizePresenceStatus(parsed.status);
+    if (parsed.status !== undefined) {
+      payload.status = normalizePresenceStatus(parsed.status);
+    }
     return payload;
   }
 

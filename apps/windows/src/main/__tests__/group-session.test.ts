@@ -243,6 +243,53 @@ describe('GroupSession', () => {
 		session.disconnect();
 	});
 
+	test('profile payload without status preserves existing member status', async () => {
+		const wss = startServer();
+		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
+		const code = 'lunar-owl';
+		const { messageKey } = await deriveGroupKeys(code);
+
+		const states: CircleState[] = [];
+		const session = await GroupSession.create(
+			code,
+			relayUrl,
+			memberId,
+			{ displayName: 'Windows User', presenceStatus: 'online' },
+			{
+				onStateChange: (state) => states.push(state),
+				onChat: () => {},
+				onNotch: () => {},
+				getColorIndex: () => 0,
+			},
+		);
+		session.connect();
+
+		await waitFor(() => serverSocket !== null);
+		serverSocket!.send(JSON.stringify({ type: 'welcome', members: ['peer-1'] }));
+		await waitFor(() => states.some((s) => s.isConnected));
+
+		// Step 1: establish a known status via presence.
+		const presencePayload = { kind: 'presence', status: 'dnd' };
+		const sealed1 = await seal(JSON.stringify(presencePayload), messageKey);
+		serverSocket!.send(JSON.stringify({ type: 'message', from: 'peer-1', payload: sealed1 }));
+		await waitFor(
+			() => states.some((s) => s.members.some((m) => m.memberId === 'peer-1' && m.status === 'dnd')),
+		);
+
+		// Step 2: profile without status must NOT reset to online.
+		const profilePayload = encodeProfile('Alice');
+		const sealed2 = await seal(JSON.stringify(profilePayload), messageKey);
+		serverSocket!.send(JSON.stringify({ type: 'message', from: 'peer-1', payload: sealed2 }));
+		await waitFor(
+			() => states.some((s) => {
+				const m = s.members.find((m) => m.memberId === 'peer-1');
+				return m?.displayName === 'Alice' && m.status === 'dnd';
+			}),
+		);
+
+		session.disconnect();
+	});
+
 	test('decodes presence payload and updates member status', async () => {
 		const wss = startServer();
 		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;

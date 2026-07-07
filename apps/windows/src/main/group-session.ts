@@ -324,14 +324,19 @@ export class GroupSession {
 								delete this.members[index].avatar;
 								delete this.members[index].avatarURL;
 							}
-							this.members[index].status = decoded.status;
+							if (decoded.status !== undefined) {
+								this.members[index].status = decoded.status;
+							}
 						} else {
 							const member: Member = {
 								memberId: frame.from,
 								displayName: decoded.displayName,
-								status: decoded.status,
 								joinedAt: new Date().toISOString(),
 							};
+							if (decoded.status !== undefined) {
+								member.status = decoded.status;
+							}
+
 							if (decoded.avatarURL !== undefined) {
 								member.avatarURL = decoded.avatarURL;
 							} else if (decoded.avatar !== undefined) {
