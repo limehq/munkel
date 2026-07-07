@@ -2,6 +2,7 @@ import { Tray, Menu, nativeImage } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { debugTray } from './logger';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -38,11 +39,11 @@ export function createTray(handlers: TrayHandlers): Tray {
 
 	tray.setToolTip('Munkel');
 	tray.on('click', () => {
-		console.log('[tray] click fired');
+		debugTray('click fired');
 		handlers.toggleMenu();
 	});
 	tray.on('double-click', () => {
-		console.log('[tray] double-click fired');
+		debugTray('double-click fired');
 		handlers.toggleMenu();
 	});
 
@@ -60,12 +61,12 @@ export function createTray(handlers: TrayHandlers): Tray {
 		tray.setContextMenu(contextMenu);
 	}
 
-	tray.on('right-click', (event, bounds) => {
-		console.log('[tray] right-click fired');
-		if (process.platform === 'win32') {
+	if (process.platform === 'win32') {
+		tray.on('right-click', (event, bounds) => {
+			debugTray('right-click fired');
 			tray.popUpContextMenu(contextMenu, bounds);
-		}
-	});
+		});
+	}
 
 	return tray;
 }
