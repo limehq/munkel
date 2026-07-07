@@ -52,5 +52,6 @@ Windows-specific plans and contracts live under
 | **Circle Presence 2-person visual confirmation** | Manual/QA gate | — | Code fix is merged (PR #19). Final visual confirmation with a second person is still outstanding. |
 | **Manual QA: menu click-away dismiss** | Manual/QA gate | — | Plan 06 code merged; live Windows runtime validation required. |
 | **Manual QA: notch auto-hide/retract sequence** | Manual/QA gate | — | Plan 07 code merged; live animation QA on Windows required. |
+| **Presence / online status with auto-away and DND** | Fixed (pending human QA) | — | Implemented in `platform/windows/feature/presence-status` (Plan 17). Automated tests green (195 pass / 2 skip / 0 fail). Manual QA on Windows still outstanding. |
 
 > **Note:** Execution Plans 05–07 are merged into `platform/windows/v2-clean`.

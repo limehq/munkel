@@ -1,6 +1,6 @@
 # Plan 17: Presence / Online-Status mit Ruhemodus
 
-> **Status:** Draft  
+> **Status:** Implemented / Verified  
 > **Branch:** `platform/windows/feature/presence-status`  
 > **Base:** `platform/windows/ios-feature-sync`  
 > **Estimate:** 2 sessions  
@@ -268,16 +268,16 @@ Windows nutzt weder `GetLastInputInfo` noch Electron `powerMonitor` für Auto-Aw
 
 ## Definition of Done
 
-- [ ] `PresenceStatus` in shared-wire definiert.
-- [ ] `profile` und `presence` Payloads unterstützen Status.
-- [ ] Identity speichert und persistiert `presenceStatus`.
-- [ ] Main process berechnet `effectiveStatus` mit Auto-Away.
-- [ ] Sleep/Lock/Wake/Unlock-Events setzen/lösen `away` korrekt.
-- [ ] `group-session.ts` sendet/empfängt Status.
-- [ ] `MenuWindow` zeigt Status-Picker.
-- [ ] `Avatar` zeigt Status-Dot.
-- [ ] Notch-Preview wird bei `dnd`/`away` unterdrückt.
-- [ ] Tests grün (`bun run typecheck`, `bun test`).
+- [x] `PresenceStatus` in shared-wire definiert.
+- [x] `profile` und `presence` Payloads unterstützen Status.
+- [x] Identity speichert und persistiert `presenceStatus`.
+- [x] Main process berechnet `effectiveStatus` mit Auto-Away.
+- [x] Sleep/Lock/Wake/Unlock-Events setzen/lösen `away` korrekt.
+- [x] `group-session.ts` sendet/empfängt Status.
+- [x] `MenuWindow` zeigt Status-Picker.
+- [x] `Avatar` zeigt Status-Dot.
+- [x] Notch-Preview wird bei `dnd`/`away` unterdrückt.
+- [x] Tests grün (`bun run typecheck`, `bun test`).
 - [ ] Manuelle QA auf Windows bestätigt das Verhalten.
 
 ## Commit-Nachricht

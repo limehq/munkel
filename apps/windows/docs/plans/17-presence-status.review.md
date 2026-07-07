@@ -22,6 +22,12 @@ The plan has been revised to address all blocking issues identified in the initi
 - Status dot applied to self-avatar first, with optional extension to member avatars.
 - `silent` plumbing clarified between `main.ts` and `NotchWidget`/`useNotchLifecycle`.
 
+## Implementation verified
+
+- `cd apps/windows && bun run typecheck` ✅
+- `cd apps/windows && bun test` ✅ 195 pass / 2 skip / 0 fail
+- `cd packages/shared-wire && bun test` ✅ 17 pass / 0 fail
+
 ## Conclusion
 
-Plan is ready for implementation (Agent 3).
+Plan is implemented and verified. Manual QA on Windows is still outstanding.
