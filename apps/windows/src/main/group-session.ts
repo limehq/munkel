@@ -138,47 +138,56 @@ export class GroupSession {
 
 		// Pre-clamp so per-thumb budget accounts for the final album size.
 		const perThumb = perThumbBudget(imagePaths.length);
-		const items: ImageItem[] = [];
 
-		for (const path of imagePaths) {
-			let source: Uint8Array;
-			try {
-				source = await readFile(path);
-			} catch (err) {
-				return {
-					ok: false,
-					error: `Could not read ${path}: ${err instanceof Error ? err.message : String(err)}`,
-				};
-			}
+		try {
+			const results = await Promise.all(
+				imagePaths.map(async (path, index) => {
+					let source: Uint8Array;
+					try {
+						source = await readFile(path);
+					} catch (err) {
+						throw new Error(`Could not read ${path}: ${err instanceof Error ? err.message : String(err)}`);
+					}
 
-			const full = await imageCodec.prepareFull(source);
-			if (!full) {
-				return { ok: false, error: `Could not encode ${path}` };
-			}
+					const full = await imageCodec.prepareFull(source);
+					if (!full) {
+						throw new Error(`Could not encode ${path}`);
+					}
 
-			const sealedFull = await sealRaw(full.data, this.messageKey);
-			const r2Key = generateBlobKey();
-			const upload = await uploadBlob(this.relayUrl, this.groupId, r2Key, sealedFull);
-			if (!upload.ok) {
-				return { ok: false, error: upload.error ?? 'Blob upload failed' };
-			}
+					const sealedFull = await sealRaw(full.data, this.messageKey);
+					const r2Key = generateBlobKey();
+					const upload = await uploadBlob(this.relayUrl, this.groupId, r2Key, sealedFull);
+					if (!upload.ok) {
+						throw new Error(upload.error ?? 'Blob upload failed');
+					}
 
-			const thumb = await imageCodec.makeThumbnail(source, perThumb);
-			if (!thumb) {
-				return { ok: false, error: `Could not thumbnail ${path}` };
-			}
+					const thumb = await imageCodec.makeThumbnail(source, perThumb);
+					if (!thumb) {
+						throw new Error(`Could not thumbnail ${path}`);
+					}
 
-			items.push({
-				r2Key,
-				mime: 'image/avif',
-				width: full.width,
-				height: full.height,
-				byteLen: sealedFull.byteLength,
-				thumb: Buffer.from(thumb.data).toString('base64'),
-			});
+					return {
+						index,
+						item: {
+							r2Key,
+							mime: 'image/avif',
+							width: full.width,
+							height: full.height,
+							byteLen: sealedFull.byteLength,
+							thumb: Buffer.from(thumb.data).toString('base64'),
+						} satisfies ImageItem,
+					};
+				}),
+			);
+
+			const items = results
+				.sort((a, b) => a.index - b.index)
+				.map((r) => r.item);
+			return this.sendPayload(encodeImage(items, caption), to);
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'Could not send images';
+			return { ok: false, error: message };
 		}
-
-		return this.sendPayload(encodeImage(items, caption), to);
 	}
 
 	private async sendPayload(payload: ChatPayload | ProfilePayload | { kind: 'image'; items: ImageItem[]; caption: string; sentAt: string }, to?: string): Promise<SendResult> {
