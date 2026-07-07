@@ -123,3 +123,70 @@ describe('uploadBlob', () => {
 		expect(result.error).toMatch(/too large/);
 	});
 });
+
+describe('downloadBlob', () => {
+	function mockFetch(responder: (url: string, init: RequestInit) => Promise<Response> | Response): typeof fetch {
+		return (async (input: RequestInfo | URL, init?: RequestInit) => {
+			const url = typeof input === 'string' ? input : input.toString();
+			return responder(url, init ?? {});
+		}) as typeof fetch;
+	}
+
+	function mockResponse(status: number, body: BodyInit = ''): Response {
+		return new Response(body, { status, statusText: status === 200 ? 'OK' : 'Error' });
+	}
+
+	it('GETs from <base>/blob/<group>/<key> and returns Uint8Array on 200', async () => {
+		const body = new Uint8Array([5, 6, 7, 8]);
+		let captured: { url: string; method: string; accept: string } | null = null;
+		const fetchImpl = mockFetch(async (url, init) => {
+			captured = {
+				url,
+				method: init.method ?? 'GET',
+				accept: (init.headers as Record<string, string> | undefined)?.['accept'] ?? '',
+			};
+			return mockResponse(200, body);
+		});
+
+		const result = await downloadBlob('ws://relay/ws?group=g&member=m', 'gid1234', 'keyabcd', fetchImpl);
+		expect(result.ok).toBe(true);
+		expect(result.status).toBe(200);
+		expect(Array.from(result.data ?? [])).toEqual([5, 6, 7, 8]);
+		expect(captured).not.toBeNull();
+		expect(captured!.url).toBe('http://relay/blob/gid1234/keyabcd');
+		expect(captured!.method).toBe('GET');
+		expect(captured!.accept).toBe('application/octet-stream');
+	});
+
+	it('returns a friendly error on 404', async () => {
+		const fetchImpl = mockFetch(async () => mockResponse(404, 'not found'));
+		const result = await downloadBlob('ws://relay/ws', 'gid', 'key', fetchImpl);
+		expect(result.ok).toBe(false);
+		expect(result.status).toBe(404);
+		expect(result.error).toMatch(/no longer available/);
+	});
+
+	it('returns ok:false on non-2xx with status text', async () => {
+		const fetchImpl = mockFetch(async () => mockResponse(500, 'boom'));
+		const result = await downloadBlob('ws://relay/ws', 'gid', 'key', fetchImpl);
+		expect(result.ok).toBe(false);
+		expect(result.status).toBe(500);
+		expect(result.error).toMatch(/500/);
+	});
+
+	it('returns ok:false on network error', async () => {
+		const fetchImpl = mockFetch(async () => {
+			throw new Error('ECONNREFUSED');
+		});
+		const result = await downloadBlob('ws://relay/ws', 'gid', 'key', fetchImpl);
+		expect(result.ok).toBe(false);
+		expect(result.error).toMatch(/ECONNREFUSED/);
+	});
+
+	it('returns ok:false when response body exceeds MAX_BLOB_BYTES', async () => {
+		const fetchImpl = mockFetch(async () => mockResponse(200, new Uint8Array(MAX_BLOB_BYTES + 1)));
+		const result = await downloadBlob('ws://relay/ws', 'gid', 'key', fetchImpl);
+		expect(result.ok).toBe(false);
+		expect(result.error).toMatch(/too large/);
+	});
+});
