@@ -261,6 +261,97 @@ describe('UpdateService state transitions', () => {
 
 		localService.dispose();
 	});
+
+	it('recovers from a synchronous quitAndInstall failure', () => {
+		const updater = new MockAppUpdater();
+		updater.quitAndInstall = () => {
+			throw new Error('installer launch failed');
+		};
+		const sendCapture = createSend();
+		const localService = initUpdateService(sendCapture.send, {
+			autoUpdater: updater as never,
+			isDev: false,
+		});
+
+		updater.emit('update-downloaded', { version: '0.2.0' });
+		localService.install();
+		localService.confirmInstall();
+
+		expect(sendCapture.states.at(-1)).toEqual({ phase: 'error', error: 'Update check failed.' });
+
+		// After the error the flow must be retryable.
+		updater.emit('update-downloaded', { version: '0.2.0' });
+		localService.install();
+		expect(sendCapture.states.at(-1)).toEqual({ phase: 'confirm', version: '0.2.0' });
+
+		localService.dispose();
+	});
+
+	it('ignores cancel while an install is already in flight', () => {
+		const updater = new MockAppUpdater();
+		// quitAndInstall is a no-op here, so installing stays true.
+		const sendCapture = createSend();
+		const localService = initUpdateService(sendCapture.send, {
+			autoUpdater: updater as never,
+			isDev: false,
+		});
+
+		updater.emit('update-downloaded', { version: '0.2.0' });
+		localService.install();
+		localService.confirmInstall();
+		expect(sendCapture.states.at(-1)).toEqual({ phase: 'confirm', version: '0.2.0' });
+
+		localService.cancelInstall();
+		expect(sendCapture.states.at(-1)).toEqual({ phase: 'confirm', version: '0.2.0' });
+
+		localService.dispose();
+	});
+
+	it('skips checks while another update flow is in progress', () => {
+		const mock = createMockUpdater();
+		const sendCapture = createSend();
+		const localService = initUpdateService(sendCapture.send, {
+			autoUpdater: mock.updater as never,
+			isDev: false,
+		});
+
+		mock.updater.emit('update-available', { version: '0.2.0' });
+		localService.check();
+		expect(mock.checkSpy.calls).toBe(1); // still only the init auto-check
+
+		mock.updater.emit('download-progress', { percent: 42 });
+		localService.check();
+		expect(mock.checkSpy.calls).toBe(1);
+
+		mock.updater.emit('update-downloaded', { version: '0.2.0' });
+		localService.check();
+		expect(mock.checkSpy.calls).toBe(1);
+
+		localService.dispose();
+	});
+
+	it('clears stale downloaded version on idle and error', () => {
+		const updater = new MockAppUpdater();
+		const sendCapture = createSend();
+		const localService = initUpdateService(sendCapture.send, {
+			autoUpdater: updater as never,
+			isDev: false,
+		});
+
+		updater.emit('update-downloaded', { version: '0.2.0' });
+		expect(sendCapture.states.at(-1)).toEqual({ phase: 'downloaded', version: '0.2.0' });
+
+		updater.emit('update-not-available');
+		expect(sendCapture.states.at(-1)).toEqual({ phase: 'idle' });
+
+		updater.emit('update-downloaded', { version: '0.3.0' });
+		expect(sendCapture.states.at(-1)).toEqual({ phase: 'downloaded', version: '0.3.0' });
+
+		updater.emit('error', new Error('net::ERR_INTERNET_DISCONNECTED'));
+		expect(sendCapture.states.at(-1)).toEqual({ phase: 'error', error: 'Update check failed: network error.' });
+
+		localService.dispose();
+	});
 });
 
 describe('UpdateService error handling', () => {

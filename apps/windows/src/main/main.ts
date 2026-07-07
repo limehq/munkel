@@ -227,16 +227,20 @@ app.whenReady().then(async () => {
 	ipcMain.handle(IPC_CHANNELS.CANCEL_GITHUB_LOGIN, async () => {
 		githubLoginService.cancelGitHubLogin();
 	});
-	ipcMain.handle(IPC_CHANNELS.CHECK_FOR_UPDATES, async () => {
+	ipcMain.handle(IPC_CHANNELS.CHECK_FOR_UPDATES, async (event: IpcMainInvokeEvent) => {
+		if (!menuWindow || BrowserWindow.fromWebContents(event.sender) !== menuWindow) return { ok: false };
 		return updateService?.check() ?? { ok: false };
 	});
-	ipcMain.handle(IPC_CHANNELS.INSTALL_UPDATE, async () => {
+	ipcMain.handle(IPC_CHANNELS.INSTALL_UPDATE, async (event: IpcMainInvokeEvent) => {
+		if (!menuWindow || BrowserWindow.fromWebContents(event.sender) !== menuWindow) return { ok: false };
 		return updateService?.install() ?? { ok: false };
 	});
-	ipcMain.handle(IPC_CHANNELS.CONFIRM_INSTALL_UPDATE, async () => {
+	ipcMain.handle(IPC_CHANNELS.CONFIRM_INSTALL_UPDATE, async (event: IpcMainInvokeEvent) => {
+		if (!menuWindow || BrowserWindow.fromWebContents(event.sender) !== menuWindow) return { ok: false };
 		return updateService?.confirmInstall() ?? { ok: false };
 	});
-	ipcMain.handle(IPC_CHANNELS.CANCEL_INSTALL_UPDATE, async () => {
+	ipcMain.handle(IPC_CHANNELS.CANCEL_INSTALL_UPDATE, async (event: IpcMainInvokeEvent) => {
+		if (!menuWindow || BrowserWindow.fromWebContents(event.sender) !== menuWindow) return { ok: false };
 		return updateService?.cancelInstall() ?? { ok: false };
 	});
 

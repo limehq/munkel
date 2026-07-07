@@ -325,7 +325,7 @@ function UpdateStatus({
 	const labels: Record<Exclude<UpdateState['phase'], 'idle'>, string> = {
 		checking: 'Checking for updates…',
 		available: `Update available${state.version ? ` (v${state.version})` : ''}`,
-		downloading: state.progress ? `Downloading update… ${Math.round(state.progress)}%` : 'Downloading update…',
+		downloading: state.progress !== undefined ? `Downloading update… ${Math.round(state.progress)}%` : 'Downloading update…',
 		downloaded: `Update ready${state.version ? ` (v${state.version})` : ''}`,
 		confirm: `Update ready${state.version ? ` (v${state.version})` : ''} — restart required`,
 		error: state.error ?? 'Update error',

@@ -18,7 +18,7 @@ const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 function isSignatureError(error: unknown): boolean {
 	if (typeof error !== 'object' || error === null) return false;
 	const message = String((error as Error).message ?? '').toLowerCase();
-	return message.includes('signature') || message.includes('codesign') || message.includes('certificate');
+	return message.includes('signature') || message.includes('codesign');
 }
 
 function userMessageForError(error: unknown): string {
@@ -91,7 +91,13 @@ class UpdateServiceImpl implements UpdateService {
 	}
 
 	check(): { ok: boolean } {
-		if (this.isDev || this.checking || this.phase === 'downloaded' || this.phase === 'confirm') {
+		if (this.isDev || this.checking) return { ok: false };
+		if (
+			this.phase === 'available' ||
+			this.phase === 'downloading' ||
+			this.phase === 'downloaded' ||
+			this.phase === 'confirm'
+		) {
 			return { ok: false };
 		}
 		this.checking = true;
@@ -117,12 +123,18 @@ class UpdateServiceImpl implements UpdateService {
 	confirmInstall(): { ok: boolean } {
 		if (this.phase !== 'confirm' || this.installing) return { ok: false };
 		this.installing = true;
-		this.autoUpdater.quitAndInstall(false, true);
+		try {
+			this.autoUpdater.quitAndInstall(false, true);
+		} catch (error) {
+			this.installing = false;
+			this.setPhase('error', { error: userMessageForError(error) });
+			return { ok: false };
+		}
 		return { ok: true };
 	}
 
 	cancelInstall(): { ok: boolean } {
-		if (this.phase !== 'confirm') return { ok: false };
+		if (this.phase !== 'confirm' || this.installing) return { ok: false };
 		this.setPhase('downloaded', { version: this.downloadedVersion });
 		return { ok: true };
 	}
@@ -136,6 +148,7 @@ class UpdateServiceImpl implements UpdateService {
 			clearInterval(this.intervalId);
 			this.intervalId = null;
 		}
+		this.autoUpdater.removeAllListeners();
 	}
 
 	private setPhase(phase: UpdatePhase, extras: { version?: string; progress?: number; error?: string } = {}): void {
@@ -145,7 +158,9 @@ class UpdateServiceImpl implements UpdateService {
 		} else if (phase !== 'error') {
 			this.error = undefined;
 		}
-		if (extras.version !== undefined) {
+		if (phase === 'idle' || phase === 'error') {
+			this.downloadedVersion = undefined;
+		} else if (extras.version !== undefined) {
 			this.downloadedVersion = extras.version;
 		}
 
