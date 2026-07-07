@@ -13,3 +13,6 @@ export const MAX_BLOB_BYTES = 3 * 1024 * 1024;
 
 /** Base64 ciphertext cap — keeps relay frames well under the 64 KiB budget. */
 export const MAX_PAYLOAD_CHARS = 48 * 1024;
+
+/** Max plaintext characters for a chat message (mirrors macOS MessageLimits). */
+export const MAX_CHAT_CHARS = 2048;

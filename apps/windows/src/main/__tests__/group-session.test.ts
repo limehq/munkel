@@ -1,6 +1,6 @@
 import { expect, test, describe, beforeEach, afterEach } from 'bun:test';
 import { WebSocketServer, WebSocket } from 'ws';
-import { deriveGroupKeys, seal, open, encodeChat, encodeProfile } from '../../core';
+import { deriveGroupKeys, seal, open, encodeChat, encodeProfile, MAX_CHAT_CHARS } from '../../core';
 import { GroupSession } from '../group-session';
 import { getCircleColor } from '../../shared/group-color';
 import type { CircleState, NotchMessage } from '../../shared/types';
@@ -298,10 +298,12 @@ describe('GroupSession', () => {
 		session.disconnect();
 	});
 
-	test('rejects an over-cap chat with a "too long" SendResult before sealing', async () => {
+	test('truncates an over-length chat to MAX_CHAT_CHARS before sending', async () => {
 		const wss = startServer();
 		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
 		const code = 'paper-river';
+		const { messageKey } = await deriveGroupKeys(code);
+
 		const session = await GroupSession.create(
 			code,
 			relayUrl,
@@ -318,11 +320,26 @@ describe('GroupSession', () => {
 
 		await waitFor(() => serverSocket !== null);
 
-		// 60 KiB of plaintext — well over MAX_PAYLOAD_CHARS (48 KiB base64).
-		const hugeText = 'x'.repeat(60_000);
-		const result = await session.sendChat(hugeText);
-		expect(result.ok).toBe(false);
-		expect(result.error?.toLowerCase()).toContain('too long');
+		const frames: unknown[] = [];
+		serverSocket!.on('message', (data) => {
+			frames.push(JSON.parse(data.toString()));
+		});
+
+		serverSocket!.send(JSON.stringify({ type: 'welcome', members: [] }));
+		await waitFor(() => frames.length > 0 && (frames[0] as { type: string }).type === 'send');
+
+		const longText = 'x'.repeat(MAX_CHAT_CHARS + 100);
+		const sent = await session.sendChat(longText);
+		expect(sent).toEqual({ ok: true });
+
+		await waitFor(() => frames.length >= 2);
+		const chatFrame = frames[1] as { type: string; payload: string };
+		expect(chatFrame.type).toBe('send');
+
+		const plaintext = await decrypt(chatFrame.payload, messageKey);
+		expect(plaintext.kind).toBe('chat');
+		expect(plaintext.text?.length).toBe(MAX_CHAT_CHARS);
+		expect(plaintext.text).toBe('x'.repeat(MAX_CHAT_CHARS));
 
 		session.disconnect();
 	});
