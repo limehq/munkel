@@ -178,7 +178,7 @@ export default function NotchWidget() {
 	 * Open the reply field when the message body itself is clicked — a second,
 	 * equivalent path to the ↩ button. The Copy/↩ buttons are siblings of
 	 * `.message-body`, so their clicks never reach here; image thumbnails are
-	 * excluded via their own `stopPropagation` (they may gain a lightbox later).
+	 * excluded via their own `stopPropagation` because they open a lightbox overlay.
 	 */
 	function openReplyFromMessage(entry: NotchHistoryEntry, e: React.MouseEvent<HTMLDivElement>) {
 		const down = messagePointerDown.current;
