@@ -12,7 +12,8 @@
     "./wire-constants": "./src/wire-constants.ts",
     "./crypto": "./src/crypto.ts",
     "./payload": "./src/payload.ts",
-    "./normalize": "./src/normalize.ts"
+    "./normalize": "./src/normalize.ts",
+    "./base64": "./src/base64.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"
@@ -21,6 +22,7 @@
     "zod": "^4.1.0"
   },
   "devDependencies": {
+    "@types/bun": "^1.2.0",
     "@types/node": "^25.9.3",
     "typescript": "^5.4.5"
   }

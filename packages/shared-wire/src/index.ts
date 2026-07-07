@@ -5,3 +5,4 @@ export * from './wire-constants.js';
 export * from './crypto.js';
 export * from './payload.js';
 export * from './normalize.js';
+export * from './base64.js';
