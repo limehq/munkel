@@ -4,6 +4,7 @@ import {
 	blobBaseUrl,
 	generateBlobKey,
 	uploadBlob,
+	downloadBlob,
 } from '../blob-upload';
 
 describe('blobBaseUrl', () => {
