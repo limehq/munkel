@@ -38,6 +38,7 @@ export function createTray(handlers: TrayHandlers): Tray {
 
 	tray.setToolTip('Munkel');
 	tray.on('click', handlers.toggleMenu);
+	tray.on('double-click', handlers.toggleMenu);
 
 	const contextMenu = Menu.buildFromTemplate([
 		{ label: 'Show Menu', click: handlers.toggleMenu },
