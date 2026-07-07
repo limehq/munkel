@@ -1,37 +1,38 @@
 import { dialog, ipcMain } from 'electron';
 import type { AppState } from './session-store';
 import type { GitHubLoginService } from './github-login';
+import { IPC_CHANNELS } from '../shared/ipc-channels';
 
 export function registerSessionHandlers(appState: AppState, githubLoginService: GitHubLoginService): void {
-	ipcMain.handle('join-circle', async (_event, code: string, relayUrl?: string) => {
+	ipcMain.handle(IPC_CHANNELS.JOIN_CIRCLE, async (_event, code: string, relayUrl?: string) => {
 		await appState.joinCircle(code, relayUrl);
 	});
 
-	ipcMain.handle('leave-circle', async (_event, code: string) => {
+	ipcMain.handle(IPC_CHANNELS.LEAVE_CIRCLE, async (_event, code: string) => {
 		appState.leaveCircle(code);
 	});
 
-	ipcMain.handle('send-chat', async (_event, code: string, text: string, to?: string) => {
+	ipcMain.handle(IPC_CHANNELS.SEND_CHAT, async (_event, code: string, text: string, to?: string) => {
 		return appState.sendChat(code, text, to);
 	});
 
-	ipcMain.handle('send-images', async (_event, code: string, paths: string[], caption: string, to?: string) => {
+	ipcMain.handle(IPC_CHANNELS.SEND_IMAGES, async (_event, code: string, paths: string[], caption: string, to?: string) => {
 		return appState.sendImages(code, paths, caption, to);
 	});
 
-	ipcMain.handle('update-profile', async (_event, displayName: string, avatar?: string) => {
+	ipcMain.handle(IPC_CHANNELS.UPDATE_PROFILE, async (_event, displayName: string, avatar?: string) => {
 		appState.updateIdentity(avatar === undefined ? { displayName } : { displayName, avatar });
 	});
 
-	ipcMain.handle('set-relay-url', async (_event, code: string, relayUrl: string) => {
+	ipcMain.handle(IPC_CHANNELS.SET_RELAY_URL, async (_event, code: string, relayUrl: string) => {
 		await appState.setRelayUrl(code, relayUrl);
 	});
 
-	ipcMain.handle('get-state', async () => {
+	ipcMain.handle(IPC_CHANNELS.GET_STATE, async () => {
 		return appState.getState();
 	});
 
-	ipcMain.handle('select-images', async () => {
+	ipcMain.handle(IPC_CHANNELS.SELECT_IMAGES, async () => {
 		const result = await dialog.showOpenDialog({
 			properties: ['openFile', 'multiSelections'],
 			filters: [
@@ -42,7 +43,7 @@ export function registerSessionHandlers(appState: AppState, githubLoginService: 
 		return result.canceled ? undefined : result.filePaths;
 	});
 
-	ipcMain.handle('github-logout', async () => {
+	ipcMain.handle(IPC_CHANNELS.GITHUB_LOGOUT, async () => {
 		githubLoginService.logoutGitHub();
 	});
 }

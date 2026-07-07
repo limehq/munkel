@@ -1,4 +1,5 @@
 import type { StateUpdate } from '../shared/types';
+import { PUSH_CHANNELS } from '../shared/ipc-channels';
 
 export type StatePushTarget = {
 	send(channel: string, payload: unknown): void;
@@ -13,7 +14,7 @@ export function broadcastStateUpdate(
 		notch?: StatePushTarget | null;
 	},
 ): void {
-	targets.menu?.send('state-update', update);
-	targets.palette?.send('state-update', update);
-	targets.notch?.send('state-update', update);
+	targets.menu?.send(PUSH_CHANNELS.STATE_UPDATE, update);
+	targets.palette?.send(PUSH_CHANNELS.STATE_UPDATE, update);
+	targets.notch?.send(PUSH_CHANNELS.STATE_UPDATE, update);
 }

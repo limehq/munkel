@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { broadcastStateUpdate } from '../broadcast-state';
+import { PUSH_CHANNELS } from '../../shared/ipc-channels';
 import type { StateUpdate } from '../../shared/types';
 
 function mockTarget() {
@@ -25,9 +26,9 @@ describe('broadcastStateUpdate', () => {
 
 		broadcastStateUpdate(sampleUpdate, { menu, palette, notch });
 
-		expect(menu.sends).toEqual([{ channel: 'state-update', payload: sampleUpdate }]);
-		expect(palette.sends).toEqual([{ channel: 'state-update', payload: sampleUpdate }]);
-		expect(notch.sends).toEqual([{ channel: 'state-update', payload: sampleUpdate }]);
+		expect(menu.sends).toEqual([{ channel: PUSH_CHANNELS.STATE_UPDATE, payload: sampleUpdate }]);
+		expect(palette.sends).toEqual([{ channel: PUSH_CHANNELS.STATE_UPDATE, payload: sampleUpdate }]);
+		expect(notch.sends).toEqual([{ channel: PUSH_CHANNELS.STATE_UPDATE, payload: sampleUpdate }]);
 	});
 
 	it('skips null targets', () => {
