@@ -8,6 +8,8 @@ export type UpdateSend = (state: UpdateState) => void;
 export interface UpdateService {
 	check: () => { ok: boolean };
 	install: () => { ok: boolean };
+	confirmInstall: () => { ok: boolean };
+	cancelInstall: () => { ok: boolean };
 	dispose: () => void;
 }
 
@@ -89,7 +91,9 @@ class UpdateServiceImpl implements UpdateService {
 	}
 
 	check(): { ok: boolean } {
-		if (this.isDev || this.checking || this.phase === 'downloaded') return { ok: false };
+		if (this.isDev || this.checking || this.phase === 'downloaded' || this.phase === 'confirm') {
+			return { ok: false };
+		}
 		this.checking = true;
 		this.autoUpdater
 			.checkForUpdates()
@@ -106,11 +110,22 @@ class UpdateServiceImpl implements UpdateService {
 
 	install(): { ok: boolean } {
 		if (this.phase !== 'downloaded' || this.installing) return { ok: false };
+		this.setPhase('confirm', { version: this.downloadedVersion });
+		return { ok: true };
+	}
+
+	confirmInstall(): { ok: boolean } {
+		if (this.phase !== 'confirm' || this.installing) return { ok: false };
 		this.installing = true;
 		this.autoUpdater.quitAndInstall(false, true);
 		return { ok: true };
 	}
 
+	cancelInstall(): { ok: boolean } {
+		if (this.phase !== 'confirm') return { ok: false };
+		this.setPhase('downloaded', { version: this.downloadedVersion });
+		return { ok: true };
+	}
 	startPeriodicCheck(): void {
 		if (this.isDev || this.intervalId !== null) return;
 		this.intervalId = setInterval(() => this.check(), CHECK_INTERVAL_MS);
@@ -137,7 +152,7 @@ class UpdateServiceImpl implements UpdateService {
 		const state: UpdateState = { phase };
 		if (extras.version !== undefined) {
 			state.version = extras.version;
-		} else if ((phase === 'available' || phase === 'downloaded') && this.downloadedVersion !== undefined) {
+		} else if ((phase === 'available' || phase === 'downloaded' || phase === 'confirm') && this.downloadedVersion !== undefined) {
 			state.version = this.downloadedVersion;
 		}
 		if (extras.progress !== undefined) {

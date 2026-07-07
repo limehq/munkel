@@ -31,6 +31,8 @@ const api: IpcApi = {
 
 	checkForUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.CHECK_FOR_UPDATES),
 	installUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.INSTALL_UPDATE),
+	confirmInstallUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.CONFIRM_INSTALL_UPDATE),
+	cancelInstallUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.CANCEL_INSTALL_UPDATE),
 
 	beginNotchReply: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_BEGIN_REPLY),
 	endNotchReply: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_END_REPLY),

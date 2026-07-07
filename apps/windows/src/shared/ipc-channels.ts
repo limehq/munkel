@@ -27,8 +27,10 @@ export const IPC_CHANNELS = {
   START_GITHUB_LOGIN: 'start-github-login',
   CANCEL_GITHUB_LOGIN: 'cancel-github-login',
 
-  CHECK_FOR_UPDATES: 'check-for-updates',
+	CHECK_FOR_UPDATES: 'check-for-updates',
   INSTALL_UPDATE: 'install-update',
+  CONFIRM_INSTALL_UPDATE: 'confirm-install-update',
+  CANCEL_INSTALL_UPDATE: 'cancel-install-update',
 
   NOTCH_BEGIN_REPLY: 'notch-begin-reply',
   NOTCH_END_REPLY: 'notch-end-reply',

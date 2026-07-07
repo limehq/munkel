@@ -233,6 +233,12 @@ app.whenReady().then(async () => {
 	ipcMain.handle(IPC_CHANNELS.INSTALL_UPDATE, async () => {
 		return updateService?.install() ?? { ok: false };
 	});
+	ipcMain.handle(IPC_CHANNELS.CONFIRM_INSTALL_UPDATE, async () => {
+		return updateService?.confirmInstall() ?? { ok: false };
+	});
+	ipcMain.handle(IPC_CHANNELS.CANCEL_INSTALL_UPDATE, async () => {
+		return updateService?.cancelInstall() ?? { ok: false };
+	});
 
 	await appState.restoreCircles();
 	appState.broadcast();

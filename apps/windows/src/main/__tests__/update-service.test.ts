@@ -148,7 +148,7 @@ describe('UpdateService state transitions', () => {
 		localService.dispose();
 	});
 
-	it('install only quits when an update has been downloaded', () => {
+	it('install requests confirmation when an update has been downloaded', () => {
 		const mock = createMockUpdater();
 		const sendCapture = createSend();
 		const localService = initUpdateService(sendCapture.send, {
@@ -160,6 +160,10 @@ describe('UpdateService state transitions', () => {
 
 		mock.updater.emit('update-downloaded', { version: '0.2.0' });
 		expect(localService.install()).toEqual({ ok: true });
+		expect(mock.installSpy.calls).toBe(0);
+		expect(sendCapture.states.at(-1)).toEqual({ phase: 'confirm', version: '0.2.0' });
+
+		expect(localService.confirmInstall()).toEqual({ ok: true });
 		expect(mock.installSpy.calls).toBe(1);
 		localService.dispose();
 	});
@@ -213,10 +217,47 @@ describe('UpdateService state transitions', () => {
 		expect(localService.check()).toEqual({ ok: false });
 		expect(mock.checkSpy.calls).toBe(1); // only the init auto-check
 
-		// Install should be a one-shot action.
+		// install() moves to confirmation; only confirmInstall() performs the quit.
 		expect(localService.install()).toEqual({ ok: true });
-		expect(localService.install()).toEqual({ ok: false });
+		expect(sendCapture.states.at(-1)).toEqual({ phase: 'confirm', version: '0.2.0' });
+		expect(localService.confirmInstall()).toEqual({ ok: true });
+		expect(localService.confirmInstall()).toEqual({ ok: false });
 		expect(mock.installSpy.calls).toBe(1);
+
+		localService.dispose();
+	});
+
+	it('cancels the installation confirmation and returns to downloaded', () => {
+		const mock = createMockUpdater();
+		const sendCapture = createSend();
+		const localService = initUpdateService(sendCapture.send, {
+			autoUpdater: mock.updater as never,
+			isDev: false,
+		});
+
+		mock.updater.emit('update-downloaded', { version: '0.2.0' });
+		localService.install();
+		expect(sendCapture.states.at(-1)).toEqual({ phase: 'confirm', version: '0.2.0' });
+
+		localService.cancelInstall();
+		expect(sendCapture.states.at(-1)).toEqual({ phase: 'downloaded', version: '0.2.0' });
+		expect(mock.installSpy.calls).toBe(0);
+
+		localService.dispose();
+	});
+
+	it('ignores confirmation actions outside the confirm phase', () => {
+		const mock = createMockUpdater();
+		const sendCapture = createSend();
+		const localService = initUpdateService(sendCapture.send, {
+			autoUpdater: mock.updater as never,
+			isDev: false,
+		});
+
+		localService.confirmInstall();
+		localService.cancelInstall();
+		expect(mock.installSpy.calls).toBe(0);
+		expect(sendCapture.states).toHaveLength(0);
 
 		localService.dispose();
 	});
