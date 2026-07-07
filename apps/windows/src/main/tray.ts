@@ -37,8 +37,14 @@ export function createTray(handlers: TrayHandlers): Tray {
 	const tray = new Tray(icon);
 
 	tray.setToolTip('Munkel');
-	tray.on('click', handlers.toggleMenu);
-	tray.on('double-click', handlers.toggleMenu);
+	tray.on('click', () => {
+		console.log('[tray] click fired');
+		handlers.toggleMenu();
+	});
+	tray.on('double-click', () => {
+		console.log('[tray] double-click fired');
+		handlers.toggleMenu();
+	});
 
 	const contextMenu = Menu.buildFromTemplate([
 		{ label: 'Show Menu', click: handlers.toggleMenu },
@@ -47,7 +53,19 @@ export function createTray(handlers: TrayHandlers): Tray {
 		{ type: 'separator' },
 		{ label: 'Quit', click: handlers.quit },
 	]);
-	tray.setContextMenu(contextMenu);
+
+	// On Windows, setting a context menu suppresses the click/double-click events.
+	// Keep the menu for non-Windows platforms and pop it manually on right-click.
+	if (process.platform !== 'win32') {
+		tray.setContextMenu(contextMenu);
+	}
+
+	tray.on('right-click', (event, bounds) => {
+		console.log('[tray] right-click fired');
+		if (process.platform === 'win32') {
+			tray.popUpContextMenu(contextMenu, bounds);
+		}
+	});
 
 	return tray;
 }

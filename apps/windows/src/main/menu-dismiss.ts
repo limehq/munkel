@@ -57,6 +57,7 @@ export function shouldReopenMenu({
 	guardMs = MENU_TOGGLE_GUARD_MS,
 }: MenuReopenInput): boolean {
 	if (visible) return false;
-	if (lastHideWasBlur && now - hiddenByBlurAt < guardMs) return false;
-	return true;
+	const insideGuard = lastHideWasBlur && now - hiddenByBlurAt < guardMs;
+	console.log('[guard] shouldReopenMenu: visible=', visible, 'lastHideWasBlur=', lastHideWasBlur, 'delta=', now - hiddenByBlurAt, 'insideGuard=', insideGuard);
+	return !insideGuard;
 }
