@@ -94,12 +94,14 @@ export class RelayClient extends EventEmitter {
 			this.socket = socket;
 
 			socket.on('open', () => {
+				if (!this.running || this.socket !== socket) return;
 				this.log('open');
 				this.backoffMs = 1000;
 				this.startPing();
 			});
 
 			socket.on('message', (data) => {
+				if (this.socket !== socket) return;
 				this.handleMessage(data);
 			});
 
@@ -137,7 +139,7 @@ export class RelayClient extends EventEmitter {
 		socket: WebSocket,
 		closeInfo: { code?: number; reason?: string } = {},
 	): void {
-		if (this.socket !== socket) return; // already handled or superseded
+		if (!this.running || this.socket !== socket) return; // already handled, superseded, or stopped
 		this.socket = null;
 		this.stopPing();
 		try {
