@@ -345,6 +345,17 @@ select {
 	padding-right: 6px;
 }
 
+/*
+ * Windows renders the <select> popup list as a native OS control, which
+ * ignores the translucent `.frosted-field` background. Chromium on Windows
+ * does honor `background-color`/`color` set directly on <option>, so pin an
+ * opaque dark background there to avoid white-text-on-white-popup.
+ */
+.frosted-field option {
+	background-color: #1c1c1e;
+	color: var(--munkel-text);
+}
+
 .join-area {
 	display: flex;
 	flex-direction: column;
