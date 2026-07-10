@@ -76,11 +76,49 @@ let currentPaletteHotkey: string | null = null;
 // Menu click-away-to-dismiss suppression state (Plan 06).
 let pickerOpen = false;
 let githubLoginActive = false;
-const isDev = process.env.NODE_ENV === 'development';
+// Dev-feature gate (Plan 13 items 5–6). MUST be `!app.isPackaged`, NOT an
+// env var: `process.env.NODE_ENV` can be set by any launcher/shortcut/wrapper
+// (the ELECTRON_RUN_AS_NODE-class leak), which would expose the dev toggles —
+// and let a user turn OFF capture protection — in a shipped release build.
+// `app.isPackaged` reflects the actual build shape and cannot be spoofed via
+// the environment. Every dev-gated consumer (`get-is-dev`, the AppState echo
+// fold, the startup + recreate content-protection apply) reads this one const.
+const isDev = !app.isPackaged;
+
+// Re-applies the persisted "Allow in screenshots" preference (Plan 13 item 5)
+// to the current window set. Assigned inside `app.whenReady()` once the
+// identity store and windows exist; a no-op before then. Kept as a
+// module-level handle so the `second-instance` recreate path (below) can
+// re-apply it to a freshly recreated menu window. In a packaged build `isDev`
+// is false, so this always resolves to "protected" regardless of the
+// persisted value.
+let reapplyPersistedContentProtection: () => void = () => {};
+
+/**
+ * Creates the menu window with the Plan-06 click-away-dismiss suppression
+ * callback wired in. Extracted so BOTH the initial `app.whenReady()` create
+ * and the `second-instance` recreate below produce an identically-configured
+ * window — the recreate previously called `createMenuWindow()` with no
+ * options, silently dropping the dismiss guard.
+ */
+function makeMenuWindow(): BrowserWindow {
+	return createMenuWindow({
+		isDismissSuppressed: () =>
+			isDismissSuppressed({
+				pickerOpen,
+				githubLoginActive,
+				devToolsOpen: menuWindow?.webContents.isDevToolsOpened() ?? false,
+				isDev,
+			}),
+	});
+}
 
 app.on('second-instance', () => {
 	if (!menuWindow || menuWindow.isDestroyed()) {
-		menuWindow = createMenuWindow();
+		menuWindow = makeMenuWindow();
+		// Restore the persisted capture-protection state on the new window
+		// (default-protected regardless, but keep dev flips consistent).
+		reapplyPersistedContentProtection();
 	}
 	showMenuWindow(menuWindow);
 });
@@ -132,15 +170,7 @@ function pushUpdateState(state: UpdateState): void {
 }
 
 app.whenReady().then(async () => {
-	menuWindow = createMenuWindow({
-		isDismissSuppressed: () =>
-			isDismissSuppressed({
-				pickerOpen,
-				githubLoginActive,
-				devToolsOpen: menuWindow?.webContents.isDevToolsOpened() ?? false,
-				isDev,
-			}),
-	});
+	menuWindow = makeMenuWindow();
 	notchWindow = createNotchWindow();
 	paletteWindow = createPaletteWindow();
 
@@ -192,11 +222,20 @@ app.whenReady().then(async () => {
 	applyLaunchAtLogin(app, persisted.launchAtLogin);
 
 	// Dev-only "Allow in screenshots" (Plan 13 item 5): only ever apply the
-	// persisted opt-in outside protection when this IS a dev build — a
-	// packaged release launched against a dev-populated userData folder must
-	// still start fully capture-protected, matching macOS having no such
-	// code path at all in release builds.
-	applyContentProtection([menuWindow, notchWindow, paletteWindow], isDev && persisted.allowInScreenshots);
+	// persisted opt-in outside protection when this IS a dev build (`isDev` =
+	// `!app.isPackaged`) — a packaged release launched against a dev-populated
+	// userData folder must still start fully capture-protected, matching macOS
+	// having no such code path at all in release builds. Defined here (once the
+	// store + windows exist) so the `second-instance` recreate path can reuse
+	// it; reads the persisted value live so a runtime toggle flip is reflected
+	// on a later recreate.
+	reapplyPersistedContentProtection = () => {
+		applyContentProtection(
+			[menuWindow, notchWindow, paletteWindow],
+			isDev && identityStore.load().allowInScreenshots,
+		);
+	};
+	reapplyPersistedContentProtection();
 
 	// Rebindable palette-toggle hotkey (Plan 12 P3.1): register the persisted
 	// accelerator (default Ctrl+Shift+M). A startup registration failure

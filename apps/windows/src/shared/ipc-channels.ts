@@ -46,8 +46,9 @@ export const IPC_CHANNELS = {
   GET_PALETTE_HOTKEY: 'get-palette-hotkey',
   SET_PALETTE_HOTKEY: 'set-palette-hotkey',
 
-  // Dev-only flag (Plan 13 items 5–6): backed by `process.env.NODE_ENV ===
-  // 'development'` in main.ts. Gates the two dev-only settings-popover
+  // Dev-only flag (Plan 13 items 5–6): backed by `!app.isPackaged` in main.ts
+  // (NOT an env var like NODE_ENV, which a launcher could spoof to unlock the
+  // toggles in a release build). Gates the two dev-only settings-popover
   // toggles below so release builds never render or persist them.
   GET_IS_DEV: 'get-is-dev',
 

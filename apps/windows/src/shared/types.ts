@@ -143,12 +143,13 @@ export interface IpcApi {
 		accelerator: string,
 	) => Promise<{ ok: boolean; accelerator: string | null; error?: string }>;
 
-	// Dev-only flag (Plan 13 items 5–6). Backed by `process.env.NODE_ENV ===
-	// 'development'` in main.ts. The settings-popover dev toggles below are
-	// only rendered when this resolves `true`; a packaged build's main
-	// process also refuses their SET/GET IPC calls regardless of what the
-	// renderer sends, so this is UI-gating on top of an already-enforced
-	// main-process gate, not the only line of defense.
+	// Dev-only flag (Plan 13 items 5–6). Backed by `!app.isPackaged` in main.ts
+	// (deliberately NOT an env var like NODE_ENV, which a launcher/shortcut
+	// could spoof to unlock these in a shipped release). The settings-popover
+	// dev toggles below are only rendered when this resolves `true`; a packaged
+	// build's main process also refuses their SET/GET IPC calls regardless of
+	// what the renderer sends, so this is UI-gating on top of an
+	// already-enforced main-process gate, not the only line of defense.
 	isDev: () => Promise<boolean>;
 
 	// Dev-only "Allow in screenshots" toggle (Plan 13 item 5), mirroring

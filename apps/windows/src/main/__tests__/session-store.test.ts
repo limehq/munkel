@@ -50,6 +50,16 @@ describe('AppState.getDevEchoBroadcasts (Plan 13 item 6)', () => {
 		expect(appState.getDevEchoBroadcasts()).toBe(false);
 	});
 
+	// Packaged-build security invariant: main.ts computes `isDev = !app.isPackaged`,
+	// so a shipped release always passes `{ isDev: false }`. Even a dev-populated
+	// state.json (devEchoBroadcasts: true) copied into a packaged build's userData
+	// folder must never let the release echo the user's own broadcasts.
+	it('is false when isDev is explicitly false (packaged build) even with a dev-populated state.json', () => {
+		const { store } = stubIdentityStore({ devEchoBroadcasts: true });
+		const appState = new AppState(store, noop, noop, undefined, { isDev: false });
+		expect(appState.getDevEchoBroadcasts()).toBe(false);
+	});
+
 	it('is false when isDev is true but the persisted value is false', () => {
 		const { store } = stubIdentityStore({ devEchoBroadcasts: false });
 		const appState = new AppState(store, noop, noop, undefined, { isDev: true });
