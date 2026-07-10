@@ -20,7 +20,7 @@ import type { ImageItem } from '../core';
 import { readFile } from 'node:fs/promises';
 import { RelayClient } from './relay-client';
 import { getCircleColor } from '../shared/group-color';
-import { clampMessageText } from '../shared/message-limits';
+import { clampMessageText } from '@munkel/shared-wire/message-limits';
 import type { CircleState, IncomingImage, Member, NotchMessage } from '../shared/types';
 import type { ChatPayload, ClientMessage, ProfilePayload, ServerMessage } from '../core';
 

@@ -8,6 +8,7 @@ import { homedir } from "node:os"
 import { basename, join, resolve as resolvePath } from "node:path"
 import { buildPipeName, type ControlGroupInfo, type ControlRequest, type ControlResponse } from "@munkel/shared-wire/control"
 import { createControlClient, type ControlClient } from "@munkel/shared-wire/transport"
+import { MAX_MESSAGE_CHARS } from "@munkel/shared-wire/message-limits"
 
 // `MUNKEL_DEV=1` (or a binary named `munkel-dev`) targets the parallel "Munkel
 // Dev" app instead of the installed release — its own control socket and bundle
@@ -49,9 +50,6 @@ function fail(message: string, code = 1): never {
   console.error(`munkel: ${message}`)
   process.exit(code)
 }
-
-// Mirrors MessageLimits.maxCharacters in the macOS app.
-const MAX_MESSAGE_CHARS = 2048
 
 // Supported image formats for the `munkel image` command. Kept in sync with
 // the Windows image codec (apps/windows/src/core/image-codec.ts) and the

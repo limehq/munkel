@@ -4,7 +4,7 @@ import { useAppStore } from '../store/app-store';
 import { resolveReplyRecipient } from '../lib/resolve-reply-recipient';
 import { shouldOpenReplyOnMessageClick } from '../lib/should-open-reply-on-message-click';
 import { useNotchLifecycle, type NotchHistoryEntry } from '../lib/useNotchLifecycle';
-import { MAX_MESSAGE_CHARS, clampMessageText } from '../../shared/message-limits';
+import { MAX_MESSAGE_CHARS, clampMessageText } from '@munkel/shared-wire/message-limits';
 
 const RING_RADIUS = 8;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;

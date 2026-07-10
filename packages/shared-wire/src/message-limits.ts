@@ -1,11 +1,16 @@
 /**
  * Shared message character limit — mirrors macOS `MessageLimits.maxCharacters`
- * (`apps/macos/Sources/MunkelApp/MessageLimits.swift`) and the CLI's local
- * `MAX_MESSAGE_CHARS` constant (`apps/cli/src/munkel.ts`). Like
- * `src/shared/accelerator.ts`, this module has no electron/DOM dependency of
- * its own, so both the renderer bundle (composer inputs) and the main
- * bundle (incoming-text display clamp in `group-session.ts`) import the same
- * copy instead of forking the constant per bundle.
+ * (`apps/macos/Sources/MunkelApp/MessageLimits.swift`). This lives in
+ * `@munkel/shared-wire` (not `apps/windows/src/shared`) so it is the single
+ * source of truth for every workspace package that needs it, without any
+ * package importing across another app's package boundary:
+ * `apps/cli/src/munkel.ts` imports `MAX_MESSAGE_CHARS` from here instead of
+ * keeping its own local constant, and `apps/windows` (composer inputs via
+ * `MenuWindow.tsx` / `NotchWidget.tsx`, incoming-text display clamp in
+ * `group-session.ts`) imports the same copy instead of forking the constant
+ * per bundle. This module has no electron/DOM/Node dependency of its own, so
+ * it is safe for the CLI (Bun, no Electron) and the renderer/main bundles
+ * (Electron) alike.
  *
  * The macOS reference applies the cap symmetrically: outgoing text is
  * clamped before sending and incoming text is clamped before display, so

@@ -3,7 +3,9 @@ import { MAX_MESSAGE_CHARS, clampMessageText } from '../message-limits';
 
 /**
  * Mirrors `apps/macos/Sources/MunkelApp/MessageLimits.swift` (`maxCharacters
- * = 2048`) and the CLI's local `MAX_MESSAGE_CHARS` (`apps/cli/src/munkel.ts`).
+ * = 2048`). This module is the single shared source of truth imported by
+ * both `apps/cli/src/munkel.ts` and `apps/windows` (composer / notch /
+ * group-session) — see the module doc comment in `../message-limits.ts`.
  */
 describe('message-limits (macOS MessageLimits parity)', () => {
 	it('MAX_MESSAGE_CHARS is 2048', () => {

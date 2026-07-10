@@ -5,7 +5,7 @@ import { getCircleColor } from '../../shared/group-color';
 import { clipboardEventHasImage, pasteClipboardImage } from '../lib/clipboard-image';
 import { acceleratorFromKeyboardEvent } from '../lib/hotkey-recorder';
 import { DEFAULT_PALETTE_HOTKEY, formatAcceleratorLabel } from '../../shared/accelerator';
-import { MAX_MESSAGE_CHARS, clampMessageText } from '../../shared/message-limits';
+import { MAX_MESSAGE_CHARS, clampMessageText } from '@munkel/shared-wire/message-limits';
 import type { CircleState, GitHubLoginState, IdentityState, Member, UpdateState } from '../../shared/types';
 
 // Feedback window for the "Copy code" button's checkmark (Plan 12 "Menu:
