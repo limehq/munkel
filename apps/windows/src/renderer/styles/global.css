@@ -845,6 +845,21 @@ select {
 	color: var(--munkel-text);
 }
 
+/* History expand/collapse (Plan 12 P3.6): default one-line ellipsis for
+   reopened history rows until their chevron toggles them expanded. Only
+   applied to `.history-entry` rows rendered with `collapsible: true` — the
+   single "current message" view is never truncated. */
+.message-text-collapsed {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.history-expand-button {
+	margin-top: 2px;
+	font-size: 11px;
+}
+
 .copy-button {
 	margin-top: 2px;
 }

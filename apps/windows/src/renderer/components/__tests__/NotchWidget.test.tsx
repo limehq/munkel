@@ -624,3 +624,264 @@ describe('NotchWidget avatar pulse wiring (Plan 12 P3 follow-up)', () => {
 		});
 	});
 });
+
+describe('NotchWidget history expand/collapse (Plan 12 P3.6)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let originalResizeObserver: unknown;
+
+	function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
+		return {
+			sender: 'Alice',
+			text: 'A rather long message that should overflow a single collapsed line of text easily',
+			isDirect: false,
+			group: 'test-circle',
+			groupColor: '#3b82f6',
+			receivedAt: new Date().toISOString(),
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi();
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = {
+			electronAPI: electronApi,
+		};
+		(globalThis as unknown as { navigator: unknown }).navigator = {
+			clipboard: {
+				writeText: (_text: string) => Promise.resolve(),
+			},
+		};
+		originalResizeObserver = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+		delete (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+		delete (globalThis as unknown as { navigator?: unknown }).navigator;
+		(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+	});
+
+	async function renderWidget() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<NotchWidget />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	function widgetNode(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ 'data-testid': 'notch-widget' });
+	}
+
+	async function reopenHistory(root: ReturnType<typeof create>) {
+		await act(async () => {
+			widgetNode(root).props.onMouseEnter();
+		});
+		const hoverTarget = root.root.findByProps({ className: 'notch-hover-target' });
+		await act(async () => {
+			hoverTarget.props.onMouseEnter();
+		});
+	}
+
+	// Entries get a real crypto.randomUUID() id, so tests locate a row by its
+	// message text (unique per test message) rather than a literal id.
+	function entryByText(root: ReturnType<typeof create>, text: string) {
+		const candidates = root.root.findAll(
+			(node) =>
+				typeof node.props['data-testid'] === 'string' &&
+				(node.props['data-testid'] as string).startsWith('history-entry-'),
+		);
+		const match = candidates.find((entry) =>
+			entry.findAllByType('p').some((p) => p.props.children === text),
+		);
+		if (!match) throw new Error(`no history entry found for text: ${text}`);
+		return match;
+	}
+
+	function chevronOf(entry: ReturnType<typeof entryByText>) {
+		return entry.findByProps({ className: 'icon-button history-expand-button' });
+	}
+
+	function messageTextOf(entry: ReturnType<typeof entryByText>) {
+		return entry.findByType('p');
+	}
+
+	it('renders reopened history rows collapsed (ellipsis) by default', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'first message' }));
+		});
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'second message' }));
+		});
+
+		await reopenHistory(root);
+
+		expect(messageTextOf(entryByText(root, 'first message')).props.className).toBe(
+			'message-text message-text-collapsed',
+		);
+		expect(messageTextOf(entryByText(root, 'second message')).props.className).toBe(
+			'message-text message-text-collapsed',
+		);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('expands a row on chevron click and collapses again on a second click, without affecting other rows', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'first message' }));
+		});
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'second message' }));
+		});
+		await reopenHistory(root);
+
+		const entry = entryByText(root, 'second message');
+		const chevron = chevronOf(entry);
+		expect(chevron.props['aria-expanded']).toBe(false);
+
+		await act(async () => {
+			chevron.props.onClick({ stopPropagation: () => {} });
+		});
+		expect(messageTextOf(entryByText(root, 'second message')).props.className).toBe('message-text');
+		expect(chevronOf(entryByText(root, 'second message')).props['aria-expanded']).toBe(true);
+
+		// The other row must stay collapsed.
+		expect(messageTextOf(entryByText(root, 'first message')).props.className).toBe(
+			'message-text message-text-collapsed',
+		);
+
+		await act(async () => {
+			chevronOf(entryByText(root, 'second message')).props.onClick({ stopPropagation: () => {} });
+		});
+		expect(messageTextOf(entryByText(root, 'second message')).props.className).toBe(
+			'message-text message-text-collapsed',
+		);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('clicking the chevron does not open the reply field (click-to-reply on the row is unaffected)', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'reply-target message' }));
+		});
+		await reopenHistory(root);
+
+		const entry = entryByText(root, 'reply-target message');
+		const chevron = chevronOf(entry);
+
+		let propagated = true;
+		await act(async () => {
+			chevron.props.onClick({
+				stopPropagation: () => {
+					propagated = false;
+				},
+			});
+		});
+		expect(propagated).toBe(false);
+		expect(entryByText(root, 'reply-target message').findAllByProps({ className: 'reply-field' }).length).toBe(0);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('clicking the message body still opens the reply field (existing click-to-reply is preserved)', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'reply-target message' }));
+		});
+		await reopenHistory(root);
+
+		const entry = entryByText(root, 'reply-target message');
+		const body = entry.findByProps({ className: 'message-body' });
+
+		(globalThis as unknown as { window: { getSelection: () => unknown } }).window.getSelection = () => null;
+
+		await act(async () => {
+			body.props.onClick({ clientX: 0, clientY: 0, currentTarget: { contains: () => false } });
+		});
+
+		expect(
+			entryByText(root, 'reply-target message').findAllByProps({ className: 'reply-field' }).length,
+		).toBe(1);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it("per-row copy button copies that row's text", async () => {
+		const root = await renderWidget();
+		const calls: string[] = [];
+		(globalThis as unknown as { navigator: { clipboard: { writeText: (t: string) => Promise<void> } } }).navigator = {
+			clipboard: {
+				writeText: (text: string) => {
+					calls.push(text);
+					return Promise.resolve();
+				},
+			},
+		};
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'first message' }));
+		});
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'second message' }));
+		});
+		await reopenHistory(root);
+
+		const entry = entryByText(root, 'first message');
+		const copyButton = entry.findByProps({ className: 'icon-button copy-button' });
+
+		await act(async () => {
+			copyButton.props.onClick({ stopPropagation: () => {} });
+		});
+
+		expect(calls).toEqual(['first message']);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('resets expanded rows to collapsed the next time the notch is reopened after a hide', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'first message' }));
+		});
+		await reopenHistory(root);
+
+		const chevron = chevronOf(entryByText(root, 'first message'));
+		await act(async () => {
+			chevron.props.onClick({ stopPropagation: () => {} });
+		});
+		expect(messageTextOf(entryByText(root, 'first message')).props.className).toBe('message-text');
+
+		await act(async () => {
+			electronApi.simulateNotchHide();
+		});
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'new message after reopen' }));
+		});
+		await reopenHistory(root);
+
+		expect(messageTextOf(entryByText(root, 'new message after reopen')).props.className).toBe(
+			'message-text message-text-collapsed',
+		);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+});

@@ -85,6 +85,30 @@ export default function NotchWidget() {
 		};
 	}, []);
 
+	// History expand/collapse (Plan 12 P3.6). History-list rows (rendered
+	// while reopened via hover — see the `reopening` branch below) default to
+	// a single ellipsized line; a per-row chevron toggles that row's id into
+	// this set to show the full text. Deliberately a *separate* affordance
+	// from the row click: the message body's click already opens a reply
+	// (`openReplyFromMessage`, pre-existing on both the single "current
+	// message" view and history rows), so overloading that same click for
+	// expand/collapse would silently break click-to-reply on history rows.
+	// The macOS reference (`NotchPresenter`'s click monitor) can afford to
+	// give a whole-row click double duty because it dispatches by AppKit hit
+	// -testing against separate marker frames (row body vs. reply/copy
+	// targets); the Windows DOM-event model does not have an equivalent
+	// "click landed in this specific sub-region" primitive, so a dedicated
+	// button is the smallest change that keeps both behaviors intact.
+	const [expandedHistoryIds, setExpandedHistoryIds] = useState<Set<string>>(new Set());
+	const toggleHistoryExpanded = useCallback((id: string) => {
+		setExpandedHistoryIds((current) => {
+			const next = new Set(current);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		});
+	}, []);
+
 	const handleNotchHide = useCallback(() => {
 		setReplyText('');
 		setError(null);
@@ -94,6 +118,10 @@ export default function NotchWidget() {
 		// event as the authoritative backstop).
 		setNotchHovered(false);
 		setHoveredEntryId(null);
+		// Each reopen of the notch starts every history row collapsed again
+		// (macOS parity: `historyExpanded` is a transient view toggle, not
+		// persisted per message).
+		setExpandedHistoryIds(new Set());
 	}, []);
 	const lifecycle = useNotchLifecycle({ onNotchHide: handleNotchHide });
 	// Pointer-down position on the message body, so a click that was really a
@@ -140,6 +168,23 @@ export default function NotchWidget() {
 	useEffect(() => {
 		newestRef.current = newest;
 	}, [newest]);
+
+	// Prune expanded-history ids for entries that have since expired out of
+	// `history` (60s pruning, see useNotchLifecycle), so the set doesn't grow
+	// unbounded over a long-lived notch session.
+	useEffect(() => {
+		setExpandedHistoryIds((current) => {
+			if (current.size === 0) return current;
+			const validIds = new Set(history.map((entry) => entry.id));
+			let changed = false;
+			const next = new Set<string>();
+			current.forEach((id) => {
+				if (validIds.has(id)) next.add(id);
+				else changed = true;
+			});
+			return changed ? next : current;
+		});
+	}, [history]);
 
 	// Send an arm/disarm hint to the main process. The main process owns the
 	// actual shortcut lifecycle (idle timeout + hide/crash/click-through
@@ -334,10 +379,20 @@ export default function NotchWidget() {
 	 * reply stays open) reuse the same mounted Avatar and do not re-pulse;
 	 * reopening the notch via hover re-mounts the row in the *other* branch,
 	 * which never passes `pulse`, so already-seen history rows never pulse.
+	 *
+	 * `collapsible` (Plan 12 P3.6) marks a row as belonging to the reopened
+	 * history list: it defaults to a single ellipsized line and renders a
+	 * chevron button that toggles this row's id in `expandedHistoryIds`. The
+	 * single "current message" view (`collapsible` unset) is never truncated,
+	 * matching today's behavior and the macOS reference's always-expanded
+	 * "current message" (`fullyExpanded` teaser is separate from
+	 * `historyExpanded`, which only governs the rows *below* it).
 	 */
-	function renderMessageRow(entry: NotchHistoryEntry, options?: { pulse?: boolean }) {
+	function renderMessageRow(entry: NotchHistoryEntry, options?: { pulse?: boolean; collapsible?: boolean }) {
 		const hasImages = !!entry.images?.length;
 		const replying = replyingTo === entry.id;
+		const collapsible = options?.collapsible ?? false;
+		const collapsed = collapsible && !expandedHistoryIds.has(entry.id);
 
 		return (
 			<div
@@ -363,7 +418,7 @@ export default function NotchWidget() {
 							<span className="circle-dot" style={{ background: entry.groupColor }} />
 							<span className="circle-name">{entry.group}</span>
 						</div>
-						<p className="message-text">{entry.text}</p>
+						<p className={collapsed ? 'message-text message-text-collapsed' : 'message-text'}>{entry.text}</p>
 						{hasImages && (
 							<div className="image-preview-row" onClick={(e) => e.stopPropagation()}>
 								{entry.images!.map((img) => (
@@ -378,6 +433,21 @@ export default function NotchWidget() {
 							</div>
 						)}
 					</div>
+					{collapsible && (
+						<button
+							className="icon-button history-expand-button"
+							data-testid={`history-expand-${entry.id}`}
+							onClick={(e) => {
+								e.stopPropagation();
+								toggleHistoryExpanded(entry.id);
+							}}
+							aria-label={collapsed ? 'Expand message' : 'Collapse message'}
+							aria-expanded={!collapsed}
+							title={collapsed ? 'Expand message' : 'Collapse message'}
+						>
+							{collapsed ? '▸' : '▾'}
+						</button>
+					)}
 					<button className="icon-button copy-button" onClick={(e) => handleCopyText(entry, e)}>
 						{copiedId === entry.id ? '✓' : '📋'}
 					</button>
@@ -464,7 +534,9 @@ export default function NotchWidget() {
 
 			{reopening && history.length > 0 ? (
 				<div className="notch-content">
-					<div className="notch-history-list">{history.map((entry) => renderMessageRow(entry))}</div>
+					<div className="notch-history-list">
+						{history.map((entry) => renderMessageRow(entry, { collapsible: true }))}
+					</div>
 				</div>
 			) : newest && (phase === 'full' || replyingTo === newest.id) ? (
 				<div className="notch-content">{renderMessageRow(newest, { pulse: true })}</div>
