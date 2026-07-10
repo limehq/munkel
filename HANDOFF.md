@@ -2,12 +2,36 @@
 
 ## current_state
 
-- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `77d32c5`).
+- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `0a1184b`).
 - **Working directory:** sauber bis auf untracked `fp-notes/` (nie committen).
-- **Kontext:** P1 Parity-Fixes (E1/E2/WIN-NOTCH-004) implementiert und reviewt. Kritischer Review der 7 Commits `0ef28b8..HEAD` ergab **keine CRITICAL**, aber **drei MAJOR**-Findings, die vor dem Merge nach `platform/windows/v2-clean` behandelt werden sollten.
-- **Test-Stand:** `bun test` in `apps/windows`: **216 pass / 3 skip / 0 fail**; `bun run typecheck` clean.
+- **Kontext:** P1 Parity-Fixes (E1/E2/WIN-NOTCH-004) implementiert und reviewt. Kritischer Review der 4 Fix-Commits `d63ea90..HEAD` ergab **keine CRITICAL**, aber **zwei MAJOR**-Residual-Findings, die vor dem Merge nach `platform/windows/v2-clean` behandelt werden sollten.
+- **Test-Stand:** `bun test` in `apps/windows`: **221 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
 
 ## completed in dieser Session
+
+### Iteration 2 — P1 Major-Fixes (2026-07-10)
+
+Review-Commits `d63ea90..HEAD` (4 Stück), ausschließlich Review + Doku, keine Code-Änderungen außer Dokumentation.
+
+#### 1. Display-name Retry nach fehlgeschlagenem `updateProfile` — DONE
+- **Commit:** `3f07edb`
+- **Dateien:** `apps/windows/src/renderer/components/MenuWindow.tsx`, `apps/windows/src/renderer/components/__tests__/MenuWindow.test.tsx`
+- **Inhalt:** `updateName()` committed `lastSavedNameRef` jetzt erst in `updateProfile(name).then(...)`. Bei Rejection bleibt der Ref auf dem zuletzt erfolgreich gespeicherten Namen, sodass Retry mit demselben Text nicht mehr als "unchanged" verworfen wird. Regressionstest un-skipped.
+
+#### 2. Notch-Resize-Debounce und 1px-Toleranz — DONE
+- **Commit:** `70bff3a`
+- **Dateien:** `apps/windows/src/main/notch-window.ts`, `apps/windows/src/main/__tests__/notch-window.test.ts`, `apps/windows/src/renderer/components/NotchWidget.tsx`, `apps/windows/src/renderer/components/__tests__/NotchWidget.test.tsx`
+- **Inhalt:** Renderer-`ResizeObserver` debounced um 80 ms; `resizeNotchToContent` ignoriert Höhenänderungen ≤ ±1 px, um Display-Scaling-Rounding-Oszillationen (125 %/150 %) zu unterbinden. Timer-Cleanup im Unmount-Effekt vorhanden.
+
+#### 3. Globales `color-scheme: dark` für native Dropdowns — DONE
+- **Commit:** `433ba2c`
+- **Dateien:** `apps/windows/src/renderer/styles/global.css`, `apps/windows/src/renderer/styles/__tests__/global.css.test.ts`
+- **Inhalt:** `color-scheme: dark` auf `:root`, damit Chromium native Popups (u. a. `<select>`-Liste) dunkel rendert, unabhängig vom OS-Theme. Bestehende `.frosted-field option`-Regel bleibt Fallback.
+
+#### 4. Cleanup / Plan-Branch-Korrektur — DONE
+- **Commit:** `0a1184b`
+- **Dateien:** `apps/windows/src/renderer/components/NotchWidget.tsx`, `apps/windows/docs/plans/12-macos-feature-parity.md`
+- **Inhalt:** Ungenutzte `expanded`-Variable inline ersetzt (`!(reopening || replyOpen)`), Plan 12 Branch-Name korrigiert, drei MAJOR-Follow-ups als resolved markiert.
 
 ### 1. P1.1 Dropdown white-on-white fix — DONE
 - **Commit:** `7f673bc`
@@ -38,25 +62,24 @@
 
 | Schwere | Datei:Zeile | Problem | Failure-Szenario |
 |---|---|---|---|
-| **MAJOR** | `apps/windows/src/renderer/styles/global.css:354-357` | `.frosted-field option`-Styling funktioniert auf Windows-Chromium nicht zuverlässig; native `<select>`-Popups verwenden oft System-Theme/High-Contrast und ignorieren `option`-CSS. | Dropdown bleibt weiterhin weißer Text auf weißem/hellgrauem Hintergrund, besonders bei aktiviertem Windows-Accent-Color-on-surfaces oder High-Contrast-Mode. |
-| **MAJOR** | `apps/windows/src/renderer/components/MenuWindow.tsx:83-88` | `updateName()` setzt `lastSavedNameRef.current = name` **vor** `updateProfile(name)` settle; bei rejected Promise ist der Ref bereits auf den fehlgeschlagenen Wert. | Ein Netzwerk-/Main-Process-Fehler beim Speichern des Namens blockiert jeden Retry mit demselben Text permanent; der User muss einen anderen Namen eingeben oder die App neu starten. |
-| **MAJOR** | `apps/windows/src/renderer/components/NotchWidget.tsx:26-34` + `apps/windows/src/main/notch-window.ts:36-47` | `ResizeObserver` reported bei jeder Größenänderung sofort via IPC; kein Debounce/Throttle. Bei Display-Skalierung/DPI-Rounding kann `setSize` eine Höhe setzen, die den Observer erneut triggert. | CPU/IPC-Spam während Notch-Animationen; theoretische Endlos-Resize-Schleife oder sichtbares Flackern bei 125 %/150 % Skalierung. |
-| **MINOR** | `apps/windows/src/renderer/components/NotchWidget.tsx:62` | `const expanded = reopening || replyOpen;` wird nie verwendet. | Toter Code; verwirrt beim Lesen des Phasen- / Interaktions-Modells. |
-| **MINOR** | `apps/windows/src/renderer/styles/global.css:953-970` | 8 Bild-Thumbnails à 72 px + Gap passen nicht mehr komfortabel in 280 px Breite (früher 360 px). | Bei Bilderalben mit vielen Thumbnails wird die Reihe mehrzeilig oder überlappt/scrollt horizontal; visuelle Regression gegenüber vorherigem Layout. |
-| **INFO** | `apps/windows/docs/plans/12-macos-feature-parity.md:5` | Plan nennt Branch `platform/windows/macos-feature-parity`, tatsächlicher Branch ist `platform/windows/macos-parity-p1`. | Verwirrt beim Navigieren/Auffinden des Feature-Branches; kein Code-Impact. |
+| **MAJOR** | `apps/windows/src/renderer/components/MenuWindow.tsx:83-98` | `updateName()` serialisiert parallele `updateProfile`-Aufrufe nicht. Wenn zwei schnelle Submits (z. B. A dann B) out-of-order auflösen (B vor A), endet `lastSavedNameRef` auf dem älteren Wert A, obwohl der aktuelle Name B ist. Der Retry-Fix deckt nur das sequentielle "gleicher Name nach Fehler"-Szenario ab, nicht Concurrent-Submits. | User tippt schnell nacheinander zwei verschiedene Namen und drückt jeweils Enter. Löst der zweite Call vor dem ersten auf, zeigt der Ref danach auf den ersten Namen; nachfolgende Edits werden vom `name === lastSavedNameRef.current`-Guard falsch bewertet (z. B. erneute Änderung zu B wird als "unchanged" behandelt). |
+| **MAJOR** | `apps/windows/src/renderer/components/MenuWindow.tsx:90-97` | Abgelehntes `updateProfile` wird zwar von `.then(..., () => {})` gefangen, aber es gibt keine UI-Rückmeldung, dass der Name nicht gespeichert wurde. | Relay/Main-Process-Fehler beim Speichern: User sieht den neuen Namen im Input, geht davon aus, er sei persistiert, und schließt das Menü. Beim nächsten Öffnen steht wieder der alte Name; der User merkt nicht, dass der Save fehlgeschlagen ist. |
+| **MINOR** | `apps/windows/src/renderer/styles/global.css:1-11` | `color-scheme: dark` auf `:root` gilt global für alle Renderer-Fenster (Menu, Palette, Notch), da sie dieselbe `main.tsx`-Entry teilen. Für den aktuellen Always-Dark-Theme korrekt, aber es hard-codiert native Controls und verhindert spätere Light-Theme-Unterstützung ohne größere Restrukturierung. | Zukünftiger Light-Mode müsste diese Regel zurückbauen; aktuell können OS-High-Contrast/Einstellungen für native Scrollbars/Inputs/Checkboxes in manchen Chromium-Builds inkonsistent sein. |
+| **MINOR** | `apps/windows/src/main/notch-window.ts:49` | Die ±1px-Toleranz wird nach dem Clamping angewendet und ignoriert daher bewusst legitime 1px-Höhenänderungen. | Inhalt wächst/schwindet um genau 1px; Fenster bleibt bei alter Höhe, was bei engen Layouts (mehrzeiliger Text, viele Thumbnails) einen winzigen Überlauf oder Leerraum erzeugen kann. |
+| **INFO** | `apps/windows/src/renderer/components/NotchWidget.tsx:303-305` | Inlining von `expanded` zu `!(reopening || replyOpen)` ist exakt verhaltensneutral. | Kein Failure-Szenario; reiner Cleanup. |
+| **INFO** | `apps/windows/src/renderer/components/MenuWindow.tsx:90-97` | Kein Unhandled-Rejection-Pfad: `.then(onResolve, onReject)` fängt die Rejection ab; das `void` verwirft das Ergebnis. | Der Fehler wird still geschluckt, aber nicht als `unhandledrejection` gemeldet. |
 
 ## blockers
 
-- **Keine harten Blocker**, aber der **MAJOR**-Finding zum optimistischen `lastSavedNameRef` sollte vor dem Merge behoben werden, weil er echte Persistenz-Fehler verschleiern kann.
-- **Offenes manuelles QA** ist noch nicht durchgeführt: Notch bei 100/125/150 % Display-Skalierung, Dropdown-Farben, Enter-Name-Commit.
+- **Keine harten Blocker**, aber die beiden **MAJOR**-Findings zu `updateName()` sollten vor dem Merge behoben werden: das Concurrent-Submit-Race kann den Idempotenz-Guard korruptieren, und das fehlende Fehler-Feedback verschleiert echte Persistenz-Probleme.
+- **Offenes manuelles QA** ist noch nicht durchgeführt: Retry nach simuliertem Relay-Offline, Notch bei 125 %/150 % Display-Skalierung, Dropdown im Light-Theme-Windows.
 
 ## next_action
 
-1. `MenuWindow.tsx` fixen: `lastSavedNameRef.current` erst in `.then()` von `updateProfile(name)` setzen (bzw. bei Fehler in `.catch()` revertieren), damit Retry nach Fehler funktioniert.
-2. `notch-resize` mit Debounce/Throttle (z. B. 50–100 ms) und ggf. Rundungs-Toleranz versehen, um Oszillationen zu unterbinden.
-3. Dropdown-Lösung evaluieren: custom-Dropdown oder zusätzliche Windows-spezifische Workarounds, falls manuelles QA zeigt, dass `<option>`-Styling nicht greift.
-4. Manuelles QA durchführen und Ergebnisse in Plan 12 / STATE.md eintragen.
-5. PR `platform/windows/macos-parity-p1` → `platform/windows/v2-clean` öffnen; erst nach Review + grünem CI mergen.
+1. `MenuWindow.tsx` fixen: Parallele `updateProfile`-Aufrufe serialisieren oder mit einer Request-Generation/Monotonie tracken, sodass `lastSavedNameRef` nur für den zuletzt abgesetzten Namen aktualisiert wird.
+2. `MenuWindow.tsx` UX-Feedback bei abgelehntem `updateProfile` hinzufügen (z. B. kurzzeitiger `saveError`-State am Input oder Toast).
+3. Manuelles QA durchführen und Ergebnisse in Plan 12 / STATE.md eintragen.
+4. PR `platform/windows/macos-parity-p1` → `platform/windows/v2-clean` öffnen; erst nach Review + grünem CI mergen.
 
 ---
 
