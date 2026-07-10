@@ -45,6 +45,17 @@ export const IPC_CHANNELS = {
 
   GET_PALETTE_HOTKEY: 'get-palette-hotkey',
   SET_PALETTE_HOTKEY: 'set-palette-hotkey',
+
+  // Dev-only flag (Plan 13 items 5–6): backed by `process.env.NODE_ENV ===
+  // 'development'` in main.ts. Gates the two dev-only settings-popover
+  // toggles below so release builds never render or persist them.
+  GET_IS_DEV: 'get-is-dev',
+
+  GET_ALLOW_IN_SCREENSHOTS: 'get-allow-in-screenshots',
+  SET_ALLOW_IN_SCREENSHOTS: 'set-allow-in-screenshots',
+
+  GET_DEV_ECHO_BROADCASTS: 'get-dev-echo-broadcasts',
+  SET_DEV_ECHO_BROADCASTS: 'set-dev-echo-broadcasts',
 } as const;
 
 /** Main → renderer push channels. */

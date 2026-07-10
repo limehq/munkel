@@ -37,6 +37,11 @@ function createMockElectronApi(initialState: StateUpdate) {
 		setAutoUpdateCheck: (_enabled: boolean) => Promise.resolve(true),
 		getPaletteHotkey: () => Promise.resolve('Ctrl+Shift+M'),
 		setPaletteHotkey: (accelerator: string) => Promise.resolve({ ok: true, accelerator }),
+		isDev: () => Promise.resolve(false),
+		getAllowInScreenshots: () => Promise.resolve(false),
+		setAllowInScreenshots: (_enabled: boolean) => Promise.resolve(true),
+		getDevEchoBroadcasts: () => Promise.resolve(true),
+		setDevEchoBroadcasts: (_enabled: boolean) => Promise.resolve(true),
 		selectImages: () => Promise.resolve(undefined),
 		saveClipboardImage: () => Promise.resolve(null),
 		beginNotchReply: () => Promise.resolve(),
@@ -2219,5 +2224,179 @@ describe('MenuWindow clipboard image paste (Plan 12 P3.4)', () => {
 		const value = root.root.findByProps({ placeholder: 'Message…' }).props.value;
 		expect(value.length).toBe(2048);
 		expect(value).toBe('p'.repeat(2048));
+	});
+});
+
+describe('MenuWindow dev-only settings toggles (Plan 13 items 5–6)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let root: ReturnType<typeof create> | undefined;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(async () => {
+		if (root) {
+			await act(async () => {
+				root!.unmount();
+			});
+			root = undefined;
+		}
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenuWithSettingsOpen() {
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const settingsButton = root!.root.findByProps({ title: 'Settings' });
+		await act(async () => {
+			settingsButton.props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		return root!;
+	}
+
+	it('does not render either dev-only checkbox when isDev() resolves false (packaged build)', async () => {
+		electronApi.isDev = () => Promise.resolve(false);
+		const menu = await renderMenuWithSettingsOpen();
+
+		expect(menu.root.findAllByProps({ 'data-testid': 'dev-echo-broadcasts-checkbox' }).length).toBe(0);
+		expect(menu.root.findAllByProps({ 'data-testid': 'allow-in-screenshots-checkbox' }).length).toBe(0);
+	});
+
+	it('does not call getAllowInScreenshots/getDevEchoBroadcasts at all when isDev() resolves false', async () => {
+		electronApi.isDev = () => Promise.resolve(false);
+		const allowSpy = spyOn(electronApi, 'getAllowInScreenshots');
+		const echoSpy = spyOn(electronApi, 'getDevEchoBroadcasts');
+		await renderMenuWithSettingsOpen();
+
+		expect(allowSpy).not.toHaveBeenCalled();
+		expect(echoSpy).not.toHaveBeenCalled();
+	});
+
+	it('renders both dev-only checkboxes, reflecting their persisted values, when isDev() resolves true', async () => {
+		electronApi.isDev = () => Promise.resolve(true);
+		electronApi.getAllowInScreenshots = () => Promise.resolve(true);
+		electronApi.getDevEchoBroadcasts = () => Promise.resolve(false);
+		const menu = await renderMenuWithSettingsOpen();
+
+		const echoCheckbox = menu.root.findByProps({ 'data-testid': 'dev-echo-broadcasts-checkbox' });
+		const screenshotsCheckbox = menu.root.findByProps({ 'data-testid': 'allow-in-screenshots-checkbox' });
+		expect(echoCheckbox.props.checked).toBe(false);
+		expect(screenshotsCheckbox.props.checked).toBe(true);
+	});
+
+	it('toggling "Allow in screenshots" calls setAllowInScreenshots(true) and reflects the new checked state', async () => {
+		electronApi.isDev = () => Promise.resolve(true);
+		const setSpy = spyOn(electronApi, 'setAllowInScreenshots');
+		const menu = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			menu.root.findByProps({ 'data-testid': 'allow-in-screenshots-checkbox' }).props.onChange();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledTimes(1);
+		expect(setSpy).toHaveBeenCalledWith(true);
+		expect(menu.root.findByProps({ 'data-testid': 'allow-in-screenshots-checkbox' }).props.checked).toBe(true);
+	});
+
+	it('snaps "Allow in screenshots" back to its previous state when setAllowInScreenshots fails', async () => {
+		electronApi.isDev = () => Promise.resolve(true);
+		electronApi.setAllowInScreenshots = (_enabled: boolean) => Promise.resolve(false);
+		const menu = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			menu.root.findByProps({ 'data-testid': 'allow-in-screenshots-checkbox' }).props.onChange();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(menu.root.findByProps({ 'data-testid': 'allow-in-screenshots-checkbox' }).props.checked).toBe(false);
+	});
+
+	it('toggling "Echo my broadcasts to me" off calls setDevEchoBroadcasts(false) and reflects the new checked state', async () => {
+		electronApi.isDev = () => Promise.resolve(true);
+		electronApi.getDevEchoBroadcasts = () => Promise.resolve(true);
+		const setSpy = spyOn(electronApi, 'setDevEchoBroadcasts');
+		const menu = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			menu.root.findByProps({ 'data-testid': 'dev-echo-broadcasts-checkbox' }).props.onChange();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledTimes(1);
+		expect(setSpy).toHaveBeenCalledWith(false);
+		expect(menu.root.findByProps({ 'data-testid': 'dev-echo-broadcasts-checkbox' }).props.checked).toBe(false);
+	});
+
+	it('snaps "Echo my broadcasts to me" back to its previous state when setDevEchoBroadcasts fails', async () => {
+		electronApi.isDev = () => Promise.resolve(true);
+		electronApi.getDevEchoBroadcasts = () => Promise.resolve(true);
+		electronApi.setDevEchoBroadcasts = (_enabled: boolean) => Promise.resolve(false);
+		const menu = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			menu.root.findByProps({ 'data-testid': 'dev-echo-broadcasts-checkbox' }).props.onChange();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(menu.root.findByProps({ 'data-testid': 'dev-echo-broadcasts-checkbox' }).props.checked).toBe(true);
+	});
+
+	it('ignores a second toggle of "Allow in screenshots" while the first call is still in flight', async () => {
+		electronApi.isDev = () => Promise.resolve(true);
+		let resolveFirst: ((ok: boolean) => void) | undefined;
+		const calls: boolean[] = [];
+		electronApi.setAllowInScreenshots = (enabled: boolean) => {
+			calls.push(enabled);
+			return new Promise<boolean>((resolve) => {
+				resolveFirst = resolve;
+			});
+		};
+		const menu = await renderMenuWithSettingsOpen();
+		const checkbox = () => menu.root.findByProps({ 'data-testid': 'allow-in-screenshots-checkbox' });
+
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+
+		expect(calls).toEqual([true]);
+
+		await act(async () => {
+			resolveFirst?.(true);
+			await Promise.resolve();
+		});
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+
+		expect(calls).toEqual([true, false]);
 	});
 });

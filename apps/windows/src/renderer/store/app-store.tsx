@@ -55,6 +55,14 @@ interface AppStore {
 	setPaletteHotkey: (
 		accelerator: string,
 	) => Promise<{ ok: boolean; accelerator: string | null; error?: string }>;
+
+	// Dev-only flag + toggles (Plan 13 items 5–6). See IpcApi's doc in
+	// shared/types.ts.
+	isDev: () => Promise<boolean>;
+	getAllowInScreenshots: () => Promise<boolean>;
+	setAllowInScreenshots: (enabled: boolean) => Promise<boolean>;
+	getDevEchoBroadcasts: () => Promise<boolean>;
+	setDevEchoBroadcasts: (enabled: boolean) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppStore | null>(null);
@@ -201,6 +209,26 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		return window.electronAPI.setPaletteHotkey(accelerator);
 	}, []);
 
+	const isDev = useCallback(async () => {
+		return window.electronAPI.isDev();
+	}, []);
+
+	const getAllowInScreenshots = useCallback(async () => {
+		return window.electronAPI.getAllowInScreenshots();
+	}, []);
+
+	const setAllowInScreenshots = useCallback(async (enabled: boolean) => {
+		return window.electronAPI.setAllowInScreenshots(enabled);
+	}, []);
+
+	const getDevEchoBroadcasts = useCallback(async () => {
+		return window.electronAPI.getDevEchoBroadcasts();
+	}, []);
+
+	const setDevEchoBroadcasts = useCallback(async (enabled: boolean) => {
+		return window.electronAPI.setDevEchoBroadcasts(enabled);
+	}, []);
+
 	const store = useMemo<AppStore>(
 		() => ({
 			state,
@@ -226,6 +254,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			setAutoUpdateCheck,
 			getPaletteHotkey,
 			setPaletteHotkey,
+			isDev,
+			getAllowInScreenshots,
+			setAllowInScreenshots,
+			getDevEchoBroadcasts,
+			setDevEchoBroadcasts,
 		}),
 		[
 			state,
@@ -251,6 +284,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			setAutoUpdateCheck,
 			getPaletteHotkey,
 			setPaletteHotkey,
+			isDev,
+			getAllowInScreenshots,
+			setAllowInScreenshots,
+			getDevEchoBroadcasts,
+			setDevEchoBroadcasts,
 		],
 	);
 

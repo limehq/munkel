@@ -201,3 +201,103 @@ describe('IdentityStore paletteHotkey (Plan 12 P3.1)', () => {
 		expect(state.paletteHotkey).toBe('Ctrl+Shift+M');
 	});
 });
+
+describe('IdentityStore allowInScreenshots (Plan 13 item 5)', () => {
+	let dir: string;
+
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'munkel-identity-store-'));
+	});
+
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('defaults allowInScreenshots to false for a freshly created store', () => {
+		const store = new IdentityStore(dir);
+		expect(store.load().allowInScreenshots).toBe(false);
+	});
+
+	it('persists allowInScreenshots=true via patch and reflects it on the next load', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ allowInScreenshots: true });
+
+		expect(store.load().allowInScreenshots).toBe(true);
+	});
+
+	it('persists allowInScreenshots=false via patch after previously being true', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ allowInScreenshots: true });
+		store.patch({ allowInScreenshots: false });
+
+		expect(store.load().allowInScreenshots).toBe(false);
+	});
+
+	it('migrates a legacy state.json (no allowInScreenshots field) to default false', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 1,
+				memberId: 'legacy-member',
+				displayName: 'Legacy',
+				circles: [],
+			}),
+		);
+
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.allowInScreenshots).toBe(false);
+		expect(state.memberId).toBe('legacy-member');
+	});
+});
+
+describe('IdentityStore devEchoBroadcasts (Plan 13 item 6)', () => {
+	let dir: string;
+
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'munkel-identity-store-'));
+	});
+
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('defaults devEchoBroadcasts to true for a freshly created store (mirrors macOS DEBUG default)', () => {
+		const store = new IdentityStore(dir);
+		expect(store.load().devEchoBroadcasts).toBe(true);
+	});
+
+	it('persists devEchoBroadcasts=false via patch and reflects it on the next load', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ devEchoBroadcasts: false });
+
+		expect(store.load().devEchoBroadcasts).toBe(false);
+	});
+
+	it('persists devEchoBroadcasts=true via patch after previously being false', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ devEchoBroadcasts: false });
+		store.patch({ devEchoBroadcasts: true });
+
+		expect(store.load().devEchoBroadcasts).toBe(true);
+	});
+
+	it('migrates a legacy state.json (no devEchoBroadcasts field) to default true', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 1,
+				memberId: 'legacy-member',
+				displayName: 'Legacy',
+				circles: [],
+			}),
+		);
+
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.devEchoBroadcasts).toBe(true);
+		expect(state.memberId).toBe('legacy-member');
+	});
+});

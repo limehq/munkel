@@ -38,6 +38,11 @@ export default function MenuWindow() {
 		setAutoUpdateCheck,
 		getPaletteHotkey,
 		setPaletteHotkey,
+		isDev,
+		getAllowInScreenshots,
+		setAllowInScreenshots,
+		getDevEchoBroadcasts,
+		setDevEchoBroadcasts,
 	} = useAppStore();
 
 	const [joinCode, setJoinCode] = useState('');
@@ -93,6 +98,21 @@ export default function MenuWindow() {
 	const [autoUpdateCheck, setAutoUpdateCheckState] = useState(true);
 	// Same race-guard pattern as launchToggleInFlightRef.
 	const autoUpdateToggleInFlightRef = useRef(false);
+
+	// Dev-only settings-popover toggles (Plan 13 items 5–6). `isDevBuild`
+	// gates whether the two toggles below render at all — fetched once on
+	// mount; a packaged build's main process resolves `isDev()` to `false`,
+	// so the checkboxes and their IPC calls never appear/fire there.
+	const [isDevBuild, setIsDevBuild] = useState(false);
+	// "Allow in screenshots" (mirrors macOS `CaptureScreenshotPreference`,
+	// default off). Same optimistic-toggle-then-snap-back-on-failure pattern
+	// as launchAtLogin/autoUpdateCheck above.
+	const [allowInScreenshots, setAllowInScreenshotsState] = useState(false);
+	const allowInScreenshotsToggleInFlightRef = useRef(false);
+	// "Echo my broadcasts to me" (mirrors macOS `AppModel.devEchoBroadcasts`,
+	// default on in dev).
+	const [devEchoBroadcasts, setDevEchoBroadcastsState] = useState(true);
+	const devEchoBroadcastsToggleInFlightRef = useRef(false);
 
 	// Rebindable palette hotkey (Plan 12 P3.1). Default mirrors the persisted
 	// main-process value fetched on mount (same posture as the toggles above).
@@ -212,6 +232,36 @@ export default function MenuWindow() {
 		};
 	}, [getAutoUpdateCheck]);
 
+	// Dev-only flag + toggles (Plan 13 items 5–6). The two toggle values are
+	// only fetched once `isDev()` confirms this is a dev build, so a
+	// packaged build never issues the GET_ALLOW_IN_SCREENSHOTS /
+	// GET_DEV_ECHO_BROADCASTS IPC calls at all (its main process would
+	// refuse them anyway — see main.ts's `isDev` gate — but there's no
+	// reason to even ask).
+	useEffect(() => {
+		let mounted = true;
+		void isDev().then((dev) => {
+			if (mounted) setIsDevBuild(dev);
+		});
+		return () => {
+			mounted = false;
+		};
+	}, [isDev]);
+
+	useEffect(() => {
+		if (!isDevBuild) return;
+		let mounted = true;
+		void getAllowInScreenshots().then((enabled) => {
+			if (mounted) setAllowInScreenshotsState(enabled);
+		});
+		void getDevEchoBroadcasts().then((enabled) => {
+			if (mounted) setDevEchoBroadcastsState(enabled);
+		});
+		return () => {
+			mounted = false;
+		};
+	}, [isDevBuild, getAllowInScreenshots, getDevEchoBroadcasts]);
+
 	async function handleToggleLaunchAtLogin() {
 		if (launchToggleInFlightRef.current) return;
 		launchToggleInFlightRef.current = true;
@@ -237,6 +287,32 @@ export default function MenuWindow() {
 			if (!ok) setAutoUpdateCheckState(!next);
 		} finally {
 			autoUpdateToggleInFlightRef.current = false;
+		}
+	}
+
+	async function handleToggleAllowInScreenshots() {
+		if (allowInScreenshotsToggleInFlightRef.current) return;
+		allowInScreenshotsToggleInFlightRef.current = true;
+		const next = !allowInScreenshots;
+		setAllowInScreenshotsState(next);
+		try {
+			const ok = await setAllowInScreenshots(next);
+			if (!ok) setAllowInScreenshotsState(!next);
+		} finally {
+			allowInScreenshotsToggleInFlightRef.current = false;
+		}
+	}
+
+	async function handleToggleDevEchoBroadcasts() {
+		if (devEchoBroadcastsToggleInFlightRef.current) return;
+		devEchoBroadcastsToggleInFlightRef.current = true;
+		const next = !devEchoBroadcasts;
+		setDevEchoBroadcastsState(next);
+		try {
+			const ok = await setDevEchoBroadcasts(next);
+			if (!ok) setDevEchoBroadcastsState(!next);
+		} finally {
+			devEchoBroadcastsToggleInFlightRef.current = false;
 		}
 	}
 
@@ -492,6 +568,29 @@ export default function MenuWindow() {
 								/>
 								Launch at login
 							</label>
+							{isDevBuild && (
+								<>
+									<div className="popover-divider" />
+									<label className="launch-at-login-row" data-testid="dev-echo-broadcasts-row">
+										<input
+											type="checkbox"
+											data-testid="dev-echo-broadcasts-checkbox"
+											checked={devEchoBroadcasts}
+											onChange={handleToggleDevEchoBroadcasts}
+										/>
+										Echo my broadcasts to me
+									</label>
+									<label className="launch-at-login-row" data-testid="allow-in-screenshots-row">
+										<input
+											type="checkbox"
+											data-testid="allow-in-screenshots-checkbox"
+											checked={allowInScreenshots}
+											onChange={handleToggleAllowInScreenshots}
+										/>
+										Allow in screenshots
+									</label>
+								</>
+							)}
 							<div className="popover-divider" />
 							<label className="launch-at-login-row" data-testid="auto-update-check-row">
 								<input

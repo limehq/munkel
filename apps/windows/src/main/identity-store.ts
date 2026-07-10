@@ -27,6 +27,21 @@ export interface PersistedState {
 	// this field should always reflect what's actually bound — barring an
 	// external file edit, which `migrate` below guards against.
 	paletteHotkey: string;
+	// Dev-only "Allow in screenshots" toggle (Plan 13 item 5), mirroring
+	// macOS `CaptureScreenshotPreference`. Defaults `false` — every window
+	// stays excluded from screen capture until a developer opts in. The
+	// SET IPC handler only ever accepts a change from a dev build
+	// (`main.ts`'s `isDev`), so a packaged release never persists `true`
+	// here via its own UI; `session-store.ts`/`main.ts` additionally never
+	// *apply* a persisted `true` outside a dev build, guarding against a
+	// packaged build launched against a dev-populated userData folder.
+	allowInScreenshots: boolean;
+	// Dev-only "Echo my broadcasts" toggle (Plan 13 item 6), mirroring macOS
+	// `AppModel.devEchoBroadcasts` (`#if DEBUG`, default `true`). Same
+	// dev-only enforcement posture as `allowInScreenshots` above — see
+	// `AppState`'s constructor in `session-store.ts` for where the persisted
+	// value is folded together with the runtime `isDev` flag.
+	devEchoBroadcasts: boolean;
 }
 
 function defaultState(): PersistedState {
@@ -38,6 +53,8 @@ function defaultState(): PersistedState {
 		launchAtLogin: false,
 		autoUpdateCheck: true,
 		paletteHotkey: DEFAULT_PALETTE_HOTKEY,
+		allowInScreenshots: false,
+		devEchoBroadcasts: true,
 	};
 }
 
@@ -82,7 +99,14 @@ export class IdentityStore {
 		identity: Partial<
 			Pick<
 				PersistedState,
-				'displayName' | 'avatar' | 'githubLogin' | 'launchAtLogin' | 'autoUpdateCheck' | 'paletteHotkey'
+				| 'displayName'
+				| 'avatar'
+				| 'githubLogin'
+				| 'launchAtLogin'
+				| 'autoUpdateCheck'
+				| 'paletteHotkey'
+				| 'allowInScreenshots'
+				| 'devEchoBroadcasts'
 			>
 		>,
 	): void {
@@ -133,6 +157,12 @@ export class IdentityStore {
 		}
 		if (typeof draft.autoUpdateCheck !== 'boolean') {
 			draft.autoUpdateCheck = true;
+		}
+		if (typeof draft.allowInScreenshots !== 'boolean') {
+			draft.allowInScreenshots = false;
+		}
+		if (typeof draft.devEchoBroadcasts !== 'boolean') {
+			draft.devEchoBroadcasts = true;
 		}
 		// Guard against a hand-edited or corrupted state.json shipping an
 		// unregistrable accelerator string straight into globalShortcut.register.

@@ -17,6 +17,7 @@ import { registerPaletteHotkey, rebindPaletteHotkey } from './palette-hotkey';
 import { DEFAULT_PALETTE_HOTKEY } from '../shared/accelerator';
 import { IdentityStore } from './identity-store';
 import { applyLaunchAtLogin, setLaunchAtLoginPreference } from './login-item';
+import { applyContentProtection } from './content-protection';
 import { deriveGroupKeys } from '@munkel/shared-wire/crypto';
 import { AppState } from './session-store';
 import { registerSessionHandlers } from './session-handlers';
@@ -190,6 +191,13 @@ app.whenReady().then(async () => {
 	// auto-registers — this only ever re-applies what the user chose last.
 	applyLaunchAtLogin(app, persisted.launchAtLogin);
 
+	// Dev-only "Allow in screenshots" (Plan 13 item 5): only ever apply the
+	// persisted opt-in outside protection when this IS a dev build — a
+	// packaged release launched against a dev-populated userData folder must
+	// still start fully capture-protected, matching macOS having no such
+	// code path at all in release builds.
+	applyContentProtection([menuWindow, notchWindow, paletteWindow], isDev && persisted.allowInScreenshots);
+
 	// Rebindable palette-toggle hotkey (Plan 12 P3.1): register the persisted
 	// accelerator (default Ctrl+Shift+M). A startup registration failure
 	// (e.g. another app already owns the combo) is logged but never fatal —
@@ -201,7 +209,7 @@ app.whenReady().then(async () => {
 		? persisted.paletteHotkey
 		: null;
 
-	const appState = new AppState(identityStore, broadcastState, showNotchMessage, relayError);
+	const appState = new AppState(identityStore, broadcastState, showNotchMessage, relayError, { isDev });
 	const githubLoginService = new GitHubLoginService(appState, pushGitHubLoginState);
 	registerSessionHandlers(appState, githubLoginService, {
 		// Only the two windows with a paste UI may pull images off the user's
@@ -350,6 +358,50 @@ app.whenReady().then(async () => {
 		currentPaletteHotkey = result.accelerator;
 		if (result.accelerator !== null) identityStore.patch({ paletteHotkey: result.accelerator });
 		return result;
+	});
+
+	// Dev-only flag (Plan 13 items 5–6): lets the renderer gate the two
+	// dev-only settings-popover toggles below without relying on a
+	// nonexistent `window.electronAPI.isPackaged`. No sender guard needed —
+	// it's read-only and identical for every window.
+	ipcMain.handle(IPC_CHANNELS.GET_IS_DEV, () => isDev);
+
+	// Dev-only "Allow in screenshots" (Plan 13 item 5). Same menu-only
+	// sender guard as launch-at-login/auto-update-check/palette-hotkey
+	// above, PLUS an `isDev` gate so a packaged build's own (nonexistent,
+	// but defense-in-depth) UI could never flip this even if it tried.
+	ipcMain.handle(IPC_CHANNELS.GET_ALLOW_IN_SCREENSHOTS, (event) => {
+		if (!isDev) return false;
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return false;
+		return identityStore.load().allowInScreenshots;
+	});
+	ipcMain.handle(IPC_CHANNELS.SET_ALLOW_IN_SCREENSHOTS, (event, enabled: boolean) => {
+		if (!isDev) return false;
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) {
+			console.warn('[munkel] rejected set-allow-in-screenshots from non-menu sender');
+			return false;
+		}
+		const value = !!enabled;
+		identityStore.patch({ allowInScreenshots: value });
+		applyContentProtection([menuWindow, notchWindow, paletteWindow], value);
+		return true;
+	});
+
+	// Dev-only "Echo my broadcasts" (Plan 13 item 6). Same gating posture as
+	// the screenshot toggle above.
+	ipcMain.handle(IPC_CHANNELS.GET_DEV_ECHO_BROADCASTS, (event) => {
+		if (!isDev) return false;
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return false;
+		return appState.getDevEchoBroadcasts();
+	});
+	ipcMain.handle(IPC_CHANNELS.SET_DEV_ECHO_BROADCASTS, (event, enabled: boolean) => {
+		if (!isDev) return false;
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) {
+			console.warn('[munkel] rejected set-dev-echo-broadcasts from non-menu sender');
+			return false;
+		}
+		appState.setDevEchoBroadcasts(!!enabled);
+		return true;
 	});
 
 	await appState.restoreCircles();

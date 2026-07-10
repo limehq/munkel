@@ -143,6 +143,33 @@ export interface IpcApi {
 		accelerator: string,
 	) => Promise<{ ok: boolean; accelerator: string | null; error?: string }>;
 
+	// Dev-only flag (Plan 13 items 5–6). Backed by `process.env.NODE_ENV ===
+	// 'development'` in main.ts. The settings-popover dev toggles below are
+	// only rendered when this resolves `true`; a packaged build's main
+	// process also refuses their SET/GET IPC calls regardless of what the
+	// renderer sends, so this is UI-gating on top of an already-enforced
+	// main-process gate, not the only line of defense.
+	isDev: () => Promise<boolean>;
+
+	// Dev-only "Allow in screenshots" toggle (Plan 13 item 5), mirroring
+	// macOS `CaptureScreenshotPreference` (`CaptureExclusion.swift`). Default
+	// `false` — every window stays excluded from screen capture
+	// (`setContentProtection(true)`) until a developer opts in. Windows has
+	// no `.readOnly` equivalent, so enabling this makes the surfaces visible
+	// in screenshots AND live recordings (the same DEBUG trade-off macOS
+	// documents).
+	getAllowInScreenshots: () => Promise<boolean>;
+	setAllowInScreenshots: (enabled: boolean) => Promise<boolean>;
+
+	// Dev-only "Echo my broadcasts" toggle (Plan 13 item 6), mirroring macOS
+	// `AppModel.devEchoBroadcasts` (`#if DEBUG`, default `true`). The relay
+	// only delivers a broadcast (`to: undefined`) to *other* members, so a
+	// solo developer never sees their own send without this — when enabled,
+	// a successful broadcast send is also dispatched locally through the
+	// same `onNotch` path used for real incoming messages.
+	getDevEchoBroadcasts: () => Promise<boolean>;
+	setDevEchoBroadcasts: (enabled: boolean) => Promise<boolean>;
+
 	// Main → renderer push channels.
 	onStateUpdate: (callback: (update: StateUpdate) => void) => () => void;
 	onGitHubLoginState: (callback: (state: GitHubLoginState) => void) => () => void;

@@ -48,6 +48,14 @@ const api: IpcApi = {
 	getPaletteHotkey: () => ipcRenderer.invoke(IPC_CHANNELS.GET_PALETTE_HOTKEY),
 	setPaletteHotkey: (accelerator) => ipcRenderer.invoke(IPC_CHANNELS.SET_PALETTE_HOTKEY, accelerator),
 
+	isDev: () => ipcRenderer.invoke(IPC_CHANNELS.GET_IS_DEV),
+
+	getAllowInScreenshots: () => ipcRenderer.invoke(IPC_CHANNELS.GET_ALLOW_IN_SCREENSHOTS),
+	setAllowInScreenshots: (enabled) => ipcRenderer.invoke(IPC_CHANNELS.SET_ALLOW_IN_SCREENSHOTS, enabled),
+
+	getDevEchoBroadcasts: () => ipcRenderer.invoke(IPC_CHANNELS.GET_DEV_ECHO_BROADCASTS),
+	setDevEchoBroadcasts: (enabled) => ipcRenderer.invoke(IPC_CHANNELS.SET_DEV_ECHO_BROADCASTS, enabled),
+
 	onStateUpdate: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: StateUpdate) => callback(data);
 		ipcRenderer.on(PUSH_CHANNELS.STATE_UPDATE, handler);
