@@ -41,6 +41,9 @@ the main process by `ipcMain.handle(...)`.
 | `notch-set-interactive` | `(interactive: boolean) => Promise<void>` | `main.ts` | **Sender must be the notch window.** Toggles `win.setIgnoreMouseEvents(!interactive, { forward: true })` so the renderer can switch between passthrough and interactive states. |
 | `notch-empty` | `() => Promise<void>` | `main.ts` | **Sender must be the notch window.** Debounced renderer signal that history is empty, triggering `requestNotchHide` / `hideNotch`. |
 | `notch-resize` | `(contentHeight: number) => Promise<void>` | `main.ts` | **Sender must be the notch window.** Reports the rendered widget height (ResizeObserver) so the main process resizes the notch window to its content, clamped to `[NOTCH_MIN_HEIGHT, NOTCH_MAX_HEIGHT]`. Width never changes. |
+| `notch-set-hover-copy` | `(active: boolean) => Promise<void>` | `main.ts` (controller in `hover-copy-shortcut.ts`) | **Sender must be the notch window.** Arms/disarms the OS-level "C" `globalShortcut` (Plan 12 P3.2). The notch window is `focusable: false` outside of an active reply, so a page-level `keydown` listener would never see the key; the renderer instead reports its own hover + reply-open state and the main process registers/unregisters a real global shortcut. Fires `notch-copy-hovered` (push) when the key is pressed while active. |
+| `get-auto-update-check` | `() => Promise<boolean>` | `main.ts` | **Sender must be the menu window** — other windows get `true`. Returns the persisted "Check Automatically" preference (`IdentityStore#autoUpdateCheck`, default `true` — today's unconditional-check behavior). |
+| `set-auto-update-check` | `(enabled: boolean) => Promise<boolean>` | `main.ts` | **Sender must be the menu window** — other windows are rejected with `false` and nothing is persisted or applied. Persists the choice and calls `UpdateServiceImpl#setAutoCheckEnabled`, which starts/stops the 24h periodic check loop. Manual "Check for Updates…" (`check-for-updates`) always works regardless of this setting. Always returns `true` on success (no OS call can fail here, unlike `set-launch-at-login`). |
 
 ## Main → Renderer (push)
 
@@ -57,6 +60,7 @@ renderer registers listeners through `window.electronAPI`.
 | `notch-hide` | *none* | Tell the notch window to animate out. |
 | `notch-update` | `NotchMessage` | Update the message shown by the notch widget. |
 | `notch-reopen` | *none* | Reserved fallback channel for future cursor-polling reopen logic. Keep wired even if currently idle. |
+| `notch-copy-hovered` | *none* | Fired when the hover-"C" `globalShortcut` fires while armed (Plan 12 P3.2). The renderer re-checks its own hover/reply-open state before copying (belt-and-suspenders against a race with the arm/disarm IPC call), then copies the hovered history row, or the newest message if no row is specifically hovered. |
 | `relay-error` | `string` | Relay or session error message. |
 | `global-shortcut` | *none* | Fired when the global hotkey is pressed. |
 

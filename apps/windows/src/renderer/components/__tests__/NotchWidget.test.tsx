@@ -3,27 +3,50 @@ import React from 'react';
 import { create, act } from 'react-test-renderer';
 import { AppProvider } from '../../store/app-store';
 import NotchWidget from '../NotchWidget';
+import type { NotchMessage } from '../../../shared/types';
 
 // Minimal electronAPI surface NotchWidget (and the useNotchLifecycle hook it
 // drives) touches. Kept separate from MenuWindow's mock so this file states
 // its own dependency surface explicitly.
 function createMockElectronApi() {
+	let notchMessageCb: ((data: NotchMessage) => void) | null = null;
+	let copyHoveredCb: (() => void) | null = null;
+	let copyHoveredRemoved = false;
+
 	return {
 		getState: () => Promise.resolve({ identity: null, circles: [] }),
 		notchResize: (_contentHeight: number) => Promise.resolve(),
 		notchSetInteractive: (_interactive: boolean) => Promise.resolve(),
+		notchSetHoverCopyActive: (_active: boolean) => Promise.resolve(),
 		notchEmpty: () => Promise.resolve(),
 		beginNotchReply: () => Promise.resolve(),
 		endNotchReply: () => Promise.resolve(),
 		sendChat: (_code: string, _text: string, _to?: string) => Promise.resolve({ ok: true }),
-		onNotchMessage: (_cb: unknown) => () => {},
+		onNotchMessage: (cb: (data: NotchMessage) => void) => {
+			notchMessageCb = cb;
+			return () => {
+				notchMessageCb = null;
+			};
+		},
 		onNotchUpdate: (_cb: unknown) => () => {},
 		onNotchShow: (_cb: unknown) => () => {},
 		onNotchHide: (_cb: unknown) => () => {},
 		onNotchReopen: (_cb: unknown) => () => {},
+		onNotchCopyHovered: (cb: () => void) => {
+			copyHoveredCb = cb;
+			copyHoveredRemoved = false;
+			return () => {
+				copyHoveredCb = null;
+				copyHoveredRemoved = true;
+			};
+		},
 		onStateUpdate: (_cb: unknown) => () => {},
 		onGitHubLoginState: (_cb: unknown) => () => {},
 		onUpdateState: (_cb: unknown) => () => {},
+
+		simulateNotchMessage: (message: NotchMessage) => notchMessageCb?.(message),
+		triggerCopyHovered: () => copyHoveredCb?.(),
+		isCopyHoveredRemoved: () => copyHoveredRemoved,
 	};
 }
 
@@ -198,5 +221,159 @@ describe('NotchWidget resize reporting (P1.3 / WIN-NOTCH-004)', () => {
 
 		await expect(renderWidget()).resolves.toBeDefined();
 		expect(calls.length).toBe(0);
+	});
+});
+
+describe('NotchWidget hover-"C" copy (Plan 12 P3.2)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let clipboardCalls: string[];
+	let originalResizeObserver: unknown;
+
+	function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
+		return {
+			sender: 'Alice',
+			text: 'Hello from Alice',
+			isDirect: false,
+			group: 'test-circle',
+			groupColor: '#3b82f6',
+			receivedAt: new Date().toISOString(),
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi();
+		clipboardCalls = [];
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = {
+			electronAPI: electronApi,
+		};
+		(globalThis as unknown as { navigator: unknown }).navigator = {
+			clipboard: {
+				writeText: (text: string) => {
+					clipboardCalls.push(text);
+					return Promise.resolve();
+				},
+			},
+		};
+		originalResizeObserver = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+		delete (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+		delete (globalThis as unknown as { navigator?: unknown }).navigator;
+		(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+	});
+
+	async function renderWidget() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<NotchWidget />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	function widgetNode(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ 'data-testid': 'notch-widget' });
+	}
+
+	it('copies the newest message when "C" fires while hovered and no row is hovered specifically', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'newest text' }));
+		});
+
+		await act(async () => {
+			widgetNode(root).props.onMouseEnter();
+		});
+
+		await act(async () => {
+			electronApi.triggerCopyHovered();
+		});
+
+		expect(clipboardCalls).toEqual(['newest text']);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('does not copy when "C" fires without the notch being hovered', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'unhovered text' }));
+		});
+
+		// No onMouseEnter — the widget is never hovered.
+		await act(async () => {
+			electronApi.triggerCopyHovered();
+		});
+
+		expect(clipboardCalls).toEqual([]);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('does not copy when the reply field is open, even while hovered', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'replying text' }));
+		});
+
+		await act(async () => {
+			widgetNode(root).props.onMouseEnter();
+		});
+
+		const replyButton = root.root.findByProps({ 'aria-label': 'Reply' });
+		await act(async () => {
+			replyButton.props.onClick({ stopPropagation: () => {} });
+		});
+
+		await act(async () => {
+			electronApi.triggerCopyHovered();
+		});
+
+		expect(clipboardCalls).toEqual([]);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('disarms the hover-copy shortcut and removes the listener on unmount', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage());
+		});
+
+		await act(async () => {
+			widgetNode(root).props.onMouseEnter();
+		});
+
+		let lastActive: boolean | undefined;
+		electronApi.notchSetHoverCopyActive = (active: boolean) => {
+			lastActive = active;
+			return Promise.resolve();
+		};
+
+		await act(async () => {
+			widgetNode(root).props.onMouseLeave();
+		});
+		expect(lastActive).toBe(false);
+
+		expect(electronApi.isCopyHoveredRemoved()).toBe(false);
+
+		await act(async () => {
+			root.unmount();
+		});
+
+		expect(electronApi.isCopyHoveredRemoved()).toBe(true);
 	});
 });

@@ -96,6 +96,12 @@ export interface IpcApi {
 	notchSetInteractive: (interactive: boolean) => Promise<void>;
 	notchEmpty: () => Promise<void>;
 	notchResize: (contentHeight: number) => Promise<void>;
+	// Hover-"C" copy (Plan 12 P3.2). The notch window is non-focusable outside
+	// of an active reply, so a bare "C" keypress can only be caught via an
+	// OS-level global shortcut in the main process (see `main/shortcuts.ts`).
+	// The renderer arms/disarms that shortcut based on its own hover + reply
+	// state, and receives `onNotchCopyHovered` when it fires.
+	notchSetHoverCopyActive: (active: boolean) => Promise<void>;
 
 	checkForUpdates: () => Promise<void>;
 	installUpdate: () => Promise<void>;
@@ -104,6 +110,12 @@ export interface IpcApi {
 	// only ever mirrors the user's explicit toggle choice.
 	getLaunchAtLogin: () => Promise<boolean>;
 	setLaunchAtLogin: (enabled: boolean) => Promise<boolean>;
+
+	// Auto-update "Check Automatically" toggle (Plan 12 P3.7). Controls
+	// whether `UpdateServiceImpl` performs the launch check and periodic
+	// 24h checks; manual "Check for Updates…" always works regardless.
+	getAutoUpdateCheck: () => Promise<boolean>;
+	setAutoUpdateCheck: (enabled: boolean) => Promise<boolean>;
 
 	// Main → renderer push channels.
 	onStateUpdate: (callback: (update: StateUpdate) => void) => () => void;
@@ -116,6 +128,9 @@ export interface IpcApi {
 	onNotchUpdate: (callback: (data: NotchMessage) => void) => () => void;
 	// Reserved fallback for cursor-polling reopen; do not remove as dead code.
 	onNotchReopen: (callback: () => void) => () => void;
+	// Fired by the main process when the hover-"C" global shortcut triggers
+	// while the notch is hovered (Plan 12 P3.2).
+	onNotchCopyHovered: (callback: () => void) => () => void;
 }
 
 declare global {

@@ -39,6 +39,10 @@ const api: IpcApi = {
 	notchSetInteractive: (interactive) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_SET_INTERACTIVE, interactive),
 	notchEmpty: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_EMPTY),
 	notchResize: (contentHeight) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_RESIZE, contentHeight),
+	notchSetHoverCopyActive: (active) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_SET_HOVER_COPY, active),
+
+	getAutoUpdateCheck: () => ipcRenderer.invoke(IPC_CHANNELS.GET_AUTO_UPDATE_CHECK),
+	setAutoUpdateCheck: (enabled) => ipcRenderer.invoke(IPC_CHANNELS.SET_AUTO_UPDATE_CHECK, enabled),
 
 	onStateUpdate: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: StateUpdate) => callback(data);
@@ -85,6 +89,11 @@ const api: IpcApi = {
 		const handler = () => callback();
 		ipcRenderer.on(PUSH_CHANNELS.NOTCH_REOPEN, handler);
 		return () => ipcRenderer.removeListener(PUSH_CHANNELS.NOTCH_REOPEN, handler);
+	},
+	onNotchCopyHovered: (callback) => {
+		const handler = () => callback();
+		ipcRenderer.on(PUSH_CHANNELS.NOTCH_COPY_HOVERED, handler);
+		return () => ipcRenderer.removeListener(PUSH_CHANNELS.NOTCH_COPY_HOVERED, handler);
 	},
 };
 

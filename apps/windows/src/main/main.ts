@@ -1,4 +1,4 @@
-import { app, ipcMain, BrowserWindow, IpcMainInvokeEvent, Tray } from 'electron';
+import { app, ipcMain, BrowserWindow, IpcMainInvokeEvent, Tray, globalShortcut } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createMenuWindow, showMenuWindow, toggleMenuWindow } from './menu-window';
@@ -7,6 +7,7 @@ import { focusNotchForReply, unfocusNotchAfterReply } from './notch-focus';
 import { createPaletteWindow, showPalette, hidePalette } from './palette-window';
 import { createTray } from './tray';
 import { registerTogglePalette, unregisterShortcuts } from './shortcuts';
+import { createHoverCopyController } from './hover-copy-shortcut';
 import { IdentityStore } from './identity-store';
 import { applyLaunchAtLogin, setLaunchAtLoginPreference } from './login-item';
 import { deriveGroupKeys } from '@munkel/shared-wire/crypto';
@@ -44,6 +45,7 @@ let paletteWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let controlServer: { close(): Promise<void> } | null = null;
 let updateService: ReturnType<typeof initUpdateService> | null = null;
+let hoverCopyController: ReturnType<typeof createHoverCopyController> | null = null;
 // Menu click-away-to-dismiss suppression state (Plan 06).
 let pickerOpen = false;
 let githubLoginActive = false;
@@ -127,6 +129,13 @@ app.whenReady().then(async () => {
 	}
 
 	registerTogglePalette(togglePalette);
+	// Hover-"C" copy (Plan 12 P3.2): the notch renderer arms/disarms this via
+	// NOTCH_SET_HOVER_COPY; see shortcuts.ts for why a global shortcut is
+	// required instead of a page-level keydown listener.
+	hoverCopyController = createHoverCopyController(
+		() => notchWindow?.webContents.send(PUSH_CHANNELS.NOTCH_COPY_HOVERED),
+		globalShortcut,
+	);
 
 	// Phase-0 diagnostics (presence bug, H-D): the actual userData dir the app
 	// reads state.json from. A mismatch vs the inspected file would mean persisted
@@ -193,6 +202,10 @@ app.whenReady().then(async () => {
 	ipcMain.handle(IPC_CHANNELS.NOTCH_RESIZE, (event, contentHeight: number) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
 		resizeNotchToContent(notchWindow, contentHeight);
+	});
+	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_HOVER_COPY, (event, active: boolean) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
+		hoverCopyController?.setActive(!!active);
 	});
 	ipcMain.handle(IPC_CHANNELS.START_GITHUB_LOGIN, async () => {
 		githubLoginService.startGitHubLogin();

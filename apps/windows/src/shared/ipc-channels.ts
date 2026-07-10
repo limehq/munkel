@@ -37,6 +37,10 @@ export const IPC_CHANNELS = {
   NOTCH_SET_INTERACTIVE: 'notch-set-interactive',
   NOTCH_EMPTY: 'notch-empty',
   NOTCH_RESIZE: 'notch-resize',
+  NOTCH_SET_HOVER_COPY: 'notch-set-hover-copy',
+
+  GET_AUTO_UPDATE_CHECK: 'get-auto-update-check',
+  SET_AUTO_UPDATE_CHECK: 'set-auto-update-check',
 } as const;
 
 /** Main → renderer push channels. */
@@ -49,6 +53,7 @@ export const PUSH_CHANNELS = {
   NOTCH_HIDE: 'notch-hide',
   NOTCH_UPDATE: 'notch-update',
   NOTCH_REOPEN: 'notch-reopen',
+  NOTCH_COPY_HOVERED: 'notch-copy-hovered',
   RELAY_ERROR: 'relay-error',
   GLOBAL_SHORTCUT: 'global-shortcut',
 } as const;

@@ -26,6 +26,19 @@ export default function NotchWidget() {
 	const replyInputRef = useRef<HTMLInputElement>(null);
 	const widgetRef = useRef<HTMLDivElement>(null);
 
+	// Hover-"C" copy (Plan 12 P3.2). `notchHovered` tracks whether the pointer
+	// is currently over the notch surface; `hoveredEntryId` tracks which
+	// history row (if any) it's over, so the shortcut copies that row instead
+	// of the newest message. Both are mirrored into refs so the stable
+	// `onNotchCopyHovered` listener below always reads the latest value
+	// without having to resubscribe on every hover change.
+	const [notchHovered, setNotchHovered] = useState(false);
+	const [hoveredEntryId, setHoveredEntryId] = useState<string | null>(null);
+	const notchHoveredRef = useRef(false);
+	notchHoveredRef.current = notchHovered;
+	const hoveredEntryIdRef = useRef<string | null>(null);
+	hoveredEntryIdRef.current = hoveredEntryId;
+
 	// Report the widget's layout height to the main process so the notch
 	// window shrinks/grows to its content instead of staying a fixed-size
 	// box (WIN-NOTCH-004). offsetHeight is used because it ignores the
@@ -83,6 +96,43 @@ export default function NotchWidget() {
 				? 'notch-full'
 				: `notch-${phase}`
 		: 'notch-retracted';
+
+	const replyOpenRef = useRef(false);
+	replyOpenRef.current = replyOpen;
+
+	// Arm/disarm the main process's hover-"C" global shortcut whenever hover
+	// or reply-open state changes (see shortcuts.ts for why this can't be a
+	// plain page-level keydown listener). Active only while the notch is
+	// hovered AND no reply field is open, matching macOS's
+	// `hovering && !replying` gate in NotchPresenter.
+	useEffect(() => {
+		void window.electronAPI.notchSetHoverCopyActive(notchHovered && !replyOpen);
+	}, [notchHovered, replyOpen]);
+
+	// Always disarm on unmount, independent of the effect above (which only
+	// fires on hover/replyOpen changes, not on teardown).
+	useEffect(() => {
+		return () => {
+			void window.electronAPI.notchSetHoverCopyActive(false);
+		};
+	}, []);
+
+	// Perform the actual copy when the main process reports the hover-"C"
+	// shortcut fired. Re-checks hover/reply state itself (via refs) rather
+	// than trusting the main process's gating alone — belt and suspenders,
+	// since the IPC arming call and a fast mouseleave could theoretically
+	// race.
+	useEffect(() => {
+		return window.electronAPI.onNotchCopyHovered(() => {
+			if (!notchHoveredRef.current || replyOpenRef.current) return;
+			const hovered = hoveredEntryIdRef.current
+				? history.find((entry) => entry.id === hoveredEntryIdRef.current)
+				: undefined;
+			const target = hovered ?? newest;
+			if (!target) return;
+			copyText(target);
+		});
+	}, [history, newest, copyText]);
 
 	useEffect(() => {
 		if (!replyingTo) return;
@@ -205,7 +255,13 @@ export default function NotchWidget() {
 		const replying = replyingTo === entry.id;
 
 		return (
-			<div key={entry.id} className="history-entry">
+			<div
+				key={entry.id}
+				className="history-entry"
+				data-testid={`history-entry-${entry.id}`}
+				onMouseEnter={() => setHoveredEntryId(entry.id)}
+				onMouseLeave={() => setHoveredEntryId((current) => (current === entry.id ? null : current))}
+			>
 				<div className="message-row">
 					<Avatar name={entry.sender} size={40} />
 					<div
@@ -297,8 +353,16 @@ export default function NotchWidget() {
 		<div
 			ref={widgetRef}
 			className={`notch-widget ${widgetClass}`}
-			onMouseEnter={cancelHoverLeave}
-			onMouseLeave={scheduleHoverLeave}
+			data-testid="notch-widget"
+			onMouseEnter={() => {
+				cancelHoverLeave();
+				setNotchHovered(true);
+			}}
+			onMouseLeave={() => {
+				scheduleHoverLeave();
+				setNotchHovered(false);
+				setHoveredEntryId(null);
+			}}
 		>
 			{history.length > 0 && <div className="notch-hover-target" onMouseEnter={reopenFromHoverTarget} />}
 			<div className="notch-sliver" aria-hidden="true">
