@@ -109,9 +109,11 @@ describe('createHoverCopyController (Plan 12 P3.2)', () => {
 		expect(unregisterCalls).toEqual([]);
 	});
 
-	it('supports re-activation after deactivation', () => {
+	it('supports re-activation after deactivation (once the re-arm cooldown has passed)', () => {
 		const { api, registerCalls } = mockShortcutApi();
-		const controller = createHoverCopyController(() => {}, api);
+		// rearmCooldownMs: 0 — this test is about the re-activation state
+		// machine, not the post-disarm cooldown (which has its own describe).
+		const controller = createHoverCopyController(() => {}, api, { rearmCooldownMs: 0 });
 
 		controller.setActive(true);
 		controller.setActive(false);
@@ -197,10 +199,13 @@ describe('hover-copy Late-Ping-Race gate (Iteration-5 re-review follow-up)', () 
 		expect(unregisterCalls).toEqual(['C']);
 
 		// A stale activity ping — queued before the disarm, delivered after —
-		// arrives. It must not re-arm the shortcut.
+		// arrives. It must not re-arm the shortcut. The rejection is
+		// transient, so it resolves `true` (a `false` would make the renderer
+		// latch the feature off for the session — that is reserved for
+		// OS-registration failure).
 		const ok = controller.setActive(true);
 
-		expect(ok).toBe(false);
+		expect(ok).toBe(true);
 		expect(controller.isActive).toBe(false);
 		expect(registerCalls).toHaveLength(1); // no second registration
 	});
@@ -210,8 +215,10 @@ describe('hover-copy Late-Ping-Race gate (Iteration-5 re-review follow-up)', () 
 		let armable = false;
 		const controller = createHoverCopyController(() => {}, api, { canArm: () => armable });
 
-		expect(controller.setActive(true)).toBe(false);
+		// Gate rejection: transient, resolves true, but does not arm.
+		expect(controller.setActive(true)).toBe(true);
 		expect(controller.isActive).toBe(false);
+		expect(registerCalls).toHaveLength(0);
 
 		armable = true;
 		expect(controller.setActive(true)).toBe(true);
@@ -235,6 +242,59 @@ describe('hover-copy Late-Ping-Race gate (Iteration-5 re-review follow-up)', () 
 		expect(controller.setActive(true)).toBe(true);
 		expect(controller.isActive).toBe(true);
 		expect(registerCalls).toHaveLength(1);
+	});
+});
+
+describe('hover-copy post-disarm re-arm cooldown (mouseleave in full phase)', () => {
+	it('an in-flight ping landing right after an explicit disarm does not re-arm', () => {
+		const { api, registerCalls } = mockShortcutApi();
+		// canArm stays true — this models the `full`-phase mouseleave, where
+		// the window is still visible AND interactive when the stale ping
+		// lands, so only the cooldown can catch it.
+		const controller = createHoverCopyController(() => {}, api, { rearmCooldownMs: 50 });
+
+		controller.setActive(true);
+		controller.setActive(false); // mouseleave-driven disarm
+
+		// Stale ping that was already on the IPC channel when the disarm was
+		// processed. Transient rejection: resolves true, but stays disarmed.
+		expect(controller.setActive(true)).toBe(true);
+		expect(controller.isActive).toBe(false);
+		expect(registerCalls).toHaveLength(1);
+	});
+
+	it('re-arms normally once the cooldown has elapsed (genuine re-hover)', async () => {
+		const { api, registerCalls } = mockShortcutApi();
+		const controller = createHoverCopyController(() => {}, api, { rearmCooldownMs: 25 });
+
+		controller.setActive(true);
+		controller.setActive(false);
+
+		await wait(50);
+
+		expect(controller.setActive(true)).toBe(true);
+		expect(controller.isActive).toBe(true);
+		expect(registerCalls).toHaveLength(2);
+		controller.dispose();
+	});
+
+	it('an idle-timer disarm does NOT start the cooldown — the next ping re-arms immediately', async () => {
+		const { api, registerCalls } = mockShortcutApi();
+		const controller = createHoverCopyController(() => {}, api, {
+			idleMs: 25,
+			rearmCooldownMs: 10_000, // would block for 10s if it applied here
+		});
+
+		controller.setActive(true);
+		await wait(60); // idle disarm fires
+		expect(controller.isActive).toBe(false);
+
+		// A fresh ping after an idle disarm is genuine current activity and
+		// must re-arm without waiting out any cooldown.
+		expect(controller.setActive(true)).toBe(true);
+		expect(controller.isActive).toBe(true);
+		expect(registerCalls).toHaveLength(2);
+		controller.dispose();
 	});
 });
 

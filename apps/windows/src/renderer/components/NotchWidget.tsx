@@ -17,9 +17,13 @@ const ringStyle = { '--ring-circumference': `${RING_CIRCUMFERENCE}` } as CSSProp
 const RESIZE_REPORT_DEBOUNCE_MS = 80;
 
 // Minimum spacing between hover-copy activity pings sent to the main process
-// on mousemove. The main process disarms the "C" shortcut after ~4s without
+// on mousemove. The main process disarms the "C" shortcut after ~15s without
 // a ping (HOVER_COPY_IDLE_MS), so ~1s pings keep it alive during genuine
-// pointer activity while staying cheap on the IPC channel.
+// pointer activity while staying cheap on the IPC channel. Pings are sent
+// synchronously from the mousemove handler (no deferred timer), so nothing
+// here can fire after a mouseleave — a "late ping" only exists as an IPC
+// message already in flight, which the main process's post-disarm re-arm
+// cooldown absorbs (see hover-copy-shortcut.ts).
 const HOVER_COPY_PING_THROTTLE_MS = 1_000;
 
 export default function NotchWidget() {
@@ -172,7 +176,7 @@ export default function NotchWidget() {
 	// While armed-eligible, mousemove over the notch sends throttled activity
 	// pings that reset the main process's idle-disarm timer — so a pointer
 	// merely *resting* on the notch stops capturing "C" system-wide after
-	// ~4s, but genuine hovering keeps the shortcut alive (and re-arms it
+	// ~15s, but genuine hovering keeps the shortcut alive (and re-arms it
 	// after an idle disarm).
 	const reportHoverCopyActivity = useCallback(() => {
 		if (!notchHoveredRef.current || replyOpenRef.current) return;

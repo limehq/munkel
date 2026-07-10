@@ -91,7 +91,7 @@ describe('PaletteWindow clipboard image paste (Plan 12 P3.4)', () => {
 		let prevented = false;
 		await act(async () => {
 			messageInput(root).props.onPaste({
-				clipboardData: { types: ['image/png', 'Files'] },
+				clipboardData: { types: ['image/png', 'Files'], getData: () => '' },
 				preventDefault: () => {
 					prevented = true;
 				},
@@ -134,6 +134,30 @@ describe('PaletteWindow clipboard image paste (Plan 12 P3.4)', () => {
 		expect(root.root.findAllByProps({ className: 'image-attachment-chip' }).length).toBe(0);
 	});
 
+	it('falls back to inserting the clipboard text when the image fetch returns null after preventDefault', async () => {
+		// Mixed-content clipboard (image type detected) but the main process
+		// rejects the image (sender guard / pixel cap / save failure).
+		// preventDefault already ran, so the handler must insert the text
+		// manually instead of silently swallowing the paste.
+		electronApi.saveClipboardImage = () => Promise.resolve(null);
+		const root = await renderPaletteAtCompose();
+
+		await act(async () => {
+			messageInput(root).props.onPaste({
+				clipboardData: {
+					types: ['image/png', 'text/plain'],
+					getData: (type: string) => (type === 'text/plain' ? 'pasted text' : ''),
+				},
+				preventDefault: () => {},
+			});
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(messageInput(root).props.value).toBe('pasted text');
+		expect(root.root.findAllByProps({ className: 'image-attachment-chip' }).length).toBe(0);
+	});
+
 	it('does not attach or call saveClipboardImage once the 8-image cap is reached', async () => {
 		electronApi.selectImages = () =>
 			Promise.resolve([
@@ -152,7 +176,7 @@ describe('PaletteWindow clipboard image paste (Plan 12 P3.4)', () => {
 
 		await act(async () => {
 			messageInput(root).props.onPaste({
-				clipboardData: { types: ['image/png'] },
+				clipboardData: { types: ['image/png'], getData: () => '' },
 				preventDefault: () => {},
 			});
 			await Promise.resolve();

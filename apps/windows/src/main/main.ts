@@ -178,7 +178,15 @@ app.whenReady().then(async () => {
 
 	const appState = new AppState(identityStore, broadcastState, showNotchMessage, relayError);
 	const githubLoginService = new GitHubLoginService(appState, pushGitHubLoginState);
-	registerSessionHandlers(appState, githubLoginService);
+	registerSessionHandlers(appState, githubLoginService, {
+		// Only the two windows with a paste UI may pull images off the user's
+		// clipboard via save-clipboard-image (Plan 12 P3.4 hardening); the
+		// notch renders remote message content and must never read it.
+		isImagePasteSender: (sender) => {
+			const win = BrowserWindow.fromWebContents(sender);
+			return win !== null && (win === paletteWindow || win === menuWindow);
+		},
+	});
 
 	// Auto-update service. Packaged builds check on launch and every 24h when
 	// the persisted "Check Automatically" preference (Plan 12 P3.7) allows
@@ -223,8 +231,16 @@ app.whenReady().then(async () => {
 	});
 	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_INTERACTIVE, (event, interactive: boolean) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
-		notchWindow?.setIgnoreMouseEvents(!interactive, { forward: true });
+		// Track the flag FIRST, and shield the Electron call: if
+		// setIgnoreMouseEvents threw (e.g. window mid-destroy), the
+		// hover-copy `canArm` gate and the disarm below must still see a
+		// consistent `notchInteractive` value.
 		notchInteractive = !!interactive;
+		try {
+			notchWindow?.setIgnoreMouseEvents(!interactive, { forward: true });
+		} catch (err) {
+			console.error('[munkel] setIgnoreMouseEvents failed:', err);
+		}
 		// Going click-through means the renderer may never get a mouseleave
 		// for the pointer that armed the hover-copy shortcut — force-disarm.
 		handleNotchSetInteractive(hoverCopyController, !!interactive);

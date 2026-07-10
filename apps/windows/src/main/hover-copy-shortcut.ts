@@ -46,12 +46,23 @@
  * though the notch is no longer visible+interactive. The caller now injects
  * `canArm` (`main.ts` wires it to `notchWindow.isVisible() &&` the
  * `interactive` flag tracked from `notch-set-interactive`); a fresh arm
- * attempt while `canArm()` is false is rejected (`setActive` returns
- * `false`) instead of re-registering. This only gates the *inactive → arm*
- * transition — an already-armed controller's periodic pings (which merely
- * extend the idle deadline) are not re-checked against `canArm`, since by
- * construction the controller can only be active while a prior arm attempt
- * already passed the gate.
+ * attempt while `canArm()` is false is rejected instead of re-registering.
+ * This only gates the *inactive → arm* transition — an already-armed
+ * controller's periodic pings (which merely extend the idle deadline) are
+ * not re-checked against `canArm`, since by construction the controller can
+ * only be active while a prior arm attempt already passed the gate.
+ *
+ * `canArm` alone does not cover the mouseleave-during-`full`-phase case
+ * (window still visible AND interactive when the stale ping lands), so an
+ * explicit `setActive(false)` additionally starts a short re-arm cooldown —
+ * see `HOVER_COPY_REARM_COOLDOWN_MS`.
+ *
+ * **Return-value semantics:** both gate rejections resolve `true` (feature
+ * available, just not armed right now). `setActive(true)` returns `false`
+ * ONLY when the OS shortcut registration itself failed — that is the one
+ * case where the renderer is supposed to latch the feature off for the
+ * session. Returning `false` for a merely-transient timing rejection would
+ * permanently kill the feature on the renderer side.
  */
 
 /** Minimal slice of Electron's `globalShortcut` module. */
@@ -88,10 +99,13 @@ export interface HoverCopyController {
 	 *
 	 * - `setActive(true)` while already armed is an **activity ping**: it
 	 *   restarts the idle timer instead of re-registering.
-	 * - Returns `false` only when arming was requested and the OS
+	 * - Returns `false` ONLY when arming was requested and the OS
 	 *   registration failed (e.g. another app owns the accelerator), so the
-	 *   renderer can turn the feature off visibly instead of assuming it is
-	 *   armed. Disarming always succeeds and returns `true`.
+	 *   renderer can latch the feature off visibly instead of assuming it is
+	 *   armed. Transient rejections — `canArm()` gate, post-disarm re-arm
+	 *   cooldown — return `true` while leaving `isActive` false, because they
+	 *   must NOT trigger the renderer's session-wide feature-off latch.
+	 *   Disarming always succeeds and returns `true`.
 	 */
 	setActive(active: boolean): boolean;
 	readonly isActive: boolean;
@@ -99,12 +113,30 @@ export interface HoverCopyController {
 	dispose(): void;
 }
 
+/**
+ * After an explicit external disarm (`setActive(false)` — mouseleave, hide,
+ * click-through transition, renderer teardown), reject fresh arm attempts
+ * for this long. Closes the remaining leg of the Late-Ping-Race that
+ * `canArm` alone cannot: the renderer only sends pings while it believes
+ * the notch is hovered (there is no timer that could fire post-leave — the
+ * pings are synchronous mousemove handlers), but a ping that was already
+ * *in flight on the IPC channel* when the mouseleave-driven disarm was
+ * processed arrives moments later and, in the `full`-phase case, still
+ * passes `canArm` (window visible + interactive). The cooldown makes that
+ * stale ping a no-op; a genuine re-hover re-arms via the next throttled
+ * mousemove ping (≤1 s later) once the window has passed. An *idle-timer*
+ * disarm deliberately does NOT start the cooldown — a ping after idle
+ * disarm is genuine current activity and should re-arm immediately.
+ */
+export const HOVER_COPY_REARM_COOLDOWN_MS = 300;
+
 export function createHoverCopyController(
 	onTrigger: () => void,
 	api: GlobalShortcutApi,
-	options: { idleMs?: number; canArm?: () => boolean } = {},
+	options: { idleMs?: number; canArm?: () => boolean; rearmCooldownMs?: number } = {},
 ): HoverCopyController {
 	const idleMs = options.idleMs ?? HOVER_COPY_IDLE_MS;
+	const rearmCooldownMs = options.rearmCooldownMs ?? HOVER_COPY_REARM_COOLDOWN_MS;
 	// Gate for the inactive → arm transition only (see "Late-Ping-Race fix"
 	// in the module header). Defaults to always-armable so existing callers
 	// (and every pre-existing test in this file) keep their current
@@ -112,6 +144,9 @@ export function createHoverCopyController(
 	const canArm = options.canArm ?? (() => true);
 	let active = false;
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
+	// Monotonic-enough wall-clock deadline before which fresh arms are
+	// rejected (see HOVER_COPY_REARM_COOLDOWN_MS). 0 = no cooldown pending.
+	let rearmBlockedUntil = 0;
 
 	function clearIdleTimer(): void {
 		if (idleTimer !== null) {
@@ -138,6 +173,11 @@ export function createHoverCopyController(
 		},
 		setActive(next: boolean): boolean {
 			if (!next) {
+				// External disarm: start the re-arm cooldown so an IPC ping
+				// already in flight behind this call cannot instantly re-arm.
+				// (The internal idle-timer disarm calls `disarm()` directly
+				// and intentionally does not set this.)
+				rearmBlockedUntil = Date.now() + rearmCooldownMs;
 				disarm();
 				return true;
 			}
@@ -147,14 +187,17 @@ export function createHoverCopyController(
 				restartIdleTimer();
 				return true;
 			}
-			if (!canArm()) {
-				// Late/stale ping: the notch is no longer visible+interactive
-				// (per the injected `canArm` gate), so this is a re-arm attempt
-				// for a shortcut that either was already disarmed or should
-				// never have been armed in the first place. Reject instead of
-				// silently re-capturing "C" system-wide (review MAJOR
-				// Late-Ping-Race — see the module header).
-				return false;
+			if (!canArm() || Date.now() < rearmBlockedUntil) {
+				// Transient rejection — either a late/stale ping while the
+				// notch is no longer visible+interactive (`canArm` gate, review
+				// MAJOR Late-Ping-Race), or an in-flight ping landing inside
+				// the post-disarm cooldown window. Return `true`, NOT `false`:
+				// `false` means "OS registration failed" and makes the renderer
+				// latch the feature off for the whole session, which must never
+				// happen for a rejection that is merely about *timing*. The
+				// controller stays disarmed (`isActive` false); a genuine
+				// re-hover re-arms via the next throttled mousemove ping.
+				return true;
 			}
 			const ok = api.register('C', () => {
 				// A successful trigger is itself proof of current, genuine
@@ -168,6 +211,7 @@ export function createHoverCopyController(
 				return false;
 			}
 			active = true;
+			rearmBlockedUntil = 0;
 			restartIdleTimer();
 			return true;
 		},

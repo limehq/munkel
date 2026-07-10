@@ -1533,7 +1533,7 @@ describe('MenuWindow clipboard image paste (Plan 12 P3.4)', () => {
 		let prevented = false;
 		await act(async () => {
 			input.props.onPaste({
-				clipboardData: { types: ['image/png', 'Files'] },
+				clipboardData: { types: ['image/png', 'Files'], getData: () => '' },
 				preventDefault: () => {
 					prevented = true;
 				},
@@ -1575,6 +1575,29 @@ describe('MenuWindow clipboard image paste (Plan 12 P3.4)', () => {
 
 		expect(prevented).toBe(false);
 		expect(saveClipboardImageSpy).toHaveBeenCalledTimes(0);
+		expect(root.root.findAllByProps({ className: 'image-attachment-chip' }).length).toBe(0);
+	});
+
+	it('falls back to inserting the clipboard text when the image fetch returns null after preventDefault', async () => {
+		electronApi.saveClipboardImage = () => Promise.resolve(null);
+		const root = await renderMenu();
+
+		const input = root.root.findByProps({ placeholder: 'Message…' });
+		await act(async () => {
+			input.props.onPaste({
+				clipboardData: {
+					types: ['image/png', 'text/plain'],
+					getData: (type: string) => (type === 'text/plain' ? 'pasted text' : ''),
+				},
+				preventDefault: () => {},
+			});
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		// Placeholder stays 'Message…' (no attachment), and the input now
+		// carries the manually inserted clipboard text.
+		expect(root.root.findByProps({ placeholder: 'Message…' }).props.value).toBe('pasted text');
 		expect(root.root.findAllByProps({ className: 'image-attachment-chip' }).length).toBe(0);
 	});
 });

@@ -41,6 +41,11 @@ export default function MenuWindow() {
 	// `messages`/`recipients` — one compose row per circle, so each needs its
 	// own pending-attachment list.
 	const [imageAttachments, setImageAttachments] = useState<Record<string, string[]>>({});
+	// Circles with a send currently in flight. A ref (not state) because it
+	// is only read imperatively — by handleSend's double-send guard and by
+	// the paste handler — never for rendering. Mirrors PaletteWindow's
+	// `sending` flag, scoped per circle since each row sends independently.
+	const sendingCirclesRef = useRef(new Set<string>());
 	// Tracks the last name *successfully persisted* via updateProfile so an
 	// unchanged name is never re-submitted (E2). Because this ref is only
 	// committed once the IPC promise resolves, it does NOT by itself protect
@@ -168,22 +173,28 @@ export default function MenuWindow() {
 	}
 
 	async function handleSend(code: string) {
+		if (sendingCirclesRef.current.has(code)) return;
 		const text = messages[code]?.trim() ?? '';
 		const images = imageAttachments[code] ?? [];
 		if (!text && images.length === 0) return;
 		const to = recipients[code] || undefined;
-		const result = images.length > 0
-			? await sendImages(code, images, text, to)
-			: await sendChat(code, text, to);
-		if (result.ok) {
-			setMessages((prev) => ({ ...prev, [code]: '' }));
-			setImageAttachments((prev) => ({ ...prev, [code]: [] }));
-			setSendErrors((prev) => ({ ...prev, [code]: '' }));
-		} else {
-			setSendErrors((prev) => ({
-				...prev,
-				[code]: result.error ?? 'Circle offline — message not sent.',
-			}));
+		sendingCirclesRef.current.add(code);
+		try {
+			const result = images.length > 0
+				? await sendImages(code, images, text, to)
+				: await sendChat(code, text, to);
+			if (result.ok) {
+				setMessages((prev) => ({ ...prev, [code]: '' }));
+				setImageAttachments((prev) => ({ ...prev, [code]: [] }));
+				setSendErrors((prev) => ({ ...prev, [code]: '' }));
+			} else {
+				setSendErrors((prev) => ({
+					...prev,
+					[code]: result.error ?? 'Circle offline — message not sent.',
+				}));
+			}
+		} finally {
+			sendingCirclesRef.current.delete(code);
 		}
 	}
 
@@ -210,10 +221,18 @@ export default function MenuWindow() {
 
 	// Ctrl+V image paste (Plan 12 P3.4) — same contract as PaletteWindow's
 	// handleMessagePaste: attach the clipboard image if present and suppress
-	// the default text paste, otherwise leave the paste event alone.
+	// the default text paste, otherwise leave the paste event alone. Skipped
+	// while a send for this circle is in flight (mirrors the palette's
+	// `sending` guard) so an attachment can't slip into an album that is
+	// being cleared by an about-to-resolve successful send. If the image
+	// fetch returns null after preventDefault (save failure, pixel-cap
+	// rejection), the synchronously captured clipboard text is appended
+	// manually so the paste is never silently swallowed.
 	async function handleMessagePaste(code: string, e: React.ClipboardEvent<HTMLInputElement>) {
 		const current = imageAttachments[code] ?? [];
 		if (!clipboardEventHasImage(e) || current.length >= MAX_IMAGES_PER_MESSAGE) return;
+		if (sendingCirclesRef.current.has(code)) return;
+		const fallbackText = e.clipboardData?.getData('text/plain') ?? '';
 		e.preventDefault();
 		const path = await pasteClipboardImage();
 		if (path) {
@@ -221,6 +240,8 @@ export default function MenuWindow() {
 				...prev,
 				[code]: [...(prev[code] ?? []), path].slice(0, MAX_IMAGES_PER_MESSAGE),
 			}));
+		} else if (fallbackText) {
+			setMessages((prev) => ({ ...prev, [code]: (prev[code] ?? '') + fallbackText }));
 		}
 	}
 

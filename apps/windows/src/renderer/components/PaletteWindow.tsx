@@ -104,12 +104,23 @@ export default function PaletteWindow() {
 	// attach it (via the same imagePaths flow as `handleAttachImages`) and
 	// suppress the default text paste; otherwise leave the paste event
 	// completely alone so normal text pasting is unaffected.
+	//
+	// preventDefault must be called synchronously (before the async image
+	// fetch can resolve), so if the fetch then returns null — main-process
+	// save failure, sender-guard rejection, or an image the pixel cap
+	// rejected — the default paste can no longer happen. The clipboard's
+	// text (captured synchronously below) is appended manually in that
+	// case, so a mixed-content clipboard or a failed image save never
+	// silently swallows the user's paste.
 	async function handleMessagePaste(e: React.ClipboardEvent<HTMLInputElement>) {
 		if (!clipboardEventHasImage(e) || imagePaths.length >= MAX_IMAGES_PER_MESSAGE || sending) return;
+		const fallbackText = e.clipboardData?.getData('text/plain') ?? '';
 		e.preventDefault();
 		const path = await pasteClipboardImage();
 		if (path) {
 			setImagePaths((prev) => [...prev, path].slice(0, MAX_IMAGES_PER_MESSAGE));
+		} else if (fallbackText) {
+			setMessage((prev) => prev + fallbackText);
 		}
 	}
 
