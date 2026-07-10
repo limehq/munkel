@@ -59,9 +59,19 @@ function startOrRestartElectron() {
 		electronProcess.kill();
 		electronProcess = null;
 	}
+	// `ELECTRON_RUN_AS_NODE` can leak in from a VS Code / Claude Code terminal
+	// parent process (not persisted, but inherited by any shell it spawns). If
+	// it survives into the child env, the real Electron binary runs in plain
+	// Node mode (`require('electron')` resolves to a path string, not the
+	// API), so `app.setName()` throws at main.ts's top level and the app dies
+	// before a window ever opens — no error dialog, just silence. Strip it
+	// defensively so a dev launch never silently no-ops. See
+	// docs/bugs/windows-ui-invisible-2026-07-10.md.
+	const childEnv = { ...process.env, NODE_ENV: 'development' };
+	delete childEnv.ELECTRON_RUN_AS_NODE;
 	electronProcess = spawn(getElectronPath(), [path.join(root, 'dist', 'main.cjs')], {
 		stdio: 'inherit',
-		env: { ...process.env, NODE_ENV: 'development' },
+		env: childEnv,
 	});
 }
 
