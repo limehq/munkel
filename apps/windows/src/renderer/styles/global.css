@@ -166,20 +166,6 @@ select {
 	display: block;
 }
 
-.avatar-stack {
-	display: inline-flex;
-	flex-direction: row-reverse;
-}
-
-.avatar-stack .avatar {
-	margin-left: -5px;
-	border: 1px solid rgba(0, 0, 0, 0.4);
-}
-
-.avatar-stack .avatar:first-child {
-	margin-left: 0;
-}
-
 .hint,
 .caption {
 	margin: 0;
@@ -353,18 +339,6 @@ select {
 	flex: 1;
 }
 
-.member-row {
-	display: flex;
-	align-items: center;
-	gap: 8px;
-}
-
-.member-names {
-	font-size: 11px;
-	color: var(--munkel-text-secondary);
-	line-height: 1.3;
-}
-
 .send-row {
 	display: flex;
 	align-items: center;
@@ -375,16 +349,60 @@ select {
 	flex: 1;
 }
 
-.recipient-select {
-	width: 90px;
-	padding-right: 6px;
+/*
+ * Avatar-chip recipient picker (Plan 12 P2.4), mirroring macOS `TargetChip`:
+ * a horizontally-scrollable row of round chips, one per member plus a globe
+ * chip for "everyone". Replaces the native <select>.
+ */
+.recipient-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	overflow-x: auto;
+	padding-bottom: 2px;
+}
+
+.recipient-chip {
+	appearance: none;
+	background: transparent;
+	border: none;
+	padding: 0;
+	margin: 0;
+	flex-shrink: 0;
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+}
+
+.recipient-chip.selected {
+	box-shadow: 0 0 0 2px var(--munkel-accent);
+}
+
+.recipient-chip-globe {
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 12px;
+	background: rgba(255, 255, 255, 0.12);
+}
+
+.recipient-empty {
+	white-space: nowrap;
 }
 
 /*
- * Windows renders the <select> popup list as a native OS control, which
- * ignores the translucent `.frosted-field` background. Chromium on Windows
- * does honor `background-color`/`color` set directly on <option>, so pin an
- * opaque dark background there to avoid white-text-on-white-popup.
+ * Windows renders any remaining native <select> popup list (e.g. future
+ * pickers) as a native OS control, which ignores the translucent
+ * `.frosted-field` background. Chromium on Windows does honor
+ * `background-color`/`color` set directly on <option>, so pin an opaque
+ * dark background there to avoid white-text-on-white-popup.
  */
 .frosted-field option {
 	background-color: #1c1c1e;

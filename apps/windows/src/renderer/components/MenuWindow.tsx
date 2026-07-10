@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/app-store';
 import { Avatar } from './Avatar';
 import { getCircleColor } from '../../shared/group-color';
-import type { CircleState, GitHubLoginState, IdentityState, UpdateState } from '../../shared/types';
+import type { CircleState, GitHubLoginState, IdentityState, Member, UpdateState } from '../../shared/types';
 
 export default function MenuWindow() {
 	const {
@@ -536,40 +536,13 @@ function CircleSection({
 				</button>
 			</div>
 
-			{circle.members.length === 0 ? (
-				<p className="caption">No one else online</p>
-			) : (
-				<div className="member-row">
-					<div className="avatar-stack">
-						{circle.members.slice(0, 8).map((m) => (
-							<Avatar
-								key={m.memberId}
-								name={m.displayName ?? m.memberId.slice(0, 8)}
-								size={16}
-							/>
-						))}
-					</div>
-					<span className="member-names">
-						{circle.members.map((m) => m.displayName ?? m.memberId.slice(0, 8)).join(', ')}
-					</span>
-				</div>
-			)}
+			<RecipientChipRow
+				members={circle.members}
+				recipient={recipient}
+				onRecipientChange={onRecipientChange}
+			/>
 
 			<div className="send-row">
-				<select
-					className="frosted-field recipient-select"
-					value={recipient}
-					onChange={(e) => onRecipientChange(e.target.value)}
-					onFocus={() => void window.electronAPI.setMenuPickerOpen(true)}
-					onBlur={() => void window.electronAPI.setMenuPickerOpen(false)}
-				>
-					<option value="">All</option>
-					{circle.members.map((m) => (
-						<option key={m.memberId} value={m.memberId}>
-							{m.displayName ?? m.memberId.slice(0, 8)}
-						</option>
-					))}
-				</select>
 				<input
 					className="frosted-field"
 					placeholder="Message…"
@@ -584,6 +557,60 @@ function CircleSection({
 				</button>
 			</div>
 			{sendError && <p className="compose-error">{sendError}</p>}
+		</div>
+	);
+}
+
+interface RecipientChipRowProps {
+	members: Member[];
+	recipient: string;
+	onRecipientChange: (to: string) => void;
+}
+
+/**
+ * Avatar-chip recipient picker (Plan 12 P2.4), matching macOS `TargetChip`
+ * in `MenuView.swift`: a globe chip for "everyone" plus one avatar+name chip
+ * per member, horizontally scrollable, click-to-select. Replaces the native
+ * `<select>`; the selection contract (`onRecipientChange('')` = All,
+ * `onRecipientChange(memberId)` = one member) is unchanged.
+ */
+function RecipientChipRow({ members, recipient, onRecipientChange }: RecipientChipRowProps) {
+	return (
+		<div className="recipient-row" data-testid="recipient-row">
+			<button
+				type="button"
+				className={`recipient-chip${recipient === '' ? ' selected' : ''}`}
+				title="Everyone"
+				aria-label="Everyone"
+				aria-pressed={recipient === ''}
+				data-testid="recipient-chip-all"
+				onClick={() => onRecipientChange('')}
+			>
+				<span className="recipient-chip-globe" aria-hidden="true">
+					🌐
+				</span>
+			</button>
+
+			{members.map((m) => {
+				const label = m.displayName ?? m.memberId.slice(0, 8);
+				const selected = recipient === m.memberId;
+				return (
+					<button
+						key={m.memberId}
+						type="button"
+						className={`recipient-chip${selected ? ' selected' : ''}`}
+						title={label}
+						aria-label={label}
+						aria-pressed={selected}
+						data-testid={`recipient-chip-${m.memberId}`}
+						onClick={() => onRecipientChange(m.memberId)}
+					>
+						<Avatar name={label} size={22} imageBase64={m.avatar} />
+					</button>
+				);
+			})}
+
+			{members.length === 0 && <p className="caption recipient-empty">No one else online</p>}
 		</div>
 	);
 }

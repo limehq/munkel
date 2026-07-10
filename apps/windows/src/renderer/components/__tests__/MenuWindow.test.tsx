@@ -959,6 +959,149 @@ describe('MenuWindow launch-at-login toggle (P2.1)', () => {
 	});
 });
 
+describe('MenuWindow recipient avatar chips (P2.4)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	function stateWithMembers(): StateUpdate {
+		return makeState([
+			{
+				code: 'blue-table-42',
+				groupId: 'group-1',
+				isConnected: true,
+				members: [
+					{ memberId: 'member-1', displayName: 'Ada Lovelace', joinedAt: '2026-01-01T00:00:00.000Z' },
+					{ memberId: 'member-2', displayName: 'Grace Hopper', joinedAt: '2026-01-01T00:00:00.000Z' },
+				],
+				relayUrl: 'wss://relay.example',
+			},
+		]);
+	}
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(stateWithMembers());
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenu() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	it('renders an "All" chip plus one chip per member', async () => {
+		const root = await renderMenu();
+
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-all' })).toBeDefined();
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' })).toBeDefined();
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-2' })).toBeDefined();
+	});
+
+	it('the "All" chip is selected by default', async () => {
+		const root = await renderMenu();
+
+		const allChip = root.root.findByProps({ 'data-testid': 'recipient-chip-all' });
+		expect(allChip.props['aria-pressed']).toBe(true);
+		expect(allChip.props.className).toContain('selected');
+
+		const memberChip = root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' });
+		expect(memberChip.props['aria-pressed']).toBe(false);
+	});
+
+	it('clicking a member chip selects it and deselects "All"', async () => {
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props.onClick();
+		});
+
+		const memberChip = root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' });
+		expect(memberChip.props['aria-pressed']).toBe(true);
+		expect(memberChip.props.className).toContain('selected');
+
+		const allChip = root.root.findByProps({ 'data-testid': 'recipient-chip-all' });
+		expect(allChip.props['aria-pressed']).toBe(false);
+	});
+
+	it('clicking a member chip then sending routes the message to that member (same selection contract as the old select)', async () => {
+		const sendChatSpy = spyOn(electronApi, 'sendChat');
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-member-2' }).props.onClick();
+		});
+
+		const messageInput = root.root.findByProps({ placeholder: 'Message…' });
+		await act(async () => {
+			messageInput.props.onChange({ target: { value: 'hello' } });
+		});
+		await act(async () => {
+			messageInput.props.onKeyDown({ key: 'Enter' });
+		});
+
+		expect(sendChatSpy).toHaveBeenCalledWith('blue-table-42', 'hello', 'member-2');
+	});
+
+	it('clicking the "All" chip after selecting a member sends without a recipient (broadcast)', async () => {
+		const sendChatSpy = spyOn(electronApi, 'sendChat');
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props.onClick();
+		});
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props.onClick();
+		});
+
+		const messageInput = root.root.findByProps({ placeholder: 'Message…' });
+		await act(async () => {
+			messageInput.props.onChange({ target: { value: 'hi everyone' } });
+		});
+		await act(async () => {
+			messageInput.props.onKeyDown({ key: 'Enter' });
+		});
+
+		expect(sendChatSpy).toHaveBeenCalledWith('blue-table-42', 'hi everyone', undefined);
+	});
+
+	it('renders a tooltip title with the full member name', async () => {
+		const root = await renderMenu();
+
+		const memberChip = root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' });
+		expect(memberChip.props.title).toBe('Ada Lovelace');
+	});
+
+	it('shows "No one else online" text when a circle has no other members', async () => {
+		electronApi = createMockElectronApi(makeState([
+			{
+				code: 'blue-table-42',
+				groupId: 'group-1',
+				isConnected: true,
+				members: [],
+				relayUrl: 'wss://relay.example',
+			},
+		]));
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+
+		const root = await renderMenu();
+
+		const emptyHint = root.root.findByProps({ className: 'caption recipient-empty' });
+		expect(emptyHint.children).toContain('No one else online');
+		expect(root.root.findAllByProps({ 'data-testid': 'recipient-chip-member-1' }).length).toBe(0);
+	});
+});
+
 describe('MenuWindow update status', () => {
 	let electronApi: ReturnType<typeof createMockElectronApi>;
 
