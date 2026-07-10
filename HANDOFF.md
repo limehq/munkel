@@ -9,6 +9,15 @@
 
 ## completed in dieser Session
 
+### Iteration 8 — P3-Abschluss: pulse + P3.6 + P3.1 (2026-07-10)
+
+- **Umsetzung (Sonnet):** `5acfb69` (pulse-Verdrahtung: Ring nur im Full-View-Branch der neuesten Message, nie beim History-Reopen), `d8e0a2d` (P3.6: History-Rows default collapsed mit Ellipsis, Chevron-Toggle als eigene Affordance — Row-Klick bleibt Click-to-Reply; Expanded-State id-basiert, gepruned beim Aging), `24d6340` (P3.1: Rebindable Palette-Hotkey — `palette-hotkey.ts` DI-Modul, geteilter `accelerator.ts`-Validator, Recorder im Settings-Popover, sender-guarded IPC), `33f13c0` (Doku). Damit ist die **P3-Tabelle komplett** (alle 7 Tasks DONE).
+- **Review (gesplittet wegen 10-min-Wrapper-Limit):** Teil 1 (P3.1): **BLOCK** — Rollback nicht atomar im Doppel-Fehler-Pfad (App hotkey-los bei behaupteter Bindung, nur Neustart heilt); MINOR `Shift+A`-Footgun. Teil 2 (P3.6+pulse): **SHIP** mit Follow-ups (220px-`max-height` deckelt resize-on-expand — scrollt intern statt Fenster wachsen zu lassen; Overflow >480px unverifiziert; 3 fehlende Tests).
+- **Fix `8ba4574`:** Confirmed-Binding-Invariante (`accelerator: string|null` trägt nur OS-bestätigte Bindings), expliziter `rollback-failed`, einmalige Default-Heilung auf `Ctrl+Shift+M`, Renderer „Not bound"-State mit Hint + Retry-Heilung ohne Neustart, Shift-only-Combos abgelehnt (starker Modifier Pflicht). **Re-Review: SHIP** (Residual-INFO: nach Dreifach-Fehler bleibt der persistierte Combo bewusst als Retry-Target, während nichts gebunden ist).
+- **Teststand:** **429 pass / 2 skip / 0 fail** (von 357 → +72 Tests in Iteration 8); typecheck grün. Matrix: **28 DONE / 2 PARTIAL / 10 MISSING**.
+- **Betrieb:** Session-Limit unterbrach die Runde zweimal (Reset 12:30); Fixer und Reviewer wurden nahtlos resumed, keine Verluste. Der große Gesamt-Review lief ins 10-min-Wrapper-Limit → Regel: Reviews in Teil-Delegationen splitten.
+- **next_action:** Iteration-8-Follow-ups (220px-Cap-Entscheidung, Overflow >480px, 3 Tests), dann manuelles QA-Gate + Open Questions 4/5 (User), dann PR nach `platform/windows/v2-clean` (kein Self-Merge).
+
 ### Iteration 7 — Security-Review-Zyklus für `fad3300` (2026-07-10)
 
 - **Nachreview `fad3300` (Kimi k2.6): Verdikt BLOCK.** 2 MAJORs: (1) `isClipboardTempPath` prüfte nur den Basename und `send-images` hatte keinen Sender-Guard — kombiniert ein potenzielles Datei-Lösch-Primitiv für kompromittierte Renderer (Renderer-gelieferter Pfad wie `…\Documents\munkel-clipboard-x.png` wäre nach Send gelöscht worden); (2) Re-Arm-Cooldown auf `Date.now()` — NTP-Rücksprung hätte Hover-C dauerhaft un-armable gemacht.
@@ -16,7 +25,7 @@
 - **Fix `0f2efe5` — monotone Clock:** injizierbares `now()` (Default `performance.now()`) für die Cooldown-Deadline, `null`-Sentinel, Fake-Clock-Tests.
 - **Re-Review (Kimi k2.6): SHIP** — Lösch-Primitiv geschlossen (keine Set-Injection durch Renderer möglich), Guard vollständig ohne Bruch legitimer Flows, Clock-Migration regressionsfrei. 1 INFO offen: `ownedClipboardTempPaths` wächst bei Paste-ohne-Send unbegrenzt (Cap/Age-Prune optional).
 - **Teststand:** 357 pass / 2 skip / 0 fail (+8 Tests); typecheck grün.
-- **next_action:** `pulse`-Prop in `NotchWidget` verdrahten, dann P3.1 (Rebindable Hotkey) + P3.6 (History expand/collapse); parallel warten manuelles QA-Gate und Open Questions 4/5 auf den User; danach PR nach `platform/windows/v2-clean` (kein Self-Merge).
+- **next_action:** `pulse`-Prop in `NotchWidget` verdrahten, dann P3.6 (History expand/collapse) + P3.1 (Rebindable Hotkey); parallel warten manuelles QA-Gate und Open Questions 4/5 auf den User; danach PR nach `platform/windows/v2-clean` (kein Self-Merge).
 
 ### Iteration 6 — P3.4 / P3.5 Review-Cycle (2026-07-10)
 
@@ -252,12 +261,11 @@ Code-Änderungen auf `platform/windows/macos-parity-p1` nach dem adversarialen R
 
 ## next_action
 
-1. Review von `fad3300` durchführen (Start-Scope `161d15a`).
-2. `pulse`-Verdrahtung in `NotchWidget` + verbleibende Iteration-5/6-Follow-ups.
-3. P3.1 (Rebindable global hotkey UI) und P3.6 (History expand/collapse) implementieren.
-4. Manuelles QA-Gate durchführen und Ergebnisse in Plan 12 / STATE.md eintragen.
-5. User-Entscheidungen zu Open Questions 4 + 5 einholen.
-6. PR `platform/windows/macos-parity-p1` → `platform/windows/v2-clean` öffnen; erst nach Review + grünem CI mergen (kein Self-Merge).
+1. `pulse`-Verdrahtung in `NotchWidget` + verbleibende Iteration-5/6-Follow-ups.
+2. P3.6 (History expand/collapse) und P3.1 (Rebindable global hotkey UI) implementieren.
+3. Manuelles QA-Gate durchführen und Ergebnisse in Plan 12 / STATE.md eintragen.
+4. User-Entscheidungen zu Open Questions 4 + 5 einholen.
+5. PR `platform/windows/macos-parity-p1` → `platform/windows/v2-clean` öffnen; erst nach Review + grünem CI mergen (kein Self-Merge).
 
 ---
 

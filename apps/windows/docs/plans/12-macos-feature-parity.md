@@ -248,7 +248,17 @@ Implemented on `platform/windows/macos-parity-p1`, closing the three remaining P
 
 **Design decisions worth flagging explicitly:**
 - **P3.6 click semantics:** click-to-reply on history rows was already load-bearing behavior (P1-era), so the chevron is a *new, separate* affordance rather than reusing the row click — see the paragraph above for why macOS's whole-row-click-does-double-duty approach doesn't have a DOM equivalent.
-- **P3.1 rollback-not-error-state:** a failed rebind never leaves the palette hotkey unbound — the main process always re-registers the previous accelerator before reporting failure, mirroring macOS's implicit "the old shortcut stays valid until a new one successfully replaces it" behavior with `KeyboardShortcuts.Recorder`.
+- **P3.1 rollback semantics (revised in `8ba4574` after review):** the original claim "a failed rebind never leaves the hotkey unbound" did not hold in the double-failure path (new registration fails AND re-registering the old accelerator fails). Since `8ba4574`, `PaletteHotkeyResult#accelerator` carries only OS-*confirmed* bindings (`string | null`): double failure is an explicit `rollback-failed`, followed by a one-time heal attempt to the default `Ctrl+Shift+M` (skipped if the default was itself one of the failed combos); only confirmed bindings reach `currentPaletteHotkey`/persisted state. The renderer shows "Not bound" with an error hint; a later successful set heals without restart.
+
+#### P3.1 / P3.6 / pulse review cycle (Iteration 8, 2026-07-10)
+
+- **Review Teil 1 (P3.1, `24d6340`): BLOCK** — MAJOR: rollback not atomic in the double-failure path (app left hotkey-less while state/renderer claimed the old binding); MINOR: `Shift+A`-style combos accepted (system-wide typing footgun).
+- **Fix `8ba4574`:** confirmed-binding invariant (see revised semantics above), one-time default heal, renderer unbound-state + retry heal without restart, `Shift`-only combos rejected (strong modifier Ctrl/Alt/Super required). +13 tests → **429 pass / 2 skip / 0 fail**.
+- **Re-Review: SHIP** (für `24d6340`+`8ba4574` zusammen). Residual INFO: nach Dreifach-Fehler (neu+Rollback+Default) oder Boot-Registrierungs-Fehlschlag bleibt der *persistierte* Combo bewusst als Retry-Target stehen, während nichts gebunden ist (Renderer zeigt korrekt "Not bound").
+- **Review Teil 2 (P3.6 + pulse, `5acfb69`/`d8e0a2d`): SHIP** mit Follow-ups:
+  - **MAJOR (follow-up):** `.notch-history-list { max-height: 220px; overflow-y: auto }` deckelt den resize-on-expand-Pfad — ab dem Cap scrollt die Expansion intern statt das Fenster wachsen zu lassen (degradiert sauber, widerspricht aber der Commit-Beschreibung; Entscheidung Cap vs. Fenster-Wachstum offen).
+  - **MAJOR (unverifiziert):** Single-Message-View hat keine Renderer-seitige Overflow-Regel — Verhalten oberhalb des 480px-Clamps (Clipping vs. Scroll) unbestätigt; `notch-window.ts` + Live-QA nötig.
+  - **MINOR (Tests):** fehlend: Pruning-while-visible (60s-Aging), FULL→PEEK-pulse, notchResize-wächst-bei-Expand; Chevron-`&lt;button&gt;` ohne `type="button"` (Nit).
 
 **Open manual QA for this session (not yet performed):**
 - Manual QA: open Settings, focus the hotkey recorder, press a new combo (e.g. `Ctrl+Alt+P`), confirm the palette now toggles with the new combo and the old `Ctrl+Shift+M` no longer does; press Escape while recording and confirm nothing changes; click the reset button and confirm it returns to `Ctrl+Shift+M`.
