@@ -589,6 +589,100 @@ describe('MenuWindow settings display-name Enter save (P1.2)', () => {
 
 		expect(calls).toEqual(['Name A', 'Name B', 'Name A']);
 	});
+
+	// Regression test for a CRITICAL review finding: lastSavedNameRef is only
+	// committed once the updateProfile promise *resolves*, so the blur that
+	// synchronously follows an Enter commit (Enter commits, then blurs the
+	// input) still saw the name as unsaved and started a second, duplicate
+	// updateProfile call under a new generation. A deferred (manually
+	// resolvable) promise is essential here: with a Promise.resolve() mock,
+	// act() flushes the resolve before onBlur runs and the bug is masked.
+	// Fixed by the synchronously-set inFlightNameRef.
+	it('a blur firing while the Enter-triggered save is still in flight does not double-submit', async () => {
+		let resolveSave: (() => void) | undefined;
+		const calls: string[] = [];
+		electronApi.updateProfile = (name: string) => {
+			calls.push(name);
+			return new Promise<void>((resolve) => {
+				resolveSave = resolve;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+
+		// Enter commits (save now in flight, promise NOT yet settled), then the
+		// blur handler runs synchronously via the Enter handler's blur() call —
+		// exactly the real DOM event order.
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => input.props.onBlur() },
+			});
+		});
+
+		expect(calls).toEqual(['New Name']);
+
+		// After the save resolves, a further blur is still a no-op because the
+		// name is now recorded as successfully saved.
+		await act(async () => {
+			resolveSave?.();
+			await Promise.resolve();
+		});
+		await act(async () => {
+			input.props.onBlur();
+		});
+
+		expect(calls).toEqual(['New Name']);
+	});
+
+	// After a failed save, an immediate Enter on the *same* name must retry:
+	// the in-flight slot is released on rejection, so the duplicate-submit
+	// guard must not swallow the retry.
+	it('an Enter retry of the same name straight after a rejected save goes through', async () => {
+		let rejectSave: ((err: Error) => void) | undefined;
+		const calls: string[] = [];
+		electronApi.updateProfile = (name: string) => {
+			calls.push(name);
+			return new Promise<void>((_resolve, reject) => {
+				rejectSave = reject;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => input.props.onBlur() },
+			});
+		});
+		expect(calls).toEqual(['New Name']);
+
+		await act(async () => {
+			rejectSave?.(new Error('relay offline'));
+			await Promise.resolve().catch(() => {});
+		});
+
+		// Immediate retry with the unchanged name.
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => input.props.onBlur() },
+			});
+		});
+
+		expect(calls).toEqual(['New Name', 'New Name']);
+	});
 });
 
 describe('MenuWindow settings display-name save error feedback', () => {
@@ -675,6 +769,92 @@ describe('MenuWindow settings display-name save error feedback', () => {
 		});
 
 		expect(root.root.findAllByProps({ 'data-testid': 'display-name-error' }).length).toBe(0);
+	});
+
+	// A late REJECT of a stale generation must not surface the error hint
+	// when a newer submit has already succeeded — the user's latest intent
+	// was saved, so showing "Saving failed" would be wrong.
+	it('does not show the error hint when a stale save rejects after a newer save succeeded', async () => {
+		let rejectA: ((err: Error) => void) | undefined;
+		let resolveB: (() => void) | undefined;
+		const calls: string[] = [];
+		electronApi.updateProfile = (name: string) => {
+			calls.push(name);
+			if (calls.length === 1) {
+				return new Promise<void>((_resolve, reject) => {
+					rejectA = reject;
+				});
+			}
+			return new Promise<void>((resolve) => {
+				resolveB = resolve;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		// Submit A, then B while A is still pending.
+		await act(async () => {
+			input.props.onChange({ target: { value: 'Name A' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+		await act(async () => {
+			input.props.onChange({ target: { value: 'Name B' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+		expect(calls).toEqual(['Name A', 'Name B']);
+
+		// Newer save B succeeds first…
+		await act(async () => {
+			resolveB?.();
+			await Promise.resolve();
+		});
+
+		// …then the stale A rejects late. No error hint may appear.
+		await act(async () => {
+			rejectA?.(new Error('relay offline'));
+			await Promise.resolve().catch(() => {});
+		});
+
+		expect(root.root.findAllByProps({ 'data-testid': 'display-name-error' }).length).toBe(0);
+	});
+
+	// The 4s auto-hide timer must not fire against an unmounted component
+	// (cleanup effect clears it on unmount).
+	it('unmounting while the error-hint timer is pending does not throw or update state', async () => {
+		electronApi.updateProfile = (_name: string) => Promise.reject(new Error('relay offline'));
+		const root = await renderMenuWithSettingsOpen();
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+			await Promise.resolve().catch(() => {});
+		});
+
+		expect(root.root.findAllByProps({ 'data-testid': 'display-name-error' }).length).toBe(1);
+
+		// Unmount while the 4s auto-hide timeout is still pending.
+		await act(async () => {
+			root.unmount();
+		});
 	});
 });
 

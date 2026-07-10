@@ -26,15 +26,23 @@ export default function MenuWindow() {
 	const [messages, setMessages] = useState<Record<string, string>>({});
 	const [recipients, setRecipients] = useState<Record<string, string>>({});
 	const [sendErrors, setSendErrors] = useState<Record<string, string>>({});
-	// Tracks the last name actually sent via updateProfile so Enter + blur
-	// firing in the same interaction (Enter commits, then the input blurs)
-	// only persists once instead of double-submitting (E2).
+	// Tracks the last name *successfully persisted* via updateProfile so an
+	// unchanged name is never re-submitted (E2). Because this ref is only
+	// committed once the IPC promise resolves, it does NOT by itself protect
+	// against Enter + blur firing in the same interaction — that synchronous
+	// double-submit is suppressed by inFlightNameRef below.
 	const lastSavedNameRef = useRef(state.identity?.displayName ?? '');
+	// Name currently being saved. Set synchronously at submit time so the
+	// blur that immediately follows an Enter commit (Enter commits, then the
+	// input blurs) sees the name as already in flight and does not start a
+	// duplicate updateProfile call. Cleared when the latest submit settles;
+	// cleared on rejection too, so a retry with the same name goes through.
+	const inFlightNameRef = useRef<string | null>(null);
 	// Monotonic counter for in-flight updateProfile(name) calls. If two
 	// submits race (e.g. Enter then a fast retry) and resolve out of order,
 	// only the settle whose generation matches the *latest* submit is allowed
-	// to mutate lastSavedNameRef / surface an error, so a late-arriving
-	// resolve for a stale submit can never clobber a newer one.
+	// to mutate lastSavedNameRef / inFlightNameRef / surface an error, so a
+	// late-arriving settle for a stale submit can never clobber a newer one.
 	const nameSaveGenerationRef = useRef(0);
 	// Timer that auto-hides the save-failed hint a few seconds after it
 	// appears, and a flag driving that hint's visibility.
@@ -98,23 +106,30 @@ export default function MenuWindow() {
 		}
 	}
 
-	function updateName() {
-		const name = displayName.trim();
-		if (!name || name === lastSavedNameRef.current) return;
-
-		// Bump the generation before firing the IPC call and capture it in the
-		// closure below. If a newer submit starts before this one settles, its
-		// resolve/reject is stale and must not touch lastSavedNameRef or the
-		// error UI (out-of-order-resolve guard).
-		const generation = ++nameSaveGenerationRef.current;
-
-		// Clear any stale error hint from a previous failed attempt as soon as
-		// a new save starts; the retry is now in flight.
+	function clearNameSaveError() {
 		if (nameSaveErrorTimeoutRef.current) {
 			clearTimeout(nameSaveErrorTimeoutRef.current);
 			nameSaveErrorTimeoutRef.current = null;
 		}
 		setNameSaveFailed(false);
+	}
+
+	function updateName() {
+		const name = displayName.trim();
+		// Skip no-op changes (already persisted) and duplicate submits of a
+		// name whose save is still in flight (Enter + the blur it triggers).
+		if (!name || name === lastSavedNameRef.current || name === inFlightNameRef.current) return;
+
+		// Bump the generation before firing the IPC call and capture it in the
+		// closure below. If a newer submit starts before this one settles, its
+		// resolve/reject is stale and must not touch lastSavedNameRef,
+		// inFlightNameRef, or the error UI (out-of-order-resolve guard).
+		const generation = ++nameSaveGenerationRef.current;
+		inFlightNameRef.current = name;
+
+		// Clear any stale error hint from a previous failed attempt as soon as
+		// a new save starts; the retry is now in flight.
+		clearNameSaveError();
 
 		// Only mark this name as "saved" once the IPC call actually resolves.
 		// If updateProfile rejects (e.g. relay offline), lastSavedNameRef stays
@@ -124,12 +139,17 @@ export default function MenuWindow() {
 			() => {
 				if (nameSaveGenerationRef.current !== generation) return;
 				lastSavedNameRef.current = name;
+				inFlightNameRef.current = null;
+				// A save that lands while the error hint is still visible proves
+				// the problem is gone — dismiss the hint immediately.
+				clearNameSaveError();
 			},
 			() => {
 				if (nameSaveGenerationRef.current !== generation) return;
-				// Leave lastSavedNameRef untouched so the same name can be retried,
-				// and surface a brief hint so the failure isn't silent (the field
-				// stays editable throughout).
+				// Leave lastSavedNameRef untouched and release the in-flight slot
+				// so the same name can be retried, then surface a brief hint so
+				// the failure isn't silent (the field stays editable throughout).
+				inFlightNameRef.current = null;
 				setNameSaveFailed(true);
 				nameSaveErrorTimeoutRef.current = setTimeout(() => {
 					setNameSaveFailed(false);
@@ -143,7 +163,8 @@ export default function MenuWindow() {
 		if (e.key !== 'Enter') return;
 		// Prevent any implicit form behavior and commit immediately, matching
 		// macOS's "Enter commits the display name" (E2). Blurring afterward is
-		// safe: updateName() is idempotent against lastSavedNameRef.
+		// safe: the blur's updateName() sees the name in inFlightNameRef (set
+		// synchronously by this commit) and is a no-op.
 		e.preventDefault();
 		updateName();
 		e.currentTarget.blur();
