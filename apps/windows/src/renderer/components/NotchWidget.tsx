@@ -76,7 +76,6 @@ export default function NotchWidget() {
 		reopenFromHoverTarget,
 	} = lifecycle;
 
-	const expanded = reopening || replyOpen;
 	const widgetClass = newest
 		? reopening
 			? 'notch-reopened'
@@ -303,7 +302,7 @@ export default function NotchWidget() {
 		>
 			{history.length > 0 && <div className="notch-hover-target" onMouseEnter={reopenFromHoverTarget} />}
 			<div className="notch-sliver" aria-hidden="true">
-				{phase === 'peek' && !expanded && (
+				{phase === 'peek' && !(reopening || replyOpen) && (
 					<svg className="notch-ring" width="20" height="20" viewBox="0 0 20 20" style={ringStyle}>
 						<circle className="track" cx="10" cy="10" r={RING_RADIUS} />
 						<circle className="progress" cx="10" cy="10" r={RING_RADIUS} />
