@@ -2,12 +2,16 @@
 
 ## current_state
 
-- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `fd7ff74`).
+- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `4ca7b73`).
 - **Working directory:** sauber bis auf untracked `fp-notes/` (nie committen).
 - **Kontext:** **P0 „UI unsichtbar" gefixt und laufzeit-verifiziert** (Bug A: `ELECTRON_RUN_AS_NODE`-Leak → `setName`-Crash; Bug B: sandboxed Preload konnte ausgelagerten IPC-Chunk nicht laden → gesamtes UI tot). Davor: P3 komplett (Iteration 8), Clipboard-Security-Pfad reviewt+SHIP (Iteration 6/7).
-- **Test-Stand:** `bun test` in `apps/windows`: **430 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
+- **Test-Stand:** `bun test` in `apps/windows`: **455 pass / 3 skip / 0 fail**; `bun run typecheck` clean.
 
 ## completed in dieser Session
+
+### Follow-up-Sweep nach P0 (2026-07-10)
+
+Entscheidungsfreie Härtungen aus zwei Review-Zyklen, alle SHIP (Kimi: nur Low/Nits): `b5f4c90` + `4ca7b73` (Preload-Gate-Tokenizer: fail-closed gegen non-literale requires, Regex-Literal- + Template-Interpolation-State — P0-Kernfall bleibt gefangen), `f3704b5` (dev.mjs 150ms-Restart-Debounce gegen Doppel-Start bei geteilten Modulen), `16206c0` (Notch history/single-view max-height am 480px-Fenster-Clamp kohärent, Content scrollt statt zu clippen), `3944c0b` (Tests: expanded-history pruning-while-visible, FULL→PEEK-pulse, Chevron `type="button"`), `59ea216` (`ownedClipboardTempPaths` FIFO-Cap 200 — Lösch-Autorität-Invariante hält, evictierte Pfade fallen auf 1h-Sweep zurück). Teststand **455 pass / 3 skip / 0 fail**. Offen (optional, Kimi Low/INFO): Tokenizer-`/`-nach-`}`-Ambiguität (fail-closed), 439px-CSS-Konstante ohne Compile-Link zu `NOTCH_MAX_HEIGHT`, dev-Timer `unref`.
 
 ### P0-Fix — „UI komplett unsichtbar beim Start" (2026-07-10)
 
