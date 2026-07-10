@@ -169,9 +169,15 @@ class UpdateServiceImpl implements UpdateService {
 }
 
 function defaultIsDev(): boolean {
-	// Match the existing codebase convention; do not import electron here so the
-	// service stays testable in a Node/Bun environment without Electron binaries.
-	return process.env.NODE_ENV === 'development';
+	// Fail-safe default (Plan 13 review): a caller that omits `isDev` gets the
+	// SAFE branch — `false` — so no dev / auto-check special-casing kicks in by
+	// accident. This deliberately does NOT read `process.env.NODE_ENV`, which is
+	// spoofable by any launcher (the env-var gate bug class). In production the
+	// real value flows in from `main.ts`, which passes `isDev = !app.isPackaged`.
+	// This module stays electron-free (dependency-injected `isDev`) so it remains
+	// testable in a Node/Bun environment without Electron binaries — hence it
+	// cannot read `app.isPackaged` itself here.
+	return false;
 }
 
 export function initUpdateService(

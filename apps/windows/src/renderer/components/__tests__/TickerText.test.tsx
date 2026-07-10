@@ -301,6 +301,8 @@ class FakeResizeObserver {
 
 describe('TickerText re-measures on container resize (ResizeObserver)', () => {
 	let originalResizeObserver: unknown;
+	let originalWindow: unknown;
+	let hadWindow = false;
 
 	beforeEach(() => {
 		originalResizeObserver = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
@@ -308,11 +310,20 @@ describe('TickerText re-measures on container resize (ResizeObserver)', () => {
 		(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = FakeResizeObserver;
 		// prefers-reduced-motion must read false so the scroll path is eligible
 		// (the observer re-measure only matters for the animated variant).
+		hadWindow = 'window' in (globalThis as unknown as Record<string, unknown>);
+		originalWindow = (globalThis as unknown as { window?: unknown }).window;
 		delete (globalThis as unknown as { window?: unknown }).window;
 	});
 
 	afterEach(() => {
 		(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+		// Restore whatever `window` was before this block deleted it, so a
+		// leaked/undefined state can't cross into a later test.
+		if (hadWindow) {
+			(globalThis as unknown as { window?: unknown }).window = originalWindow;
+		} else {
+			delete (globalThis as unknown as { window?: unknown }).window;
+		}
 	});
 
 	// A single shared mock node backs both the container ref (reads clientWidth)

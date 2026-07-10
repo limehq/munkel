@@ -446,7 +446,10 @@ app.whenReady().then(async () => {
 	await appState.restoreCircles();
 	appState.broadcast();
 
-	if (process.env.NODE_ENV === 'development') {
+	// Dev diagnostic only — gate on the same unspoofable `isDev`
+	// (`!app.isPackaged`) as everything else, so a release never prints the
+	// smoke log even if launched with NODE_ENV=development.
+	if (isDev) {
 		const { groupId } = await deriveGroupKeys('blue-table-42');
 		console.log('[munkel-smoke] deriveGroupKeys(blue-table-42) =', groupId);
 		if (groupId !== 'aaf5dc7308fe4bede46cdebc9390813d') {
