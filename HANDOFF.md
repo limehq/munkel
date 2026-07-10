@@ -2,10 +2,10 @@
 
 ## current_state
 
-- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `b2eea7a`).
+- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `da8e294`).
 - **Working directory:** sauber bis auf untracked `fp-notes/` (nie committen).
-- **Kontext:** P1 Parity-Fixes (E1/E2/WIN-NOTCH-004) implementiert, reviewt und code-seitig PR-reif. Iteration 3 Review-Cycle: BLOCK (CRITICAL Enter+Blur-Doppel-Submit) → Fix `b2eea7a` → SHIP mit 2 INFO-Follow-ups.
-- **Test-Stand:** `bun test` in `apps/windows`: **227 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
+- **Kontext:** P2.1 (Launch-at-Login opt-in) und P2.4 (Avatar-Chip-Recipient-Picker) implementiert, review-gehärtet und code-seitig PR-reif. Iteration 4 Review-Cycle: 2 MAJOR + 2 MINOR Findings → Fixes in `1fd33f2` und `da8e294` → Re-Review Verdikt **SHIP-mit-Follow-ups**.
+- **Test-Stand:** `bun test` in `apps/windows`: **259 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
 
 ## completed in dieser Session
 
@@ -37,8 +37,49 @@ Code-Änderungen auf `platform/windows/macos-parity-p1` nach dem ersten adversar
 - **Fix:** `b2eea7a` eingespielt.
 - **Re-Review:** Verdikt **SHIP** mit 2 INFO-Punkten:
   1. Testabdeckung könnte um „Blur mit anderem Namen während in-flight" ergänzt werden.
-  2. Theoretisches Haängenbleiben von `inFlightNameRef`, falls `updateProfile` synchron wirft (kein praktisch beobachtetes Szenario, da `updateProfile` immer asynchron ist).
+  2. Theoretisches Hängenbleiben von `inFlightNameRef`, falls `updateProfile` synchron wirft (kein praktisch beobachtetes Szenario, da `updateProfile` immer asynchron ist).
 - Beide INFO-Punkte werden als optionale Follow-ups geführt, blockieren den PR nicht.
+
+### Iteration 4 — P2.1 + P2.4 Review-Härtung (2026-07-10)
+
+Code-Änderungen auf `platform/windows/macos-parity-p1` nach dem adversarialen Review von P2.1 (Launch at Login) und P2.4 (Avatar-Chip-Recipient-Picker).
+
+#### 1. Launch at Login opt-in — DONE
+
+- **Commit:** `db3c619`
+- **Dateien:** `apps/windows/src/main/login-item.ts`, `apps/windows/src/main/main.ts`, `apps/windows/src/main/identity-store.ts`, `apps/windows/src/renderer/components/MenuWindow.tsx`, `apps/windows/src/shared/ipc-channels.ts`, `apps/windows/src/renderer/components/__tests__/MenuWindow.test.tsx`, `apps/windows/src/main/__tests__/login-item.test.ts`, `apps/windows/src/main/__tests__/identity-store.test.ts`
+- **Inhalt:** Testbares `login-item.ts` wrappt `app.setLoginItemSettings({ openAtLogin })`; Persistenz in `IdentityStore#launchAtLogin` (Default `false`, Migration für Legacy-`state.json`); neue IPC-Kanäle `GET_LAUNCH_AT_LOGIN`/`SET_LAUNCH_AT_LOGIN`; Settings-Popover zeigt persisteden Wert und optimistic Checkbox mit Snap-back bei OS-Fehler.
+
+#### 2. Avatar-Chip-Recipient-Picker — DONE
+
+- **Commit:** `d4b3b5e`
+- **Dateien:** `apps/windows/src/renderer/components/MenuWindow.tsx`, `apps/windows/src/renderer/styles/global.css`, `apps/windows/src/renderer/components/__tests__/MenuWindow.test.tsx`
+- **Inhalt:** `RecipientChipRow` ersetzt native `<select>` durch Globe-"All"-Chip plus pro Mitglied einen Avatar+Name-Chip; horizontale Scroll, `title`-Tooltip, `aria-pressed` für Auswahlzustand; unveränderter `onRecipientChange`-Vertrag.
+
+#### Review-Verlauf
+
+- **Erster Review:** 2 MAJOR-Findings + 2 MINOR-Findings.
+  - **MAJOR:** `SET_LAUNCH_AT_LOGIN`-IPC in `main.ts` hatte keinen Menu-Sender-Guard — jeder Renderer hätte den Autostart toggeln können.
+  - **MAJOR:** Dev-Mode-Skip in `login-item.ts` behandelte `app.isPackaged === false` als Erfolg (Skip = Erfolg), ließ aber `resolve(false)` zurück, sodass der Renderer fälschlich auf unchecked snappte.
+  - **MINOR:** Launch-at-Login-Toggle hatte keinen inFlight-Guard — schnelle Klicks konnten Race-Conditions gegen `setLoginItemSettings` erzeugen.
+  - **MINOR:** `RecipientChipRow` war als einfache Button-Liste umgesetzt, fehlte `radiogroup`, `roving tabindex` und Pfeiltasten-Navigation.
+- **Fix:** `1fd33f2` für die beiden MAJOR-Findings, `da8e294` für die beiden MINOR-Findings.
+- **Re-Review:** Verdikt **SHIP-mit-Follow-ups**. Keine Blocker.
+
+#### Testzahlen
+
+- Nach P2.1 + P2.4: **247 pass / 2 skip / 0 fail**.
+- Nach Review-Härtung (Iteration 4): **259 pass / 2 skip / 0 fail**; `bun run typecheck` grün.
+
+#### Offene Entscheidungen / QA
+
+- **Open Question 4 (Lightbox-Verhalten):** Soll ein Klick auf ein Notch-Thumbnail eine Lightbox innerhalb der Notch, ein eigenes always-on-top-Fenster oder den System-Viewer öffnen?
+- **Open Question 5 (CLI-Distributionsmodell):** Soll der Windows-Client den CLI als `extraResource` bundlen und per Menü-Eintrag installieren (P2.2), oder bleibt der CLI ein separates Installationsartefakt?
+- **Manuelles QA-Gate vor dem PR:**
+  - Packaged-Build-Autostart für P2.1 (Log-out/-in, Windows-Startup-Apps-Einstellung spiegelt Checkbox wider).
+  - Chip-Row Screenreader/Tastatur für P2.4 (Fokus, Pfeiltasten, Auswahl ankündigen).
+  - Notch bei 100 % / 125 % / 150 % Display-Skalierung (P1.3).
+  - Retry nach simuliertem Relay-Offline im laufenden App (P1.2).
 
 #### 1. Display-name Retry nach fehlgeschlagenem `updateProfile` — DONE
 - **Commit:** `3f07edb`
