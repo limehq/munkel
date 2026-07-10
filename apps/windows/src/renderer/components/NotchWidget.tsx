@@ -52,6 +52,16 @@ export default function NotchWidget() {
 	// field) after SENT_CONFIRMATION_MS.
 	const [sentConfirmation, setSentConfirmation] = useState<{ entryId: string; label: string } | null>(null);
 	const sentConfirmationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// Mirrors `sentConfirmation` for the timer callback below. React 18
+	// batches/defers `setState` updater functions even outside of React
+	// event handlers, so a setTimeout callback cannot read the *result* of
+	// its own `setSentConfirmation(...)` call synchronously — a plain ref,
+	// kept in sync via the effect just below, is what makes a same-tick
+	// "is this still current?" check possible.
+	const sentConfirmationRef = useRef<{ entryId: string; label: string } | null>(null);
+	useEffect(() => {
+		sentConfirmationRef.current = sentConfirmation;
+	}, [sentConfirmation]);
 
 	const clearSentConfirmation = useCallback(() => {
 		if (sentConfirmationTimerRef.current) {
@@ -325,10 +335,18 @@ export default function NotchWidget() {
 	useEffect(() => {
 		if (!replyingTo) return;
 		if (history.some((entry) => entry.id === replyingTo)) return;
+		// The target entry aged out of the 60s history window. Any "Sent to …"
+		// confirmation chip showing here necessarily belongs to this same
+		// entry (sentConfirmation.entryId always tracks replyingTo — every
+		// other path that changes replyingTo clears it first via
+		// clearSentConfirmation), so its pending SENT_CONFIRMATION_MS timer
+		// must be cancelled together with the reply field it's about to close;
+		// otherwise the chip/timer would outlive the field that owns it.
+		clearSentConfirmation();
 		closeReply();
 		setReplyText('');
 		setError(null);
-	}, [history, replyingTo, closeReply]);
+	}, [history, replyingTo, closeReply, clearSentConfirmation]);
 
 	function openReply(entry: NotchHistoryEntry) {
 		// Cancel any pending "Sent to …" auto-dismiss before opening a reply.
@@ -409,8 +427,19 @@ export default function NotchWidget() {
 				entryId: entry.id,
 				label: recipient.to !== undefined ? `Sent to ${entry.sender}` : 'Sent to all',
 			});
+			const targetEntryId = entry.id;
 			sentConfirmationTimerRef.current = setTimeout(() => {
 				sentConfirmationTimerRef.current = null;
+				// Formal race guard (belt and suspenders): the various
+				// clearSentConfirmation() call sites (openReply, a new message
+				// arriving, the reply-prune effect above) already cancel this
+				// timer outright whenever it would otherwise race, so this
+				// should always be true when the timer fires. Reading the
+				// *current* confirmation via the ref (not the `entry`/closure
+				// value captured at schedule time) means a hypothetical future
+				// path that leaves it pointing at a different — or no — entry
+				// can't cause this timer to close an unrelated reply.
+				if (sentConfirmationRef.current?.entryId !== targetEntryId) return;
 				setSentConfirmation(null);
 				closeReply();
 			}, SENT_CONFIRMATION_MS);

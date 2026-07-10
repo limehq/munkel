@@ -1661,3 +1661,202 @@ describe('NotchWidget "Sent to …" reply confirmation (Plan 12)', () => {
 		});
 	});
 });
+
+describe('NotchWidget reply-prune stale-timer guard (Plan 13 items 3–4)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let originalResizeObserver: unknown;
+	let timers: FakeTimers;
+
+	function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
+		return {
+			sender: 'Alice',
+			senderMemberId: 'alice-id',
+			text: 'Hello from Alice',
+			isDirect: false,
+			group: 'test-circle',
+			groupColor: '#3b82f6',
+			receivedAt: new Date(Date.now()).toISOString(),
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		timers = new FakeTimers();
+		timers.install();
+		electronApi = createMockElectronApi();
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = {
+			electronAPI: electronApi,
+		};
+		(globalThis as unknown as { navigator: unknown }).navigator = {
+			clipboard: { writeText: (_text: string) => Promise.resolve() },
+		};
+		originalResizeObserver = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+		delete (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+	});
+
+	afterEach(() => {
+		timers.restore();
+		delete (globalThis as unknown as { window?: unknown }).window;
+		delete (globalThis as unknown as { navigator?: unknown }).navigator;
+		(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+	});
+
+	async function renderWidget() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<NotchWidget />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	function widgetNode(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ 'data-testid': 'notch-widget' });
+	}
+
+	async function reopenHistory(root: ReturnType<typeof create>) {
+		await act(async () => {
+			widgetNode(root).props.onMouseEnter();
+		});
+		const hoverTarget = root.root.findByProps({ className: 'notch-hover-target' });
+		await act(async () => {
+			hoverTarget.props.onMouseEnter();
+		});
+	}
+
+	function entryByText(root: ReturnType<typeof create>, text: string) {
+		const candidates = root.root.findAll(
+			(node) =>
+				typeof node.props['data-testid'] === 'string' &&
+				(node.props['data-testid'] as string).startsWith('history-entry-'),
+		);
+		const match = candidates.find((entry) => entry.findAllByType('p').some((p) => p.props.children === text));
+		if (!match) throw new Error(`no history entry found for text: ${text}`);
+		return match;
+	}
+
+	function findSentConfirmation(root: ReturnType<typeof create>) {
+		const matches = root.root.findAll(
+			(node) =>
+				typeof node.props['data-testid'] === 'string' &&
+				(node.props['data-testid'] as string).startsWith('sent-confirmation-'),
+		);
+		return matches[0];
+	}
+
+	it('closes the reply and clears the confirmation chip exactly once when the replied-to entry is pruned from history', async () => {
+		const root = await renderWidget();
+
+		// 'expiring reply target' sits just inside the 60s window; a fresh
+		// message keeps the notch reopened via history so the aging entry
+		// stays visible (and repliable) until the next 1s prune tick.
+		await act(async () => {
+			electronApi.simulateNotchMessage(
+				makeMessage({ text: 'expiring reply target', receivedAt: new Date(Date.now() - 59_700).toISOString() }),
+			);
+		});
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'keep message' }));
+		});
+
+		await reopenHistory(root);
+
+		await act(async () => {
+			entryByText(root, 'expiring reply target')
+				.findByProps({ 'aria-label': 'Reply' })
+				.props.onClick({ stopPropagation: () => {} });
+		});
+		expect(root.root.findAllByProps({ title: 'Send' }).length).toBe(1);
+
+		// Cross the 60s history boundary — the prune effect should close the
+		// reply exactly once (no duplicate closeReply()/setState calls, no
+		// thrown error) as its target entry disappears from `history`.
+		await act(async () => {
+			timers.advance(1_000);
+		});
+
+		expect(() => entryByText(root, 'expiring reply target')).toThrow();
+		expect(root.root.findAllByProps({ title: 'Send' }).length).toBe(0);
+		expect(findSentConfirmation(root)).toBeUndefined();
+
+		// Unmounting afterward must not throw or warn about a leaked timer —
+		// clearSentConfirmation() in the prune effect already cancelled the
+		// (never-armed, in this case) confirmation timer.
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('cancels the sent-confirmation timer when its entry is pruned, so it cannot later close an unrelated reply', async () => {
+		const root = await renderWidget();
+
+		await act(async () => {
+			electronApi.simulateNotchMessage(
+				makeMessage({ text: 'message A', receivedAt: new Date(Date.now() - 59_700).toISOString() }),
+			);
+		});
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'message B' }));
+		});
+
+		await reopenHistory(root);
+
+		// Reply to A (about to expire) and send successfully — chip + a 1.5s
+		// SENT_CONFIRMATION_MS timer are now armed for A.
+		await act(async () => {
+			entryByText(root, 'message A')
+				.findByProps({ 'aria-label': 'Reply' })
+				.props.onClick({ stopPropagation: () => {} });
+		});
+		await act(async () => {
+			entryByText(root, 'message A')
+				.findByProps({ className: 'frosted-field' })
+				.props.onChange({ target: { value: 'reply to A' } });
+		});
+		await act(async () => {
+			entryByText(root, 'message A').findByProps({ title: 'Send' }).props.onClick();
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		expect(findSentConfirmation(root)).toBeDefined();
+
+		// Cross the 60s boundary — A is pruned from history while its
+		// confirmation chip/timer is still pending.
+		await act(async () => {
+			timers.advance(1_000);
+		});
+		expect(() => entryByText(root, 'message A')).toThrow();
+		expect(findSentConfirmation(root)).toBeUndefined();
+
+		// Advance past A's original SENT_CONFIRMATION_MS dwell (1.5s). If the
+		// prune effect had not cancelled A's timer, it would fire here and
+		// call closeReply() — which must not be able to affect a reply opened
+		// afterward on an unrelated entry.
+		await act(async () => {
+			timers.advance(1_500);
+		});
+
+		await act(async () => {
+			entryByText(root, 'message B')
+				.findByProps({ 'aria-label': 'Reply' })
+				.props.onClick({ stopPropagation: () => {} });
+		});
+		expect(root.root.findAllByProps({ title: 'Send' }).length).toBe(1);
+
+		// A's long-dead timer (had it not been cancelled) would fire again
+		// around this point in wall-clock terms; confirm B's reply survives.
+		await act(async () => {
+			timers.advance(2_000);
+		});
+		expect(root.root.findAllByProps({ title: 'Send' }).length).toBe(1);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+});
