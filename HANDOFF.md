@@ -2,12 +2,22 @@
 
 ## current_state
 
-- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `e421a02`).
+- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `0f5e281`).
 - **Working directory:** sauber bis auf untracked `fp-notes/` (nie committen).
-- **Kontext:** **Parity-Gap-Slice** (Copy-Code-Button, 2048-Limit, Sent-to-Chip) umgesetzt + reviewt (SHIP); davor **P0 „UI unsichtbar" gefixt und laufzeit-verifiziert** (Bug A: `ELECTRON_RUN_AS_NODE`-Leak → `setName`-Crash; Bug B: sandboxed Preload konnte ausgelagerten IPC-Chunk nicht laden → gesamtes UI tot). Davor: P3 komplett (Iteration 8), Clipboard-Security-Pfad reviewt+SHIP (Iteration 6/7).
-- **Test-Stand:** `bun test` in `apps/windows`: **487 pass / 3 skip / 0 fail**; `bun run typecheck` clean.
+- **Kontext:** **Plan 13** (restliche entscheidungsfreie macOS-Parität: Message-Ticker, 2 Dev-Toggles, CLI-Drift) umgesetzt + reviewt (SHIP). **Matrix 36 DONE / 2 PARTIAL / 0 MISSING / 2 BLOCKED** — code-seitig komplett bis auf P2.2/P2.3 (OQ5/OQ4) + visuelle QA. Davor: Parity-Gap-Slice, P0 „UI unsichtbar" (Bug A `ELECTRON_RUN_AS_NODE`-Leak + Bug B Preload-Chunk), P3 komplett.
+- **Test-Stand:** `bun test` in `apps/windows`: **537 pass / 3 skip / 0 fail**; `bun run typecheck` clean.
 
 ## completed in dieser Session
+
+### Plan 13 — restliche entscheidungsfreie Parität (2026-07-10, voller 4-Schritt-Prozess)
+
+- **Prozess:** Kimi-Planer schrieb `apps/windows/docs/plans/13-remaining-parity.md` → Kimi-Verifizierer korrigierte (stale Zeilennummern, Ticker-Breite 280px, Dev-Gating-Mechanik, Matrix-Zählung) → Sonnet-7er-Batch → Kimi-Review → Fixes → Re-Review **SHIP**.
+- **Commits:** `b924689` (CLI-Drift: `message-limits` → `packages/shared-wire`, CLI+Windows aus einer Quelle), `4ea0879` (act-Warning), `59b2cbd` (Prune-Guard + Sent-to-Race-Guard), `f656798` (Dev-Toggles „Allow in screenshots" + „Echo my broadcasts", dev-only), `7410cae` (Message-Ticker, macOS `TickerText.swift`, 280px, ResizeObserver, reduced-motion), `7474161` (Doku+Matrix-Reconcile), `e1ed3ad` (Review-MAJOR: Dev-Gate `NODE_ENV`→`!app.isPackaged` + second-instance-Recreate gehärtet), `e23d6ce` (Ticker-Resize), `32064e4` (Timer-Guard-Order), `0f5e281` (alle restlichen NODE_ENV-Dev-Zweige entfernt; `defaultIsDev` fail-safe `false`).
+- **Security-Kern (reviewt+bestätigt):** Dev-Features (Echo, Content-Protection-Abschaltung) hängen ausschließlich an `!app.isPackaged` (unspoofbar). 4-Punkte-Release-Garantie: `get-is-dev`=false, SET-Handler early-return, `AppState`-Fold, `applyContentProtection` beim Start+Recreate. Echo-Pfad = nur lokale `onNotch`-Anzeige, kein Re-Broadcast. Repo-weit **kein** env-spoofbarer `NODE_ENV==='development'`-Zweig mehr.
+- **BLOCKED (wartet auf User):** P2.2 CLI-Installer (OQ5: bundle vs. separat), P2.3 Bild-Lightbox (OQ4: Notch-intern/eigenes Fenster/System-Viewer) — die image-copy-PARTIAL ist an P2.3 gekoppelt.
+- **Teststand:** 537 pass / 3 skip / 0 fail; typecheck clean; 0 act()-Warnungen.
+
+## completed in dieser Session (früher)
 
 ### Parity-Gap-Slice — 3 fehlende macOS-Features + Matrix-Reconcile (2026-07-10)
 
