@@ -1860,3 +1860,123 @@ describe('NotchWidget reply-prune stale-timer guard (Plan 13 items 3–4)', () =
 		});
 	});
 });
+
+describe('NotchWidget message ticker wiring (Plan 13 item 7)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let originalResizeObserver: unknown;
+
+	function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
+		return {
+			sender: 'Alice',
+			senderMemberId: 'alice-id',
+			text: 'Hello from Alice',
+			isDirect: false,
+			group: 'test-circle',
+			groupColor: '#3b82f6',
+			receivedAt: new Date().toISOString(),
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi();
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = {
+			electronAPI: electronApi,
+		};
+		(globalThis as unknown as { navigator: unknown }).navigator = {
+			clipboard: { writeText: (_text: string) => Promise.resolve() },
+		};
+		originalResizeObserver = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+		delete (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+		delete (globalThis as unknown as { navigator?: unknown }).navigator;
+		(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+	});
+
+	async function renderWidget() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<NotchWidget />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	function findTickers(root: ReturnType<typeof create>) {
+		return root.root.findAll((node) => node.props['data-testid'] === 'ticker');
+	}
+
+	it('renders the ticker for the newest message in the single/current-message view (phase "full")', async () => {
+		const root = await renderWidget();
+
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'a fresh message' }));
+		});
+
+		const tickers = findTickers(root);
+		expect(tickers.length).toBe(1);
+		expect(tickers[0]!.findByType('span').props.children).toBe('a fresh message');
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('keeps rendering the ticker while a reply is open on the newest message (replyingTo === newest.id)', async () => {
+		const root = await renderWidget();
+
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'reply target' }));
+		});
+
+		const replyButton = root.root.findByProps({ 'aria-label': 'Reply' });
+		await act(async () => {
+			replyButton.props.onClick({ stopPropagation: () => {} });
+		});
+
+		expect(findTickers(root).length).toBe(1);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('does NOT render the ticker in reopened history rows — those keep the plain ellipsis-collapsible text', async () => {
+		const root = await renderWidget();
+
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'older message' }));
+		});
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'newest message' }));
+		});
+
+		// Reopen via hover so both messages render as `.notch-history-list`
+		// rows (`collapsible: true`) instead of the single current-message view.
+		const widgetNode = root.root.findByProps({ 'data-testid': 'notch-widget' });
+		await act(async () => {
+			widgetNode.props.onMouseEnter();
+		});
+		await act(async () => {
+			root.root.findByProps({ className: 'notch-hover-target' }).props.onMouseEnter();
+		});
+
+		expect(findTickers(root).length).toBe(0);
+		// Both rows are present, rendered via the collapsible/ellipsis path instead.
+		const collapsedParagraphs = root.root.findAll(
+			(node) => node.type === 'p' && typeof node.props.className === 'string' && node.props.className.includes('message-text'),
+		);
+		expect(collapsedParagraphs.length).toBe(2);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+});

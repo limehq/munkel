@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Avatar } from './Avatar';
+import { TickerText } from './TickerText';
 import { useAppStore } from '../store/app-store';
 import { resolveReplyRecipient } from '../lib/resolve-reply-recipient';
 import { shouldOpenReplyOnMessageClick } from '../lib/should-open-reply-on-message-click';
@@ -467,10 +468,13 @@ export default function NotchWidget() {
 	 * `collapsible` (Plan 12 P3.6) marks a row as belonging to the reopened
 	 * history list: it defaults to a single ellipsized line and renders a
 	 * chevron button that toggles this row's id in `expandedHistoryIds`. The
-	 * single "current message" view (`collapsible` unset) is never truncated,
-	 * matching today's behavior and the macOS reference's always-expanded
-	 * "current message" (`fullyExpanded` teaser is separate from
-	 * `historyExpanded`, which only governs the rows *below* it).
+	 * single "current message" view (`collapsible` unset) is never
+	 * ellipsis-truncated — long text there instead scrolls once via
+	 * `TickerText` (Plan 13 item 7), mirroring the macOS reference's
+	 * always-expanded "current message" (`fullyExpanded` teaser is separate
+	 * from `historyExpanded`, which only governs the rows *below* it). The
+	 * two are mutually exclusive per row: history rows never get the ticker,
+	 * and the single-message view never gets the chevron-driven ellipsis.
 	 */
 	function renderMessageRow(entry: NotchHistoryEntry, options?: { pulse?: boolean; collapsible?: boolean }) {
 		const hasImages = !!entry.images?.length;
@@ -502,7 +506,11 @@ export default function NotchWidget() {
 							<span className="circle-dot" style={{ background: entry.groupColor }} />
 							<span className="circle-name">{entry.group}</span>
 						</div>
-						<p className={collapsed ? 'message-text message-text-collapsed' : 'message-text'}>{entry.text}</p>
+						{collapsible ? (
+							<p className={collapsed ? 'message-text message-text-collapsed' : 'message-text'}>{entry.text}</p>
+						) : (
+							<TickerText text={entry.text} className="message-text" />
+						)}
 						{hasImages && (
 							<div className="image-preview-row" onClick={(e) => e.stopPropagation()}>
 								{entry.images!.map((img) => (

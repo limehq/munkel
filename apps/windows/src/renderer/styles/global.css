@@ -899,6 +899,59 @@ select {
 	text-overflow: ellipsis;
 }
 
+/*
+ * Message text ticker (Plan 13 item 7, `TickerText.tsx`), used ONLY in the
+ * single "current message" view — never on `.history-entry` rows rendered
+ * with `collapsible: true` (those keep `.message-text-collapsed` above; the
+ * two features are mutually exclusive per row, matching the component's own
+ * one-render-branch-or-the-other wiring in NotchWidget.tsx). Same
+ * typography as `.message-text` so swapping between the two view states
+ * doesn't visibly reflow.
+ */
+.ticker {
+	overflow: hidden;
+	white-space: nowrap;
+	width: 100%;
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 1.35;
+	color: var(--munkel-text);
+}
+
+.ticker-text {
+	display: inline-block;
+	white-space: nowrap;
+	will-change: transform;
+}
+
+/* Duration comes from the inline `transitionDuration` style (depends on the
+   measured scroll distance); this only sets which property animates and how. */
+.ticker.ticker-scrolling .ticker-text {
+	transition-property: transform;
+	transition-timing-function: linear;
+}
+
+/* Trailing fade appears as soon as a ticker is scroll-eligible, even before
+   the standstill delay elapses. */
+.ticker.ticker-scrolling {
+	-webkit-mask-image: linear-gradient(to right, black 0%, black 96%, transparent 100%);
+	mask-image: linear-gradient(to right, black 0%, black 96%, transparent 100%);
+}
+
+/* Leading fade only once the text has actually started moving (macOS:
+   `offset > 0.5`) — the first characters must be fully readable at rest. */
+.ticker.ticker-scrolling.ticker-moving {
+	-webkit-mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
+	mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
+}
+
+/* `prefers-reduced-motion` (or an environment without `matchMedia`) skips
+   the scroll animation entirely (see TickerText's `reduced` state) and
+   truncates with an ellipsis instead — no fade masks on a static line. */
+.ticker.ticker-static-truncated {
+	text-overflow: ellipsis;
+}
+
 .history-expand-button {
 	margin-top: 2px;
 	font-size: 11px;
@@ -1008,6 +1061,16 @@ select {
 	.avatar-pulse::after {
 		animation: none;
 		display: none;
+	}
+
+	/* Defense in depth on top of TickerText's own `matchMedia` check (Plan 13
+	 * item 7): if JS ever renders the scrolling variant anyway (e.g. an
+	 * embedding without `window.matchMedia`), CSS still freezes it in place.
+	 * `!important` is required to beat the inline `transform`/`transitionDuration`
+	 * TickerText sets when it believes reduced-motion is off. */
+	.ticker-text {
+		transform: none !important;
+		transition: none !important;
 	}
 }
 
