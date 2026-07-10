@@ -2,10 +2,19 @@
 
 ## current_state
 
-- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `0f2efe5`).
+- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `fd7ff74`).
 - **Working directory:** sauber bis auf untracked `fp-notes/` (nie committen).
-- **Kontext:** P3-Slice 2 (P3.4 Clipboard-Bild-Paste, P3.5 Avatar-Animation) implementiert und über zwei Review-Zyklen (Iteration 6 + 7) vollständig gehärtet; der Clipboard-Security-Pfad ist reviewt und SHIP.
-- **Test-Stand:** `bun test` in `apps/windows`: **357 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
+- **Kontext:** **P0 „UI unsichtbar" gefixt und laufzeit-verifiziert** (Bug A: `ELECTRON_RUN_AS_NODE`-Leak → `setName`-Crash; Bug B: sandboxed Preload konnte ausgelagerten IPC-Chunk nicht laden → gesamtes UI tot). Davor: P3 komplett (Iteration 8), Clipboard-Security-Pfad reviewt+SHIP (Iteration 6/7).
+- **Test-Stand:** `bun test` in `apps/windows`: **430 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
+
+## completed in dieser Session
+
+### P0-Fix — „UI komplett unsichtbar beim Start" (2026-07-10)
+
+- **Symptom (User):** beim Start von Munkel nichts von der UI sichtbar. **Diagnose via Live-Repro** (geloggter `bun run dev`), nicht aus HANDOFF — zwei getrennte Ursachen, keine davon in den statischen Hypothesen (Single-Instance-Lock, Boot-Exceptions, Notch-Clamp, versteckter Tray waren ALLE falsch; auch der Notch-Resize-Verdacht wurde widerlegt).
+- **Bug A — `ELECTRON_RUN_AS_NODE`-Leak (`c7f14bd`):** Das Flag ist im VS-Code-/Claude-Host-Env gesetzt (nicht persistent — User/Machine-Scope leer, Parent-Kette pwsh←claude←Code-Insiders) und wurde von `dev.mjs` per `{...process.env}` an Electron durchgereicht → echte Binary lief als Node → `require('electron')` = Pfad-String → `app` undefined → `app.setName()` wirft an `main.ts:37` beim Modul-Laden → Main stirbt vor jedem Fenster. Fix: `ELECTRON_RUN_AS_NODE` aus dem Electron-Child-Env in `dev.mjs` gelöscht + defensiv in `launch-munkel-dev.cmd`.
+- **Bug B — Preload lädt nicht (`3406772`):** IPC-Zentralisierung (`4b7f492`) importierte `../shared/ipc-channels` in main UND preload → Vite (lib mode, 2 Entries) lagerte es in einen Chunk aus → `dist/preload.cjs` enthielt `require("./ipc-channels-*.cjs")`, das ein **sandboxed Preload nicht laden darf** → `Unable to load preload script` → `window.electronAPI` in jedem Renderer undefined → `NotchWidget`/Menü/Palette crashen. Fix: getrennte single-entry Vite-Builds (`vite.main.config.ts` + neue `vite.preload.config.ts`, `inlineDynamicImports:true`) → Preload self-contained; `clean-dist.mjs` (one-time clear, `emptyOutDir:false`) + Build-Gate `check-preload-selfcontained.mjs` + `preload-build.test.ts` als Regressionsschutz.
+- **Verifikation:** Orchestrator-Live-Repro aus vergifteter Shell → alle 3 Crash-Signaturen 0, Main bootet (`restoreCircles {count:2}`, Relays `open`), keine Renderer-Fehler. Kimi-Review: **SHIP-mit-Follow-ups** (nur MINOR: Gate-Regex gegen require-in-String/Template-Literal härten; Doppel-Restart im Dev debouncen). Bug-Doc: `docs/bugs/windows-ui-invisible-2026-07-10.md`. Commits: `3406772`, `c7f14bd`, `fd7ff74`. Teststand **430 pass / 2 skip / 0 fail**.
 
 ## completed in dieser Session
 

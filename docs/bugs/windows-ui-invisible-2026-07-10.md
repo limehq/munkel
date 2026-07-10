@@ -195,12 +195,22 @@ second running instance). Confirmed so far:
 - [x] `bun run typecheck` green across the monorepo.
 - [x] `bun test` in `apps/windows`: 430 pass, 2 skip, 0 fail (429 baseline + 1
       new preload self-containment test).
-- [ ] **Pending:** actually launch `bun run dev` (or a packaged build) from a
-      normal (non-VS-Code-terminal) shell and confirm the notch/menu/palette
-      render and respond to `window.electronAPI` calls.
-- [ ] **Pending:** launch `bun run dev` from a VS Code / Claude Code
-      integrated terminal specifically, to confirm Bug A's fix prevents the
-      `app.setName()` crash in that environment.
-- [ ] **Pending:** launch via the Start Menu shortcut
-      (`launch-munkel-dev.cmd`) to confirm the GUI-launcher path is also
-      unaffected by either bug.
+- [x] **Runtime-verified by the orchestrator (2026-07-10):** launched
+      `bun run dev` **from a shell that carried `ELECTRON_RUN_AS_NODE=1`** (the
+      exact poisoned condition — a Claude-Code/VS-Code-spawned terminal). Result
+      captured in `scratchpad/munkel-verify.log`: all three crash signatures are
+      **0** (`reading 'setName'`, `reading 'notchResize'`, `Unable to load
+      preload script`), the main process boots (`[munkel] userData path`,
+      `restoreCircles {count:2}`, both circles `[relay] open`), and there are
+      **no renderer errors** — so `dev.mjs` correctly strips the flag from the
+      Electron child (Bug A) and the self-contained `preload.cjs` loads so
+      `window.electronAPI` is defined and `NotchWidget` mounts (Bug B). The
+      process stayed alive (no crash-exit). Kimi review of the fix commits:
+      **SHIP-with-follow-ups** (no CRITICAL/BLOCK).
+- [ ] Optional follow-up (Kimi MINOR): harden `check-preload-selfcontained.mjs`
+      against `require` inside string/comment (false positive) and against
+      template-literal/variable specifiers (false negative); debounce the double
+      Electron restart in `dev.mjs` when a module shared by both bundles changes.
+- [ ] Not yet done (cosmetic): a human still eyeballing the actual rendered
+      notch/menu on screen and the Start-Menu-shortcut path — the log proves the
+      code path works, but a visual confirmation is still worthwhile.
