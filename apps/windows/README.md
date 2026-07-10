@@ -76,6 +76,8 @@ Phase 1 is feature-complete for day-to-day messaging:
 - Menu: "Check Automatically" toggle in Settings for auto-update checks (default on).
 - Notch: hover-"C" keyboard shortcut copies the hovered history row (or the newest message) while the notch is hovered.
 - Notch: a blue unread-indicator dot appears in the retracted sliver for a message the user hasn't hovered or replied to.
+- Palette and menu: `Ctrl+V` attaches a clipboard image (PNG/JPEG/Bitmap) when present, falling through to normal text paste otherwise.
+- Avatars slide/fade in on mount, with an (as-yet-unwired) one-time pulse-ring capability for new messages — see Plan 12 P3.5 notes.
 
 GitHub login is optional. The app still works with a manual display name and
 joined circles even when no GitHub account is connected. A real

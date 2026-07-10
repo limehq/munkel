@@ -19,7 +19,7 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 | 9 | [Circle leave confirmation dialog](./09-circle-leave-confirmation.md) | `platform/windows/circle-leave-confirmation` | `v2-clean` | ✅ Merged |
 | 10 | [Logo assets integration](./10-logo-assets-integration.md) | `platform/windows/logo-assets-integration` | Plan 04 in `v2-clean` | ✅ Merged |
 | 11 | [Auto-update](./11-auto-update.md) | `platform/windows/auto-update` | `v2-clean` | 🔄 In review |
-| 12 | [macOS feature parity (matrix + P1–P3)](./12-macos-feature-parity.md) | `platform/windows/macos-parity-p1` | #11 branch stack | 🔄 P1 done (2026-07-10), P2/P3 open |
+| 12 | [macOS feature parity (matrix + P1–P3)](./12-macos-feature-parity.md) | `platform/windows/macos-parity-p1` | #11 branch stack | 🔄 P1 done, P2 mostly done, P3.2–P3.5 + P3.7 done (2026-07-10) — P3.1/P3.6 open |
 
 > **Plans 01–07 are merged into `platform/windows/v2-clean`.**
 > Phase 2 + Plans 01–05 shipped via PR #12–#16 and PR #22; Plan 06 merged via
