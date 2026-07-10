@@ -35,6 +35,7 @@ const api: IpcApi = {
 	endNotchReply: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_END_REPLY),
 	notchSetInteractive: (interactive) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_SET_INTERACTIVE, interactive),
 	notchEmpty: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_EMPTY),
+	notchResize: (contentHeight) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_RESIZE, contentHeight),
 
 	onStateUpdate: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: StateUpdate) => callback(data);

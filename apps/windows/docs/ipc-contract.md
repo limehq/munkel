@@ -38,6 +38,7 @@ the main process by `ipcMain.handle(...)`.
 | `notch-end-reply` | `() => Promise<void>` | `main.ts` | Blurs the notch and restores `focusable: false` after reply closes. **Sender must be the notch window.** |
 | `notch-set-interactive` | `(interactive: boolean) => Promise<void>` | `main.ts` | **Sender must be the notch window.** Toggles `win.setIgnoreMouseEvents(!interactive, { forward: true })` so the renderer can switch between passthrough and interactive states. |
 | `notch-empty` | `() => Promise<void>` | `main.ts` | **Sender must be the notch window.** Debounced renderer signal that history is empty, triggering `requestNotchHide` / `hideNotch`. |
+| `notch-resize` | `(contentHeight: number) => Promise<void>` | `main.ts` | **Sender must be the notch window.** Reports the rendered widget height (ResizeObserver) so the main process resizes the notch window to its content, clamped to `[NOTCH_MIN_HEIGHT, NOTCH_MAX_HEIGHT]`. Width never changes. |
 
 ## Main → Renderer (push)
 

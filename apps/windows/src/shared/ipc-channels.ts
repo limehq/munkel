@@ -33,6 +33,7 @@ export const IPC_CHANNELS = {
   NOTCH_END_REPLY: 'notch-end-reply',
   NOTCH_SET_INTERACTIVE: 'notch-set-interactive',
   NOTCH_EMPTY: 'notch-empty',
+  NOTCH_RESIZE: 'notch-resize',
 } as const;
 
 /** Main → renderer push channels. */

@@ -95,6 +95,7 @@ export interface IpcApi {
 	endNotchReply: () => Promise<void>;
 	notchSetInteractive: (interactive: boolean) => Promise<void>;
 	notchEmpty: () => Promise<void>;
+	notchResize: (contentHeight: number) => Promise<void>;
 
 	checkForUpdates: () => Promise<void>;
 	installUpdate: () => Promise<void>;

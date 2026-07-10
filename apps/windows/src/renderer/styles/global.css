@@ -505,10 +505,16 @@ select {
 }
 
 /* Notch widget */
+/*
+ * Width tracks the macOS reference (`MessageNotchContainer.swift`
+ * tickerWindow = 250 pt content) instead of the old oversized 360 px.
+ * Height is content-driven: the widget's layout height is reported to the
+ * main process (notch-resize IPC), which resizes the window to match —
+ * so no min-height pinning to the window here.
+ */
 .notch-widget {
-  min-height: 100%;
-	width: 360px;
-	padding: 26px 18px 18px;
+	width: 280px;
+	padding: 26px 14px 14px;
 	background: rgba(8, 8, 10, 0.99);
 	backdrop-filter: blur(20px) saturate(180%);
 	-webkit-backdrop-filter: blur(20px) saturate(180%);

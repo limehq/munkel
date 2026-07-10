@@ -17,6 +17,21 @@ export default function NotchWidget() {
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const replyInputRef = useRef<HTMLInputElement>(null);
+	const widgetRef = useRef<HTMLDivElement>(null);
+
+	// Report the widget's layout height to the main process so the notch
+	// window shrinks/grows to its content instead of staying a fixed-size
+	// box (WIN-NOTCH-004). offsetHeight is used because it ignores the
+	// slide-up transforms of the peek/retracted states.
+	useEffect(() => {
+		const el = widgetRef.current;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+		const report = () => void window.electronAPI.notchResize(el.offsetHeight);
+		const observer = new ResizeObserver(report);
+		observer.observe(el);
+		report();
+		return () => observer.disconnect();
+	}, []);
 
 	const handleNotchHide = useCallback(() => {
 		setReplyText('');
@@ -264,6 +279,7 @@ export default function NotchWidget() {
 
 	return (
 		<div
+			ref={widgetRef}
 			className={`notch-widget ${widgetClass}`}
 			onMouseEnter={cancelHoverLeave}
 			onMouseLeave={scheduleHoverLeave}

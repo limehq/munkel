@@ -36,6 +36,7 @@ function createMockElectronApi(initialState: StateUpdate) {
 		endNotchReply: () => Promise.resolve(),
 		notchSetInteractive: (_interactive: boolean) => Promise.resolve(),
 		notchEmpty: () => Promise.resolve(),
+		notchResize: (_contentHeight: number) => Promise.resolve(),
 		onStateUpdate: (cb: (update: StateUpdate) => void) => {
 			stateUpdateCb = cb;
 			return () => {
