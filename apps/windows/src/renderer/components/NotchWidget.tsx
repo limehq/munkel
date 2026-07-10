@@ -319,7 +319,23 @@ export default function NotchWidget() {
 		}
 	}
 
-	function renderMessageRow(entry: NotchHistoryEntry) {
+	/**
+	 * `pulse` is only ever passed `true` from the single/"full-view" render
+	 * branch below (never from the reopened history-list branch), and only
+	 * for the entry that is currently `newest`. Those two branches render
+	 * structurally different JSX (a bare row vs. a `.notch-history-list`
+	 * wrapper), so React unmounts/remounts this row's subtree — including
+	 * `Avatar` — whenever the widget switches between them. Combined with
+	 * `Avatar`'s own mount-only pulse capture (see `Avatar.tsx`), this means
+	 * the ring plays exactly once: on the fresh mount that happens when a
+	 * genuinely new message arrives (`phase` resets to `'full'`, which
+	 * changes this row's `key` in the parent `newest.id` sense). Re-renders
+	 * while `newest` stays visible (e.g. phase decaying to `'peek'` while a
+	 * reply stays open) reuse the same mounted Avatar and do not re-pulse;
+	 * reopening the notch via hover re-mounts the row in the *other* branch,
+	 * which never passes `pulse`, so already-seen history rows never pulse.
+	 */
+	function renderMessageRow(entry: NotchHistoryEntry, options?: { pulse?: boolean }) {
 		const hasImages = !!entry.images?.length;
 		const replying = replyingTo === entry.id;
 
@@ -332,7 +348,7 @@ export default function NotchWidget() {
 				onMouseLeave={() => setHoveredEntryId((current) => (current === entry.id ? null : current))}
 			>
 				<div className="message-row">
-					<Avatar name={entry.sender} size={40} />
+					<Avatar name={entry.sender} size={40} pulse={options?.pulse ?? false} />
 					<div
 						className="message-body"
 						onPointerDown={(e) => {
@@ -451,7 +467,7 @@ export default function NotchWidget() {
 					<div className="notch-history-list">{history.map((entry) => renderMessageRow(entry))}</div>
 				</div>
 			) : newest && (phase === 'full' || replyingTo === newest.id) ? (
-				<div className="notch-content">{renderMessageRow(newest)}</div>
+				<div className="notch-content">{renderMessageRow(newest, { pulse: true })}</div>
 			) : null}
 		</div>
 	);

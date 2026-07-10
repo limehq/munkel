@@ -528,3 +528,99 @@ describe('NotchWidget hover-"C" copy (Plan 12 P3.2)', () => {
 		});
 	});
 });
+
+describe('NotchWidget avatar pulse wiring (Plan 12 P3 follow-up)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let originalResizeObserver: unknown;
+
+	function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
+		return {
+			sender: 'Alice',
+			text: 'Hello from Alice',
+			isDirect: false,
+			group: 'test-circle',
+			groupColor: '#3b82f6',
+			receivedAt: new Date().toISOString(),
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi();
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = {
+			electronAPI: electronApi,
+		};
+		originalResizeObserver = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+		delete (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+		(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+	});
+
+	async function renderWidget() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<NotchWidget />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	function widgetNode(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ 'data-testid': 'notch-widget' });
+	}
+
+	function avatarClassNames(root: ReturnType<typeof create>) {
+		return root.root
+			.findAllByProps({})
+			.filter((node) => typeof node.props.className === 'string' && node.props.className.startsWith('avatar'))
+			.map((node) => node.props.className);
+	}
+
+	it('pulses the avatar on the full-view render of a freshly arrived message', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage());
+		});
+
+		expect(avatarClassNames(root)).toContain('avatar avatar-pulse');
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('does not pulse history rows when the notch is reopened via hover', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'first' }));
+		});
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'second (now newest)' }));
+		});
+
+		// Reopen via the hover target so the history-list branch renders,
+		// which never passes `pulse` to any row — including the (no longer
+		// freshly-mounting) former-newest message.
+		await act(async () => {
+			widgetNode(root).props.onMouseEnter();
+		});
+		const hoverTarget = root.root.findByProps({ className: 'notch-hover-target' });
+		await act(async () => {
+			hoverTarget.props.onMouseEnter();
+		});
+
+		expect(avatarClassNames(root)).not.toContain('avatar avatar-pulse');
+		expect(avatarClassNames(root).length).toBeGreaterThan(0);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+});
