@@ -1,4 +1,8 @@
-import { dialog, ipcMain } from 'electron';
+import { clipboard, dialog, ipcMain } from 'electron';
+import { randomBytes } from 'node:crypto';
+import { writeFile } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import type { AppState } from './session-store';
 import type { GitHubLoginService } from './github-login';
 import { IPC_CHANNELS } from '../shared/ipc-channels';
@@ -41,6 +45,27 @@ export function registerSessionHandlers(appState: AppState, githubLoginService: 
 			],
 		});
 		return result.canceled ? undefined : result.filePaths;
+	});
+
+	// Clipboard image paste (Plan 12 P3.4). Reads the OS clipboard's image via
+	// Electron's native `clipboard` module (no permission prompt — unlike
+	// `navigator.clipboard.read()`, which is unreliable in these small
+	// focus-light BrowserWindows) and saves it to a temp PNG file, returning
+	// its path. The renderer pushes that path into the same `imagePaths`
+	// array `selectImages` already fills, so the pasted image flows through
+	// the *existing* `sendImages(paths)` pipeline — including its
+	// imageCodec size/type limits — instead of a separate raw-bytes path.
+	ipcMain.handle(IPC_CHANNELS.SAVE_CLIPBOARD_IMAGE, async () => {
+		const image = clipboard.readImage();
+		if (image.isEmpty()) return null;
+		const tempPath = path.join(os.tmpdir(), `munkel-clipboard-${Date.now()}-${randomBytes(4).toString('hex')}.png`);
+		try {
+			await writeFile(tempPath, image.toPNG());
+		} catch (err) {
+			console.error('[munkel] failed to save clipboard image to temp file:', err);
+			return null;
+		}
+		return tempPath;
 	});
 
 	ipcMain.handle(IPC_CHANNELS.GITHUB_LOGOUT, async () => {

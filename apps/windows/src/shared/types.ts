@@ -90,6 +90,14 @@ export interface IpcApi {
 
 	// Image picker (main-process dialog; returns file paths).
 	selectImages: () => Promise<string[] | undefined>;
+	// Clipboard image paste (Plan 12 P3.4). Reads the OS clipboard's image
+	// (if any) via Electron's native `clipboard` module in the main process
+	// and saves it to a temp file, returning its path — the same shape as
+	// `selectImages`' entries, so a pasted image flows through the existing
+	// `sendImages(paths)` pipeline (and its imageCodec size/type limits)
+	// instead of a separate raw-bytes path. Resolves `null` when the
+	// clipboard has no image or the temp-file write failed.
+	saveClipboardImage: () => Promise<string | null>;
 
 	beginNotchReply: () => Promise<void>;
 	endNotchReply: () => Promise<void>;

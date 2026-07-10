@@ -21,6 +21,7 @@ export const IPC_CHANNELS = {
   SET_RELAY_URL: 'set-relay-url',
   GET_STATE: 'get-state',
   SELECT_IMAGES: 'select-images',
+  SAVE_CLIPBOARD_IMAGE: 'save-clipboard-image',
   GITHUB_LOGOUT: 'github-logout',
 
   START_GITHUB_LOGIN: 'start-github-login',

@@ -27,6 +27,7 @@ const api: IpcApi = {
 	githubLogout: () => ipcRenderer.invoke(IPC_CHANNELS.GITHUB_LOGOUT),
 
 	selectImages: () => ipcRenderer.invoke(IPC_CHANNELS.SELECT_IMAGES),
+	saveClipboardImage: () => ipcRenderer.invoke(IPC_CHANNELS.SAVE_CLIPBOARD_IMAGE),
 
 	checkForUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.CHECK_FOR_UPDATES),
 	installUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.INSTALL_UPDATE),

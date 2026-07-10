@@ -2,7 +2,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/app-store';
 import { Avatar } from './Avatar';
 import { getCircleColor } from '../../shared/group-color';
+import { clipboardEventHasImage, pasteClipboardImage } from '../lib/clipboard-image';
 import type { CircleState, GitHubLoginState, IdentityState, Member, UpdateState } from '../../shared/types';
+
+// Mirrors `MAX_IMAGES_PER_MESSAGE` in `core/image-codec.ts` (see
+// PaletteWindow.tsx for why it's a local copy, not an import).
+const MAX_IMAGES_PER_MESSAGE = 8;
 
 export default function MenuWindow() {
 	const {
@@ -10,6 +15,8 @@ export default function MenuWindow() {
 		joinCircle,
 		leaveCircle,
 		sendChat,
+		sendImages,
+		selectImages,
 		updateProfile,
 		startGitHubLogin,
 		cancelGitHubLogin,
@@ -30,6 +37,10 @@ export default function MenuWindow() {
 	const [messages, setMessages] = useState<Record<string, string>>({});
 	const [recipients, setRecipients] = useState<Record<string, string>>({});
 	const [sendErrors, setSendErrors] = useState<Record<string, string>>({});
+	// Image attachments per circle (Plan 12 P3.4), keyed the same way as
+	// `messages`/`recipients` — one compose row per circle, so each needs its
+	// own pending-attachment list.
+	const [imageAttachments, setImageAttachments] = useState<Record<string, string[]>>({});
 	// Tracks the last name *successfully persisted* via updateProfile so an
 	// unchanged name is never re-submitted (E2). Because this ref is only
 	// committed once the IPC promise resolves, it does NOT by itself protect
@@ -157,17 +168,58 @@ export default function MenuWindow() {
 	}
 
 	async function handleSend(code: string) {
-		const text = messages[code]?.trim();
-		if (!text) return;
+		const text = messages[code]?.trim() ?? '';
+		const images = imageAttachments[code] ?? [];
+		if (!text && images.length === 0) return;
 		const to = recipients[code] || undefined;
-		const result = await sendChat(code, text, to);
+		const result = images.length > 0
+			? await sendImages(code, images, text, to)
+			: await sendChat(code, text, to);
 		if (result.ok) {
 			setMessages((prev) => ({ ...prev, [code]: '' }));
+			setImageAttachments((prev) => ({ ...prev, [code]: [] }));
 			setSendErrors((prev) => ({ ...prev, [code]: '' }));
 		} else {
 			setSendErrors((prev) => ({
 				...prev,
 				[code]: result.error ?? 'Circle offline — message not sent.',
+			}));
+		}
+	}
+
+	async function handleAttachImages(code: string) {
+		try {
+			const paths = await selectImages();
+			if (paths && paths.length > 0) {
+				setImageAttachments((prev) => ({
+					...prev,
+					[code]: [...(prev[code] ?? []), ...paths].slice(0, MAX_IMAGES_PER_MESSAGE),
+				}));
+			}
+		} catch (err) {
+			console.error('[menu] select images failed', err);
+		}
+	}
+
+	function handleRemoveImage(code: string, index: number) {
+		setImageAttachments((prev) => ({
+			...prev,
+			[code]: (prev[code] ?? []).filter((_, i) => i !== index),
+		}));
+	}
+
+	// Ctrl+V image paste (Plan 12 P3.4) — same contract as PaletteWindow's
+	// handleMessagePaste: attach the clipboard image if present and suppress
+	// the default text paste, otherwise leave the paste event alone.
+	async function handleMessagePaste(code: string, e: React.ClipboardEvent<HTMLInputElement>) {
+		const current = imageAttachments[code] ?? [];
+		if (!clipboardEventHasImage(e) || current.length >= MAX_IMAGES_PER_MESSAGE) return;
+		e.preventDefault();
+		const path = await pasteClipboardImage();
+		if (path) {
+			setImageAttachments((prev) => ({
+				...prev,
+				[code]: [...(prev[code] ?? []), path].slice(0, MAX_IMAGES_PER_MESSAGE),
 			}));
 		}
 	}
@@ -328,6 +380,7 @@ export default function MenuWindow() {
 						message={messages[circle.code] ?? ''}
 						recipient={recipients[circle.code] ?? ''}
 						sendError={sendErrors[circle.code] ?? ''}
+						imagePaths={imageAttachments[circle.code] ?? []}
 						onMessageChange={(text) => {
 							setMessages((prev) => ({ ...prev, [circle.code]: text }))
 							if (sendErrors[circle.code]) {
@@ -339,6 +392,9 @@ export default function MenuWindow() {
 						}
 						onSend={() => handleSend(circle.code)}
 						onLeave={() => setConfirmingLeave(circle.code)}
+						onAttachImages={() => void handleAttachImages(circle.code)}
+						onRemoveImage={(index) => handleRemoveImage(circle.code, index)}
+						onPaste={(e) => void handleMessagePaste(circle.code, e)}
 					/>
 				))}
 			</div>
@@ -549,10 +605,15 @@ interface CircleSectionProps {
 	message: string;
 	recipient: string;
 	sendError: string;
+	/** Pending image attachments for this circle's compose row (Plan 12 P3.4). */
+	imagePaths: string[];
 	onMessageChange: (text: string) => void;
 	onRecipientChange: (to: string) => void;
 	onSend: () => void;
 	onLeave: () => void;
+	onAttachImages: () => void;
+	onRemoveImage: (index: number) => void;
+	onPaste: (e: React.ClipboardEvent<HTMLInputElement>) => void;
 }
 
 function CircleSection({
@@ -561,10 +622,14 @@ function CircleSection({
 	message,
 	recipient,
 	sendError,
+	imagePaths,
 	onMessageChange,
 	onRecipientChange,
 	onSend,
 	onLeave,
+	onAttachImages,
+	onRemoveImage,
+	onPaste,
 }: CircleSectionProps) {
 	const color = useMemo(() => getCircleColor(colorIndex), [colorIndex]);
 
@@ -595,19 +660,48 @@ function CircleSection({
 			/>
 
 			<div className="send-row">
+				<button
+					className="icon-button"
+					onClick={onAttachImages}
+					title="Attach images"
+					disabled={imagePaths.length >= 8}
+				>
+					🖼️
+				</button>
 				<input
 					className="frosted-field"
-					placeholder="Message…"
+					placeholder={
+						imagePaths.length > 0
+							? `Caption ${imagePaths.length} image${imagePaths.length === 1 ? '' : 's'}…`
+							: 'Message…'
+					}
 					value={message}
 					onChange={(e) => onMessageChange(e.target.value)}
 					onKeyDown={(e) => {
 						if (e.key === 'Enter') onSend();
 					}}
+					onPaste={onPaste}
 				/>
-				<button className="icon-button" onClick={onSend} disabled={!message.trim()}>
+				<button className="icon-button" onClick={onSend} disabled={!message.trim() && imagePaths.length === 0}>
 					➤
 				</button>
 			</div>
+			{imagePaths.length > 0 && (
+				<div className="image-attachments">
+					{imagePaths.map((path, i) => (
+						<span key={`${path}-${i}`} className="image-attachment-chip">
+							{path.split(/[/\\]/).pop()}
+							<button
+								className="icon-button"
+								onClick={() => onRemoveImage(i)}
+								title="Remove"
+							>
+								×
+							</button>
+						</span>
+					))}
+				</div>
+			)}
 			{sendError && <p className="compose-error">{sendError}</p>}
 		</div>
 	);

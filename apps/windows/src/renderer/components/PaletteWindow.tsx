@@ -1,6 +1,14 @@
 import { useMemo, useState } from 'react';
 import { useAppStore } from '../store/app-store';
 import { Avatar } from './Avatar';
+import { clipboardEventHasImage, pasteClipboardImage } from '../lib/clipboard-image';
+
+// Mirrors `MAX_IMAGES_PER_MESSAGE` in `core/image-codec.ts` — not imported
+// directly to avoid pulling that module's Node-oriented deps (`image-size`,
+// `@jsquash/avif`) into the renderer bundle for a single constant; the main
+// process (`group-session.ts`) is the actual source of truth and already
+// clamps the album server-side regardless of what the UI caps at.
+const MAX_IMAGES_PER_MESSAGE = 8;
 
 interface Recipient {
 	id: string;
@@ -85,10 +93,23 @@ export default function PaletteWindow() {
 		try {
 			const paths = await selectImages();
 			if (paths && paths.length > 0) {
-				setImagePaths((prev) => [...prev, ...paths].slice(0, 8));
+				setImagePaths((prev) => [...prev, ...paths].slice(0, MAX_IMAGES_PER_MESSAGE));
 			}
 		} catch (err) {
 			console.error('[palette] select images failed', err);
+		}
+	}
+
+	// Ctrl+V image paste (Plan 12 P3.4): if the clipboard holds an image,
+	// attach it (via the same imagePaths flow as `handleAttachImages`) and
+	// suppress the default text paste; otherwise leave the paste event
+	// completely alone so normal text pasting is unaffected.
+	async function handleMessagePaste(e: React.ClipboardEvent<HTMLInputElement>) {
+		if (!clipboardEventHasImage(e) || imagePaths.length >= MAX_IMAGES_PER_MESSAGE || sending) return;
+		e.preventDefault();
+		const path = await pasteClipboardImage();
+		if (path) {
+			setImagePaths((prev) => [...prev, path].slice(0, MAX_IMAGES_PER_MESSAGE));
 		}
 	}
 
@@ -141,7 +162,7 @@ export default function PaletteWindow() {
 						className="icon-button"
 						onClick={() => void handleAttachImages()}
 						title="Attach images"
-						disabled={imagePaths.length >= 8 || sending}
+						disabled={imagePaths.length >= MAX_IMAGES_PER_MESSAGE || sending}
 					>
 						🖼️
 					</button>
@@ -163,6 +184,7 @@ export default function PaletteWindow() {
 							}
 							if (e.key === 'Escape') setTarget(null);
 						}}
+						onPaste={(e) => void handleMessagePaste(e)}
 						autoFocus
 					/>
 					<button

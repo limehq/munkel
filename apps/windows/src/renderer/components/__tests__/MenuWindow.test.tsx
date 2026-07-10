@@ -36,6 +36,7 @@ function createMockElectronApi(initialState: StateUpdate) {
 		getAutoUpdateCheck: () => Promise.resolve(true),
 		setAutoUpdateCheck: (_enabled: boolean) => Promise.resolve(true),
 		selectImages: () => Promise.resolve(undefined),
+		saveClipboardImage: () => Promise.resolve(null),
 		beginNotchReply: () => Promise.resolve(),
 		endNotchReply: () => Promise.resolve(),
 		notchSetInteractive: (_interactive: boolean) => Promise.resolve(),
@@ -1484,5 +1485,96 @@ describe('MenuWindow update status', () => {
 			updateItem.props.onClick();
 		});
 		expect(checkSpy).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('MenuWindow clipboard image paste (Plan 12 P3.4)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenu() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	it('attaches the clipboard image and suppresses default paste when the clipboard holds an image', async () => {
+		electronApi.saveClipboardImage = () => Promise.resolve('C:\\temp\\munkel-clipboard-1.png');
+		const sendImagesSpy = spyOn(electronApi, 'sendImages');
+		const root = await renderMenu();
+
+		const input = root.root.findByProps({ placeholder: 'Message…' });
+		let prevented = false;
+		await act(async () => {
+			input.props.onPaste({
+				clipboardData: { types: ['image/png', 'Files'] },
+				preventDefault: () => {
+					prevented = true;
+				},
+			});
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(prevented).toBe(true);
+		const chip = root.root.findByProps({ className: 'image-attachment-chip' });
+		expect(chip).toBeDefined();
+
+		const sendRow = root.root.findByProps({ className: 'send-row' });
+		const send = sendRow.findAllByType('button')[1];
+		await act(async () => {
+			send.props.onClick();
+			await Promise.resolve();
+		});
+
+		expect(sendImagesSpy).toHaveBeenCalledTimes(1);
+		expect(sendImagesSpy.mock.calls[0]?.[1]).toEqual(['C:\\temp\\munkel-clipboard-1.png']);
+	});
+
+	it('leaves normal text paste untouched when the clipboard has no image', async () => {
+		const saveClipboardImageSpy = spyOn(electronApi, 'saveClipboardImage');
+		const root = await renderMenu();
+
+		const input = root.root.findByProps({ placeholder: 'Message…' });
+		let prevented = false;
+		await act(async () => {
+			input.props.onPaste({
+				clipboardData: { types: ['text/plain'] },
+				preventDefault: () => {
+					prevented = true;
+				},
+			});
+			await Promise.resolve();
+		});
+
+		expect(prevented).toBe(false);
+		expect(saveClipboardImageSpy).toHaveBeenCalledTimes(0);
+		expect(root.root.findAllByProps({ className: 'image-attachment-chip' }).length).toBe(0);
 	});
 });
