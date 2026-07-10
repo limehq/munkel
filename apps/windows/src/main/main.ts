@@ -51,6 +51,14 @@ let tray: Tray | null = null;
 let controlServer: { close(): Promise<void> } | null = null;
 let updateService: ReturnType<typeof initUpdateService> | null = null;
 let hoverCopyController: ReturnType<typeof createHoverCopyController> | null = null;
+let disposeHoverCopyDisarm: (() => void) | null = null;
+// Tracks the `interactive` flag from the notch-set-interactive IPC channel
+// (true only while the notch is `full`/reopening/reply-open — see
+// useNotchLifecycle). Combined with `notchWindow?.isVisible()` this is the
+// "visible + interactive" gate the hover-copy controller's `canArm` checks
+// before accepting a fresh arm — see hover-copy-shortcut.ts's "Late-Ping-Race
+// fix" for why a late renderer ping must not re-arm a disarmed shortcut.
+let notchInteractive = false;
 // Menu click-away-to-dismiss suppression state (Plan 06).
 let pickerOpen = false;
 let githubLoginActive = false;
@@ -142,11 +150,19 @@ app.whenReady().then(async () => {
 	hoverCopyController = createHoverCopyController(
 		() => notchWindow?.webContents.send(PUSH_CHANNELS.NOTCH_COPY_HOVERED),
 		globalShortcut,
+		{
+			// Late-Ping-Race gate (Iteration-5 re-review follow-up): only accept
+			// a fresh arm while the notch window is actually visible AND the
+			// renderer-reported `interactive` flag is current — rejects a late
+			// activity ping that arrives after the notch already hid or went
+			// non-interactive.
+			canArm: () => !!notchWindow?.isVisible() && notchInteractive,
+		},
 	);
 	// BrowserWindow's overloaded `on` signatures don't structurally satisfy
 	// the minimal HoverCopyWindowLike slice, hence the cast; the helper only
 	// uses on('hide') and webContents.on('render-process-gone'|'destroyed').
-	wireHoverCopyDisarm(hoverCopyController, notchWindow as unknown as HoverCopyWindowLike);
+	disposeHoverCopyDisarm = wireHoverCopyDisarm(hoverCopyController, notchWindow as unknown as HoverCopyWindowLike);
 
 	// Phase-0 diagnostics (presence bug, H-D): the actual userData dir the app
 	// reads state.json from. A mismatch vs the inspected file would mean persisted
@@ -208,6 +224,7 @@ app.whenReady().then(async () => {
 	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_INTERACTIVE, (event, interactive: boolean) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
 		notchWindow?.setIgnoreMouseEvents(!interactive, { forward: true });
+		notchInteractive = !!interactive;
 		// Going click-through means the renderer may never get a mouseleave
 		// for the pointer that armed the hover-copy shortcut — force-disarm.
 		handleNotchSetInteractive(hoverCopyController, !!interactive);
@@ -289,6 +306,8 @@ app.on('before-quit', () => {
 	// state (and pending idle timer) is cleaned up, not just the OS binding.
 	hoverCopyController?.dispose();
 	hoverCopyController = null;
+	disposeHoverCopyDisarm?.();
+	disposeHoverCopyDisarm = null;
 	unregisterShortcuts();
 	void controlServer?.close();
 	controlServer = null;

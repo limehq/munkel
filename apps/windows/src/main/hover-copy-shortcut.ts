@@ -34,6 +34,24 @@
  * mocked `electron` package: the caller (`main.ts`) injects the
  * `globalShortcut` API, mirroring `login-item.ts`'s dependency-injection
  * posture for the same reason.
+ *
+ * ## Late-Ping-Race fix (Iteration-5 re-review follow-up, 2026-07-10)
+ *
+ * The disarm paths above already force `active = false` in the controller
+ * without waiting for the renderer. But `setActive(true)` used to always
+ * treat a *currently-inactive* controller as "arm it" — so a renderer
+ * activity ping that was already in flight when e.g.
+ * `handleNotchSetInteractive(controller, false)` disarmed the shortcut
+ * would land moments later and silently re-register "C" system-wide, even
+ * though the notch is no longer visible+interactive. The caller now injects
+ * `canArm` (`main.ts` wires it to `notchWindow.isVisible() &&` the
+ * `interactive` flag tracked from `notch-set-interactive`); a fresh arm
+ * attempt while `canArm()` is false is rejected (`setActive` returns
+ * `false`) instead of re-registering. This only gates the *inactive → arm*
+ * transition — an already-armed controller's periodic pings (which merely
+ * extend the idle deadline) are not re-checked against `canArm`, since by
+ * construction the controller can only be active while a prior arm attempt
+ * already passed the gate.
  */
 
 /** Minimal slice of Electron's `globalShortcut` module. */
@@ -44,12 +62,25 @@ export interface GlobalShortcutApi {
 
 /**
  * Disarm the shortcut after this long without an activity ping from the
- * renderer. The renderer throttles its mousemove pings to ~1s, so 4s
- * tolerates several dropped pings while still bounding how long a resting
- * pointer can keep "C" captured system-wide (a pointer parked on the notch
- * while the user types "c" in another app was review CRITICAL 3).
+ * renderer. The renderer throttles its mousemove pings to ~1s.
+ *
+ * ## Idle-timeout tradeoff (Iteration-5 re-review follow-up, 2026-07-10)
+ *
+ * The original 4s value bounded how long a resting pointer can keep "C"
+ * captured system-wide, but it also broke the ordinary "hover quietly and
+ * read, then press C" flow: a pointer that isn't *moving* (just resting
+ * over the notch while the user reads) stopped pinging and the shortcut
+ * went dead after 4s even though the user was still legitimately hovering.
+ * That's a worse regression than a slightly longer worst-case system-wide
+ * capture window, so this was raised to 15s and the actual "C" trigger now
+ * also resets the idle deadline (see `createHoverCopyController`'s
+ * `onTrigger` wrapping below) — a successful copy is itself strong evidence
+ * of genuine, current activity, not a stale ping. 15s is still far below
+ * "forgot about it" territory and the four main-owned disarm paths (hide,
+ * render-process-gone, destroyed, non-interactive transition) still cover
+ * the cases where the renderer can never send a final `false` at all.
  */
-export const HOVER_COPY_IDLE_MS = 4_000;
+export const HOVER_COPY_IDLE_MS = 15_000;
 
 export interface HoverCopyController {
 	/**
@@ -71,9 +102,14 @@ export interface HoverCopyController {
 export function createHoverCopyController(
 	onTrigger: () => void,
 	api: GlobalShortcutApi,
-	options: { idleMs?: number } = {},
+	options: { idleMs?: number; canArm?: () => boolean } = {},
 ): HoverCopyController {
 	const idleMs = options.idleMs ?? HOVER_COPY_IDLE_MS;
+	// Gate for the inactive → arm transition only (see "Late-Ping-Race fix"
+	// in the module header). Defaults to always-armable so existing callers
+	// (and every pre-existing test in this file) keep their current
+	// behavior unchanged.
+	const canArm = options.canArm ?? (() => true);
 	let active = false;
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -111,7 +147,22 @@ export function createHoverCopyController(
 				restartIdleTimer();
 				return true;
 			}
-			const ok = api.register('C', onTrigger);
+			if (!canArm()) {
+				// Late/stale ping: the notch is no longer visible+interactive
+				// (per the injected `canArm` gate), so this is a re-arm attempt
+				// for a shortcut that either was already disarmed or should
+				// never have been armed in the first place. Reject instead of
+				// silently re-capturing "C" system-wide (review MAJOR
+				// Late-Ping-Race — see the module header).
+				return false;
+			}
+			const ok = api.register('C', () => {
+				// A successful trigger is itself proof of current, genuine
+				// activity — reset the idle deadline the same as an explicit
+				// ping (Iteration-5 idle-UX follow-up).
+				restartIdleTimer();
+				onTrigger();
+			});
 			if (!ok) {
 				console.warn('[munkel] failed to register hover-copy "C" global shortcut — feature disabled');
 				return false;
@@ -132,10 +183,18 @@ export function createHoverCopyController(
  */
 export interface HoverCopyWindowLike {
 	on(event: 'hide', listener: () => void): unknown;
+	off(event: 'hide', listener: () => void): unknown;
 	webContents: {
 		on(event: 'render-process-gone' | 'destroyed', listener: () => void): unknown;
+		off(event: 'render-process-gone' | 'destroyed', listener: () => void): unknown;
 	};
 }
+
+/** Windows already wired via `wireHoverCopyDisarm`, guarding against a
+ * caller wiring the same window twice (which would double-register the
+ * listeners and disarm-then-immediately-noop twice per event). Cleared by
+ * the returned dispose handle. */
+const wiredWindows = new WeakSet<HoverCopyWindowLike>();
 
 /**
  * Main-owned disarm paths that must not depend on the renderer sending a
@@ -146,12 +205,30 @@ export interface HoverCopyWindowLike {
  * - `render-process-gone` / `destroyed`: a crashed or torn-down renderer
  *   can never send the disarm IPC — without this, "C" would stay dead
  *   system-wide until app quit.
+ *
+ * Returns a dispose handle that removes the listeners it registered (MINOR
+ * follow-up, Iteration-5 re-review): callers that need to re-wire a window
+ * (e.g. in tests, or a future notch-window recreate path) can now tear down
+ * cleanly instead of leaking listeners. Calling `wireHoverCopyDisarm` twice
+ * for the same window is a no-op on the second call (logged) rather than
+ * silently double-registering.
  */
-export function wireHoverCopyDisarm(controller: HoverCopyController, win: HoverCopyWindowLike): void {
+export function wireHoverCopyDisarm(controller: HoverCopyController, win: HoverCopyWindowLike): () => void {
+	if (wiredWindows.has(win)) {
+		console.warn('[munkel] wireHoverCopyDisarm called twice for the same window — ignoring duplicate wire');
+		return () => {};
+	}
+	wiredWindows.add(win);
 	const disarm = () => controller.setActive(false);
 	win.on('hide', disarm);
 	win.webContents.on('render-process-gone', disarm);
 	win.webContents.on('destroyed', disarm);
+	return () => {
+		wiredWindows.delete(win);
+		win.off('hide', disarm);
+		win.webContents.off('render-process-gone', disarm);
+		win.webContents.off('destroyed', disarm);
+	};
 }
 
 /**

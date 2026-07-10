@@ -180,6 +180,84 @@ describe('hover-copy idle disarm (review CRITICAL 3)', () => {
 	});
 });
 
+describe('hover-copy Late-Ping-Race gate (Iteration-5 re-review follow-up)', () => {
+	it('rejects a late activity ping arriving after the notch is no longer visible+interactive', () => {
+		const { api, registerCalls, unregisterCalls } = mockShortcutApi();
+		let armable = true;
+		const controller = createHoverCopyController(() => {}, api, { canArm: () => armable });
+
+		// Genuine hover: notch is visible+interactive, arms normally.
+		expect(controller.setActive(true)).toBe(true);
+		expect(registerCalls).toHaveLength(1);
+
+		// interactive(false) fired (e.g. handleNotchSetInteractive) and
+		// explicitly disarmed the controller.
+		armable = false;
+		controller.setActive(false);
+		expect(unregisterCalls).toEqual(['C']);
+
+		// A stale activity ping — queued before the disarm, delivered after —
+		// arrives. It must not re-arm the shortcut.
+		const ok = controller.setActive(true);
+
+		expect(ok).toBe(false);
+		expect(controller.isActive).toBe(false);
+		expect(registerCalls).toHaveLength(1); // no second registration
+	});
+
+	it('accepts a fresh arm once canArm reports visible+interactive again', () => {
+		const { api, registerCalls } = mockShortcutApi();
+		let armable = false;
+		const controller = createHoverCopyController(() => {}, api, { canArm: () => armable });
+
+		expect(controller.setActive(true)).toBe(false);
+		expect(controller.isActive).toBe(false);
+
+		armable = true;
+		expect(controller.setActive(true)).toBe(true);
+		expect(controller.isActive).toBe(true);
+		expect(registerCalls).toHaveLength(1);
+		controller.dispose();
+	});
+
+	it('does not re-check canArm for activity pings on an already-armed controller', () => {
+		const { api, registerCalls } = mockShortcutApi();
+		let armable = true;
+		const controller = createHoverCopyController(() => {}, api, { canArm: () => armable });
+
+		expect(controller.setActive(true)).toBe(true);
+		armable = false; // gate flips after arming, but controller is still active
+
+		// A ping while already active is treated as activity, not a fresh arm
+		// — it must not be rejected just because canArm() would now say no
+		// (the explicit disarm path, e.g. handleNotchSetInteractive, is what
+		// actually flips `active` to false; this only guards re-arming).
+		expect(controller.setActive(true)).toBe(true);
+		expect(controller.isActive).toBe(true);
+		expect(registerCalls).toHaveLength(1);
+	});
+});
+
+describe('hover-copy trigger resets the idle deadline (idle-UX follow-up)', () => {
+	it('a successful "C" trigger extends the idle deadline like an explicit ping', async () => {
+		const { api, registerCalls, unregisterCalls } = mockShortcutApi();
+		const controller = createHoverCopyController(() => {}, api, { idleMs: 50 });
+
+		controller.setActive(true);
+		await wait(25);
+		registerCalls[0]?.callback(); // simulate a real "C" press
+		await wait(35);
+
+		// 60ms elapsed since arm, but the trigger at 25ms reset the 50ms
+		// deadline, so the shortcut must still be armed.
+		expect(controller.isActive).toBe(true);
+
+		await wait(30);
+		expect(controller.isActive).toBe(false);
+		expect(unregisterCalls).toEqual(['C']);
+	});
+});
+
 type Listener = () => void;
 
 function mockWindow(): {
@@ -193,14 +271,19 @@ function mockWindow(): {
 	const add = (map: Map<string, Listener[]>, event: string, listener: Listener) => {
 		map.set(event, [...(map.get(event) ?? []), listener]);
 	};
+	const remove = (map: Map<string, Listener[]>, event: string, listener: Listener) => {
+		map.set(event, (map.get(event) ?? []).filter((existing) => existing !== listener));
+	};
 	const emit = (map: Map<string, Listener[]>, event: string) => {
 		for (const listener of map.get(event) ?? []) listener();
 	};
 	return {
 		win: {
 			on: (event, listener) => add(windowListeners, event, listener),
+			off: (event, listener) => remove(windowListeners, event, listener),
 			webContents: {
 				on: (event, listener) => add(contentsListeners, event, listener),
+				off: (event, listener) => remove(contentsListeners, event, listener),
 			},
 		},
 		emitHide: () => emit(windowListeners, 'hide'),
@@ -244,6 +327,53 @@ describe('wireHoverCopyDisarm — main-owned disarm paths (review CRITICALs 1 + 
 
 		controller.setActive(true);
 		emitDestroyed();
+
+		expect(controller.isActive).toBe(false);
+	});
+
+	it('returns a dispose handle that removes the listeners it registered', () => {
+		const { api } = mockShortcutApi();
+		const controller = createHoverCopyController(() => {}, api);
+		const { win, emitHide } = mockWindow();
+		const dispose = wireHoverCopyDisarm(controller, win);
+
+		controller.setActive(true);
+		dispose();
+		emitHide();
+
+		// The listener was removed by dispose(), so hide no longer disarms.
+		expect(controller.isActive).toBe(true);
+		controller.dispose();
+	});
+
+	it('guards against wiring the same window twice (no duplicate disarm registration)', () => {
+		const { api, unregisterCalls } = mockShortcutApi();
+		const controller = createHoverCopyController(() => {}, api);
+		const { win, emitHide } = mockWindow();
+
+		wireHoverCopyDisarm(controller, win);
+		wireHoverCopyDisarm(controller, win); // duplicate wire — should be a no-op
+
+		controller.setActive(true);
+		emitHide();
+
+		// A single 'C' unregister, not two, proves the disarm handler wasn't
+		// registered twice for the same window.
+		expect(unregisterCalls).toEqual(['C']);
+	});
+
+	it('dispose() lets a window be re-wired afterward', () => {
+		const { api } = mockShortcutApi();
+		const controller = createHoverCopyController(() => {}, api);
+		const { win, emitHide } = mockWindow();
+
+		const dispose = wireHoverCopyDisarm(controller, win);
+		dispose();
+
+		// Re-wiring after dispose() must work (not treated as a duplicate).
+		wireHoverCopyDisarm(controller, win);
+		controller.setActive(true);
+		emitHide();
 
 		expect(controller.isActive).toBe(false);
 	});

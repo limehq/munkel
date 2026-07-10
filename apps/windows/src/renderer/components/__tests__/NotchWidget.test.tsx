@@ -226,8 +226,17 @@ describe('NotchWidget resize reporting (P1.3 / WIN-NOTCH-004)', () => {
 			return Promise.resolve();
 		};
 
-		await expect(renderWidget()).resolves.toBeDefined();
+		const root = await renderWidget();
 		expect(calls.length).toBe(0);
+
+		// Unmount explicitly — an unmounted-but-still-mounted react-test-renderer
+		// instance left dangling here previously leaked into later describe
+		// blocks in this file (its effects/timers firing outside any `act()`
+		// once a later test's `act()` flushed the microtask queue), producing a
+		// spurious "not wrapped in act(...)" warning attributed to NotchWidget.
+		await act(async () => {
+			root.unmount();
+		});
 	});
 });
 
