@@ -19,4 +19,12 @@ describe('global.css recipient dropdown readability (P1.1)', () => {
 		// color in this theme is white (`--munkel-text: #ffffff`).
 		expect(body).not.toMatch(/background(-color)?\s*:\s*(#fff|#ffffff|white)\s*;/i);
 	});
+
+	it('sets color-scheme: dark on :root so Chromium themes native popups (e.g. the <select> list) dark instead of the OS light theme', () => {
+		const match = css.match(/:root\s*\{([^}]*)\}/);
+		expect(match).not.toBeNull();
+
+		const body = match![1];
+		expect(body).toMatch(/color-scheme\s*:\s*dark\s*;/);
+	});
 });

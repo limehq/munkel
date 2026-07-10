@@ -1,4 +1,14 @@
 :root {
+	/*
+	 * The recipient <select>'s native popup on Windows is a system-drawn
+	 * control that Chromium themes according to `color-scheme` rather than
+	 * page CSS. This app is always dark, so force Chromium to draw native
+	 * popups (and other UA form-control chrome) in the dark variant instead
+	 * of falling back to the OS light theme, which produced white text on a
+	 * white popup background. The `.frosted-field option` rule below remains
+	 * as a fallback for engines/paths that do honor per-option styling.
+	 */
+	color-scheme: dark;
 	--munkel-bg: #0b0b0d;
 	--munkel-surface: rgba(18, 18, 20, 0.98);
 	--munkel-border: rgba(255, 255, 255, 0.10);
