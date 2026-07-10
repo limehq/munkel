@@ -511,6 +511,84 @@ describe('MenuWindow settings display-name Enter save (P1.2)', () => {
 
 		expect(updateProfileSpy).toHaveBeenCalledTimes(2);
 	});
+
+	// Regression test for a MAJOR review finding: updateName() had no
+	// generation guard, so if two submits (A then B) resolved out of order
+	// (B first, then a late A), the stale A resolve could overwrite
+	// lastSavedNameRef back to A's name even though B was the most recent
+	// submit. Fixed by only letting the settle whose generation matches the
+	// latest submit mutate lastSavedNameRef.
+	it('when submit A resolves after submit B, only B is committed as the saved name', async () => {
+		let resolveA: (() => void) | undefined;
+		let resolveB: (() => void) | undefined;
+		const calls: string[] = [];
+		electronApi.updateProfile = (name: string) => {
+			calls.push(name);
+			if (calls.length === 1) {
+				return new Promise<void>((resolve) => {
+					resolveA = resolve;
+				});
+			}
+			return new Promise<void>((resolve) => {
+				resolveB = resolve;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		// Submit A ("Name A") via Enter, then submit B ("Name B") via Enter
+		// before A has resolved — both IPC calls are now in flight.
+		await act(async () => {
+			input.props.onChange({ target: { value: 'Name A' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+		await act(async () => {
+			input.props.onChange({ target: { value: 'Name B' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+
+		expect(calls).toEqual(['Name A', 'Name B']);
+
+		// B resolves first (out of order).
+		await act(async () => {
+			resolveB?.();
+			await Promise.resolve();
+		});
+
+		// Then the stale A resolves late.
+		await act(async () => {
+			resolveA?.();
+			await Promise.resolve();
+		});
+
+		// Retyping "Name A" and pressing Enter again must be treated as a real
+		// change (i.e. lastSavedNameRef points at "Name B", not "Name A"),
+		// proving the late A-resolve never overwrote it.
+		await act(async () => {
+			input.props.onChange({ target: { value: 'Name A' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+
+		expect(calls).toEqual(['Name A', 'Name B', 'Name A']);
+	});
 });
 
 describe('MenuWindow update status', () => {

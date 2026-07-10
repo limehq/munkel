@@ -30,6 +30,12 @@ export default function MenuWindow() {
 	// firing in the same interaction (Enter commits, then the input blurs)
 	// only persists once instead of double-submitting (E2).
 	const lastSavedNameRef = useRef(state.identity?.displayName ?? '');
+	// Monotonic counter for in-flight updateProfile(name) calls. If two
+	// submits race (e.g. Enter then a fast retry) and resolve out of order,
+	// only the settle whose generation matches the *latest* submit is allowed
+	// to mutate lastSavedNameRef / surface an error, so a late-arriving
+	// resolve for a stale submit can never clobber a newer one.
+	const nameSaveGenerationRef = useRef(0);
 
 	useEffect(() => {
 		if (state.identity) {
@@ -83,15 +89,24 @@ export default function MenuWindow() {
 	function updateName() {
 		const name = displayName.trim();
 		if (!name || name === lastSavedNameRef.current) return;
+
+		// Bump the generation before firing the IPC call and capture it in the
+		// closure below. If a newer submit starts before this one settles, its
+		// resolve/reject is stale and must not touch lastSavedNameRef or the
+		// error UI (out-of-order-resolve guard).
+		const generation = ++nameSaveGenerationRef.current;
+
 		// Only mark this name as "saved" once the IPC call actually resolves.
 		// If updateProfile rejects (e.g. relay offline), lastSavedNameRef stays
 		// at its previous value so a retry with the same name is not silently
 		// dropped as a no-op change.
 		void updateProfile(name).then(
 			() => {
+				if (nameSaveGenerationRef.current !== generation) return;
 				lastSavedNameRef.current = name;
 			},
 			() => {
+				if (nameSaveGenerationRef.current !== generation) return;
 				// Leave lastSavedNameRef untouched so the same name can be retried.
 			},
 		);
