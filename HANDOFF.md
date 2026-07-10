@@ -2,12 +2,64 @@
 
 ## current_state
 
-- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `da8e294`).
+- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `058fc81`).
 - **Working directory:** sauber bis auf untracked `fp-notes/` (nie committen).
-- **Kontext:** P2.1 (Launch-at-Login opt-in) und P2.4 (Avatar-Chip-Recipient-Picker) implementiert, review-gehärtet und code-seitig PR-reif. Iteration 4 Review-Cycle: 2 MAJOR + 2 MINOR Findings → Fixes in `1fd33f2` und `da8e294` → Re-Review Verdikt **SHIP-mit-Follow-ups**.
-- **Test-Stand:** `bun test` in `apps/windows`: **259 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
+- **Kontext:** P3-Slice (P3.2 Hover-"C"-Copy, P3.3 Unread-Dot, P3.7 Auto-Update-Toggle) implementiert, review-gehärtet und code-seitig PR-reif. Iteration 5 Review-Cycle: Erst-Review **BLOCK** (3 CRITICALs am `globalShortcut`-Lifecycle von P3.2) → Härtungs-Commits `6b1550e` / `bc24ed5` / `058fc81` → Re-Review Verdikt **SHIP-mit-Follow-ups**. Alle CRITICALs bestätigt geschlossen.
+- **Test-Stand:** `bun test` in `apps/windows`: **306 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
 
 ## completed in dieser Session
+
+### Iteration 5 — P3.2 / P3.3 / P3.7 Review-Cycle (2026-07-10)
+
+Code-Änderungen auf `platform/windows/macos-parity-p1` für den P3-Slice der macOS-Feature-Parity.
+
+#### 1. P3.2 Hover-"C"-Copy — DONE
+
+- **Commits:** `306063c` (initial), `6b1550e`, `bc24ed5`, `058fc81` (Review-Härtung)
+- **Dateien:** `src/renderer/components/NotchWidget.tsx`, `src/main/hover-copy-shortcut.ts`, `src/main/main.ts`, `src/shared/ipc-channels.ts`, `src/renderer/components/__tests__/NotchWidget.test.tsx`, `src/main/__tests__/hover-copy-shortcut.test.ts`
+- **Inhalt:** OS-weiter `globalShortcut('C')`, der per `notch-set-hover-copy`-IPC basierend auf Renderer-Hover + Reply-Open-State gearmed/disarmed wird. Kopiert hovered History-Row oder neueste Nachricht. Main-Prozess als Shortcut-Lifecycle-Owner mit 5 Disarm-Pfaden (notch hide, `notch-set-interactive(false)`, `render-process-gone`/`destroyed`, `before-quit`, expliziter Renderer-Disarm), 4s-Idle-Disarm und Register-Fail-Latch.
+
+#### 2. P3.3 Unread-Dot — DONE
+
+- **Commit:** `f914c20`
+- **Dateien:** `src/renderer/lib/useNotchLifecycle.ts`, `src/renderer/components/NotchWidget.tsx`, `src/renderer/styles/global.css`, `src/renderer/lib/__tests__/useNotchLifecycle.test.ts`
+- **Inhalt:** Blauer Dot im retracted Sliver, wenn eine Nachricht einfährt ohne dass der Nutzer hovered/replied hat; cleared bei Hover/Reply. `interacted` als derived State neben `phase`/`newest`, damit keine Drift entsteht.
+
+#### 3. P3.7 Auto-Update "Check Automatically"-Toggle — DONE
+
+- **Commit:** `43d0966` (initial), `c7ecb4e` (IPC-Plumbing)
+- **Dateien:** `src/main/update-service.ts`, `src/main/identity-store.ts`, `src/main/main.ts`, `src/renderer/components/MenuWindow.tsx`, `src/shared/ipc-channels.ts`, `src/main/__tests__/update-service.test.ts`, `src/main/__tests__/identity-store.test.ts`, `src/renderer/components/__tests__/MenuWindow.test.tsx`
+- **Inhalt:** Persistenz in `IdentityStore#autoUpdateCheck` (Default `true`), gatet Launch-Check + 24h-Loop; manueller Check bleibt immer erreichbar (Sparkle-Semantik). Sender-guarded IPC, optimistic Toggle mit inFlight-Guard.
+
+#### Review-Verlauf
+
+- **Erster Review:** Verdikt **BLOCK**. 3 CRITICAL-Findings am `globalShortcut`-Lifecycle von P3.2: der OS-weite Shortcut konnte nach stale Hover-Hinweisen systemweit aktiv bleiben und die `C`-Taste bis zum App-Quit blockieren.
+- **Härtung:** Variante A (Main-Prozess als Owner) statt Variante B (sichtbarer Copy-Button). Commits:
+  - `6b1550e` — Main-Prozess als Shortcut-Lifecycle-Owner, 5 Disarm-Pfade.
+  - `bc24ed5` — Renderer zu Hint-Provider + throttled Activity-Ping, 4s-Idle-Disarm.
+  - `058fc81` — Register-Fail-Latch, Ref-basierte Copy-Logik, Sender-Guard-Logging.
+- **Re-Review:** Verdikt **SHIP-mit-Follow-ups**. Alle 3 CRITICALs bestätigt geschlossen.
+
+#### Testzahlen
+
+- Nach P3.2 / P3.3 / P3.7: **292 pass / 2 skip / 0 fail**.
+- Nach Review-Härtung (Iteration 5): **306 pass / 2 skip / 0 fail**; `bun run typecheck` grün.
+
+#### Verbleibende Follow-ups
+
+- **MAJOR Late-Ping-Race:** `setActive(true)` main-seitig nur akzeptieren, wenn Notch sichtbar + interaktiv ist, damit verspätete Pings einen frisch disarmten Shortcut nicht re-armen.
+- **MAJOR Idle-Timeout-UX:** "ruhend hovern + C" bricht nach 4s ab — Timeout anheben oder zusätzliches Fokus-/Input-Signal als Aktivitäts-Ping.
+- **MINOR** `wireHoverCopyDisarm` — Dispose-Handle für Listener.
+- **MINOR** `act`-Warning in `NotchWidget.test.tsx` bereinigen.
+- **MINOR** `hoverCopyUnavailable` als sichtbarer UI-State ausführen.
+- **INFO** `copyText` setzt `interacted` nicht; Dot bleibt nach Copy bestehen.
+
+#### next_action
+
+1. Follow-ups 1 + 2 aus Iteration 5 angehen.
+2. Manuelles QA-Gate durchführen (Autostart, Chip-Row, Notch-Skalierung, P3.2/P3.3/P3.7 Live-Checks).
+3. User-Entscheidungen zu Open Questions 4 + 5 einholen.
+4. PR `platform/windows/macos-parity-p1` → `platform/windows/v2-clean` öffnen (kein Self-Merge).
 
 ### Iteration 2 — P1 Major-Fixes (2026-07-10)
 
