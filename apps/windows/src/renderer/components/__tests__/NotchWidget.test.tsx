@@ -1011,3 +1011,250 @@ describe('NotchWidget history expand resize reporting (Iteration-8 review follow
 		});
 	});
 });
+
+/**
+ * Deterministic fake timer/interval implementation, mirroring the one
+ * already proven safe in useNotchLifecycle.test.ts (same package). Scoped
+ * with install()/restore() to a single describe block's beforeEach/afterEach
+ * below so it can never leak into other describes in this file — the other
+ * describes above deliberately use real timers (see the "resize reporting"
+ * describe's comment on prior fake-timer flakiness), which this local class
+ * does not touch since it's only installed for the tests that opt in.
+ */
+class FakeTimers {
+	private now = 0;
+	private nextId = 1;
+	private readonly timers = new Map<
+		number,
+		{ fn: () => void; time: number; delay: number; repeat: boolean }
+	>();
+	private readonly original = {
+		setTimeout: globalThis.setTimeout,
+		clearTimeout: globalThis.clearTimeout,
+		setInterval: globalThis.setInterval,
+		clearInterval: globalThis.clearInterval,
+		dateNow: Date.now,
+	};
+
+	install() {
+		globalThis.setTimeout = ((fn: () => void, delay = 0) => this.add(fn, delay, false)) as typeof setTimeout;
+		globalThis.clearTimeout = ((id: number | undefined) => this.remove(id)) as typeof clearTimeout;
+		globalThis.setInterval = ((fn: () => void, delay = 0) => this.add(fn, delay, true)) as typeof setInterval;
+		globalThis.clearInterval = ((id: number | undefined) => this.remove(id)) as typeof clearInterval;
+		Date.now = () => this.now;
+	}
+
+	restore() {
+		globalThis.setTimeout = this.original.setTimeout;
+		globalThis.clearTimeout = this.original.clearTimeout;
+		globalThis.setInterval = this.original.setInterval;
+		globalThis.clearInterval = this.original.clearInterval;
+		Date.now = this.original.dateNow;
+	}
+
+	advance(ms: number) {
+		this.now += ms;
+		this.runDue();
+	}
+
+	private add(fn: () => void, delay: number, repeat: boolean): number {
+		const id = this.nextId++;
+		this.timers.set(id, { fn, time: this.now + delay, delay, repeat });
+		return id;
+	}
+
+	private remove(id: number | undefined) {
+		if (id !== undefined) this.timers.delete(id);
+	}
+
+	private runDue() {
+		const due = [...this.timers.entries()]
+			.filter(([, timer]) => timer.time <= this.now)
+			.sort((a, b) => a[1].time - b[1].time);
+		for (const [id, timer] of due) {
+			if (!this.timers.has(id)) continue;
+			if (timer.repeat) {
+				timer.time += timer.delay;
+			} else {
+				this.timers.delete(id);
+			}
+			timer.fn();
+		}
+	}
+}
+
+describe('NotchWidget history pruning & pulse-across-phase (Iteration-8 review follow-up)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let originalResizeObserver: unknown;
+	let timers: FakeTimers;
+
+	function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
+		return {
+			sender: 'Alice',
+			text: 'Hello from Alice',
+			isDirect: false,
+			group: 'test-circle',
+			groupColor: '#3b82f6',
+			receivedAt: new Date(Date.now()).toISOString(),
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		timers = new FakeTimers();
+		timers.install();
+		electronApi = createMockElectronApi();
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = {
+			electronAPI: electronApi,
+		};
+		(globalThis as unknown as { navigator: unknown }).navigator = {
+			clipboard: { writeText: (_text: string) => Promise.resolve() },
+		};
+		originalResizeObserver = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+		delete (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+	});
+
+	afterEach(() => {
+		timers.restore();
+		delete (globalThis as unknown as { window?: unknown }).window;
+		delete (globalThis as unknown as { navigator?: unknown }).navigator;
+		(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+	});
+
+	async function renderWidget() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<NotchWidget />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	function widgetNode(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ 'data-testid': 'notch-widget' });
+	}
+
+	async function reopenHistory(root: ReturnType<typeof create>) {
+		await act(async () => {
+			widgetNode(root).props.onMouseEnter();
+		});
+		const hoverTarget = root.root.findByProps({ className: 'notch-hover-target' });
+		await act(async () => {
+			hoverTarget.props.onMouseEnter();
+		});
+	}
+
+	function entryByText(root: ReturnType<typeof create>, text: string) {
+		const candidates = root.root.findAll(
+			(node) =>
+				typeof node.props['data-testid'] === 'string' &&
+				(node.props['data-testid'] as string).startsWith('history-entry-'),
+		);
+		const match = candidates.find((entry) => entry.findAllByType('p').some((p) => p.props.children === text));
+		if (!match) throw new Error(`no history entry found for text: ${text}`);
+		return match;
+	}
+
+	function chevronOf(entry: ReturnType<typeof entryByText>) {
+		return entry.findByProps({ className: 'icon-button history-expand-button' });
+	}
+
+	function messageTextOf(entry: ReturnType<typeof entryByText>) {
+		return entry.findByType('p');
+	}
+
+	function avatarClassNames(root: ReturnType<typeof create>) {
+		return root.root
+			.findAllByProps({})
+			.filter((node) => typeof node.props.className === 'string' && node.props.className.startsWith('avatar'))
+			.map((node) => node.props.className);
+	}
+
+	it('prunes expanded-row ids for entries that age out of the 60s history window while the notch stays visible (not just on hide)', async () => {
+		const root = await renderWidget();
+
+		// 'expire message' is created already close to the 60s history
+		// boundary so the next 1s prune tick (useNotchLifecycle's
+		// PRUNE_INTERVAL_MS) drops it while the notch remains reopened —
+		// this test never calls simulateNotchHide(), unlike the existing
+		// "resets ... after a hide" test above.
+		await act(async () => {
+			electronApi.simulateNotchMessage(
+				makeMessage({ text: 'expire message', receivedAt: new Date(Date.now() - 59_700).toISOString() }),
+			);
+		});
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'keep message' }));
+		});
+
+		await reopenHistory(root);
+
+		await act(async () => {
+			chevronOf(entryByText(root, 'expire message')).props.onClick({ stopPropagation: () => {} });
+		});
+		await act(async () => {
+			chevronOf(entryByText(root, 'keep message')).props.onClick({ stopPropagation: () => {} });
+		});
+		expect(messageTextOf(entryByText(root, 'expire message')).props.className).toBe('message-text');
+		expect(messageTextOf(entryByText(root, 'keep message')).props.className).toBe('message-text');
+
+		// Advance past the prune interval so 'expire message' (already ~59.7s
+		// old) crosses the 60s window and is dropped from `history` while
+		// still hovered/reopened.
+		await act(async () => {
+			timers.advance(1_000);
+		});
+
+		expect(() => entryByText(root, 'expire message')).toThrow();
+		// The still-valid row must keep its expanded state — proving the
+		// prune effect selectively removes only the expired id from the Set,
+		// rather than resetting it wholesale (that blanket-reset path is
+		// covered separately by the existing on-hide test).
+		expect(messageTextOf(entryByText(root, 'keep message')).props.className).toBe('message-text');
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('does not re-pulse the avatar on a FULL→PEEK phase transition of the same visible message', async () => {
+		const root = await renderWidget();
+
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage());
+		});
+		expect(avatarClassNames(root)).toContain('avatar avatar-pulse');
+
+		// Keep a reply open on the newest message so the full-view render
+		// branch (and its mounted Avatar) survives the phase decaying past
+		// 'full' instead of unmounting — see renderMessageRow's branch
+		// condition (`phase === 'full' || replyingTo === newest.id`).
+		const replyButton = root.root.findByProps({ 'aria-label': 'Reply' });
+		await act(async () => {
+			replyButton.props.onClick({ stopPropagation: () => {} });
+		});
+
+		// Let the one-time pulse duration (900ms) elapse naturally first.
+		await act(async () => {
+			timers.advance(950);
+		});
+		expect(avatarClassNames(root)).not.toContain('avatar avatar-pulse');
+
+		// Cross the FULL→PEEK boundary (NOTCH_FULL_MS = 5000ms) with the same
+		// message still mounted. If the phase transition had remounted the
+		// Avatar instead of reusing the same instance, its mount-only pulse
+		// state would restart and 'avatar-pulse' would reappear here.
+		await act(async () => {
+			timers.advance(4_100);
+		});
+		expect(avatarClassNames(root)).not.toContain('avatar avatar-pulse');
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+});

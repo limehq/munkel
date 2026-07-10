@@ -435,6 +435,7 @@ export default function NotchWidget() {
 					</div>
 					{collapsible && (
 						<button
+							type="button"
 							className="icon-button history-expand-button"
 							data-testid={`history-expand-${entry.id}`}
 							onClick={(e) => {
