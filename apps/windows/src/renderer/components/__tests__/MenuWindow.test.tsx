@@ -287,6 +287,126 @@ describe('MenuWindow circle leave confirmation', () => {
 	});
 });
 
+describe('MenuWindow settings display-name Enter save (P1.2)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenuWithSettingsOpen() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const settingsButton = root!.root.findByProps({ title: 'Settings' });
+		await act(async () => {
+			settingsButton.props.onClick({ stopPropagation: () => {} });
+		});
+
+		return root!;
+	}
+
+	it('pressing Enter in the display-name field commits the new name exactly once', async () => {
+		const updateProfileSpy = spyOn(electronApi, 'updateProfile');
+		const root = await renderMenuWithSettingsOpen();
+
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+
+		let prevented = false;
+		let blurred = false;
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {
+					prevented = true;
+				},
+				currentTarget: {
+					blur: () => {
+						blurred = true;
+					},
+				},
+			});
+		});
+
+		expect(prevented).toBe(true);
+		expect(blurred).toBe(true);
+		expect(updateProfileSpy).toHaveBeenCalledTimes(1);
+		expect(updateProfileSpy).toHaveBeenCalledWith('New Name', undefined);
+	});
+
+	it('a blur that follows the Enter commit does not re-submit the same name', async () => {
+		const updateProfileSpy = spyOn(electronApi, 'updateProfile');
+		const root = await renderMenuWithSettingsOpen();
+
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+
+		// Blur fires as a natural consequence of the Enter-triggered blur() call
+		// (or of clicking elsewhere afterward); it must not double-submit.
+		await act(async () => {
+			input.props.onBlur();
+		});
+
+		expect(updateProfileSpy).toHaveBeenCalledTimes(1);
+		expect(updateProfileSpy).toHaveBeenCalledWith('New Name', undefined);
+	});
+
+	it('does not call updateProfile when Enter is pressed without changing the name', async () => {
+		const updateProfileSpy = spyOn(electronApi, 'updateProfile');
+		const root = await renderMenuWithSettingsOpen();
+
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+
+		expect(updateProfileSpy).toHaveBeenCalledTimes(0);
+	});
+});
+
 describe('MenuWindow update status', () => {
 	let electronApi: ReturnType<typeof createMockElectronApi>;
 

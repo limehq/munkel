@@ -26,10 +26,15 @@ export default function MenuWindow() {
 	const [messages, setMessages] = useState<Record<string, string>>({});
 	const [recipients, setRecipients] = useState<Record<string, string>>({});
 	const [sendErrors, setSendErrors] = useState<Record<string, string>>({});
+	// Tracks the last name actually sent via updateProfile so Enter + blur
+	// firing in the same interaction (Enter commits, then the input blurs)
+	// only persists once instead of double-submitting (E2).
+	const lastSavedNameRef = useRef(state.identity?.displayName ?? '');
 
 	useEffect(() => {
 		if (state.identity) {
 			setDisplayName(state.identity.displayName);
+			lastSavedNameRef.current = state.identity.displayName;
 		}
 	}, [state.identity?.displayName]);
 
@@ -77,8 +82,19 @@ export default function MenuWindow() {
 
 	function updateName() {
 		const name = displayName.trim();
-		if (!name) return;
+		if (!name || name === lastSavedNameRef.current) return;
+		lastSavedNameRef.current = name;
 		void updateProfile(name);
+	}
+
+	function commitNameOnEnter(e: React.KeyboardEvent<HTMLInputElement>) {
+		if (e.key !== 'Enter') return;
+		// Prevent any implicit form behavior and commit immediately, matching
+		// macOS's "Enter commits the display name" (E2). Blurring afterward is
+		// safe: updateName() is idempotent against lastSavedNameRef.
+		e.preventDefault();
+		updateName();
+		e.currentTarget.blur();
 	}
 
 	return (
@@ -115,12 +131,11 @@ export default function MenuWindow() {
 							</label>
 							<input
 								className="frosted-field"
+								data-testid="display-name-input"
 								value={displayName}
 								onChange={(e) => setDisplayName(e.target.value)}
 								onBlur={updateName}
-								onKeyDown={(e) => {
-									if (e.key === 'Enter') updateName();
-								}}
+								onKeyDown={commitNameOnEnter}
 								placeholder="Your name"
 							/>
 							<div className="popover-divider" />
