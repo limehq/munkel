@@ -33,11 +33,20 @@ export function clampNotchHeight(contentHeight: number): number {
  * position stay fixed (top-center anchor), so the window only ever grows
  * downward — matching macOS "hovering only grows downward" behavior.
  */
+/**
+ * Skip resizing when the requested height is within this many pixels of the
+ * window's current height. Windows display scaling (125 %/150 %) can round
+ * `setSize()` to a slightly different height than the renderer's
+ * `offsetHeight`, which would otherwise retrigger the renderer's
+ * ResizeObserver and cause an oscillating resize/IPC loop.
+ */
+const NOTCH_RESIZE_TOLERANCE_PX = 1;
+
 export function resizeNotchToContent(win: BrowserWindow | null, contentHeight: number): void {
 	if (!win) return;
 	const height = clampNotchHeight(contentHeight);
 	const [currentWidth, currentHeight] = win.getSize();
-	if (currentHeight === height) return;
+	if (Math.abs(currentHeight - height) <= NOTCH_RESIZE_TOLERANCE_PX) return;
 	// The window is created non-resizable (blocks user resizing); lift that
 	// briefly so the programmatic resize is honored on every platform.
 	const wasResizable = win.isResizable();

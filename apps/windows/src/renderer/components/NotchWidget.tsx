@@ -9,6 +9,13 @@ const RING_RADIUS = 8;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 const ringStyle = { '--ring-circumference': `${RING_CIRCUMFERENCE}` } as CSSProperties;
 
+// Debounce ResizeObserver-driven `notch-resize` IPC calls. Windows display
+// scaling (125 %/150 %) can round `setSize()` to a height that differs
+// slightly from the renderer's `offsetHeight`, which can retrigger the
+// observer and cause an IPC-spamming resize oscillation. 80ms matches the
+// notch's other UI timing constants (see the reply-focus delay below).
+const RESIZE_REPORT_DEBOUNCE_MS = 80;
+
 export default function NotchWidget() {
 	const { sendChat } = useAppStore();
 
@@ -26,11 +33,21 @@ export default function NotchWidget() {
 	useEffect(() => {
 		const el = widgetRef.current;
 		if (!el || typeof ResizeObserver === 'undefined') return;
+		let debounceTimer: ReturnType<typeof setTimeout> | undefined;
 		const report = () => void window.electronAPI.notchResize(el.offsetHeight);
-		const observer = new ResizeObserver(report);
+		const debouncedReport = () => {
+			if (debounceTimer) clearTimeout(debounceTimer);
+			debounceTimer = setTimeout(report, RESIZE_REPORT_DEBOUNCE_MS);
+		};
+		const observer = new ResizeObserver(debouncedReport);
 		observer.observe(el);
+		// Report the initial size immediately so the window is sized correctly
+		// before the first observer callback would otherwise fire.
 		report();
-		return () => observer.disconnect();
+		return () => {
+			observer.disconnect();
+			if (debounceTimer) clearTimeout(debounceTimer);
+		};
 	}, []);
 
 	const handleNotchHide = useCallback(() => {

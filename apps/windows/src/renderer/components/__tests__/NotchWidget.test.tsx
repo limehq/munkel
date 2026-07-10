@@ -103,7 +103,16 @@ describe('NotchWidget resize reporting (P1.3 / WIN-NOTCH-004)', () => {
 		});
 	});
 
-	it('observes the widget element exactly once and re-reports height when the observer fires', async () => {
+	/** Real (not mocked) delay helper. Using real timers here — instead of a
+	 * global fake-timer mock — avoids cross-file timer-mock leakage into
+	 * other suites that share this test process (observed as flaky
+	 * `window is not defined` failures when a global fake-timer mock was
+	 * used previously). The debounce is short (80ms) so real waits stay fast. */
+	function wait(ms: number) {
+		return new Promise<void>((resolve) => setTimeout(resolve, ms));
+	}
+
+	it('observes the widget element exactly once and re-reports height (debounced) when the observer fires', async () => {
 		const calls: number[] = [];
 		electronApi.notchResize = (h: number) => {
 			calls.push(h);
@@ -118,10 +127,49 @@ describe('NotchWidget resize reporting (P1.3 / WIN-NOTCH-004)', () => {
 		const callsBeforeFire = calls.length;
 		await act(async () => {
 			observer.fire();
-			await Promise.resolve();
+		});
+		// The report is debounced (~80ms), so it must not fire synchronously.
+		expect(calls.length).toBe(callsBeforeFire);
+
+		await act(async () => {
+			await wait(150);
 		});
 
 		expect(calls.length).toBeGreaterThan(callsBeforeFire);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('debounces rapid successive observer fires into a single notchResize call', async () => {
+		const calls: number[] = [];
+		electronApi.notchResize = (h: number) => {
+			calls.push(h);
+			return Promise.resolve();
+		};
+
+		const root = await renderWidget();
+		const observer = FakeResizeObserver.instances[0];
+		const callsAfterMount = calls.length;
+
+		// Simulate an oscillating resize (e.g. from display-scaling rounding
+		// mismatches) firing several times in quick succession — well within
+		// the 80ms debounce window of each other.
+		await act(async () => {
+			observer.fire();
+			await wait(20);
+			observer.fire();
+			await wait(20);
+			observer.fire();
+		});
+		expect(calls.length).toBe(callsAfterMount);
+
+		await act(async () => {
+			await wait(150);
+		});
+
+		expect(calls.length).toBe(callsAfterMount + 1);
 
 		await act(async () => {
 			root.unmount();

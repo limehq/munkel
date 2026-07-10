@@ -226,6 +226,26 @@ describe('notch-window sizing (P1.3 / WIN-NOTCH-004)', () => {
 		expect(() => resizeNotchToContent(null, 200)).not.toThrow();
 	});
 
+	it('resizeNotchToContent tolerates a 1px difference from display-scaling rounding without resizing', () => {
+		// Windows display scaling (125 %/150 %) can round the renderer's
+		// reported offsetHeight differently than the window's actual height,
+		// which would otherwise retrigger the renderer ResizeObserver and
+		// oscillate. A +-1px difference must be a no-op.
+		const winUp = mockResizableWindow(200);
+		resizeNotchToContent(winUp as unknown as BrowserWindow, 201);
+		expect(winUp.calls.length).toBe(0);
+
+		const winDown = mockResizableWindow(200);
+		resizeNotchToContent(winDown as unknown as BrowserWindow, 199);
+		expect(winDown.calls.length).toBe(0);
+	});
+
+	it('resizeNotchToContent still resizes once the difference exceeds the 1px tolerance', () => {
+		const win = mockResizableWindow(200);
+		resizeNotchToContent(win as unknown as BrowserWindow, 202);
+		expect(win.calls).toContainEqual(['setSize', NOTCH_WIDTH, 202]);
+	});
+
 	it('resizeNotchToContent clamps a retracted sliver height up to the minimum instead of shrinking to zero', () => {
 		// The retracted/peek states report a tiny offsetHeight (the sliver
 		// grabber); resizeNotchToContent must still land on NOTCH_MIN_HEIGHT
