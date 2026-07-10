@@ -38,7 +38,10 @@ Munkel for Windows — Electron + Vite + React + TypeScript client.
 The Windows app uses `electron-updater` with a GitHub Releases feed
 (`rodgi040/munkel`).
 
-- Packaged builds automatically check for updates on launch and every 24 hours.
+- Packaged builds automatically check for updates on launch and every 24 hours
+  by default. A "Check Automatically" checkbox in the settings popover lets
+  the user disable this; manual **Check for Updates…** always works
+  regardless of the toggle.
 - When an update finishes downloading, the menu shows an **Install** button.
 - The app never installs an update without user consent.
 - Dev mode (`bun run dev`) skips auto-checks to avoid updater noise.
@@ -70,6 +73,9 @@ Phase 1 is feature-complete for day-to-day messaging:
 - Menu: leaving a circle now shows a confirmation dialog to prevent accidental exits.
 - Menu: recipient picker uses avatar chips (globe = everyone, one chip per member), matching the macOS `TargetChip` design.
 - Menu: opt-in "Launch at login" toggle in Settings (default off; never auto-registers, unlike the macOS release).
+- Menu: "Check Automatically" toggle in Settings for auto-update checks (default on).
+- Notch: hover-"C" keyboard shortcut copies the hovered history row (or the newest message) while the notch is hovered.
+- Notch: a blue unread-indicator dot appears in the retracted sliver for a message the user hasn't hovered or replied to.
 
 GitHub login is optional. The app still works with a manual display name and
 joined circles even when no GitHub account is connected. A real
