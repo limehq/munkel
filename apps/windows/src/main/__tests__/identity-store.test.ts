@@ -65,3 +65,67 @@ describe('IdentityStore launchAtLogin (Plan 12 P2.1)', () => {
 		expect(state.memberId).toBe('legacy-member');
 	});
 });
+
+describe('IdentityStore autoUpdateCheck (Plan 12 P3.7)', () => {
+	let dir: string;
+
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'munkel-identity-store-'));
+	});
+
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('defaults autoUpdateCheck to true for a freshly created store', () => {
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.autoUpdateCheck).toBe(true);
+	});
+
+	it('persists autoUpdateCheck=false via patch and reflects it on the next load', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ autoUpdateCheck: false });
+
+		const reloaded = store.load();
+		expect(reloaded.autoUpdateCheck).toBe(false);
+	});
+
+	it('persists autoUpdateCheck=true via patch after previously being false', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ autoUpdateCheck: false });
+		store.patch({ autoUpdateCheck: true });
+
+		expect(store.load().autoUpdateCheck).toBe(true);
+	});
+
+	it('does not disturb other identity fields when patching autoUpdateCheck', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ displayName: 'Ada' });
+		store.patch({ autoUpdateCheck: false });
+
+		const state = store.load();
+		expect(state.displayName).toBe('Ada');
+		expect(state.autoUpdateCheck).toBe(false);
+	});
+
+	it('migrates a legacy state.json (no autoUpdateCheck field) to default true', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 1,
+				memberId: 'legacy-member',
+				displayName: 'Legacy',
+				circles: [],
+				launchAtLogin: true,
+			}),
+		);
+
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.autoUpdateCheck).toBe(true);
+		expect(state.launchAtLogin).toBe(true);
+		expect(state.memberId).toBe('legacy-member');
+	});
+});

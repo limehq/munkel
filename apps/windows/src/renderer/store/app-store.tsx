@@ -46,6 +46,9 @@ interface AppStore {
 
 	getLaunchAtLogin: () => Promise<boolean>;
 	setLaunchAtLogin: (enabled: boolean) => Promise<boolean>;
+
+	getAutoUpdateCheck: () => Promise<boolean>;
+	setAutoUpdateCheck: (enabled: boolean) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppStore | null>(null);
@@ -176,6 +179,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		return window.electronAPI.setLaunchAtLogin(enabled);
 	}, []);
 
+	const getAutoUpdateCheck = useCallback(async () => {
+		return window.electronAPI.getAutoUpdateCheck();
+	}, []);
+
+	const setAutoUpdateCheck = useCallback(async (enabled: boolean) => {
+		return window.electronAPI.setAutoUpdateCheck(enabled);
+	}, []);
+
 	const store = useMemo<AppStore>(
 		() => ({
 			state,
@@ -197,6 +208,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			installUpdate,
 			getLaunchAtLogin,
 			setLaunchAtLogin,
+			getAutoUpdateCheck,
+			setAutoUpdateCheck,
 		}),
 		[
 			state,
@@ -218,6 +231,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			installUpdate,
 			getLaunchAtLogin,
 			setLaunchAtLogin,
+			getAutoUpdateCheck,
+			setAutoUpdateCheck,
 		],
 	);
 

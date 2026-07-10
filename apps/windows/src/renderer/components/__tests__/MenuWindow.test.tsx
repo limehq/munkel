@@ -33,6 +33,8 @@ function createMockElectronApi(initialState: StateUpdate) {
 		installUpdate: () => Promise.resolve(),
 		getLaunchAtLogin: () => Promise.resolve(false),
 		setLaunchAtLogin: (_enabled: boolean) => Promise.resolve(true),
+		getAutoUpdateCheck: () => Promise.resolve(true),
+		setAutoUpdateCheck: (_enabled: boolean) => Promise.resolve(true),
 		selectImages: () => Promise.resolve(undefined),
 		beginNotchReply: () => Promise.resolve(),
 		endNotchReply: () => Promise.resolve(),
@@ -995,6 +997,143 @@ describe('MenuWindow launch-at-login toggle (P2.1)', () => {
 		});
 
 		expect(calls).toEqual([true, false]);
+	});
+});
+
+describe('MenuWindow auto-update "Check Automatically" toggle (P3.7)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenuWithSettingsOpen() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const settingsButton = root!.root.findByProps({ title: 'Settings' });
+		await act(async () => {
+			settingsButton.props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
+		});
+
+		return root!;
+	}
+
+	it('defaults to checked (today\'s unconditional-check behavior) before the persisted value loads', async () => {
+		// getAutoUpdateCheck never resolves in this test, so the component's
+		// initial `true` default is what renders.
+		electronApi.getAutoUpdateCheck = () => new Promise(() => {});
+		const root = await renderMenuWithSettingsOpen();
+		const checkbox = root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' });
+		expect(checkbox.props.checked).toBe(true);
+	});
+
+	it('reflects a persisted false preference fetched on mount', async () => {
+		electronApi.getAutoUpdateCheck = () => Promise.resolve(false);
+		const root = await renderMenuWithSettingsOpen();
+		const checkbox = root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' });
+		expect(checkbox.props.checked).toBe(false);
+	});
+
+	it('toggling off calls setAutoUpdateCheck(false) and reflects the new checked state', async () => {
+		const setSpy = spyOn(electronApi, 'setAutoUpdateCheck');
+		const root = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' }).props.onChange();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledTimes(1);
+		expect(setSpy).toHaveBeenCalledWith(false);
+		const checkbox = root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' });
+		expect(checkbox.props.checked).toBe(false);
+	});
+
+	it('toggling on calls setAutoUpdateCheck(true) when currently disabled', async () => {
+		electronApi.getAutoUpdateCheck = () => Promise.resolve(false);
+		const setSpy = spyOn(electronApi, 'setAutoUpdateCheck');
+		const root = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' }).props.onChange();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledWith(true);
+	});
+
+	it('snaps the checkbox back to its previous state when setAutoUpdateCheck fails', async () => {
+		electronApi.setAutoUpdateCheck = (_enabled: boolean) => Promise.resolve(false);
+		const root = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' }).props.onChange();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const checkbox = root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' });
+		expect(checkbox.props.checked).toBe(true);
+	});
+
+	// In-flight guard, same rationale as the launch-at-login toggle above: a
+	// rapid double-click must not fire a second IPC call while the first is
+	// still unresolved.
+	it('ignores a second toggle while the first setAutoUpdateCheck call is still in flight', async () => {
+		let resolveFirst: ((ok: boolean) => void) | undefined;
+		const calls: boolean[] = [];
+		electronApi.setAutoUpdateCheck = (enabled: boolean) => {
+			calls.push(enabled);
+			return new Promise<boolean>((resolve) => {
+				resolveFirst = resolve;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		const checkbox = () => root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' });
+
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+
+		expect(calls).toEqual([false]);
+
+		await act(async () => {
+			resolveFirst?.(true);
+			await Promise.resolve();
+		});
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+
+		expect(calls).toEqual([false, true]);
 	});
 });
 

@@ -222,6 +222,117 @@ describe('UpdateService state transitions', () => {
 	});
 });
 
+describe('UpdateService auto-check toggle (Plan 12 P3.7)', () => {
+	it('does not perform the launch check when autoCheckEnabled is false', () => {
+		const { updater, checkSpy } = createMockUpdater();
+		const { send, states } = createSend();
+
+		const service = initUpdateService(send, { autoUpdater: updater as never, isDev: false, autoCheckEnabled: false });
+
+		expect(checkSpy.calls).toBe(0);
+		expect(states).toHaveLength(0);
+		service.dispose();
+	});
+
+	it('does not start the periodic loop when autoCheckEnabled is false', async () => {
+		jest.useFakeTimers({ legacyFakeTimers: true });
+		const updater = new MockAppUpdater();
+		let checkCount = 0;
+		updater.checkForUpdates = () => {
+			checkCount += 1;
+			return Promise.resolve({} as unknown);
+		};
+		const { send } = createSend();
+
+		const service = initUpdateService(send, { autoUpdater: updater as never, isDev: false, autoCheckEnabled: false });
+		expect(checkCount).toBe(0);
+
+		jest.advanceTimersByTime(24 * 60 * 60 * 1000);
+		await Promise.resolve();
+		expect(checkCount).toBe(0);
+
+		service.dispose();
+		jest.useRealTimers();
+	});
+
+	it('setAutoCheckEnabled(true) starts the periodic loop at runtime', async () => {
+		jest.useFakeTimers({ legacyFakeTimers: true });
+		const updater = new MockAppUpdater();
+		let checkCount = 0;
+		updater.checkForUpdates = () => {
+			checkCount += 1;
+			return Promise.resolve({} as unknown);
+		};
+		const { send } = createSend();
+
+		const service = initUpdateService(send, { autoUpdater: updater as never, isDev: false, autoCheckEnabled: false });
+		expect(checkCount).toBe(0);
+
+		service.setAutoCheckEnabled(true);
+		// Turning the toggle on starts the loop but does not itself trigger an
+		// immediate check — only the 24h interval does.
+		expect(checkCount).toBe(0);
+
+		jest.advanceTimersByTime(24 * 60 * 60 * 1000);
+		await Promise.resolve();
+		expect(checkCount).toBe(1);
+
+		service.dispose();
+		jest.useRealTimers();
+	});
+
+	it('setAutoCheckEnabled(false) stops an in-progress periodic loop', async () => {
+		jest.useFakeTimers({ legacyFakeTimers: true });
+		const updater = new MockAppUpdater();
+		let checkCount = 0;
+		updater.checkForUpdates = () => {
+			checkCount += 1;
+			return Promise.resolve({} as unknown);
+		};
+		const { send } = createSend();
+
+		const service = initUpdateService(send, { autoUpdater: updater as never, isDev: false, autoCheckEnabled: true });
+		expect(checkCount).toBe(1); // launch check
+
+		await Promise.resolve();
+		await Promise.resolve();
+		await Promise.resolve();
+
+		service.setAutoCheckEnabled(false);
+
+		jest.advanceTimersByTime(24 * 60 * 60 * 1000);
+		await Promise.resolve();
+		expect(checkCount).toBe(1); // no additional periodic check after disabling
+
+		service.dispose();
+		jest.useRealTimers();
+	});
+
+	it('manual check() still works while auto-check is disabled', async () => {
+		const { updater, checkSpy } = createMockUpdater();
+		const { send } = createSend();
+
+		const service = initUpdateService(send, { autoUpdater: updater as never, isDev: false, autoCheckEnabled: false });
+		expect(checkSpy.calls).toBe(0);
+
+		service.check();
+		expect(checkSpy.calls).toBe(1);
+
+		service.dispose();
+	});
+
+	it('is a no-op to disable twice in a row (does not throw or double-clear)', () => {
+		const { updater } = createMockUpdater();
+		const { send } = createSend();
+
+		const service = initUpdateService(send, { autoUpdater: updater as never, isDev: false, autoCheckEnabled: false });
+		service.setAutoCheckEnabled(false);
+		service.setAutoCheckEnabled(false);
+
+		service.dispose();
+	});
+});
+
 describe('UpdateService error handling', () => {
 	it('reports a user-friendly message for signature errors', () => {
 		const { updater } = createMockUpdater();

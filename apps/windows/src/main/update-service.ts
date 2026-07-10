@@ -9,6 +9,11 @@ export interface UpdateService {
 	check: () => void;
 	install: () => void;
 	dispose: () => void;
+	// Auto-update "Check Automatically" toggle (Plan 12 P3.7). Starts/stops
+	// the 24h periodic check loop; the manual `check()` above always works
+	// regardless of this setting, mirroring macOS's Sparkle
+	// `automaticallyChecksForUpdates` (which only gates *automatic* checks).
+	setAutoCheckEnabled: (enabled: boolean) => void;
 }
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -48,14 +53,16 @@ class UpdateServiceImpl implements UpdateService {
 	private intervalId: ReturnType<typeof setInterval> | null = null;
 	private checking = false;
 	private installing = false;
+	private autoCheckEnabled: boolean;
 	private readonly send: UpdateSend;
 	private readonly autoUpdater: AppUpdater;
 	private readonly isDev: boolean;
 
-	constructor(send: UpdateSend, autoUpdater: AppUpdater, isDev: boolean) {
+	constructor(send: UpdateSend, autoUpdater: AppUpdater, isDev: boolean, autoCheckEnabled: boolean) {
 		this.send = send;
 		this.autoUpdater = autoUpdater;
 		this.isDev = isDev;
+		this.autoCheckEnabled = autoCheckEnabled;
 
 		this.autoUpdater.logger = null;
 		this.autoUpdater.autoDownload = true;
@@ -110,15 +117,28 @@ class UpdateServiceImpl implements UpdateService {
 	}
 
 	startPeriodicCheck(): void {
-		if (this.isDev || this.intervalId !== null) return;
+		if (this.isDev || !this.autoCheckEnabled || this.intervalId !== null) return;
 		this.intervalId = setInterval(() => this.check(), CHECK_INTERVAL_MS);
 	}
 
-	dispose(): void {
+	stopPeriodicCheck(): void {
 		if (this.intervalId !== null) {
 			clearInterval(this.intervalId);
 			this.intervalId = null;
 		}
+	}
+
+	setAutoCheckEnabled(enabled: boolean): void {
+		this.autoCheckEnabled = enabled;
+		if (enabled) {
+			this.startPeriodicCheck();
+		} else {
+			this.stopPeriodicCheck();
+		}
+	}
+
+	dispose(): void {
+		this.stopPeriodicCheck();
 	}
 
 	private setPhase(phase: UpdatePhase, extras: { version?: string; progress?: number; error?: string } = {}): void {
@@ -156,16 +176,21 @@ function defaultIsDev(): boolean {
 
 export function initUpdateService(
 	send: UpdateSend,
-	options: { autoUpdater?: AppUpdater; isDev?: boolean } = {},
+	options: { autoUpdater?: AppUpdater; isDev?: boolean; autoCheckEnabled?: boolean } = {},
 ): UpdateService {
 	const autoUpdater = options.autoUpdater ?? (defaultAutoUpdater as AppUpdater);
 	const isDev = options.isDev ?? defaultIsDev();
-	const service = new UpdateServiceImpl(send, autoUpdater, isDev);
+	// Defaults to `true` — today's unconditional-check behavior — for any
+	// caller that doesn't pass a persisted preference (e.g. existing tests).
+	const autoCheckEnabled = options.autoCheckEnabled ?? true;
+	const service = new UpdateServiceImpl(send, autoUpdater, isDev, autoCheckEnabled);
 
-	if (!isDev) {
+	if (!isDev && autoCheckEnabled) {
 		service.check();
-		service.startPeriodicCheck();
 	}
+	// Also arms/disarms the periodic loop consistently with autoCheckEnabled,
+	// so a later setAutoCheckEnabled(true) isn't the only path that starts it.
+	service.setAutoCheckEnabled(autoCheckEnabled);
 
 	return service;
 }

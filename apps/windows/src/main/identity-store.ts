@@ -12,6 +12,12 @@ export interface PersistedState {
 	// which auto-registers once on first launch, Windows always defaults to
 	// `false` and only ever mirrors the user's explicit toggle choice.
 	launchAtLogin: boolean;
+	// Auto-update "Check Automatically" preference (Plan 12 P3.7), mirroring
+	// macOS `UpdaterController.automaticallyChecksForUpdates`. Defaults to
+	// `true` — today's behavior of checking on launch + every 24h. Disabling
+	// only stops the automatic checks; the menu's manual "Check for
+	// Updates…" button always works regardless.
+	autoUpdateCheck: boolean;
 }
 
 function defaultState(): PersistedState {
@@ -21,6 +27,7 @@ function defaultState(): PersistedState {
 		displayName: '',
 		circles: [],
 		launchAtLogin: false,
+		autoUpdateCheck: true,
 	};
 }
 
@@ -61,7 +68,11 @@ export class IdentityStore {
 		fs.writeFileSync(this.filePath, JSON.stringify(state, null, 2));
 	}
 
-	patch(identity: Partial<Pick<PersistedState, 'displayName' | 'avatar' | 'githubLogin' | 'launchAtLogin'>>): void {
+	patch(
+		identity: Partial<
+			Pick<PersistedState, 'displayName' | 'avatar' | 'githubLogin' | 'launchAtLogin' | 'autoUpdateCheck'>
+		>,
+	): void {
 		const state = this.load();
 		Object.assign(state, identity);
 		this.save(state);
@@ -106,6 +117,9 @@ export class IdentityStore {
 		}
 		if (typeof draft.launchAtLogin !== 'boolean') {
 			draft.launchAtLogin = false;
+		}
+		if (typeof draft.autoUpdateCheck !== 'boolean') {
+			draft.autoUpdateCheck = true;
 		}
 
 		return draft as PersistedState;

@@ -142,18 +142,21 @@ app.whenReady().then(async () => {
 	// circles never load → 0 sessions → 0 relay connections.
 	console.error('[munkel] userData path:', app.getPath('userData'));
 	const identityStore = new IdentityStore(app.getPath('userData'));
+	const persisted = identityStore.load();
 
 	// Apply the persisted opt-in autostart choice (Plan 12 P2.1). Unlike the
 	// macOS release, which auto-registers once on first launch, Windows never
 	// auto-registers — this only ever re-applies what the user chose last.
-	applyLaunchAtLogin(app, identityStore.load().launchAtLogin);
+	applyLaunchAtLogin(app, persisted.launchAtLogin);
 
 	const appState = new AppState(identityStore, broadcastState, showNotchMessage, relayError);
 	const githubLoginService = new GitHubLoginService(appState, pushGitHubLoginState);
 	registerSessionHandlers(appState, githubLoginService);
 
-	// Auto-update service. Packaged builds check on launch and every 24h; dev skips.
-	updateService = initUpdateService(pushUpdateState, { isDev });
+	// Auto-update service. Packaged builds check on launch and every 24h when
+	// the persisted "Check Automatically" preference (Plan 12 P3.7) allows
+	// it; dev always skips. Manual "Check for Updates…" always works.
+	updateService = initUpdateService(pushUpdateState, { isDev, autoCheckEnabled: persisted.autoUpdateCheck });
 
 	// Named-pipe control server for the `munkel` CLI. Mirrors the macOS app's
 	// Unix-domain-socket `ControlServer` — one request/response per connection,
@@ -231,6 +234,19 @@ app.whenReady().then(async () => {
 		// Handler logic lives in login-item.ts so it is unit-testable
 		// (main.ts wiring has no test harness; see docs/ipc-contract.md).
 		return setLaunchAtLoginPreference(app, identityStore, enabled);
+	});
+	// Auto-update "Check Automatically" toggle (Plan 12 P3.7). Same
+	// menu-only sender guard as the launch-at-login channels above.
+	ipcMain.handle(IPC_CHANNELS.GET_AUTO_UPDATE_CHECK, (event) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return true;
+		return identityStore.load().autoUpdateCheck;
+	});
+	ipcMain.handle(IPC_CHANNELS.SET_AUTO_UPDATE_CHECK, (event, enabled: boolean) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return false;
+		const value = !!enabled;
+		identityStore.patch({ autoUpdateCheck: value });
+		updateService?.setAutoCheckEnabled(value);
+		return true;
 	});
 
 	await appState.restoreCircles();

@@ -18,6 +18,8 @@ export default function MenuWindow() {
 		installUpdate,
 		getLaunchAtLogin,
 		setLaunchAtLogin,
+		getAutoUpdateCheck,
+		setAutoUpdateCheck,
 	} = useAppStore();
 
 	const [joinCode, setJoinCode] = useState('');
@@ -58,6 +60,12 @@ export default function MenuWindow() {
 	// setLaunchAtLogin IPC call while the first is still unresolved, or an
 	// out-of-order resolve could snap the checkbox to a stale value.
 	const launchToggleInFlightRef = useRef(false);
+	// Auto-update "Check Automatically" toggle (Plan 12 P3.7). Default true —
+	// mirrors the persisted main-process value fetched on mount, matching
+	// today's unconditional-check behavior until that fetch resolves.
+	const [autoUpdateCheck, setAutoUpdateCheckState] = useState(true);
+	// Same race-guard pattern as launchToggleInFlightRef.
+	const autoUpdateToggleInFlightRef = useRef(false);
 
 	useEffect(() => {
 		let mounted = true;
@@ -68,6 +76,16 @@ export default function MenuWindow() {
 			mounted = false;
 		};
 	}, [getLaunchAtLogin]);
+
+	useEffect(() => {
+		let mounted = true;
+		void getAutoUpdateCheck().then((enabled) => {
+			if (mounted) setAutoUpdateCheckState(enabled);
+		});
+		return () => {
+			mounted = false;
+		};
+	}, [getAutoUpdateCheck]);
 
 	async function handleToggleLaunchAtLogin() {
 		if (launchToggleInFlightRef.current) return;
@@ -81,6 +99,19 @@ export default function MenuWindow() {
 			if (!ok) setLaunchAtLoginState(!next);
 		} finally {
 			launchToggleInFlightRef.current = false;
+		}
+	}
+
+	async function handleToggleAutoUpdateCheck() {
+		if (autoUpdateToggleInFlightRef.current) return;
+		autoUpdateToggleInFlightRef.current = true;
+		const next = !autoUpdateCheck;
+		setAutoUpdateCheckState(next);
+		try {
+			const ok = await setAutoUpdateCheck(next);
+			if (!ok) setAutoUpdateCheckState(!next);
+		} finally {
+			autoUpdateToggleInFlightRef.current = false;
 		}
 	}
 
@@ -260,6 +291,16 @@ export default function MenuWindow() {
 									onChange={handleToggleLaunchAtLogin}
 								/>
 								Launch at login
+							</label>
+							<div className="popover-divider" />
+							<label className="launch-at-login-row" data-testid="auto-update-check-row">
+								<input
+									type="checkbox"
+									data-testid="auto-update-check-checkbox"
+									checked={autoUpdateCheck}
+									onChange={handleToggleAutoUpdateCheck}
+								/>
+								Check Automatically
 							</label>
 							<div className="popover-divider" />
 							<button onClick={() => window.electronAPI.showPalette()}>Quick send…</button>
