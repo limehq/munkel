@@ -36,6 +36,10 @@ export default function MenuWindow() {
 	// to mutate lastSavedNameRef / surface an error, so a late-arriving
 	// resolve for a stale submit can never clobber a newer one.
 	const nameSaveGenerationRef = useRef(0);
+	// Timer that auto-hides the save-failed hint a few seconds after it
+	// appears, and a flag driving that hint's visibility.
+	const nameSaveErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	const [nameSaveFailed, setNameSaveFailed] = useState(false);
 
 	useEffect(() => {
 		if (state.identity) {
@@ -49,6 +53,14 @@ export default function MenuWindow() {
 			setConfirmingLeave(null);
 		}
 	}, [state.circles, confirmingLeave]);
+
+	useEffect(() => {
+		return () => {
+			if (nameSaveErrorTimeoutRef.current) {
+				clearTimeout(nameSaveErrorTimeoutRef.current);
+			}
+		};
+	}, []);
 
 	function rollCode() {
 		const parts = Array.from({ length: 2 }, () =>
@@ -96,6 +108,14 @@ export default function MenuWindow() {
 		// error UI (out-of-order-resolve guard).
 		const generation = ++nameSaveGenerationRef.current;
 
+		// Clear any stale error hint from a previous failed attempt as soon as
+		// a new save starts; the retry is now in flight.
+		if (nameSaveErrorTimeoutRef.current) {
+			clearTimeout(nameSaveErrorTimeoutRef.current);
+			nameSaveErrorTimeoutRef.current = null;
+		}
+		setNameSaveFailed(false);
+
 		// Only mark this name as "saved" once the IPC call actually resolves.
 		// If updateProfile rejects (e.g. relay offline), lastSavedNameRef stays
 		// at its previous value so a retry with the same name is not silently
@@ -107,7 +127,14 @@ export default function MenuWindow() {
 			},
 			() => {
 				if (nameSaveGenerationRef.current !== generation) return;
-				// Leave lastSavedNameRef untouched so the same name can be retried.
+				// Leave lastSavedNameRef untouched so the same name can be retried,
+				// and surface a brief hint so the failure isn't silent (the field
+				// stays editable throughout).
+				setNameSaveFailed(true);
+				nameSaveErrorTimeoutRef.current = setTimeout(() => {
+					setNameSaveFailed(false);
+					nameSaveErrorTimeoutRef.current = null;
+				}, 4000);
 			},
 		);
 	}
@@ -163,6 +190,11 @@ export default function MenuWindow() {
 								onKeyDown={commitNameOnEnter}
 								placeholder="Your name"
 							/>
+							{nameSaveFailed && (
+								<p className="name-save-error" data-testid="display-name-error">
+									Saving failed — press Enter to retry
+								</p>
+							)}
 							<div className="popover-divider" />
 							<button onClick={() => window.electronAPI.showPalette()}>Quick send…</button>
 							<div className="popover-divider" />

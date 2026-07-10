@@ -591,6 +591,93 @@ describe('MenuWindow settings display-name Enter save (P1.2)', () => {
 	});
 });
 
+describe('MenuWindow settings display-name save error feedback', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenuWithSettingsOpen() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const settingsButton = root!.root.findByProps({ title: 'Settings' });
+		await act(async () => {
+			settingsButton.props.onClick({ stopPropagation: () => {} });
+		});
+
+		return root!;
+	}
+
+	it('shows an error hint when updateProfile rejects, and clears it on the next successful save', async () => {
+		let reject = true;
+		electronApi.updateProfile = (_name: string) =>
+			reject ? Promise.reject(new Error('relay offline')) : Promise.resolve();
+		const root = await renderMenuWithSettingsOpen();
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+
+		expect(root.root.findAllByProps({ 'data-testid': 'display-name-error' }).length).toBe(0);
+
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+			await Promise.resolve().catch(() => {});
+		});
+
+		const errorHint = root.root.findByProps({ 'data-testid': 'display-name-error' });
+		expect(errorHint).toBeDefined();
+
+		// The field stays editable — the same input node is still present and
+		// accepts further changes.
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name Retry' } });
+		});
+
+		reject = false;
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+			await Promise.resolve();
+		});
+
+		expect(root.root.findAllByProps({ 'data-testid': 'display-name-error' }).length).toBe(0);
+	});
+});
+
 describe('MenuWindow update status', () => {
 	let electronApi: ReturnType<typeof createMockElectronApi>;
 

@@ -293,6 +293,12 @@ select {
 	background: rgba(255, 255, 255, 0.1);
 }
 
+.name-save-error {
+	margin: 4px 2px 0;
+	font-size: 11px;
+	color: #ff6b6b;
+}
+
 .circle-list {
 	display: flex;
 	flex-direction: column;
