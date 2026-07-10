@@ -53,6 +53,11 @@ export default function MenuWindow() {
 	// Opt-in autostart (Plan 12 P2.1). Default false — mirrors the persisted
 	// main-process value fetched on mount, not applied speculatively.
 	const [launchAtLogin, setLaunchAtLoginState] = useState(false);
+	// In-flight guard for the autostart toggle (same idea as inFlightNameRef
+	// for the display-name save): a rapid double-click must not fire a second
+	// setLaunchAtLogin IPC call while the first is still unresolved, or an
+	// out-of-order resolve could snap the checkbox to a stale value.
+	const launchToggleInFlightRef = useRef(false);
 
 	useEffect(() => {
 		let mounted = true;
@@ -65,12 +70,18 @@ export default function MenuWindow() {
 	}, [getLaunchAtLogin]);
 
 	async function handleToggleLaunchAtLogin() {
+		if (launchToggleInFlightRef.current) return;
+		launchToggleInFlightRef.current = true;
 		const next = !launchAtLogin;
 		// Optimistic update, matching macOS's toggle-then-snap-back-on-failure
 		// binding (`try?` around `LoginItem.setEnabled`).
 		setLaunchAtLoginState(next);
-		const ok = await setLaunchAtLogin(next);
-		if (!ok) setLaunchAtLoginState(!next);
+		try {
+			const ok = await setLaunchAtLogin(next);
+			if (!ok) setLaunchAtLoginState(!next);
+		} finally {
+			launchToggleInFlightRef.current = false;
+		}
 	}
 
 	useEffect(() => {
@@ -573,18 +584,65 @@ interface RecipientChipRowProps {
  * per member, horizontally scrollable, click-to-select. Replaces the native
  * `<select>`; the selection contract (`onRecipientChange('')` = All,
  * `onRecipientChange(memberId)` = one member) is unchanged.
+ *
+ * Accessibility: exposed as a radiogroup (single-select semantics like the
+ * old `<select>`) with roving tabindex — Tab lands on the selected chip only,
+ * and the Arrow keys move the selection (with wrap-around) while following
+ * focus, per the WAI-ARIA radio-group pattern.
  */
 function RecipientChipRow({ members, recipient, onRecipientChange }: RecipientChipRowProps) {
+	// '' (= everyone) first, then one entry per member — the roving order.
+	const values = ['', ...members.map((m) => m.memberId)];
+	// Roving-tabindex anchor. If the selected member went offline (stale
+	// recipient not in the row anymore), fall back to the "All" chip so the
+	// row always keeps exactly one Tab stop.
+	const tabStopValue = values.includes(recipient) ? recipient : '';
+	const chipRefs = useRef(new Map<string, HTMLButtonElement>());
+
+	function selectAndFocus(value: string) {
+		onRecipientChange(value);
+		chipRefs.current.get(value)?.focus();
+	}
+
+	function handleChipKeyDown(e: React.KeyboardEvent<HTMLButtonElement>, currentValue: string) {
+		let delta: number;
+		if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+			delta = 1;
+		} else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+			delta = -1;
+		} else {
+			return;
+		}
+		e.preventDefault();
+		const index = values.indexOf(currentValue);
+		if (index === -1) return;
+		selectAndFocus(values[(index + delta + values.length) % values.length]);
+	}
+
+	function chipRef(value: string) {
+		return (node: HTMLButtonElement | null) => {
+			if (node) {
+				chipRefs.current.set(value, node);
+			} else {
+				chipRefs.current.delete(value);
+			}
+		};
+	}
+
 	return (
-		<div className="recipient-row" data-testid="recipient-row">
+		<div className="recipient-row" role="radiogroup" aria-label="Recipient" data-testid="recipient-row">
 			<button
 				type="button"
+				role="radio"
+				ref={chipRef('')}
 				className={`recipient-chip${recipient === '' ? ' selected' : ''}`}
 				title="Everyone"
 				aria-label="Everyone"
-				aria-pressed={recipient === ''}
+				aria-checked={recipient === ''}
+				tabIndex={tabStopValue === '' ? 0 : -1}
 				data-testid="recipient-chip-all"
 				onClick={() => onRecipientChange('')}
+				onKeyDown={(e) => handleChipKeyDown(e, '')}
 			>
 				<span className="recipient-chip-globe" aria-hidden="true">
 					🌐
@@ -598,12 +656,16 @@ function RecipientChipRow({ members, recipient, onRecipientChange }: RecipientCh
 					<button
 						key={m.memberId}
 						type="button"
+						role="radio"
+						ref={chipRef(m.memberId)}
 						className={`recipient-chip${selected ? ' selected' : ''}`}
 						title={label}
 						aria-label={label}
-						aria-pressed={selected}
+						aria-checked={selected}
+						tabIndex={tabStopValue === m.memberId ? 0 : -1}
 						data-testid={`recipient-chip-${m.memberId}`}
 						onClick={() => onRecipientChange(m.memberId)}
+						onKeyDown={(e) => handleChipKeyDown(e, m.memberId)}
 					>
 						<Avatar name={label} size={22} imageBase64={m.avatar} />
 					</button>

@@ -957,6 +957,45 @@ describe('MenuWindow launch-at-login toggle (P2.1)', () => {
 		const checkbox = root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' });
 		expect(checkbox.props.checked).toBe(false);
 	});
+
+	// In-flight guard: a rapid double-click must not fire a second IPC call
+	// while the first is still unresolved (analogous to inFlightNameRef on
+	// the display-name save). A deferred promise is essential here — with a
+	// Promise.resolve() mock, act() would settle call #1 before click #2.
+	it('ignores a second toggle while the first setLaunchAtLogin call is still in flight', async () => {
+		let resolveFirst: ((ok: boolean) => void) | undefined;
+		const calls: boolean[] = [];
+		electronApi.setLaunchAtLogin = (enabled: boolean) => {
+			calls.push(enabled);
+			return new Promise<boolean>((resolve) => {
+				resolveFirst = resolve;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		const checkbox = () => root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' });
+
+		// Two clicks in the same interaction burst; the first promise is
+		// still pending when the second click lands.
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+
+		expect(calls).toEqual([true]);
+
+		// After the first call settles, toggling works again.
+		await act(async () => {
+			resolveFirst?.(true);
+			await Promise.resolve();
+		});
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+
+		expect(calls).toEqual([true, false]);
+	});
 });
 
 describe('MenuWindow recipient avatar chips (P2.4)', () => {
@@ -1012,11 +1051,11 @@ describe('MenuWindow recipient avatar chips (P2.4)', () => {
 		const root = await renderMenu();
 
 		const allChip = root.root.findByProps({ 'data-testid': 'recipient-chip-all' });
-		expect(allChip.props['aria-pressed']).toBe(true);
+		expect(allChip.props['aria-checked']).toBe(true);
 		expect(allChip.props.className).toContain('selected');
 
 		const memberChip = root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' });
-		expect(memberChip.props['aria-pressed']).toBe(false);
+		expect(memberChip.props['aria-checked']).toBe(false);
 	});
 
 	it('clicking a member chip selects it and deselects "All"', async () => {
@@ -1027,11 +1066,11 @@ describe('MenuWindow recipient avatar chips (P2.4)', () => {
 		});
 
 		const memberChip = root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' });
-		expect(memberChip.props['aria-pressed']).toBe(true);
+		expect(memberChip.props['aria-checked']).toBe(true);
 		expect(memberChip.props.className).toContain('selected');
 
 		const allChip = root.root.findByProps({ 'data-testid': 'recipient-chip-all' });
-		expect(allChip.props['aria-pressed']).toBe(false);
+		expect(allChip.props['aria-checked']).toBe(false);
 	});
 
 	it('clicking a member chip then sending routes the message to that member (same selection contract as the old select)', async () => {
@@ -1099,6 +1138,98 @@ describe('MenuWindow recipient avatar chips (P2.4)', () => {
 		const emptyHint = root.root.findByProps({ className: 'caption recipient-empty' });
 		expect(emptyHint.children).toContain('No one else online');
 		expect(root.root.findAllByProps({ 'data-testid': 'recipient-chip-member-1' }).length).toBe(0);
+	});
+
+	it('exposes WAI-ARIA radiogroup semantics (radiogroup row, radio chips)', async () => {
+		const root = await renderMenu();
+
+		const row = root.root.findByProps({ 'data-testid': 'recipient-row' });
+		expect(row.props.role).toBe('radiogroup');
+		expect(row.props['aria-label']).toBe('Recipient');
+
+		for (const testid of ['recipient-chip-all', 'recipient-chip-member-1', 'recipient-chip-member-2']) {
+			expect(root.root.findByProps({ 'data-testid': testid }).props.role).toBe('radio');
+		}
+	});
+
+	it('uses a roving tabindex: only the selected chip is a Tab stop', async () => {
+		const root = await renderMenu();
+
+		// Default: "All" selected → tabIndex 0, members -1.
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props.tabIndex).toBe(0);
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props.tabIndex).toBe(-1);
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props.onClick();
+		});
+
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props.tabIndex).toBe(-1);
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props.tabIndex).toBe(0);
+	});
+
+	it('ArrowRight moves the selection to the next chip, wrapping at the end', async () => {
+		const root = await renderMenu();
+		const keyEvent = (key: string) => {
+			let prevented = false;
+			return {
+				event: {
+					key,
+					preventDefault: () => {
+						prevented = true;
+					},
+				},
+				wasPrevented: () => prevented,
+			};
+		};
+
+		// All → member-1
+		const e1 = keyEvent('ArrowRight');
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props.onKeyDown(e1.event);
+		});
+		expect(e1.wasPrevented()).toBe(true);
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props['aria-checked']).toBe(true);
+
+		// member-1 → member-2 → wraps back to All
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props.onKeyDown(keyEvent('ArrowRight').event);
+		});
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-2' }).props['aria-checked']).toBe(true);
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-member-2' }).props.onKeyDown(keyEvent('ArrowRight').event);
+		});
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props['aria-checked']).toBe(true);
+	});
+
+	it('ArrowLeft moves the selection backwards, wrapping from All to the last chip', async () => {
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props.onKeyDown({
+				key: 'ArrowLeft',
+				preventDefault: () => {},
+			});
+		});
+
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-2' }).props['aria-checked']).toBe(true);
+	});
+
+	it('non-arrow keys on a chip do not change the selection or prevent default', async () => {
+		const root = await renderMenu();
+		let prevented = false;
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props.onKeyDown({
+				key: 'Tab',
+				preventDefault: () => {
+					prevented = true;
+				},
+			});
+		});
+
+		expect(prevented).toBe(false);
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props['aria-checked']).toBe(true);
 	});
 });
 
