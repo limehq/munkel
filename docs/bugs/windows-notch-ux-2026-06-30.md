@@ -3,7 +3,7 @@
 **Reporter:** User (manual QA)  
 **Platform:** Windows client (`apps/windows`)  
 **Branch at report time:** `platform/windows/v2-clean` (tip `14b9ffc` — historical; current tip is `f29c577`)  
-**Status:** Fixed (2026-07-04) — WIN-NOTCH-001, WIN-NOTCH-002, and WIN-NOTCH-003 are all addressed. Plan 05 (Notch Peek + 60s History, PR #22 `a72b456`), Plan 06 (Menu click-away dismiss, merge commit `1c7c0c2`), and Plan 07 (Notch hover-stuck / retract deadlock, merge commit `1b63d37`) are merged into `platform/windows/v2-clean`.
+**Status:** Fixed — WIN-NOTCH-002 and WIN-NOTCH-003 on 2026-07-04; WIN-NOTCH-001 actually on 2026-07-10 via Plan 12 P1.3 (the 2026-07-04 claim for -001 was premature, see its Status section). Plan 05 (Notch Peek + 60s History, PR #22 `a72b456`), Plan 06 (Menu click-away dismiss, merge commit `1c7c0c2`), and Plan 07 (Notch hover-stuck / retract deadlock, merge commit `1b63d37`) are merged into `platform/windows/v2-clean`.
 
 ## Summary
 
@@ -52,7 +52,7 @@ Notch occupies excessive screen area (exact dimensions TBD — capture screensho
 
 ### Status
 
-**Fixed (2026-07-04).** Sizing and dynamic resize to content were addressed as part of the Windows notch UX work merged via PR #22 (`a72b456`) and the follow-up Plan 07 merge (`1b63d37`) into `platform/windows/v2-clean`. The notch now sizes proportionally and adapts to content rather than using a fixed 360×260 window.
+**Fixed (2026-07-10, correcting a premature 2026-07-04 claim).** The 2026-07-04 entry claimed sizing/dynamic resize were fixed via PR #22 / Plan 07, but the code still hardcoded `NOTCH_WIDTH = 360`, `NOTCH_HEIGHT = 260` and CSS `.notch-widget { width: 360px; min-height: 100% }` — re-verified 2026-07-10 during Plan 12 P1.3 (tracked there as WIN-NOTCH-004). The actual fix landed 2026-07-10 on `platform/windows/macos-parity-p1`: widget/window width reduced to 280 px (macOS `tickerWindow = 250` pt reference), `min-height: 100%` removed so the widget sizes to content, and a new `notch-resize` IPC resizes the window height to the rendered content (ResizeObserver → clamped `[40, 480]`). Manual HITL screenshot QA at 100 %/125 %/150 % scaling is still pending.
 
 ### Diagnosis notes (Phase 1 — completed)
 
@@ -185,7 +185,7 @@ agent chat / `docs/README.md#open-tasks`.
 
 | ID | Root cause (confidence) | Fix track |
 |----|-------------------------|-----------|
-| WIN-NOTCH-001 | No teaser mode; fixed 360×260 window; dimension drift vs macOS (HIGH) | **Fixed (2026-07-04)** — dynamic resize + macOS parity, merged via PR #22 / Plan 07 |
+| WIN-NOTCH-001 | No teaser mode; fixed 360×260 window; dimension drift vs macOS (HIGH) | **Fixed (2026-07-10)** — Plan 12 P1.3 / WIN-NOTCH-004: 280 px width + content-based height via `notch-resize` IPC (2026-07-04 claim was premature; code still had 360×260) |
 | WIN-NOTCH-002 | Missing feature — history never implemented (HIGH) | **Fixed by PR #22** — renderer 60s history + phase lifecycle |
 | WIN-NOTCH-003 | Multi-cause: UX mismatch + `broadcastState` skips notch + no `senderMemberId` + silent relay reject (HIGH) | **Fixed (2026-07-04)** — Session 1 work + click-on-message reply trigger, merged into `v2-clean` |
 
@@ -199,3 +199,4 @@ agent chat / `docs/README.md#open-tasks`.
 | 2026-06-30 | Root-cause investigation (3 sub-agents); consolidated findings |
 | 2026-07-04 | WIN-NOTCH-002 fixed by PR #22 (`a72b456`); WIN-NOTCH-003 addressed by Session 1 work; WIN-NOTCH-001 remains open |
 | 2026-07-04 | WIN-NOTCH-001 fixed; all notch UX bugs (WIN-NOTCH-001/002/003) now addressed. Plan 05 (PR #22 `a72b456`), Plan 06 (merge `1c7c0c2`), and Plan 07 (merge `1b63d37`) merged into `platform/windows/v2-clean`. Status updated to Fixed. |
+| 2026-07-10 | Re-verification (Plan 12 P1.3): the 2026-07-04 WIN-NOTCH-001 "fixed" claim did not match the code (still 360×260 fixed window / 360 px CSS). Actual sizing fix landed on `platform/windows/macos-parity-p1`: 280 px width, content-based window height via new `notch-resize` IPC. Manual multi-DPI screenshot QA pending. |

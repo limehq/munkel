@@ -72,9 +72,11 @@ Close the remaining functional and UX gaps between the Windows Electron client a
 
 ## Prioritized phases
 
-### P1 — Open bugs before features (~1 session)
+### P1 — Open bugs before features (~1 session) — ✅ DONE (2026-07-10)
 
 Address the Phase-E UI bugs and re-verify the notch sizing claim before shipping any new functionality.
+
+> **Status:** P1.1–P1.4 implemented on branch `platform/windows/macos-parity-p1` (2026-07-10). See [P1 implementation notes](#p1-implementation-notes-2026-07-10) below. Remaining live-QA gates are listed there as follow-ups.
 
 | # | Task | Windows files | Estimate | Verification |
 |---|---|---|---|---|
@@ -82,6 +84,20 @@ Address the Phase-E UI bugs and re-verify the notch sizing claim before shipping
 | P1.2 | **Display-name Enter bug (E2).** The settings popover input has `onBlur={updateName}` and `onKeyDown` Enter → `updateName()` (`MenuWindow.tsx:120-123`). Determine why Enter sometimes fails to persist (likely the popover closes before blur fires, or Enter triggers a form/button conflict). Fix the event ordering and add an explicit save. | `src/renderer/components/MenuWindow.tsx` | S | `bun run typecheck`; extend `src/renderer/components/__tests__/MenuWindow.test.tsx` with a test that opens the settings popover, types a name, presses Enter, and asserts `updateProfile` is called exactly once with the new name (and is not called again on blur); manual QA. |
 | P1.3 | **Re-verify notch vertical oversize (E3 / WIN-NOTCH-004).** `notch-window.ts:11-12` hardcodes `NOTCH_WIDTH = 360`, `NOTCH_HEIGHT = 260` and `global.css:499` hardcodes `.notch-widget { width: 360px }`. The bug doc and `STATE.md` claim this was fixed, but the evidence is not present in current code. Measure the live Windows notch at 100 % / 125 % / 150 % scaling, compare to the macOS reference (~250 pt content width in `MessageNotchContainer.swift:163`), and either document that it is acceptable or implement dynamic resize to content. | `src/main/notch-window.ts`, `src/renderer/components/NotchWidget.tsx`, `src/renderer/styles/global.css` | M | Manual HITL + screenshot overlay at 100 % / 125 % / 150 % scaling; `bun run typecheck`; extend `src/main/__tests__/notch-window.test.ts` to assert that the created `BrowserWindow` width/height match the content size (or that a dynamic-size helper returns dimensions ≤ the previous hardcoded values); `bun run test`. |
 | P1.4 | **Update bug docs / STATE.md status.** If P1.1–P1.3 resolve the issues, update `docs/bugs/windows-notch-ux-2026-06-30.md` and `.planning/STATE.md` with verified status. (No code changes otherwise.) | `docs/bugs/windows-notch-ux-2026-06-30.md`, `.planning/STATE.md` | S | No new automated test required (docs-only); verify by reading the updated docs and confirming they match the code state after P1.1–P1.3. |
+
+#### P1 implementation notes (2026-07-10)
+
+Implemented on `platform/windows/macos-parity-p1` (off `platform/windows/tray-click-fix`). Verification per commit: `bun run typecheck` clean; final `bun test` in `apps/windows`: **207 pass / 2 skip / 0 fail** (604 expect calls, 24 files).
+
+- **P1.1 — Dropdown white-on-white (done).** Root cause: the native Windows `<select>` popup ignores the translucent `.frosted-field` background, so white `--munkel-text` rendered on the light system popup. Fix: explicit `.frosted-field option { background-color: #1c1c1e; color: var(--munkel-text) }` in `global.css` (Chromium on Windows honors option-level colors). New test: `src/renderer/styles/__tests__/global.css.test.ts` asserts the option rule exists, is non-white, and sets an explicit color.
+- **P1.2 — Display-name Enter bug (done).** Root cause: Enter and the subsequent blur both called `updateName()` with no idempotence guard, and Enter did not commit/close deterministically. Fix in `MenuWindow.tsx`: `commitNameOnEnter` prevents default, commits, and blurs the input (macOS behavior: Enter commits); a `lastSavedNameRef` guard makes `updateName()` idempotent so blur-after-Enter and unchanged names never re-submit. New tests (3) in `MenuWindow.test.tsx`: Enter commits exactly once with the new name; blur after Enter does not re-submit; Enter without change is a no-op.
+- **P1.3 — Notch oversize / WIN-NOTCH-004 (done, measured fix).** Confirmed: code still had `NOTCH_WIDTH = 360`, `NOTCH_HEIGHT = 260`, CSS `width: 360px`, `min-height: 100%` — the bug doc's "fixed 2026-07-04" claim did not match the code. Fix: widget/window width reduced to **280 px** (macOS `tickerWindow = 250` pt reference + padding), padding tightened, `min-height: 100%` removed so the widget sizes to content, and a new sender-guarded `notch-resize` IPC lets the renderer (ResizeObserver on `.notch-widget`, `offsetHeight` so slide transforms are ignored) drive the window height, clamped to `[40, 480]` via exported `clampNotchHeight`. Width/position never change — like macOS, the notch only grows downward. New tests (8) in `src/main/__tests__/notch-window.test.ts` cover compact width (< 360, ≤ 280), default height ≤ 260, clamp behavior, resize-only-height, resizable-state restore, and no-op paths. IPC contract doc updated (`docs/ipc-contract.md`).
+- **P1.4 — Doc status sync (done).** `docs/bugs/windows-notch-ux-2026-06-30.md` corrected (WIN-NOTCH-001 sizing claim was premature; actual fix landed 2026-07-10), `.planning/STATE.md` E1/E2/E3 statuses updated (untracked private notes, not committed), plans index updated.
+
+**Follow-ups (not closed by this session):**
+- Manual HITL screenshot QA of the notch at 100 % / 125 % / 150 % display scaling (P1.3 verification row) — code fix landed, live measurement pending.
+- Manual QA: recipient dropdown readability and Enter-name-commit in the running app.
+- The reduced horizontal padding (18 → 14 px) and 280 px width may need visual fine-tuning against the macOS reference once screenshots exist.
 
 ### P2 — High-value parity gaps (~2–3 sessions)
 
