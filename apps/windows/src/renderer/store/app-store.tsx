@@ -49,6 +49,9 @@ interface AppStore {
 
 	getAutoUpdateCheck: () => Promise<boolean>;
 	setAutoUpdateCheck: (enabled: boolean) => Promise<boolean>;
+
+	getPaletteHotkey: () => Promise<string>;
+	setPaletteHotkey: (accelerator: string) => Promise<{ ok: boolean; accelerator: string; error?: string }>;
 }
 
 const AppContext = createContext<AppStore | null>(null);
@@ -187,6 +190,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		return window.electronAPI.setAutoUpdateCheck(enabled);
 	}, []);
 
+	const getPaletteHotkey = useCallback(async () => {
+		return window.electronAPI.getPaletteHotkey();
+	}, []);
+
+	const setPaletteHotkey = useCallback(async (accelerator: string) => {
+		return window.electronAPI.setPaletteHotkey(accelerator);
+	}, []);
+
 	const store = useMemo<AppStore>(
 		() => ({
 			state,
@@ -210,6 +221,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			setLaunchAtLogin,
 			getAutoUpdateCheck,
 			setAutoUpdateCheck,
+			getPaletteHotkey,
+			setPaletteHotkey,
 		}),
 		[
 			state,
@@ -233,6 +246,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			setLaunchAtLogin,
 			getAutoUpdateCheck,
 			setAutoUpdateCheck,
+			getPaletteHotkey,
+			setPaletteHotkey,
 		],
 	);
 

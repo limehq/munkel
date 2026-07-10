@@ -3,6 +3,8 @@ import { useAppStore } from '../store/app-store';
 import { Avatar } from './Avatar';
 import { getCircleColor } from '../../shared/group-color';
 import { clipboardEventHasImage, pasteClipboardImage } from '../lib/clipboard-image';
+import { acceleratorFromKeyboardEvent } from '../lib/hotkey-recorder';
+import { DEFAULT_PALETTE_HOTKEY, formatAcceleratorLabel } from '../../shared/accelerator';
 import type { CircleState, GitHubLoginState, IdentityState, Member, UpdateState } from '../../shared/types';
 
 // Mirrors `MAX_IMAGES_PER_MESSAGE` in `core/image-codec.ts` (see
@@ -27,6 +29,8 @@ export default function MenuWindow() {
 		setLaunchAtLogin,
 		getAutoUpdateCheck,
 		setAutoUpdateCheck,
+		getPaletteHotkey,
+		setPaletteHotkey,
 	} = useAppStore();
 
 	const [joinCode, setJoinCode] = useState('');
@@ -82,6 +86,93 @@ export default function MenuWindow() {
 	const [autoUpdateCheck, setAutoUpdateCheckState] = useState(true);
 	// Same race-guard pattern as launchToggleInFlightRef.
 	const autoUpdateToggleInFlightRef = useRef(false);
+
+	// Rebindable palette hotkey (Plan 12 P3.1). Default mirrors the persisted
+	// main-process value fetched on mount (same posture as the toggles above).
+	const [paletteHotkey, setPaletteHotkeyState] = useState(DEFAULT_PALETTE_HOTKEY);
+	const [hotkeyRecording, setHotkeyRecording] = useState(false);
+	// In-flight guard for the recorder (same idea as launchToggleInFlightRef):
+	// a fast second keypress must not fire a second setPaletteHotkey IPC call
+	// while the first is still unresolved.
+	const hotkeySaveInFlightRef = useRef(false);
+	const [hotkeySaveError, setHotkeySaveError] = useState<string | null>(null);
+	const hotkeyErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	useEffect(() => {
+		let mounted = true;
+		void getPaletteHotkey().then((accelerator) => {
+			if (mounted) setPaletteHotkeyState(accelerator);
+		});
+		return () => {
+			mounted = false;
+		};
+	}, [getPaletteHotkey]);
+
+	useEffect(() => {
+		return () => {
+			if (hotkeyErrorTimeoutRef.current) clearTimeout(hotkeyErrorTimeoutRef.current);
+		};
+	}, []);
+
+	function clearHotkeyError() {
+		if (hotkeyErrorTimeoutRef.current) {
+			clearTimeout(hotkeyErrorTimeoutRef.current);
+			hotkeyErrorTimeoutRef.current = null;
+		}
+		setHotkeySaveError(null);
+	}
+
+	/**
+	 * Attempts to rebind the palette hotkey to `accelerator`. Always trusts
+	 * the main process's returned `accelerator` for the displayed value —
+	 * `rebindPaletteHotkey` rolls back to the previous binding on failure, so
+	 * echoing that back (rather than assuming the request took effect) keeps
+	 * the recorder's display accurate even when the rebind was rejected.
+	 */
+	async function commitPaletteHotkey(accelerator: string) {
+		if (hotkeySaveInFlightRef.current) return;
+		if (accelerator === paletteHotkey) {
+			setHotkeyRecording(false);
+			return;
+		}
+		hotkeySaveInFlightRef.current = true;
+		clearHotkeyError();
+		try {
+			const result = await setPaletteHotkey(accelerator);
+			setPaletteHotkeyState(result.accelerator);
+			if (!result.ok) {
+				setHotkeySaveError(
+					result.error === 'invalid-accelerator'
+						? 'Invalid shortcut — use a modifier plus a key'
+						: 'Shortcut already in use by another app — try a different combo',
+				);
+				hotkeyErrorTimeoutRef.current = setTimeout(() => {
+					setHotkeySaveError(null);
+					hotkeyErrorTimeoutRef.current = null;
+				}, 4000);
+			}
+		} finally {
+			hotkeySaveInFlightRef.current = false;
+			setHotkeyRecording(false);
+		}
+	}
+
+	function handleHotkeyRecorderKeyDown(e: React.KeyboardEvent<HTMLButtonElement>) {
+		if (e.key === 'Escape') {
+			// Cancel without committing — matches the task's "Escape bricht ab".
+			e.preventDefault();
+			e.currentTarget.blur();
+			return;
+		}
+		e.preventDefault();
+		if (hotkeySaveInFlightRef.current) return;
+		const accelerator = acceleratorFromKeyboardEvent(e);
+		// A bare modifier press (e.g. just Ctrl) or an unsupported key (e.g.
+		// CapsLock) resolves to null — keep waiting for a real combo instead
+		// of committing or erroring.
+		if (!accelerator) return;
+		void commitPaletteHotkey(accelerator);
+	}
 
 	useEffect(() => {
 		let mounted = true;
@@ -388,6 +479,37 @@ export default function MenuWindow() {
 								Check Automatically
 							</label>
 							<div className="popover-divider" />
+							<label className="caption" style={{ display: 'block', marginBottom: 4 }}>
+								Palette hotkey
+							</label>
+							<div className="hotkey-recorder-row">
+								<button
+									type="button"
+									className="frosted-field hotkey-recorder"
+									data-testid="palette-hotkey-recorder"
+									onFocus={() => setHotkeyRecording(true)}
+									onBlur={() => setHotkeyRecording(false)}
+									onKeyDown={handleHotkeyRecorderKeyDown}
+								>
+									{hotkeyRecording ? 'Press a key combo…' : formatAcceleratorLabel(paletteHotkey)}
+								</button>
+								<button
+									type="button"
+									className="icon-button"
+									data-testid="palette-hotkey-reset"
+									title="Reset to default"
+									disabled={paletteHotkey === DEFAULT_PALETTE_HOTKEY}
+									onClick={() => void commitPaletteHotkey(DEFAULT_PALETTE_HOTKEY)}
+								>
+									↺
+								</button>
+							</div>
+							{hotkeySaveError && (
+								<p className="name-save-error" data-testid="palette-hotkey-error">
+									{hotkeySaveError}
+								</p>
+							)}
+							<div className="popover-divider" />
 							<button onClick={() => window.electronAPI.showPalette()}>Quick send…</button>
 							<div className="popover-divider" />
 							<button onClick={() => void checkForUpdates()}>Check for Updates…</button>
@@ -469,7 +591,7 @@ export default function MenuWindow() {
 			<div className="hotkey-row">
 				<span className="hotkey-icon">➤</span>
 				<span>Quick send</span>
-				<span className="hotkey">Ctrl + Shift + M</span>
+				<span className="hotkey">{formatAcceleratorLabel(paletteHotkey)}</span>
 			</div>
 
 			<div className="divider" />

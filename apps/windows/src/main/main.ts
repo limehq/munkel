@@ -6,13 +6,15 @@ import { createNotchWindow, showNotch, requestNotchHide, resizeNotchToContent, u
 import { focusNotchForReply, unfocusNotchAfterReply } from './notch-focus';
 import { createPaletteWindow, showPalette, hidePalette } from './palette-window';
 import { createTray } from './tray';
-import { registerTogglePalette, unregisterShortcuts } from './shortcuts';
+import { unregisterShortcuts } from './shortcuts';
 import {
 	createHoverCopyController,
 	handleNotchSetInteractive,
 	wireHoverCopyDisarm,
 	type HoverCopyWindowLike,
 } from './hover-copy-shortcut';
+import { registerPaletteHotkey, rebindPaletteHotkey } from './palette-hotkey';
+import { DEFAULT_PALETTE_HOTKEY } from '../shared/accelerator';
 import { IdentityStore } from './identity-store';
 import { applyLaunchAtLogin, setLaunchAtLoginPreference } from './login-item';
 import { deriveGroupKeys } from '@munkel/shared-wire/crypto';
@@ -59,6 +61,13 @@ let disposeHoverCopyDisarm: (() => void) | null = null;
 // before accepting a fresh arm — see hover-copy-shortcut.ts's "Late-Ping-Race
 // fix" for why a late renderer ping must not re-arm a disarmed shortcut.
 let notchInteractive = false;
+// Rebindable palette-toggle hotkey (Plan 12 P3.1): the accelerator string
+// actually bound with `globalShortcut` right now. Initialized from the
+// persisted preference once identityStore loads; kept in sync by the
+// `set-palette-hotkey` handler, which always reflects `rebindPaletteHotkey`'s
+// actual outcome (including rollback on a failed rebind) rather than
+// whatever the renderer requested.
+let currentPaletteHotkey = DEFAULT_PALETTE_HOTKEY;
 // Menu click-away-to-dismiss suppression state (Plan 06).
 let pickerOpen = false;
 let githubLoginActive = false;
@@ -141,7 +150,8 @@ app.whenReady().then(async () => {
 		console.error('[munkel] failed to create tray icon:', err);
 	}
 
-	registerTogglePalette(togglePalette);
+	// Palette-toggle hotkey registration (Plan 12 P3.1) happens below, once
+	// the persisted accelerator is known — see `currentPaletteHotkey`.
 	// Hover-"C" copy (Plan 12 P3.2): the notch renderer arms this (and keeps
 	// it alive via mousemove activity pings) over NOTCH_SET_HOVER_COPY, but
 	// the MAIN process owns the disarm lifecycle — controller-internal idle
@@ -175,6 +185,16 @@ app.whenReady().then(async () => {
 	// macOS release, which auto-registers once on first launch, Windows never
 	// auto-registers — this only ever re-applies what the user chose last.
 	applyLaunchAtLogin(app, persisted.launchAtLogin);
+
+	// Rebindable palette-toggle hotkey (Plan 12 P3.1): register the persisted
+	// accelerator (default Ctrl+Shift+M). A startup registration failure
+	// (e.g. another app already owns the combo) is logged but never fatal —
+	// `currentPaletteHotkey` still tracks it as "the accelerator we intend to
+	// use", so a later `set-palette-hotkey` rebind attempt still unregisters
+	// the (never-actually-bound) old value harmlessly before registering the
+	// new one.
+	currentPaletteHotkey = persisted.paletteHotkey;
+	registerPaletteHotkey(globalShortcut, currentPaletteHotkey, togglePalette);
 
 	const appState = new AppState(identityStore, broadcastState, showNotchMessage, relayError);
 	const githubLoginService = new GitHubLoginService(appState, pushGitHubLoginState);
@@ -299,6 +319,26 @@ app.whenReady().then(async () => {
 		identityStore.patch({ autoUpdateCheck: value });
 		updateService?.setAutoCheckEnabled(value);
 		return true;
+	});
+	// Rebindable palette hotkey (Plan 12 P3.1). Same menu-only sender guard
+	// as the launch-at-login / auto-update-check channels above — the
+	// settings-popover recorder is the only UI that changes this.
+	ipcMain.handle(IPC_CHANNELS.GET_PALETTE_HOTKEY, (event) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return DEFAULT_PALETTE_HOTKEY;
+		return currentPaletteHotkey;
+	});
+	ipcMain.handle(IPC_CHANNELS.SET_PALETTE_HOTKEY, (event, accelerator: unknown) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) {
+			console.warn('[munkel] rejected set-palette-hotkey from non-menu sender');
+			return { ok: false, accelerator: currentPaletteHotkey, error: 'registration-failed' };
+		}
+		// rebindPaletteHotkey handler logic lives in palette-hotkey.ts so it is
+		// unit-testable (main.ts wiring has no test harness; see
+		// docs/ipc-contract.md — same pattern as login-item.ts).
+		const result = rebindPaletteHotkey(globalShortcut, currentPaletteHotkey, accelerator, togglePalette);
+		currentPaletteHotkey = result.accelerator;
+		if (result.ok) identityStore.patch({ paletteHotkey: result.accelerator });
+		return result;
 	});
 
 	await appState.restoreCircles();

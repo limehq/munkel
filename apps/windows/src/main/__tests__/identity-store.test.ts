@@ -129,3 +129,75 @@ describe('IdentityStore autoUpdateCheck (Plan 12 P3.7)', () => {
 		expect(state.memberId).toBe('legacy-member');
 	});
 });
+
+describe('IdentityStore paletteHotkey (Plan 12 P3.1)', () => {
+	let dir: string;
+
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'munkel-identity-store-'));
+	});
+
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('defaults paletteHotkey to Ctrl+Shift+M for a freshly created store', () => {
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.paletteHotkey).toBe('Ctrl+Shift+M');
+	});
+
+	it('persists a rebound paletteHotkey via patch and reflects it on the next load', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ paletteHotkey: 'Ctrl+Alt+P' });
+
+		const reloaded = store.load();
+		expect(reloaded.paletteHotkey).toBe('Ctrl+Alt+P');
+	});
+
+	it('does not disturb other identity fields when patching paletteHotkey', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ displayName: 'Ada' });
+		store.patch({ paletteHotkey: 'Ctrl+Alt+P' });
+
+		const state = store.load();
+		expect(state.displayName).toBe('Ada');
+		expect(state.paletteHotkey).toBe('Ctrl+Alt+P');
+	});
+
+	it('migrates a legacy state.json (no paletteHotkey field) to the default', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 1,
+				memberId: 'legacy-member',
+				displayName: 'Legacy',
+				circles: [],
+			}),
+		);
+
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.paletteHotkey).toBe('Ctrl+Shift+M');
+		expect(state.memberId).toBe('legacy-member');
+	});
+
+	it('resets an invalid/corrupted paletteHotkey value on load to the default', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 1,
+				memberId: 'legacy-member',
+				displayName: 'Legacy',
+				circles: [],
+				paletteHotkey: 'not a real accelerator',
+			}),
+		);
+
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.paletteHotkey).toBe('Ctrl+Shift+M');
+	});
+});

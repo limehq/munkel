@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { DEFAULT_PALETTE_HOTKEY, isValidAccelerator } from '../shared/accelerator';
 
 export interface PersistedState {
 	version: 1;
@@ -18,6 +19,14 @@ export interface PersistedState {
 	// only stops the automatic checks; the menu's manual "Check for
 	// Updates…" button always works regardless.
 	autoUpdateCheck: boolean;
+	// Rebindable global palette-toggle hotkey (Plan 12 P3.1), replacing the
+	// old hardcoded `Ctrl+Shift+M` in `shortcuts.ts`. Read at startup by
+	// `main.ts` and updated at runtime via the settings-popover recorder;
+	// `palette-hotkey.ts#rebindPaletteHotkey` only ever persists a value
+	// that was successfully registered with the OS (rollback-on-failure), so
+	// this field should always reflect what's actually bound — barring an
+	// external file edit, which `migrate` below guards against.
+	paletteHotkey: string;
 }
 
 function defaultState(): PersistedState {
@@ -28,6 +37,7 @@ function defaultState(): PersistedState {
 		circles: [],
 		launchAtLogin: false,
 		autoUpdateCheck: true,
+		paletteHotkey: DEFAULT_PALETTE_HOTKEY,
 	};
 }
 
@@ -70,7 +80,10 @@ export class IdentityStore {
 
 	patch(
 		identity: Partial<
-			Pick<PersistedState, 'displayName' | 'avatar' | 'githubLogin' | 'launchAtLogin' | 'autoUpdateCheck'>
+			Pick<
+				PersistedState,
+				'displayName' | 'avatar' | 'githubLogin' | 'launchAtLogin' | 'autoUpdateCheck' | 'paletteHotkey'
+			>
 		>,
 	): void {
 		const state = this.load();
@@ -120,6 +133,11 @@ export class IdentityStore {
 		}
 		if (typeof draft.autoUpdateCheck !== 'boolean') {
 			draft.autoUpdateCheck = true;
+		}
+		// Guard against a hand-edited or corrupted state.json shipping an
+		// unregistrable accelerator string straight into globalShortcut.register.
+		if (!isValidAccelerator(draft.paletteHotkey)) {
+			draft.paletteHotkey = DEFAULT_PALETTE_HOTKEY;
 		}
 
 		return draft as PersistedState;

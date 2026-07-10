@@ -35,6 +35,8 @@ function createMockElectronApi(initialState: StateUpdate) {
 		setLaunchAtLogin: (_enabled: boolean) => Promise.resolve(true),
 		getAutoUpdateCheck: () => Promise.resolve(true),
 		setAutoUpdateCheck: (_enabled: boolean) => Promise.resolve(true),
+		getPaletteHotkey: () => Promise.resolve('Ctrl+Shift+M'),
+		setPaletteHotkey: (accelerator: string) => Promise.resolve({ ok: true, accelerator }),
 		selectImages: () => Promise.resolve(undefined),
 		saveClipboardImage: () => Promise.resolve(null),
 		beginNotchReply: () => Promise.resolve(),
@@ -1135,6 +1137,260 @@ describe('MenuWindow auto-update "Check Automatically" toggle (P3.7)', () => {
 		});
 
 		expect(calls).toEqual([false, true]);
+	});
+});
+
+describe('MenuWindow rebindable palette hotkey recorder (P3.1)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenuWithSettingsOpen() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const settingsButton = root!.root.findByProps({ title: 'Settings' });
+		await act(async () => {
+			settingsButton.props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
+		});
+
+		return root!;
+	}
+
+	function recorder(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ 'data-testid': 'palette-hotkey-recorder' });
+	}
+
+	function pressKey(
+		root: ReturnType<typeof create>,
+		overrides: Partial<{ key: string; ctrlKey: boolean; altKey: boolean; shiftKey: boolean; metaKey: boolean }>,
+	) {
+		return recorder(root).props.onKeyDown({
+			key: 'a',
+			ctrlKey: false,
+			altKey: false,
+			shiftKey: false,
+			metaKey: false,
+			preventDefault: () => {},
+			currentTarget: { blur: () => {} },
+			...overrides,
+		});
+	}
+
+	it('defaults to the persisted hotkey (Ctrl+Shift+M) before/after mount', async () => {
+		const root = await renderMenuWithSettingsOpen();
+		expect(recorder(root).props.children).toBe('Ctrl + Shift + M');
+	});
+
+	it('reflects a persisted non-default hotkey fetched on mount', async () => {
+		electronApi.getPaletteHotkey = () => Promise.resolve('Ctrl+Alt+P');
+		const root = await renderMenuWithSettingsOpen();
+		expect(recorder(root).props.children).toBe('Ctrl + Alt + P');
+	});
+
+	it('shows a recording placeholder on focus', async () => {
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+		expect(recorder(root).props.children).toBe('Press a key combo…');
+	});
+
+	it('commits a captured combo via setPaletteHotkey and displays the confirmed value', async () => {
+		const setSpy = spyOn(electronApi, 'setPaletteHotkey');
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true, altKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledTimes(1);
+		expect(setSpy).toHaveBeenCalledWith('Ctrl+Alt+P');
+		expect(recorder(root).props.children).toBe('Ctrl + Alt + P');
+	});
+
+	it('ignores a bare modifier press and keeps recording (no IPC call)', async () => {
+		const setSpy = spyOn(electronApi, 'setPaletteHotkey');
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'Control', ctrlKey: true });
+		});
+
+		expect(setSpy).not.toHaveBeenCalled();
+		expect(recorder(root).props.children).toBe('Press a key combo…');
+	});
+
+	it('Escape cancels recording without committing a change', async () => {
+		const setSpy = spyOn(electronApi, 'setPaletteHotkey');
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		let blurred = false;
+		await act(async () => {
+			recorder(root).props.onKeyDown({
+				key: 'Escape',
+				ctrlKey: false,
+				altKey: false,
+				shiftKey: false,
+				metaKey: false,
+				preventDefault: () => {},
+				currentTarget: {
+					blur: () => {
+						blurred = true;
+					},
+				},
+			});
+		});
+
+		expect(blurred).toBe(true);
+		expect(setSpy).not.toHaveBeenCalled();
+
+		// Blur (simulated separately, since the fake event's blur() above does
+		// not trigger React's onBlur) ends the recording UI state.
+		await act(async () => {
+			recorder(root).props.onBlur();
+		});
+		expect(recorder(root).props.children).toBe('Ctrl + Shift + M');
+	});
+
+	it('snaps back to the accelerator the main process reports on a failed rebind (rollback)', async () => {
+		electronApi.setPaletteHotkey = (_accelerator: string) =>
+			Promise.resolve({ ok: false, accelerator: 'Ctrl+Shift+M', error: 'registration-failed' });
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true, altKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(recorder(root).props.children).toBe('Ctrl + Shift + M');
+		expect(root.root.findByProps({ 'data-testid': 'palette-hotkey-error' })).toBeTruthy();
+
+		// The failed rebind above armed a 4s auto-clear timer for the error
+		// hint (see hotkeyErrorTimeoutRef in MenuWindow.tsx); unmount here so
+		// its cleanup effect clears the timer instead of it firing later,
+		// outside any act(), during a subsequent test in this file.
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('shows an invalid-accelerator hint distinct from the registration-failed hint', async () => {
+		electronApi.setPaletteHotkey = (_accelerator: string) =>
+			Promise.resolve({ ok: false, accelerator: 'Ctrl+Shift+M', error: 'invalid-accelerator' });
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const error = root.root.findByProps({ 'data-testid': 'palette-hotkey-error' });
+		expect(error.props.children).toContain('Invalid shortcut');
+
+		// Same rationale as above: clear the armed auto-clear timer.
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('ignores a second key capture while the first setPaletteHotkey call is still in flight', async () => {
+		let resolveFirst: ((result: { ok: boolean; accelerator: string }) => void) | undefined;
+		const calls: string[] = [];
+		electronApi.setPaletteHotkey = (accelerator: string) => {
+			calls.push(accelerator);
+			return new Promise((resolve) => {
+				resolveFirst = resolve;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true });
+		});
+		await act(async () => {
+			pressKey(root, { key: 'q', ctrlKey: true });
+		});
+
+		expect(calls).toEqual(['Ctrl+P']);
+
+		await act(async () => {
+			resolveFirst?.({ ok: true, accelerator: 'Ctrl+P' });
+			await Promise.resolve();
+		});
+
+		expect(calls).toEqual(['Ctrl+P']);
+	});
+
+	it('the reset button restores the default hotkey via setPaletteHotkey', async () => {
+		electronApi.getPaletteHotkey = () => Promise.resolve('Ctrl+Alt+P');
+		const setSpy = spyOn(electronApi, 'setPaletteHotkey');
+		const root = await renderMenuWithSettingsOpen();
+
+		const resetButton = root.root.findByProps({ 'data-testid': 'palette-hotkey-reset' });
+		await act(async () => {
+			resetButton.props.onClick();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledWith('Ctrl+Shift+M');
+		expect(recorder(root).props.children).toBe('Ctrl + Shift + M');
+	});
+
+	it('the bottom Quick-send hotkey label reflects the persisted (non-default) hotkey', async () => {
+		electronApi.getPaletteHotkey = () => Promise.resolve('Ctrl+Alt+P');
+		const root = await renderMenuWithSettingsOpen();
+		const label = root.root.findByProps({ className: 'hotkey' });
+		expect(label.props.children).toBe('Ctrl + Alt + P');
 	});
 });
 

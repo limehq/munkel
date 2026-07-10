@@ -129,6 +129,15 @@ export interface IpcApi {
 	getAutoUpdateCheck: () => Promise<boolean>;
 	setAutoUpdateCheck: (enabled: boolean) => Promise<boolean>;
 
+	// Rebindable global palette-toggle hotkey (Plan 12 P3.1). `setPaletteHotkey`
+	// always resolves the accelerator now actually bound — the requested one
+	// on success, or the unchanged previous one on failure (invalid format or
+	// OS registration rejected, e.g. another app owns the combo) — so the
+	// settings-popover recorder can snap its display back precisely instead
+	// of assuming its own request took effect.
+	getPaletteHotkey: () => Promise<string>;
+	setPaletteHotkey: (accelerator: string) => Promise<{ ok: boolean; accelerator: string; error?: string }>;
+
 	// Main → renderer push channels.
 	onStateUpdate: (callback: (update: StateUpdate) => void) => () => void;
 	onGitHubLoginState: (callback: (state: GitHubLoginState) => void) => () => void;

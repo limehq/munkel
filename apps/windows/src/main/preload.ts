@@ -45,6 +45,9 @@ const api: IpcApi = {
 	getAutoUpdateCheck: () => ipcRenderer.invoke(IPC_CHANNELS.GET_AUTO_UPDATE_CHECK),
 	setAutoUpdateCheck: (enabled) => ipcRenderer.invoke(IPC_CHANNELS.SET_AUTO_UPDATE_CHECK, enabled),
 
+	getPaletteHotkey: () => ipcRenderer.invoke(IPC_CHANNELS.GET_PALETTE_HOTKEY),
+	setPaletteHotkey: (accelerator) => ipcRenderer.invoke(IPC_CHANNELS.SET_PALETTE_HOTKEY, accelerator),
+
 	onStateUpdate: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: StateUpdate) => callback(data);
 		ipcRenderer.on(PUSH_CHANNELS.STATE_UPDATE, handler);

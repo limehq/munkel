@@ -42,6 +42,9 @@ export const IPC_CHANNELS = {
 
   GET_AUTO_UPDATE_CHECK: 'get-auto-update-check',
   SET_AUTO_UPDATE_CHECK: 'set-auto-update-check',
+
+  GET_PALETTE_HOTKEY: 'get-palette-hotkey',
+  SET_PALETTE_HOTKEY: 'set-palette-hotkey',
 } as const;
 
 /** Main → renderer push channels. */

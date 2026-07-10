@@ -351,6 +351,27 @@ select {
 	color: #ff6b6b;
 }
 
+/* Rebindable palette hotkey recorder (Plan 12 P3.1). */
+.hotkey-recorder-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.hotkey-recorder {
+	flex: 1;
+	text-align: left;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.hotkey-recorder:focus {
+	background: rgba(255, 255, 255, 0.12);
+	box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.5);
+	outline: none;
+}
+
 .circle-list {
 	display: flex;
 	flex-direction: column;
