@@ -82,22 +82,38 @@ async function main() {
 	process.stdout.write(`[dev] renderer at ${url}\n`);
 	process.env.VITE_DEV_SERVER_URL = url;
 
+	// main and preload are separate single-entry Vite lib builds (see
+	// vite.main.config.ts / vite.preload.config.ts) so Rollup never code-splits
+	// a shared chunk that a sandboxed preload script cannot require() at
+	// runtime — docs/bugs/windows-ui-invisible-2026-07-10.md. Both configs use
+	// `emptyOutDir: false` (each only ever writes its own file into dist/), so
+	// we clear dist/ once here ourselves before starting either watcher —
+	// otherwise the two watchers would never wipe stale output on a cold start.
+	fs.rmSync(path.join(root, 'dist'), { recursive: true, force: true });
+
+	const electronStarterPlugin = {
+		name: 'electron-starter',
+		closeBundle() {
+			startOrRestartElectron();
+		},
+	};
+
 	const mainWatcher = await build({
 		configFile: path.join(root, 'vite.main.config.ts'),
 		build: { watch: {} },
-		plugins: [
-			{
-				name: 'electron-starter',
-				closeBundle() {
-					startOrRestartElectron();
-				},
-			},
-		],
+		plugins: [electronStarterPlugin],
+	});
+
+	const preloadWatcher = await build({
+		configFile: path.join(root, 'vite.preload.config.ts'),
+		build: { watch: {} },
+		plugins: [electronStarterPlugin],
 	});
 
 	const shutdown = () => {
 		rendererServer.close();
 		mainWatcher.close();
+		preloadWatcher.close();
 		if (electronProcess) electronProcess.kill();
 		process.exit(0);
 	};
