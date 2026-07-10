@@ -8,7 +8,7 @@ import { createPaletteWindow, showPalette, hidePalette } from './palette-window'
 import { createTray } from './tray';
 import { registerTogglePalette, unregisterShortcuts } from './shortcuts';
 import { IdentityStore } from './identity-store';
-import { applyLaunchAtLogin } from './login-item';
+import { applyLaunchAtLogin, setLaunchAtLoginPreference } from './login-item';
 import { deriveGroupKeys } from '@munkel/shared-wire/crypto';
 import { AppState } from './session-store';
 import { registerSessionHandlers } from './session-handlers';
@@ -206,15 +206,18 @@ app.whenReady().then(async () => {
 	ipcMain.handle(IPC_CHANNELS.INSTALL_UPDATE, async () => {
 		updateService?.install();
 	});
-	ipcMain.handle(IPC_CHANNELS.GET_LAUNCH_AT_LOGIN, () => identityStore.load().launchAtLogin);
-	ipcMain.handle(IPC_CHANNELS.SET_LAUNCH_AT_LOGIN, (_event, enabled: boolean) => {
-		const value = !!enabled;
-		const ok = applyLaunchAtLogin(app, value);
-		// Only persist the new choice once the OS actually applied it — like
-		// macOS's `try?` snap-back, a failed call must not leave the stored
-		// preference out of sync with what the OS will really do on next boot.
-		if (ok) identityStore.patch({ launchAtLogin: value });
-		return ok;
+	// Autostart is a menu-only setting: the notch and palette renderers show
+	// remote/message-derived content and must not be able to change it.
+	// Same sender-guard pattern as the notch-* channels above.
+	ipcMain.handle(IPC_CHANNELS.GET_LAUNCH_AT_LOGIN, (event) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return false;
+		return identityStore.load().launchAtLogin;
+	});
+	ipcMain.handle(IPC_CHANNELS.SET_LAUNCH_AT_LOGIN, (event, enabled: boolean) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return false;
+		// Handler logic lives in login-item.ts so it is unit-testable
+		// (main.ts wiring has no test harness; see docs/ipc-contract.md).
+		return setLaunchAtLoginPreference(app, identityStore, enabled);
 	});
 
 	await appState.restoreCircles();
