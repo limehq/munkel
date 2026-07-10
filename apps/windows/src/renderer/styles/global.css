@@ -785,19 +785,35 @@ select {
 	}
 }
 
+/*
+ * Content-driven resize (WIN-NOTCH-004, notch-window.ts `resizeNotchToContent`)
+ * grows the window with this element's rendered height up to
+ * NOTCH_MAX_HEIGHT (480px, `clampNotchHeight`). Past that clamp the window
+ * itself can't grow any further, so this element — not `.notch-history-list`
+ * — is the single scroll boundary for BOTH the single "current message" view
+ * and the reopened history list: once content would exceed the clamp, it
+ * scrolls internally here instead of silently clipping against the window's
+ * fixed bounds. Iteration-8 review follow-up: previously `.notch-history-list`
+ * alone capped at a hardcoded 220px (well below the 480px window clamp, so
+ * the history list scrolled internally long before the window ever grew to
+ * its actual max) and the single-message view had no cap at all (so a very
+ * long message above the clamp would clip instead of scroll). Budget below =
+ * NOTCH_MAX_HEIGHT (480) − `.notch-widget`'s 26px padding-top − 14px
+ * padding-bottom − 1px border-bottom.
+ */
 .notch-content {
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
+	max-height: 439px;
+	overflow-y: auto;
+	padding-right: 4px;
 }
 
 .notch-history-list {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
-	max-height: 220px;
-	overflow-y: auto;
-	padding-right: 4px;
 }
 
 .history-entry {

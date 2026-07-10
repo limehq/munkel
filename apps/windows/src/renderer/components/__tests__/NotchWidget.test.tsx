@@ -885,3 +885,129 @@ describe('NotchWidget history expand/collapse (Plan 12 P3.6)', () => {
 		});
 	});
 });
+
+describe('NotchWidget history expand resize reporting (Iteration-8 review follow-up)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let originalResizeObserver: unknown;
+
+	function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
+		return {
+			sender: 'Alice',
+			text: 'Hello from Alice',
+			isDirect: false,
+			group: 'test-circle',
+			groupColor: '#3b82f6',
+			receivedAt: new Date().toISOString(),
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi();
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = {
+			electronAPI: electronApi,
+		};
+		originalResizeObserver = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+		FakeResizeObserver.instances = [];
+		(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = FakeResizeObserver;
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+		(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+	});
+
+	function wait(ms: number) {
+		return new Promise<void>((resolve) => setTimeout(resolve, ms));
+	}
+
+	function widgetNode(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ 'data-testid': 'notch-widget' });
+	}
+
+	async function reopenHistory(root: ReturnType<typeof create>) {
+		await act(async () => {
+			widgetNode(root).props.onMouseEnter();
+		});
+		const hoverTarget = root.root.findByProps({ className: 'notch-hover-target' });
+		await act(async () => {
+			hoverTarget.props.onMouseEnter();
+		});
+	}
+
+	function entryByText(root: ReturnType<typeof create>, text: string) {
+		const candidates = root.root.findAll(
+			(node) =>
+				typeof node.props['data-testid'] === 'string' &&
+				(node.props['data-testid'] as string).startsWith('history-entry-'),
+		);
+		const match = candidates.find((entry) => entry.findAllByType('p').some((p) => p.props.children === text));
+		if (!match) throw new Error(`no history entry found for text: ${text}`);
+		return match;
+	}
+
+	function chevronOf(entry: ReturnType<typeof entryByText>) {
+		return entry.findByProps({ className: 'icon-button history-expand-button' });
+	}
+
+	it('reports a larger height via notchResize when a history row is expanded, coherent with the CSS resize-on-expand path', async () => {
+		const nodeMock = { offsetHeight: 150 };
+		const calls: number[] = [];
+		electronApi.notchResize = (h: number) => {
+			calls.push(h);
+			return Promise.resolve();
+		};
+
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<NotchWidget />
+				</AppProvider>,
+				{ createNodeMock: () => nodeMock },
+			);
+			await Promise.resolve();
+		});
+
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'expand-resize message' }));
+		});
+		await reopenHistory(root!);
+		await act(async () => {
+			await wait(150);
+		});
+		const callsBeforeExpand = calls.length;
+
+		// A real browser's ResizeObserver fires automatically once expanding
+		// the row grows `.notch-widget`'s layout height; react-test-renderer
+		// has no layout engine, so this test mutates the mocked offsetHeight
+		// and re-fires the observer itself to exercise the same debounced
+		// report → notchResize plumbing the real observer would trigger.
+		const chevron = chevronOf(entryByText(root!, 'expand-resize message'));
+		await act(async () => {
+			chevron.props.onClick({ stopPropagation: () => {} });
+		});
+		nodeMock.offsetHeight = 340;
+		const observer = FakeResizeObserver.instances.at(-1)!;
+		await act(async () => {
+			observer.fire();
+			await wait(150);
+		});
+
+		expect(calls.length).toBeGreaterThan(callsBeforeExpand);
+		expect(calls.at(-1)).toBe(340);
+		expect(calls.at(-1)!).toBeGreaterThan(150);
+		// Clamp-boundary behavior for heights at/above NOTCH_MAX_HEIGHT (480)
+		// is main-process responsibility, already covered by
+		// notch-window.test.ts's clampNotchHeight tests (`clampNotchHeight`
+		// clamping 10_000 → NOTCH_MAX_HEIGHT, and exact-boundary handling) —
+		// the renderer here only ever reports the raw rendered height, which
+		// is what `.notch-content`'s new max-height/overflow-y CSS rule
+		// (global.css) relies on to scroll internally once the window has
+		// grown to that clamp.
+
+		await act(async () => {
+			root!.unmount();
+		});
+	});
+});
