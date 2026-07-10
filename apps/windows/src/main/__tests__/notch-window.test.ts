@@ -188,6 +188,15 @@ describe('notch-window sizing (P1.3 / WIN-NOTCH-004)', () => {
 		expect(clampNotchHeight(10_000)).toBe(NOTCH_MAX_HEIGHT);
 	});
 
+	it('clampNotchHeight passes exact boundary values through unchanged', () => {
+		// Regression guard: an off-by-one in the Math.max/min clamp (e.g. `<`
+		// instead of `<=`) would nudge the exact bounds to 41/479 silently.
+		expect(clampNotchHeight(NOTCH_MIN_HEIGHT)).toBe(NOTCH_MIN_HEIGHT);
+		expect(clampNotchHeight(NOTCH_MAX_HEIGHT)).toBe(NOTCH_MAX_HEIGHT);
+		expect(clampNotchHeight(NOTCH_MIN_HEIGHT + 0.4)).toBe(NOTCH_MIN_HEIGHT + 1);
+		expect(clampNotchHeight(NOTCH_MAX_HEIGHT + 0.1)).toBe(NOTCH_MAX_HEIGHT);
+	});
+
 	it('clampNotchHeight falls back to the default for invalid input', () => {
 		expect(clampNotchHeight(Number.NaN)).toBe(NOTCH_DEFAULT_HEIGHT);
 		expect(clampNotchHeight(Number.POSITIVE_INFINITY)).toBe(NOTCH_DEFAULT_HEIGHT);
@@ -215,5 +224,24 @@ describe('notch-window sizing (P1.3 / WIN-NOTCH-004)', () => {
 		resizeNotchToContent(win as unknown as BrowserWindow, 200);
 		expect(win.calls.length).toBe(0);
 		expect(() => resizeNotchToContent(null, 200)).not.toThrow();
+	});
+
+	it('resizeNotchToContent clamps a retracted sliver height up to the minimum instead of shrinking to zero', () => {
+		// The retracted/peek states report a tiny offsetHeight (the sliver
+		// grabber); resizeNotchToContent must still land on NOTCH_MIN_HEIGHT
+		// rather than passing the raw sub-minimum value to setSize.
+		const win = mockResizableWindow(NOTCH_DEFAULT_HEIGHT);
+		resizeNotchToContent(win as unknown as BrowserWindow, 6);
+		expect(win.calls).toContainEqual(['setSize', NOTCH_WIDTH, NOTCH_MIN_HEIGHT]);
+	});
+
+	it('resizeNotchToContent falls back to the default height for NaN/negative renderer reports instead of crashing', () => {
+		const win = mockResizableWindow(NOTCH_DEFAULT_HEIGHT + 50);
+		resizeNotchToContent(win as unknown as BrowserWindow, Number.NaN);
+		expect(win.calls).toContainEqual(['setSize', NOTCH_WIDTH, NOTCH_DEFAULT_HEIGHT]);
+
+		const win2 = mockResizableWindow(NOTCH_DEFAULT_HEIGHT + 50);
+		resizeNotchToContent(win2 as unknown as BrowserWindow, -100);
+		expect(win2.calls).toContainEqual(['setSize', NOTCH_WIDTH, NOTCH_DEFAULT_HEIGHT]);
 	});
 });

@@ -406,6 +406,114 @@ describe('MenuWindow settings display-name Enter save (P1.2)', () => {
 
 		expect(updateProfileSpy).toHaveBeenCalledTimes(0);
 	});
+
+	it('does not call updateProfile when Enter is pressed with a whitespace-only name', async () => {
+		const updateProfileSpy = spyOn(electronApi, 'updateProfile');
+		const root = await renderMenuWithSettingsOpen();
+
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: '   ' } });
+		});
+
+		let prevented = false;
+		let blurred = false;
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {
+					prevented = true;
+				},
+				currentTarget: {
+					blur: () => {
+						blurred = true;
+					},
+				},
+			});
+		});
+
+		// The keydown handler still prevents default and blurs (matching
+		// macOS Enter behavior) even though the trimmed name is empty and
+		// therefore never reaches updateProfile.
+		expect(prevented).toBe(true);
+		expect(blurred).toBe(true);
+		expect(updateProfileSpy).toHaveBeenCalledTimes(0);
+	});
+
+	it('ignores non-Enter keys in the display-name field', async () => {
+		const updateProfileSpy = spyOn(electronApi, 'updateProfile');
+		const root = await renderMenuWithSettingsOpen();
+
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+
+		let prevented = false;
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'a',
+				preventDefault: () => {
+					prevented = true;
+				},
+				currentTarget: { blur: () => {} },
+			});
+		});
+
+		expect(prevented).toBe(false);
+		expect(updateProfileSpy).toHaveBeenCalledTimes(0);
+	});
+
+	// BUG (found while hardening P1.2 coverage, not fixed here per task scope):
+	// updateName() sets lastSavedNameRef.current = name *before* the
+	// `void updateProfile(name)` promise settles (MenuWindow.tsx:83-88). If the
+	// IPC call rejects (relay/main-process error), the ref is already updated
+	// to the failed name, so a later retry with the same text is treated as
+	// "unchanged" by the `name === lastSavedNameRef.current` guard and silently
+	// dropped — the user has no way to re-trigger the save short of typing a
+	// different name (or an app restart resyncing identity). Un-skip once
+	// updateName only commits the ref after updateProfile resolves.
+	it.skip('retries the same name after a failed updateProfile instead of silently dropping it', async () => {
+		let rejectNext = true;
+		const failingUpdateProfile = (_name: string) =>
+			rejectNext ? Promise.reject(new Error('relay offline')) : Promise.resolve();
+		electronApi.updateProfile = failingUpdateProfile;
+		const updateProfileSpy = spyOn(electronApi, 'updateProfile');
+		const root = await renderMenuWithSettingsOpen();
+
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+
+		// First Enter: the IPC call rejects.
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+			await Promise.resolve().catch(() => {});
+		});
+
+		expect(updateProfileSpy).toHaveBeenCalledTimes(1);
+
+		// Second Enter with the *same* unchanged text should retry, since the
+		// first attempt never actually succeeded.
+		rejectNext = false;
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+
+		expect(updateProfileSpy).toHaveBeenCalledTimes(2);
+	});
 });
 
 describe('MenuWindow update status', () => {
