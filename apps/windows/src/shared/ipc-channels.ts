@@ -29,6 +29,9 @@ export const IPC_CHANNELS = {
   CHECK_FOR_UPDATES: 'check-for-updates',
   INSTALL_UPDATE: 'install-update',
 
+  GET_LAUNCH_AT_LOGIN: 'get-launch-at-login',
+  SET_LAUNCH_AT_LOGIN: 'set-launch-at-login',
+
   NOTCH_BEGIN_REPLY: 'notch-begin-reply',
   NOTCH_END_REPLY: 'notch-end-reply',
   NOTCH_SET_INTERACTIVE: 'notch-set-interactive',

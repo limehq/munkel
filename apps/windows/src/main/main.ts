@@ -8,6 +8,7 @@ import { createPaletteWindow, showPalette, hidePalette } from './palette-window'
 import { createTray } from './tray';
 import { registerTogglePalette, unregisterShortcuts } from './shortcuts';
 import { IdentityStore } from './identity-store';
+import { applyLaunchAtLogin } from './login-item';
 import { deriveGroupKeys } from '@munkel/shared-wire/crypto';
 import { AppState } from './session-store';
 import { registerSessionHandlers } from './session-handlers';
@@ -132,6 +133,12 @@ app.whenReady().then(async () => {
 	// circles never load → 0 sessions → 0 relay connections.
 	console.error('[munkel] userData path:', app.getPath('userData'));
 	const identityStore = new IdentityStore(app.getPath('userData'));
+
+	// Apply the persisted opt-in autostart choice (Plan 12 P2.1). Unlike the
+	// macOS release, which auto-registers once on first launch, Windows never
+	// auto-registers — this only ever re-applies what the user chose last.
+	applyLaunchAtLogin(app, identityStore.load().launchAtLogin);
+
 	const appState = new AppState(identityStore, broadcastState, showNotchMessage, relayError);
 	const githubLoginService = new GitHubLoginService(appState, pushGitHubLoginState);
 	registerSessionHandlers(appState, githubLoginService);
@@ -198,6 +205,16 @@ app.whenReady().then(async () => {
 	});
 	ipcMain.handle(IPC_CHANNELS.INSTALL_UPDATE, async () => {
 		updateService?.install();
+	});
+	ipcMain.handle(IPC_CHANNELS.GET_LAUNCH_AT_LOGIN, () => identityStore.load().launchAtLogin);
+	ipcMain.handle(IPC_CHANNELS.SET_LAUNCH_AT_LOGIN, (_event, enabled: boolean) => {
+		const value = !!enabled;
+		const ok = applyLaunchAtLogin(app, value);
+		// Only persist the new choice once the OS actually applied it — like
+		// macOS's `try?` snap-back, a failed call must not leave the stored
+		// preference out of sync with what the OS will really do on next boot.
+		if (ok) identityStore.patch({ launchAtLogin: value });
+		return ok;
 	});
 
 	await appState.restoreCircles();

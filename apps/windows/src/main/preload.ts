@@ -31,6 +31,9 @@ const api: IpcApi = {
 	checkForUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.CHECK_FOR_UPDATES),
 	installUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.INSTALL_UPDATE),
 
+	getLaunchAtLogin: () => ipcRenderer.invoke(IPC_CHANNELS.GET_LAUNCH_AT_LOGIN),
+	setLaunchAtLogin: (enabled) => ipcRenderer.invoke(IPC_CHANNELS.SET_LAUNCH_AT_LOGIN, enabled),
+
 	beginNotchReply: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_BEGIN_REPLY),
 	endNotchReply: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_END_REPLY),
 	notchSetInteractive: (interactive) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_SET_INTERACTIVE, interactive),

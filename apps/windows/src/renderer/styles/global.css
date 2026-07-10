@@ -293,6 +293,25 @@ select {
 	background: rgba(255, 255, 255, 0.1);
 }
 
+.launch-at-login-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 10px;
+	color: var(--munkel-text-primary);
+	font-size: 13px;
+	cursor: pointer;
+	border-radius: 6px;
+}
+
+.launch-at-login-row:hover {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.launch-at-login-row input[type='checkbox'] {
+	accent-color: var(--munkel-accent);
+}
+
 .name-save-error {
 	margin: 4px 2px 0;
 	font-size: 11px;

@@ -31,6 +31,8 @@ function createMockElectronApi(initialState: StateUpdate) {
 		githubLogout: () => Promise.resolve(),
 		checkForUpdates: () => Promise.resolve(),
 		installUpdate: () => Promise.resolve(),
+		getLaunchAtLogin: () => Promise.resolve(false),
+		setLaunchAtLogin: (_enabled: boolean) => Promise.resolve(true),
 		selectImages: () => Promise.resolve(undefined),
 		beginNotchReply: () => Promise.resolve(),
 		endNotchReply: () => Promise.resolve(),
@@ -855,6 +857,105 @@ describe('MenuWindow settings display-name save error feedback', () => {
 		await act(async () => {
 			root.unmount();
 		});
+	});
+});
+
+describe('MenuWindow launch-at-login toggle (P2.1)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenuWithSettingsOpen() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const settingsButton = root!.root.findByProps({ title: 'Settings' });
+		await act(async () => {
+			settingsButton.props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
+		});
+
+		return root!;
+	}
+
+	it('defaults to unchecked when no launch-at-login preference is persisted', async () => {
+		const root = await renderMenuWithSettingsOpen();
+		const checkbox = root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' });
+		expect(checkbox.props.checked).toBe(false);
+	});
+
+	it('reflects a persisted true preference fetched on mount', async () => {
+		electronApi.getLaunchAtLogin = () => Promise.resolve(true);
+		const root = await renderMenuWithSettingsOpen();
+		const checkbox = root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' });
+		expect(checkbox.props.checked).toBe(true);
+	});
+
+	it('toggling calls setLaunchAtLogin(true) and reflects the new checked state', async () => {
+		const setSpy = spyOn(electronApi, 'setLaunchAtLogin');
+		const root = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' }).props.onChange();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledTimes(1);
+		expect(setSpy).toHaveBeenCalledWith(true);
+		const checkbox = root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' });
+		expect(checkbox.props.checked).toBe(true);
+	});
+
+	it('toggling off calls setLaunchAtLogin(false) when currently enabled', async () => {
+		electronApi.getLaunchAtLogin = () => Promise.resolve(true);
+		const setSpy = spyOn(electronApi, 'setLaunchAtLogin');
+		const root = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' }).props.onChange();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledWith(false);
+	});
+
+	it('snaps the checkbox back to its previous state when setLaunchAtLogin fails', async () => {
+		electronApi.setLaunchAtLogin = (_enabled: boolean) => Promise.resolve(false);
+		const root = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' }).props.onChange();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const checkbox = root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' });
+		expect(checkbox.props.checked).toBe(false);
 	});
 });
 

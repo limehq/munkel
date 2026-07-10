@@ -100,6 +100,11 @@ export interface IpcApi {
 	checkForUpdates: () => Promise<void>;
 	installUpdate: () => Promise<void>;
 
+	// Opt-in autostart (Plan 12 P2.1). Windows never auto-registers; this
+	// only ever mirrors the user's explicit toggle choice.
+	getLaunchAtLogin: () => Promise<boolean>;
+	setLaunchAtLogin: (enabled: boolean) => Promise<boolean>;
+
 	// Main → renderer push channels.
 	onStateUpdate: (callback: (update: StateUpdate) => void) => () => void;
 	onGitHubLoginState: (callback: (state: GitHubLoginState) => void) => () => void;

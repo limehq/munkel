@@ -34,6 +34,8 @@ the main process by `ipcMain.handle(...)`.
 | `github-logout` | `() => Promise<void>` | `session-handlers.ts` | Clears persisted `githubLogin` + avatar, keeps `displayName`, and triggers a profile broadcast. |
 | `check-for-updates` | `() => Promise<void>` | `main.ts` | Triggers an update check via `electron-updater`. No-op in development. |
 | `install-update` | `() => Promise<void>` | `main.ts` | Quits and installs a previously downloaded update. No-op unless an update is in the `downloaded` phase. |
+| `get-launch-at-login` | `() => Promise<boolean>` | `main.ts` | Returns the persisted opt-in autostart preference (`IdentityStore#launchAtLogin`, default `false`). |
+| `set-launch-at-login` | `(enabled: boolean) => Promise<boolean>` | `main.ts` | Applies `app.setLoginItemSettings({ openAtLogin: enabled })` via `login-item.ts` and, only on success, persists the choice. Returns `false` (without persisting) if Electron threw, so the renderer can snap the toggle back. |
 | `notch-begin-reply` | `() => Promise<void>` | `main.ts` | Promotes the notch window to focusable and focuses it so the inline reply field accepts keyboard input. **Sender must be the notch window** — other windows are ignored. |
 | `notch-end-reply` | `() => Promise<void>` | `main.ts` | Blurs the notch and restores `focusable: false` after reply closes. **Sender must be the notch window.** |
 | `notch-set-interactive` | `(interactive: boolean) => Promise<void>` | `main.ts` | **Sender must be the notch window.** Toggles `win.setIgnoreMouseEvents(!interactive, { forward: true })` so the renderer can switch between passthrough and interactive states. |

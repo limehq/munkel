@@ -43,6 +43,9 @@ interface AppStore {
 
 	checkForUpdates: () => Promise<void>;
 	installUpdate: () => Promise<void>;
+
+	getLaunchAtLogin: () => Promise<boolean>;
+	setLaunchAtLogin: (enabled: boolean) => Promise<boolean>;
 }
 
 const AppContext = createContext<AppStore | null>(null);
@@ -165,6 +168,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 		await window.electronAPI.installUpdate();
 	}, []);
 
+	const getLaunchAtLogin = useCallback(async () => {
+		return window.electronAPI.getLaunchAtLogin();
+	}, []);
+
+	const setLaunchAtLogin = useCallback(async (enabled: boolean) => {
+		return window.electronAPI.setLaunchAtLogin(enabled);
+	}, []);
+
 	const store = useMemo<AppStore>(
 		() => ({
 			state,
@@ -184,6 +195,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			githubLogout,
 			checkForUpdates,
 			installUpdate,
+			getLaunchAtLogin,
+			setLaunchAtLogin,
 		}),
 		[
 			state,
@@ -203,6 +216,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			githubLogout,
 			checkForUpdates,
 			installUpdate,
+			getLaunchAtLogin,
+			setLaunchAtLogin,
 		],
 	);
 

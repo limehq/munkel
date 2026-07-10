@@ -8,6 +8,10 @@ export interface PersistedState {
 	avatar?: string;
 	githubLogin?: string;
 	circles: Array<{ code: string; relayUrl: string; joinedAt: string }>;
+	// Opt-in autostart preference (Plan 12 P2.1). Unlike the macOS release,
+	// which auto-registers once on first launch, Windows always defaults to
+	// `false` and only ever mirrors the user's explicit toggle choice.
+	launchAtLogin: boolean;
 }
 
 function defaultState(): PersistedState {
@@ -16,6 +20,7 @@ function defaultState(): PersistedState {
 		memberId: crypto.randomUUID().toLowerCase(),
 		displayName: '',
 		circles: [],
+		launchAtLogin: false,
 	};
 }
 
@@ -56,7 +61,7 @@ export class IdentityStore {
 		fs.writeFileSync(this.filePath, JSON.stringify(state, null, 2));
 	}
 
-	patch(identity: Partial<Pick<PersistedState, 'displayName' | 'avatar' | 'githubLogin'>>): void {
+	patch(identity: Partial<Pick<PersistedState, 'displayName' | 'avatar' | 'githubLogin' | 'launchAtLogin'>>): void {
 		const state = this.load();
 		Object.assign(state, identity);
 		this.save(state);
@@ -98,6 +103,9 @@ export class IdentityStore {
 		}
 		if (!Array.isArray(draft.circles)) {
 			draft.circles = [];
+		}
+		if (typeof draft.launchAtLogin !== 'boolean') {
+			draft.launchAtLogin = false;
 		}
 
 		return draft as PersistedState;

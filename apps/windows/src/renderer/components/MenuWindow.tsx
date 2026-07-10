@@ -16,6 +16,8 @@ export default function MenuWindow() {
 		githubLogout,
 		checkForUpdates,
 		installUpdate,
+		getLaunchAtLogin,
+		setLaunchAtLogin,
 	} = useAppStore();
 
 	const [joinCode, setJoinCode] = useState('');
@@ -48,6 +50,28 @@ export default function MenuWindow() {
 	// appears, and a flag driving that hint's visibility.
 	const nameSaveErrorTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 	const [nameSaveFailed, setNameSaveFailed] = useState(false);
+	// Opt-in autostart (Plan 12 P2.1). Default false — mirrors the persisted
+	// main-process value fetched on mount, not applied speculatively.
+	const [launchAtLogin, setLaunchAtLoginState] = useState(false);
+
+	useEffect(() => {
+		let mounted = true;
+		void getLaunchAtLogin().then((enabled) => {
+			if (mounted) setLaunchAtLoginState(enabled);
+		});
+		return () => {
+			mounted = false;
+		};
+	}, [getLaunchAtLogin]);
+
+	async function handleToggleLaunchAtLogin() {
+		const next = !launchAtLogin;
+		// Optimistic update, matching macOS's toggle-then-snap-back-on-failure
+		// binding (`try?` around `LoginItem.setEnabled`).
+		setLaunchAtLoginState(next);
+		const ok = await setLaunchAtLogin(next);
+		if (!ok) setLaunchAtLoginState(!next);
+	}
 
 	useEffect(() => {
 		if (state.identity) {
@@ -216,6 +240,16 @@ export default function MenuWindow() {
 									Saving failed — press Enter to retry
 								</p>
 							)}
+							<div className="popover-divider" />
+							<label className="launch-at-login-row" data-testid="launch-at-login-row">
+								<input
+									type="checkbox"
+									data-testid="launch-at-login-checkbox"
+									checked={launchAtLogin}
+									onChange={handleToggleLaunchAtLogin}
+								/>
+								Launch at login
+							</label>
 							<div className="popover-divider" />
 							<button onClick={() => window.electronAPI.showPalette()}>Quick send…</button>
 							<div className="popover-divider" />
