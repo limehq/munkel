@@ -19,7 +19,8 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 | 9 | [Circle leave confirmation dialog](./09-circle-leave-confirmation.md) | `platform/windows/circle-leave-confirmation` | `v2-clean` | ✅ Merged |
 | 10 | [Logo assets integration](./10-logo-assets-integration.md) | `platform/windows/logo-assets-integration` | Plan 04 in `v2-clean` | ✅ Merged |
 | 11 | [Auto-update](./11-auto-update.md) | `platform/windows/auto-update` | `v2-clean` | 🔄 In review |
-| 12 | [macOS feature parity (matrix + P1–P3)](./12-macos-feature-parity.md) | `platform/windows/macos-parity-p1` | #11 branch stack | 🔄 P1–P3 done + post-P3 slice (copy circle code, 2048 message limit, notch sent-confirmation, matrix reconcile) done (2026-07-10) — P2.2 (CLI installer) and P2.3 (image lightbox) open |
+| 12 | [macOS feature parity (matrix + P1–P3)](./12-macos-feature-parity.md) | `platform/windows/macos-parity-p1` | #11 branch stack | 🔄 P1–P3 + post-P3 slice + Plan 13 done (2026-07-10) — matrix at 36 DONE / 2 PARTIAL / 0 MISSING / 2 BLOCKED; P2.2 (CLI installer) and P2.3 (image lightbox) BLOCKED on OQ5/OQ4 (human product decisions) |
+| 13 | [Remaining parity: dev toggles, ticker, hardening](./13-remaining-parity.md) | `platform/windows/macos-parity-p1` | Plan 12 | ✅ Autonomous items done (2026-07-10) — CLI constants drift, `act()` warning, reply-prune/sent-timer guards, dev "Echo my broadcasts" + "Allow in screenshots" toggles, message ticker; P2.2/P2.3 remain explicitly BLOCKED (see Plan 12); manual QA still open |
 
 > **Plans 01–07 are merged into `platform/windows/v2-clean`.**
 > Phase 2 + Plans 01–05 shipped via PR #12–#16 and PR #22; Plan 06 merged via

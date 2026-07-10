@@ -83,6 +83,8 @@ Phase 1 is feature-complete for day-to-day messaging:
 - Menu: each circle card has a "Copy code" button that copies the circle's code to the clipboard, with a brief checkmark confirmation.
 - Menu and notch: messages are capped at 2048 characters (matching the macOS app and the CLI), enforced on typed/pasted text and applied to incoming text as well.
 - Notch: sending an inline reply shows a brief "Sent to …" confirmation chip before the reply field closes.
+- Notch: long message text scrolls once as a single-line ticker (stands still, scrolls, stops) instead of wrapping; short text stays static.
+- Dev builds only: Settings gains "Echo my broadcasts to me" (see your own broadcast sends in the notch, default on) and "Allow in screenshots" (default off) toggles — never shown or persisted in a packaged build.
 
 GitHub login is optional. The app still works with a manual display name and
 joined circles even when no GitHub account is connected. A real
