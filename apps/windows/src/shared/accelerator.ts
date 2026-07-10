@@ -26,11 +26,21 @@ const MAIN_KEY_PATTERN =
 	/^([A-Z0-9]|F(?:[1-9]|1\d|2[0-4])|Space|Tab|Backspace|Delete|Insert|Return|Enter|Escape|Up|Down|Left|Right|Home|End|PageUp|PageDown|[`~!@#$%^&*()\-_=+[\]{}\\|;:'",.<>/?])$/;
 
 /**
- * Validates an Electron accelerator string requires **at least one
- * modifier** plus **exactly one** non-modifier main key, e.g.
- * `"Ctrl+Shift+M"`. Rejects: no modifier (`"M"`), only modifiers
- * (`"Ctrl+Shift"`), duplicate modifiers (`"Ctrl+Ctrl+M"`), unknown tokens,
- * and non-string/empty input.
+ * Modifiers that count towards the "at least one real modifier" requirement.
+ * `Shift` alone is deliberately NOT enough: a bare `Shift+A` global shortcut
+ * would swallow every capital "A" the user types anywhere on the system —
+ * the classic single-modifier footgun. Shift is still allowed as an
+ * *additional* modifier next to one of these (e.g. `Ctrl+Shift+M`).
+ */
+const STRONG_MODIFIER_TOKENS = new Set(['Ctrl', 'Alt', 'Super']);
+
+/**
+ * Validates an Electron accelerator string: requires **at least one
+ * non-Shift modifier** (`Ctrl`/`Alt`/`Super`) plus **exactly one**
+ * non-modifier main key, e.g. `"Ctrl+Shift+M"`. Rejects: no modifier
+ * (`"M"`), Shift as the only modifier (`"Shift+A"` — see
+ * STRONG_MODIFIER_TOKENS), only modifiers (`"Ctrl+Shift"`), duplicate
+ * modifiers (`"Ctrl+Ctrl+M"`), unknown tokens, and non-string/empty input.
  */
 export function isValidAccelerator(accelerator: unknown): accelerator is string {
 	if (typeof accelerator !== 'string') return false;
@@ -46,6 +56,7 @@ export function isValidAccelerator(accelerator: unknown): accelerator is string 
 
 	if (modifierParts.length === 0) return false;
 	if (!modifierParts.every((part) => MODIFIER_TOKENS.has(part))) return false;
+	if (!modifierParts.some((part) => STRONG_MODIFIER_TOKENS.has(part))) return false; // Shift alone is not enough
 	if (new Set(modifierParts).size !== modifierParts.length) return false; // no duplicate modifiers
 	if (MODIFIER_TOKENS.has(mainKey)) return false; // main key must not itself be a modifier
 

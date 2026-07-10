@@ -32,6 +32,18 @@ describe('isValidAccelerator (Plan 12 P3.1)', () => {
 		expect(isValidAccelerator('M')).toBe(false);
 	});
 
+	it('rejects Shift as the only modifier (Shift+A would swallow every typed capital A system-wide)', () => {
+		expect(isValidAccelerator('Shift+A')).toBe(false);
+		expect(isValidAccelerator('Shift+F5')).toBe(false);
+		expect(isValidAccelerator('Shift+Space')).toBe(false);
+	});
+
+	it('still accepts Shift as an additional modifier next to a strong one', () => {
+		expect(isValidAccelerator('Ctrl+Shift+M')).toBe(true);
+		expect(isValidAccelerator('Alt+Shift+F5')).toBe(true);
+		expect(isValidAccelerator('Super+Shift+A')).toBe(true);
+	});
+
 	it('rejects modifiers-only combos', () => {
 		expect(isValidAccelerator('Ctrl+Shift')).toBe(false);
 		expect(isValidAccelerator('Ctrl')).toBe(false);

@@ -129,14 +129,19 @@ export interface IpcApi {
 	getAutoUpdateCheck: () => Promise<boolean>;
 	setAutoUpdateCheck: (enabled: boolean) => Promise<boolean>;
 
-	// Rebindable global palette-toggle hotkey (Plan 12 P3.1). `setPaletteHotkey`
-	// always resolves the accelerator now actually bound — the requested one
-	// on success, or the unchanged previous one on failure (invalid format or
-	// OS registration rejected, e.g. another app owns the combo) — so the
-	// settings-popover recorder can snap its display back precisely instead
-	// of assuming its own request took effect.
-	getPaletteHotkey: () => Promise<string>;
-	setPaletteHotkey: (accelerator: string) => Promise<{ ok: boolean; accelerator: string; error?: string }>;
+	// Rebindable global palette-toggle hotkey (Plan 12 P3.1). Both calls
+	// report only the accelerator whose OS registration is CONFIRMED —
+	// `null` means the hotkey is currently unbound (startup registration
+	// failed, or a rebind's rollback also failed; see palette-hotkey.ts's
+	// confirmed-binding invariant). `setPaletteHotkey` resolves the requested
+	// accelerator on success; on failure it resolves whatever is really bound
+	// now (the rolled-back previous combo, the healed default, or `null`),
+	// so the settings-popover recorder displays reality, never intent. A
+	// later successful set fully heals an unbound state — no restart needed.
+	getPaletteHotkey: () => Promise<string | null>;
+	setPaletteHotkey: (
+		accelerator: string,
+	) => Promise<{ ok: boolean; accelerator: string | null; error?: string }>;
 
 	// Main → renderer push channels.
 	onStateUpdate: (callback: (update: StateUpdate) => void) => () => void;

@@ -94,16 +94,92 @@ describe('rebindPaletteHotkey (Plan 12 P3.1)', () => {
 		expect(registered).toEqual(['Ctrl+Shift+M']);
 	});
 
-	it('logs (but does not throw) when even the rollback registration fails', () => {
-		const { api } = makeFakeApi({ registerResult: () => false });
-		expect(() => rebindPaletteHotkey(api, 'Ctrl+Shift+M', 'Ctrl+Alt+P', () => {})).not.toThrow();
-	});
-
 	it('trims whitespace around the requested accelerator before validating/registering', () => {
 		const { api, registered } = makeFakeApi();
 		const result = rebindPaletteHotkey(api, 'Ctrl+Shift+M', '  Ctrl+Alt+P  ', () => {});
 
 		expect(result).toEqual({ ok: true, accelerator: 'Ctrl+Alt+P' });
 		expect(registered).toEqual(['Ctrl+Alt+P']);
+	});
+});
+
+describe('rebindPaletteHotkey rollback double failure (confirmed-binding invariant)', () => {
+	it('heals to the default combo when both the new combo and the rollback fail', () => {
+		// New combo and old combo both unregistrable, but the default is free.
+		const { api, registered } = makeFakeApi({
+			registerResult: (accelerator) => accelerator === 'Ctrl+Shift+M',
+		});
+		const result = rebindPaletteHotkey(api, 'Ctrl+Alt+Q', 'Ctrl+Alt+P', () => {});
+
+		expect(result).toEqual({ ok: false, accelerator: 'Ctrl+Shift+M', error: 'rollback-failed' });
+		expect(registered).toEqual(['Ctrl+Shift+M']);
+	});
+
+	it('reports accelerator: null (unbound) when new, rollback, AND default all fail — never the dead old combo', () => {
+		const { api } = makeFakeApi({ registerResult: () => false });
+		const result = rebindPaletteHotkey(api, 'Ctrl+Alt+Q', 'Ctrl+Alt+P', () => {});
+
+		expect(result).toEqual({ ok: false, accelerator: null, error: 'rollback-failed' });
+	});
+
+	it('does not retry the default as fallback when the failed old combo IS the default', () => {
+		const registerAttempts: string[] = [];
+		const api: GlobalShortcutApi = {
+			register(accelerator: string) {
+				registerAttempts.push(accelerator);
+				return false;
+			},
+			unregister() {},
+		};
+		const result = rebindPaletteHotkey(api, 'Ctrl+Shift+M', 'Ctrl+Alt+P', () => {});
+
+		expect(result).toEqual({ ok: false, accelerator: null, error: 'rollback-failed' });
+		// new attempt + rollback attempt — NO third attempt re-trying the
+		// default, which is the very combo whose rollback just failed.
+		expect(registerAttempts).toEqual(['Ctrl+Alt+P', 'Ctrl+Shift+M']);
+	});
+
+	it('does not throw on the double-failure path', () => {
+		const { api } = makeFakeApi({ registerResult: () => false });
+		expect(() => rebindPaletteHotkey(api, 'Ctrl+Shift+M', 'Ctrl+Alt+P', () => {})).not.toThrow();
+	});
+
+	it('rebinding from an unbound state (current = null) skips unregister and succeeds', () => {
+		const { api, registered, unregistered } = makeFakeApi();
+		const result = rebindPaletteHotkey(api, null, 'Ctrl+Alt+P', () => {});
+
+		expect(result).toEqual({ ok: true, accelerator: 'Ctrl+Alt+P' });
+		expect(unregistered).toEqual([]);
+		expect(registered).toEqual(['Ctrl+Alt+P']);
+	});
+
+	it('a failed rebind from an unbound state has no rollback target and heals to the default when free', () => {
+		const { api, registered } = makeFakeApi({
+			registerResult: (accelerator) => accelerator === 'Ctrl+Shift+M',
+		});
+		const result = rebindPaletteHotkey(api, null, 'Ctrl+Alt+P', () => {});
+
+		expect(result).toEqual({ ok: false, accelerator: 'Ctrl+Shift+M', error: 'rollback-failed' });
+		expect(registered).toEqual(['Ctrl+Shift+M']);
+	});
+
+	it('a retry after an unbound double failure heals the state without a restart', () => {
+		// First call: everything fails → unbound.
+		let allowRegistration = false;
+		const api: GlobalShortcutApi = {
+			register(accelerator: string) {
+				void accelerator;
+				return allowRegistration;
+			},
+			unregister() {},
+		};
+		const first = rebindPaletteHotkey(api, 'Ctrl+Alt+Q', 'Ctrl+Alt+P', () => {});
+		expect(first.accelerator).toBeNull();
+
+		// Retry from the unbound state (caller now tracks null) with the OS
+		// cooperating again — the same API instance, no restart in between.
+		allowRegistration = true;
+		const second = rebindPaletteHotkey(api, first.accelerator, 'Ctrl+Alt+R', () => {});
+		expect(second).toEqual({ ok: true, accelerator: 'Ctrl+Alt+R' });
 	});
 });

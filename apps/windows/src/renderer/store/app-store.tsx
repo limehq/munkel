@@ -50,8 +50,11 @@ interface AppStore {
 	getAutoUpdateCheck: () => Promise<boolean>;
 	setAutoUpdateCheck: (enabled: boolean) => Promise<boolean>;
 
-	getPaletteHotkey: () => Promise<string>;
-	setPaletteHotkey: (accelerator: string) => Promise<{ ok: boolean; accelerator: string; error?: string }>;
+	// `null` = hotkey currently unbound; see IpcApi's doc in shared/types.ts.
+	getPaletteHotkey: () => Promise<string | null>;
+	setPaletteHotkey: (
+		accelerator: string,
+	) => Promise<{ ok: boolean; accelerator: string | null; error?: string }>;
 }
 
 const AppContext = createContext<AppStore | null>(null);

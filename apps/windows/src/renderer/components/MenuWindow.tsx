@@ -89,7 +89,13 @@ export default function MenuWindow() {
 
 	// Rebindable palette hotkey (Plan 12 P3.1). Default mirrors the persisted
 	// main-process value fetched on mount (same posture as the toggles above).
-	const [paletteHotkey, setPaletteHotkeyState] = useState(DEFAULT_PALETTE_HOTKEY);
+	// `null` = the hotkey is currently UNBOUND (startup registration failed,
+	// or a rebind's rollback also failed — the "rollback-failed" double
+	// failure). The recorder then shows "Not bound" instead of pretending an
+	// unregistered combo is active; a later successful capture heals the
+	// state without a restart (commitPaletteHotkey never early-outs against
+	// null, since no string equals it).
+	const [paletteHotkey, setPaletteHotkeyState] = useState<string | null>(DEFAULT_PALETTE_HOTKEY);
 	const [hotkeyRecording, setHotkeyRecording] = useState(false);
 	// In-flight guard for the recorder (same idea as launchToggleInFlightRef):
 	// a fast second keypress must not fire a second setPaletteHotkey IPC call
@@ -139,12 +145,17 @@ export default function MenuWindow() {
 		clearHotkeyError();
 		try {
 			const result = await setPaletteHotkey(accelerator);
+			// Always display what the main process confirms is bound — the new
+			// combo, the rolled-back old one, the healed default, or null
+			// (unbound) after a rollback-failed double failure. Never intent.
 			setPaletteHotkeyState(result.accelerator);
 			if (!result.ok) {
 				setHotkeySaveError(
 					result.error === 'invalid-accelerator'
-						? 'Invalid shortcut — use a modifier plus a key'
-						: 'Shortcut already in use by another app — try a different combo',
+						? 'Invalid shortcut — hold Ctrl, Alt, or Win plus a key'
+						: result.error === 'rollback-failed'
+							? 'Shortcut could not be bound — record a new combination (or restart the app)'
+							: 'Shortcut already in use by another app — try a different combo',
 				);
 				hotkeyErrorTimeoutRef.current = setTimeout(() => {
 					setHotkeySaveError(null);
@@ -491,7 +502,11 @@ export default function MenuWindow() {
 									onBlur={() => setHotkeyRecording(false)}
 									onKeyDown={handleHotkeyRecorderKeyDown}
 								>
-									{hotkeyRecording ? 'Press a key combo…' : formatAcceleratorLabel(paletteHotkey)}
+									{hotkeyRecording
+									? 'Press a key combo…'
+									: paletteHotkey
+										? formatAcceleratorLabel(paletteHotkey)
+										: 'Not bound — press to record'}
 								</button>
 								<button
 									type="button"
@@ -591,7 +606,7 @@ export default function MenuWindow() {
 			<div className="hotkey-row">
 				<span className="hotkey-icon">➤</span>
 				<span>Quick send</span>
-				<span className="hotkey">{formatAcceleratorLabel(paletteHotkey)}</span>
+				<span className="hotkey">{paletteHotkey ? formatAcceleratorLabel(paletteHotkey) : 'Not bound'}</span>
 			</div>
 
 			<div className="divider" />

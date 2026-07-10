@@ -1392,6 +1392,102 @@ describe('MenuWindow rebindable palette hotkey recorder (P3.1)', () => {
 		const label = root.root.findByProps({ className: 'hotkey' });
 		expect(label.props.children).toBe('Ctrl + Alt + P');
 	});
+
+	// Rollback-failed double failure (Kimi-Review of 24d6340): the main
+	// process reports accelerator: null when the new combo failed AND the
+	// rollback (and default fallback) could not be re-registered — the
+	// recorder must show "unbound" reality plus a distinct hint, never the
+	// dead old combo, and a later successful capture must heal the state.
+	it('shows the unbound state and a rollback-failed hint when the main process reports accelerator: null', async () => {
+		electronApi.setPaletteHotkey = (_accelerator: string) =>
+			Promise.resolve({ ok: false, accelerator: null, error: 'rollback-failed' });
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true, altKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(recorder(root).props.children).toBe('Not bound — press to record');
+		const error = root.root.findByProps({ 'data-testid': 'palette-hotkey-error' });
+		expect(error.props.children).toContain('could not be bound');
+		// The bottom Quick-send row must not claim a binding either.
+		expect(root.root.findByProps({ className: 'hotkey' }).props.children).toBe('Not bound');
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('displays the healed default when a rollback-failed rebind fell back to the default combo', async () => {
+		electronApi.setPaletteHotkey = (_accelerator: string) =>
+			Promise.resolve({ ok: false, accelerator: 'Ctrl+Shift+M', error: 'rollback-failed' });
+		electronApi.getPaletteHotkey = () => Promise.resolve('Ctrl+Alt+Q');
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true, altKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		// Not the requested Ctrl+Alt+P and not the dead old Ctrl+Alt+Q — the
+		// display mirrors what the main process confirmed is actually bound.
+		expect(recorder(root).props.children).toBe('Ctrl + Shift + M');
+		expect(root.root.findByProps({ 'data-testid': 'palette-hotkey-error' })).toBeTruthy();
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('a retry capture from the unbound state heals it without a restart', async () => {
+		// First set: double failure → unbound. Second set: succeeds.
+		let call = 0;
+		electronApi.setPaletteHotkey = (accelerator: string) => {
+			call += 1;
+			return call === 1
+				? Promise.resolve({ ok: false, accelerator: null, error: 'rollback-failed' })
+				: Promise.resolve({ ok: true, accelerator });
+		};
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true, altKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		expect(recorder(root).props.children).toBe('Not bound — press to record');
+
+		// Retry with a fresh combo — the null state must not block the commit
+		// (no early-out, no leftover in-flight lock) and the success must both
+		// update the display and clear the error hint.
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+		await act(async () => {
+			pressKey(root, { key: 'r', ctrlKey: true, altKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(call).toBe(2);
+		expect(recorder(root).props.children).toBe('Ctrl + Alt + R');
+		expect(root.root.findAllByProps({ 'data-testid': 'palette-hotkey-error' }).length).toBe(0);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
 });
 
 describe('MenuWindow recipient avatar chips (P2.4)', () => {

@@ -62,12 +62,16 @@ let disposeHoverCopyDisarm: (() => void) | null = null;
 // fix" for why a late renderer ping must not re-arm a disarmed shortcut.
 let notchInteractive = false;
 // Rebindable palette-toggle hotkey (Plan 12 P3.1): the accelerator string
-// actually bound with `globalShortcut` right now. Initialized from the
-// persisted preference once identityStore loads; kept in sync by the
-// `set-palette-hotkey` handler, which always reflects `rebindPaletteHotkey`'s
-// actual outcome (including rollback on a failed rebind) rather than
-// whatever the renderer requested.
-let currentPaletteHotkey = DEFAULT_PALETTE_HOTKEY;
+// whose `globalShortcut` registration is CONFIRMED right now, or `null`
+// while the hotkey is unbound (startup registration failed, or the rare
+// rebind double-failure — see palette-hotkey.ts's confirmed-binding
+// invariant, Kimi-Review of 24d6340). Kept in sync by the
+// `set-palette-hotkey` handler, which always mirrors `rebindPaletteHotkey`'s
+// actual outcome (rollback or heal-to-default on a failed rebind) rather
+// than whatever the renderer requested. Never set to a value that isn't
+// actually registered — the renderer displays this and must not claim a
+// binding that doesn't exist.
+let currentPaletteHotkey: string | null = null;
 // Menu click-away-to-dismiss suppression state (Plan 06).
 let pickerOpen = false;
 let githubLoginActive = false;
@@ -189,12 +193,13 @@ app.whenReady().then(async () => {
 	// Rebindable palette-toggle hotkey (Plan 12 P3.1): register the persisted
 	// accelerator (default Ctrl+Shift+M). A startup registration failure
 	// (e.g. another app already owns the combo) is logged but never fatal —
-	// `currentPaletteHotkey` still tracks it as "the accelerator we intend to
-	// use", so a later `set-palette-hotkey` rebind attempt still unregisters
-	// the (never-actually-bound) old value harmlessly before registering the
-	// new one.
-	currentPaletteHotkey = persisted.paletteHotkey;
-	registerPaletteHotkey(globalShortcut, currentPaletteHotkey, togglePalette);
+	// and `currentPaletteHotkey` then stays `null` (unbound) rather than
+	// pretending the intended accelerator is bound (confirmed-binding
+	// invariant): the settings recorder shows "Not bound" and a later
+	// successful rebind heals the state without a restart.
+	currentPaletteHotkey = registerPaletteHotkey(globalShortcut, persisted.paletteHotkey, togglePalette)
+		? persisted.paletteHotkey
+		: null;
 
 	const appState = new AppState(identityStore, broadcastState, showNotchMessage, relayError);
 	const githubLoginService = new GitHubLoginService(appState, pushGitHubLoginState);
@@ -336,8 +341,14 @@ app.whenReady().then(async () => {
 		// unit-testable (main.ts wiring has no test harness; see
 		// docs/ipc-contract.md — same pattern as login-item.ts).
 		const result = rebindPaletteHotkey(globalShortcut, currentPaletteHotkey, accelerator, togglePalette);
+		// Mirror the CONFIRMED binding exactly — including `null` (unbound)
+		// after a rollback-failed double failure. Persist whatever is actually
+		// bound (covers both a successful rebind and the heal-to-default
+		// fallback, so a restart re-registers what the user really has); on
+		// `null` the persisted value is left alone — the next startup retries
+		// it, and a later successful rebind overwrites it.
 		currentPaletteHotkey = result.accelerator;
-		if (result.ok) identityStore.patch({ paletteHotkey: result.accelerator });
+		if (result.accelerator !== null) identityStore.patch({ paletteHotkey: result.accelerator });
 		return result;
 	});
 

@@ -52,6 +52,15 @@ describe('acceleratorFromKeyboardEvent (Plan 12 P3.1)', () => {
 		expect(acceleratorFromKeyboardEvent(keyEvent({ key: 'm' }))).toBeNull();
 	});
 
+	it('returns null when Shift is the only modifier (single-modifier footgun, e.g. Shift+A)', () => {
+		expect(acceleratorFromKeyboardEvent(keyEvent({ key: 'a', shiftKey: true }))).toBeNull();
+		expect(acceleratorFromKeyboardEvent(keyEvent({ key: 'F5', shiftKey: true }))).toBeNull();
+	});
+
+	it('accepts Shift as an additional modifier next to Ctrl/Alt/Super', () => {
+		expect(acceleratorFromKeyboardEvent(keyEvent({ key: 'a', ctrlKey: true, shiftKey: true }))).toBe('Ctrl+Shift+A');
+	});
+
 	it('returns null for a key with no accelerator mapping', () => {
 		expect(acceleratorFromKeyboardEvent(keyEvent({ key: 'CapsLock', ctrlKey: true }))).toBeNull();
 		expect(acceleratorFromKeyboardEvent(keyEvent({ key: 'ContextMenu', ctrlKey: true }))).toBeNull();
