@@ -58,4 +58,59 @@ describe('findDisallowedRequires', () => {
 		const source = 'require(\n\t"electron"\n);\n';
 		expect(findDisallowedRequires(source)).toEqual([]);
 	});
+
+	// Kimi review F1 — regex-literal state.
+	it('does not false-fail on require(...) text sitting inside a regex literal', () => {
+		// The `require("./x.cjs")` here is inside a regex literal (a value
+		// assigned after `=`, so the `/` starts a regex, not division), so it
+		// must NOT be parsed as a call. The real require("electron") after it
+		// still must be found.
+		const source = 'const re = /require\\("\\.\\/x\\.cjs"\\)/g;\nrequire("electron");\n';
+		expect(findDisallowedRequires(source)).toEqual([]);
+	});
+
+	it('disambiguates division from regex without swallowing a later real require', () => {
+		// `b / c` and `e / re /` are divisions (b and e are values), so no
+		// regex literal should consume the trailing require("./x.cjs").
+		const source = 'const a = b / c;\nconst d = e / re / f;\nrequire("./x.cjs");\n';
+		expect(findDisallowedRequires(source)).toEqual(['./x.cjs']);
+	});
+
+	it('treats a regex character class containing a slash as one regex literal (no false division)', () => {
+		// The `/` inside `[/]` does not terminate the regex; the whole
+		// `/[/]require("x")/` is one regex literal, so the require text in it
+		// is not a call.
+		const source = 'const re = /[/]require\\("x"\\)/;\nrequire("electron");\n';
+		expect(findDisallowedRequires(source)).toEqual([]);
+	});
+
+	// Kimi review F2 — template-interpolation scanning.
+	it('detects a real require("./x.cjs") hidden inside a template-literal interpolation (fail-closed)', () => {
+		const source = 'const s = `prefix ${require("./x.cjs")} suffix`;\n';
+		expect(findDisallowedRequires(source)).toEqual(['./x.cjs']);
+	});
+
+	it('detects a real require inside a nested template-literal interpolation', () => {
+		const source = 'const s = `${`${require("./y.cjs")}`}`;\n';
+		expect(findDisallowedRequires(source)).toEqual(['./y.cjs']);
+	});
+
+	it('scans interpolation expressions with braces without prematurely closing the interpolation', () => {
+		// The object literal braces inside `${ ... }` must not end the
+		// interpolation early; the require after them is still inside it.
+		const source = 'const s = `${ ({a: 1}, require("./z.cjs")) }`;\n';
+		expect(findDisallowedRequires(source)).toEqual(['./z.cjs']);
+	});
+
+	it('still allows a bare require("electron") appearing inside an interpolation', () => {
+		const source = 'const s = `${require("electron")}`;\n';
+		expect(findDisallowedRequires(source)).toEqual([]);
+	});
+
+	it('does not treat template TEXT (outside ${}) require(...) text as a call', () => {
+		// Here the require text is template literal text, not an
+		// interpolation expression, so it is not code and must be ignored.
+		const source = 'const s = `see require("./x.cjs") in the docs`;\nrequire("electron");\n';
+		expect(findDisallowedRequires(source)).toEqual([]);
+	});
 });
