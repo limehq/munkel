@@ -80,6 +80,7 @@ export default function NotchWidget() {
 		replyOpen,
 		replyingTo,
 		copiedId,
+		unread,
 		openReply: openReplyLifecycle,
 		closeReply,
 		onNotchMessage,
@@ -373,6 +374,7 @@ export default function NotchWidget() {
 					</svg>
 				)}
 				<div className="notch-grabber" />
+				{unread && <span className="notch-unread-dot" data-testid="notch-unread-dot" />}
 			</div>
 
 			{reopening && history.length > 0 ? (

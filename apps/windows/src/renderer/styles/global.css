@@ -667,6 +667,24 @@ select {
 	opacity: 0.9;
 }
 
+/*
+ * Unread indicator dot (Plan 12 P3.3), matching macOS `UnreadIndicatorView`:
+ * a blue dot with a black backing shown in the retracted notch when a
+ * message arrived and the user hasn't interacted with it yet. Unlike macOS
+ * (which swaps in a separate small indicator panel once the message notch
+ * fully hides), Windows renders the dot directly inside the existing
+ * retracted sliver, since the sliver already IS this app's replacement for
+ * the hardware-notch tab.
+ */
+.notch-unread-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: #0a84ff;
+	box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.85);
+	flex-shrink: 0;
+}
+
 .notch-ring {
 	display: block;
 	transform: rotate(-90deg) scaleX(-1);

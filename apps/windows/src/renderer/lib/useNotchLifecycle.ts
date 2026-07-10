@@ -27,6 +27,9 @@ export interface UseNotchLifecycleReturn {
 	replyOpen: boolean;
 	replyingTo: string | null;
 	copiedId: string | null;
+	/** Unread indicator dot (Plan 12 P3.3): true once the current message has
+	 * retracted without the user ever hovering or opening a reply for it. */
+	unread: boolean;
 	setHovering: (value: boolean) => void;
 	openReply: (entry: NotchHistoryEntry) => void;
 	closeReply: () => void;
@@ -43,6 +46,14 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 	const [hovering, setHovering] = useState(false);
 	const [replyingTo, setReplyingTo] = useState<string | null>(null);
 	const [copiedId, setCopiedId] = useState<string | null>(null);
+	// Unread indicator dot (Plan 12 P3.3): whether the user has interacted
+	// (hovered to reopen, or opened a reply) with the *current* message.
+	// Reset to false whenever a new message arrives; flipped true by
+	// `reopenFromHoverTarget` (hover) and `openReply` (click/reply, which
+	// covers "send" too since sending requires the reply field to be open
+	// first). `unread` itself is derived below rather than stored directly,
+	// so it can never go stale relative to `phase`/`newest`.
+	const [interacted, setInteracted] = useState(false);
 
 	const phaseTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 	const leaveHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -53,6 +64,10 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 	const newest = history[0] ?? null;
 	const reopening = hovering;
 	const replyOpen = replyingTo !== null;
+	// A dot only makes sense once the notch has actually retracted with an
+	// unread message sitting behind it — not while it's still visible
+	// (full/peek) or reopened for viewing.
+	const unread = phase === 'retracted' && !!newest && !interacted;
 
 	const cancelHoverLeave = useCallback(() => {
 		if (leaveHoverTimer.current) {
@@ -74,10 +89,12 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		if (history.length === 0) return;
 		cancelHoverLeave();
 		setHovering(true);
+		setInteracted(true);
 	}, [history.length, cancelHoverLeave]);
 
 	const openReply = useCallback((entry: NotchHistoryEntry) => {
 		setReplyingTo(entry.id);
+		setInteracted(true);
 	}, []);
 
 	const closeReply = useCallback(() => {
@@ -99,6 +116,8 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		setHovering(false);
 		cancelHoverLeave();
 		closeReply();
+		// A new message is unread until the user interacts with it again.
+		setInteracted(false);
 	}, [cancelHoverLeave, closeReply]);
 
 	// Phase lifecycle: FULL → PEEK → RETRACTED for each new newest message.
@@ -213,6 +232,7 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		replyOpen,
 		replyingTo,
 		copiedId,
+		unread,
 		setHovering,
 		openReply,
 		closeReply,
