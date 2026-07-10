@@ -298,6 +298,71 @@ describe('hover-copy post-disarm re-arm cooldown (mouseleave in full phase)', ()
 	});
 });
 
+describe('hover-copy cooldown clock (monotonic, review MAJOR non-monotonic cooldown)', () => {
+	it('the cooldown deadline follows the injected clock exactly', () => {
+		const { api, registerCalls } = mockShortcutApi();
+		let t = 1_000;
+		const controller = createHoverCopyController(() => {}, api, {
+			rearmCooldownMs: 300,
+			now: () => t,
+		});
+
+		controller.setActive(true);
+		controller.setActive(false); // deadline = 1_300 on the injected clock
+
+		t = 1_299; // 1ms before the deadline
+		expect(controller.setActive(true)).toBe(true);
+		expect(controller.isActive).toBe(false);
+		expect(registerCalls).toHaveLength(1);
+
+		t = 1_300; // exactly at the deadline — cooldown over
+		expect(controller.setActive(true)).toBe(true);
+		expect(controller.isActive).toBe(true);
+		expect(registerCalls).toHaveLength(2);
+		controller.dispose();
+	});
+
+	it('is immune to wall-clock jumps by construction: only the injected monotonic clock counts', () => {
+		const { api } = mockShortcutApi();
+		// Model the NTP-backjump scenario the review flagged: with Date.now()
+		// a backward wall-clock step after disarm would push "now" far below
+		// the stored deadline and keep the shortcut un-armable until the
+		// wall clock caught back up. A monotonic clock never steps backward,
+		// so advancing it by the cooldown duration ALWAYS re-enables arming
+		// — regardless of anything the wall clock does in the meantime.
+		let monotonic = 0;
+		const controller = createHoverCopyController(() => {}, api, {
+			rearmCooldownMs: 300,
+			now: () => monotonic,
+		});
+
+		controller.setActive(true);
+		monotonic = 500;
+		controller.setActive(false); // deadline = 800 (monotonic)
+
+		// Elapsed monotonic time is all that matters: +300ms later the
+		// controller must arm, even though a wall clock might have jumped
+		// back by hours in between (which this clock, being monotonic,
+		// cannot express — that is the point of the fix).
+		monotonic = 800;
+		expect(controller.setActive(true)).toBe(true);
+		expect(controller.isActive).toBe(true);
+		controller.dispose();
+	});
+
+	it('a fresh controller with a clock starting at 0 is immediately armable (null sentinel, not 0)', () => {
+		const { api } = mockShortcutApi();
+		const controller = createHoverCopyController(() => {}, api, {
+			rearmCooldownMs: 300,
+			now: () => 0, // performance.now() can legitimately be ~0 early in process life
+		});
+
+		expect(controller.setActive(true)).toBe(true);
+		expect(controller.isActive).toBe(true);
+		controller.dispose();
+	});
+});
+
 describe('hover-copy trigger resets the idle deadline (idle-UX follow-up)', () => {
 	it('a successful "C" trigger extends the idle deadline like an explicit ping', async () => {
 		const { api, registerCalls, unregisterCalls } = mockShortcutApi();

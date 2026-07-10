@@ -133,10 +133,26 @@ export const HOVER_COPY_REARM_COOLDOWN_MS = 300;
 export function createHoverCopyController(
 	onTrigger: () => void,
 	api: GlobalShortcutApi,
-	options: { idleMs?: number; canArm?: () => boolean; rearmCooldownMs?: number } = {},
+	options: {
+		idleMs?: number;
+		canArm?: () => boolean;
+		rearmCooldownMs?: number;
+		/**
+		 * Clock for the re-arm-cooldown deadline. MUST be monotonic —
+		 * `Date.now()` would let an NTP backward step extend the cooldown
+		 * by the size of the jump (worst case: shortcut un-armable for
+		 * minutes/hours until the wall clock catches back up). Defaults to
+		 * `performance.now()`, which is monotonic by spec; injectable for
+		 * deterministic tests. (The idle deadline needs no clock — it lives
+		 * in a `setTimeout`, which counts *elapsed* time and is likewise
+		 * unaffected by wall-clock jumps.)
+		 */
+		now?: () => number;
+	} = {},
 ): HoverCopyController {
 	const idleMs = options.idleMs ?? HOVER_COPY_IDLE_MS;
 	const rearmCooldownMs = options.rearmCooldownMs ?? HOVER_COPY_REARM_COOLDOWN_MS;
+	const now = options.now ?? (() => performance.now());
 	// Gate for the inactive → arm transition only (see "Late-Ping-Race fix"
 	// in the module header). Defaults to always-armable so existing callers
 	// (and every pre-existing test in this file) keep their current
@@ -144,9 +160,11 @@ export function createHoverCopyController(
 	const canArm = options.canArm ?? (() => true);
 	let active = false;
 	let idleTimer: ReturnType<typeof setTimeout> | null = null;
-	// Monotonic-enough wall-clock deadline before which fresh arms are
-	// rejected (see HOVER_COPY_REARM_COOLDOWN_MS). 0 = no cooldown pending.
-	let rearmBlockedUntil = 0;
+	// Monotonic-clock deadline before which fresh arms are rejected (see
+	// HOVER_COPY_REARM_COOLDOWN_MS). null = no cooldown pending — an
+	// explicit sentinel rather than 0, since an injected clock may
+	// legitimately start at or near 0.
+	let rearmBlockedUntil: number | null = null;
 
 	function clearIdleTimer(): void {
 		if (idleTimer !== null) {
@@ -177,7 +195,7 @@ export function createHoverCopyController(
 				// already in flight behind this call cannot instantly re-arm.
 				// (The internal idle-timer disarm calls `disarm()` directly
 				// and intentionally does not set this.)
-				rearmBlockedUntil = Date.now() + rearmCooldownMs;
+				rearmBlockedUntil = now() + rearmCooldownMs;
 				disarm();
 				return true;
 			}
@@ -187,7 +205,7 @@ export function createHoverCopyController(
 				restartIdleTimer();
 				return true;
 			}
-			if (!canArm() || Date.now() < rearmBlockedUntil) {
+			if (!canArm() || (rearmBlockedUntil !== null && now() < rearmBlockedUntil)) {
 				// Transient rejection — either a late/stale ping while the
 				// notch is no longer visible+interactive (`canArm` gate, review
 				// MAJOR Late-Ping-Race), or an in-flight ping landing inside
@@ -211,7 +229,7 @@ export function createHoverCopyController(
 				return false;
 			}
 			active = true;
-			rearmBlockedUntil = 0;
+			rearmBlockedUntil = null;
 			restartIdleTimer();
 			return true;
 		},
