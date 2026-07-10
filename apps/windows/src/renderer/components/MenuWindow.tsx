@@ -83,8 +83,18 @@ export default function MenuWindow() {
 	function updateName() {
 		const name = displayName.trim();
 		if (!name || name === lastSavedNameRef.current) return;
-		lastSavedNameRef.current = name;
-		void updateProfile(name);
+		// Only mark this name as "saved" once the IPC call actually resolves.
+		// If updateProfile rejects (e.g. relay offline), lastSavedNameRef stays
+		// at its previous value so a retry with the same name is not silently
+		// dropped as a no-op change.
+		void updateProfile(name).then(
+			() => {
+				lastSavedNameRef.current = name;
+			},
+			() => {
+				// Leave lastSavedNameRef untouched so the same name can be retried.
+			},
+		);
 	}
 
 	function commitNameOnEnter(e: React.KeyboardEvent<HTMLInputElement>) {

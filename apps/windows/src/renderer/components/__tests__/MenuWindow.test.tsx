@@ -466,16 +466,13 @@ describe('MenuWindow settings display-name Enter save (P1.2)', () => {
 		expect(updateProfileSpy).toHaveBeenCalledTimes(0);
 	});
 
-	// BUG (found while hardening P1.2 coverage, not fixed here per task scope):
-	// updateName() sets lastSavedNameRef.current = name *before* the
-	// `void updateProfile(name)` promise settles (MenuWindow.tsx:83-88). If the
-	// IPC call rejects (relay/main-process error), the ref is already updated
-	// to the failed name, so a later retry with the same text is treated as
-	// "unchanged" by the `name === lastSavedNameRef.current` guard and silently
-	// dropped — the user has no way to re-trigger the save short of typing a
-	// different name (or an app restart resyncing identity). Un-skip once
-	// updateName only commits the ref after updateProfile resolves.
-	it.skip('retries the same name after a failed updateProfile instead of silently dropping it', async () => {
+	// Regression test for a MAJOR review finding: updateName() used to set
+	// lastSavedNameRef.current = name *before* the `void updateProfile(name)`
+	// promise settled. If the IPC call rejected (relay/main-process error),
+	// the ref was already updated to the failed name, so a later retry with
+	// the same text was treated as "unchanged" and silently dropped. Fixed by
+	// only committing the ref inside updateProfile(name).then(...).
+	it('retries the same name after a failed updateProfile instead of silently dropping it', async () => {
 		let rejectNext = true;
 		const failingUpdateProfile = (_name: string) =>
 			rejectNext ? Promise.reject(new Error('relay offline')) : Promise.resolve();
