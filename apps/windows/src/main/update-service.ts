@@ -188,9 +188,10 @@ export function initUpdateService(
 	if (!isDev && autoCheckEnabled) {
 		service.check();
 	}
-	// Also arms/disarms the periodic loop consistently with autoCheckEnabled,
-	// so a later setAutoCheckEnabled(true) isn't the only path that starts it.
-	service.setAutoCheckEnabled(autoCheckEnabled);
+	// startPeriodicCheck() no-ops on its own when dev-mode or auto-check is
+	// disabled (the constructor already stored autoCheckEnabled), so no
+	// conditional or setAutoCheckEnabled() round-trip is needed here.
+	service.startPeriodicCheck();
 
 	return service;
 }

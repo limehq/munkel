@@ -47,12 +47,15 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 	const [replyingTo, setReplyingTo] = useState<string | null>(null);
 	const [copiedId, setCopiedId] = useState<string | null>(null);
 	// Unread indicator dot (Plan 12 P3.3): whether the user has interacted
-	// (hovered to reopen, or opened a reply) with the *current* message.
-	// Reset to false whenever a new message arrives; flipped true by
-	// `reopenFromHoverTarget` (hover) and `openReply` (click/reply, which
-	// covers "send" too since sending requires the reply field to be open
-	// first). `unread` itself is derived below rather than stored directly,
-	// so it can never go stale relative to `phase`/`newest`.
+	// with the *current* newest message. Reset to false in `onNotchMessage`
+	// whenever a new message arrives. Exactly two paths flip it true:
+	// `reopenFromHoverTarget` (hovering the sliver's hover-target to reopen)
+	// and `openReply` (the reply button or a message-body click; sending a
+	// reply necessarily passes through `openReply` first, so "send" is
+	// covered transitively). Note that a bare `setHovering(true)` — e.g. the
+	// currently-idle `notch-reopen` push fallback — does NOT count as an
+	// interaction. The exposed `unread` flag is derived (see below), not
+	// stored, so it cannot go stale relative to `phase`/`newest`.
 	const [interacted, setInteracted] = useState(false);
 
 	const phaseTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
