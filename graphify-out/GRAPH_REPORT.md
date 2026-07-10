@@ -1,16 +1,16 @@
-# Graph Report - munkel  (2026-07-04)
+# Graph Report - munkel  (2026-07-10)
 
 ## Corpus Check
-- 227 files · ~1,510,037 words
+- 241 files · ~1,524,730 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 4509 nodes · 7897 edges · 292 communities (204 shown, 88 thin omitted)
-- Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 212 edges (avg confidence: 0.69)
+- 4638 nodes · 7826 edges · 315 communities (224 shown, 91 thin omitted)
+- Extraction: 97% EXTRACTED · 3% INFERRED · 0% AMBIGUOUS · INFERRED: 213 edges (avg confidence: 0.69)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a3ff58ab`
+- Built from commit: `135457e6`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -201,6 +201,7 @@
 - [[_COMMUNITY_Community 183|Community 183]]
 - [[_COMMUNITY_Community 184|Community 184]]
 - [[_COMMUNITY_Community 185|Community 185]]
+- [[_COMMUNITY_Community 186|Community 186]]
 - [[_COMMUNITY_Community 187|Community 187]]
 - [[_COMMUNITY_Community 188|Community 188]]
 - [[_COMMUNITY_Community 189|Community 189]]
@@ -236,6 +237,7 @@
 - [[_COMMUNITY_Community 223|Community 223]]
 - [[_COMMUNITY_Community 224|Community 224]]
 - [[_COMMUNITY_Community 225|Community 225]]
+- [[_COMMUNITY_Community 226|Community 226]]
 - [[_COMMUNITY_Community 227|Community 227]]
 - [[_COMMUNITY_Community 228|Community 228]]
 - [[_COMMUNITY_Community 229|Community 229]]
@@ -271,12 +273,16 @@
 - [[_COMMUNITY_Community 260|Community 260]]
 - [[_COMMUNITY_Community 261|Community 261]]
 - [[_COMMUNITY_Community 262|Community 262]]
+- [[_COMMUNITY_Community 263|Community 263]]
 - [[_COMMUNITY_Community 264|Community 264]]
 - [[_COMMUNITY_Community 265|Community 265]]
+- [[_COMMUNITY_Community 266|Community 266]]
 - [[_COMMUNITY_Community 267|Community 267]]
 - [[_COMMUNITY_Community 268|Community 268]]
 - [[_COMMUNITY_Community 269|Community 269]]
+- [[_COMMUNITY_Community 270|Community 270]]
 - [[_COMMUNITY_Community 271|Community 271]]
+- [[_COMMUNITY_Community 272|Community 272]]
 - [[_COMMUNITY_Community 273|Community 273]]
 - [[_COMMUNITY_Community 274|Community 274]]
 - [[_COMMUNITY_Community 275|Community 275]]
@@ -299,30 +305,47 @@
 - [[_COMMUNITY_Community 292|Community 292]]
 - [[_COMMUNITY_Community 293|Community 293]]
 - [[_COMMUNITY_Community 294|Community 294]]
+- [[_COMMUNITY_Community 295|Community 295]]
+- [[_COMMUNITY_Community 296|Community 296]]
+- [[_COMMUNITY_Community 297|Community 297]]
+- [[_COMMUNITY_Community 298|Community 298]]
+- [[_COMMUNITY_Community 299|Community 299]]
+- [[_COMMUNITY_Community 300|Community 300]]
+- [[_COMMUNITY_Community 301|Community 301]]
+- [[_COMMUNITY_Community 302|Community 302]]
+- [[_COMMUNITY_Community 303|Community 303]]
+- [[_COMMUNITY_Community 304|Community 304]]
+- [[_COMMUNITY_Community 305|Community 305]]
+- [[_COMMUNITY_Community 306|Community 306]]
+- [[_COMMUNITY_Community 307|Community 307]]
+- [[_COMMUNITY_Community 308|Community 308]]
+- [[_COMMUNITY_Community 309|Community 309]]
+- [[_COMMUNITY_Community 310|Community 310]]
+- [[_COMMUNITY_Community 311|Community 311]]
 
 ## God Nodes (most connected - your core abstractions)
 1. `NotchPanel` - 31 edges
 2. `Task` - 25 edges
-3. `GroupSession` - 25 edges
-4. `AppState` - 23 edges
+3. `NotchMessage` - 25 edges
+4. `GroupSession` - 23 edges
 5. `GroupRoom` - 22 edges
-6. `NotchMessage` - 22 edges
+6. `AppState` - 22 edges
 7. `GroupKey` - 21 edges
 8. `NotchPresenter` - 20 edges
-9. `deriveGroupKeys()` - 20 edges
-10. `normalizeCircleCode()` - 19 edges
+9. `CircleState` - 19 edges
+10. `compilerOptions` - 18 edges
 
 ## Surprising Connections (you probably didn't know these)
-- `init()` --calls--> `CommandPalettePresenter`  [INFERRED]
-  apps/macos/Sources/MunkelApp/AppModel.swift → apps/macos/Sources/MunkelApp/CommandPalettePresenter.swift
-- `init()` --calls--> `ControlServer`  [INFERRED]
-  apps/macos/Sources/MunkelApp/AppModel.swift → apps/macos/Sources/MunkelApp/ControlServer.swift
 - `send()` --calls--> `Task`  [INFERRED]
-  apps/macos/Sources/MunkelApp/AppModel.swift → apps/macos/Sources/MunkelApp/NotchPanel/NotchPanel.swift
+  C:/Users/rodgi/OneDrive/Documents/CODING/Test/munkel/apps/macos/Sources/MunkelApp/AppModel.swift → apps/macos/Sources/MunkelApp/NotchPanel/NotchPanel.swift
 - `startGitHubLogin()` --calls--> `Task`  [INFERRED]
-  apps/macos/Sources/MunkelApp/AppModel.swift → apps/macos/Sources/MunkelApp/NotchPanel/NotchPanel.swift
-- `runGitHubLogin()` --calls--> `GitHubDeviceAuth`  [INFERRED]
-  apps/macos/Sources/MunkelApp/AppModel.swift → apps/macos/Sources/MunkelKit/GitHubDeviceAuth.swift
+  C:/Users/rodgi/OneDrive/Documents/CODING/Test/munkel/apps/macos/Sources/MunkelApp/AppModel.swift → apps/macos/Sources/MunkelApp/NotchPanel/NotchPanel.swift
+- `scheduleProfileBroadcast()` --calls--> `Task`  [INFERRED]
+  C:/Users/rodgi/OneDrive/Documents/CODING/Test/munkel/apps/macos/Sources/MunkelApp/AppModel.swift → apps/macos/Sources/MunkelApp/NotchPanel/NotchPanel.swift
+- `broadcastProfile()` --calls--> `Task`  [INFERRED]
+  C:/Users/rodgi/OneDrive/Documents/CODING/Test/munkel/apps/macos/Sources/MunkelApp/AppModel.swift → apps/macos/Sources/MunkelApp/NotchPanel/NotchPanel.swift
+- `NotchHostingContent` --conceptually_related_to--> `Capture invariant for NotchHostingContent`  [INFERRED]
+  C:/Users/rodgi/OneDrive/Documents/CODING/Test/munkel/apps/macos/Sources/MunkelApp/NotchPanel/NotchHostingContent.swift → apps/macos/Sources/MunkelApp/NotchPanel/NotchHostingContent.swift
 
 ## Import Cycles
 - 2-file cycle: `apps/landing/src/routeTree.gen.ts -> apps/landing/src/router.tsx -> apps/landing/src/routeTree.gen.ts`
@@ -336,7 +359,7 @@
 - **Munkel favicon visual composition** — public_favicon, public_favicon_dark_background, public_favicon_top_bar, public_favicon_teal_dots [EXTRACTED 1.00]
 - **Munkel product value proposition** — public_og_munkel, public_og_free_and_open_source, public_og_end_to_end_encryption, public_og_signed_and_notarized, public_og_macos_14_plus [INFERRED 0.85]
 
-## Communities (292 total, 88 thin omitted)
+## Communities (315 total, 91 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.00
@@ -347,8 +370,8 @@ Cohesion: 0.00
 Nodes (465): AgentMemoryGetSummaryOptions, AgentMemoryIncomingMemory, AgentMemoryIngestOptions, AgentMemoryListMemoriesResult, AgentMemoryMemoryListEntry, AgentMemoryMemoryType, AgentMemoryMessage, AgentMemoryNamespace (+457 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.05
-Nodes (40): devDependencies, turbo, name, overrides, esbuild, packageManager, private, scripts (+32 more)
+Cohesion: 0.11
+Nodes (18): devDependencies, @munkel/shared-wire, turbo, name, overrides, esbuild, packageManager, private (+10 more)
 
 ### Community 3 - "Community 3"
 Cohesion: 0.06
@@ -360,27 +383,27 @@ Nodes (59): call, circle, fakeState, decrypt, getPort, waitFor, MockSocket, crea
 
 ### Community 5 - "Community 5"
 Cohesion: 0.06
-Nodes (33): 0.1.0 (2026-06-13), [0.2.0](https://github.com/limehq/munkel/compare/v0.1.0...v0.2.0) (2026-06-13), [0.3.0](https://github.com/limehq/munkel/compare/v0.2.0...v0.3.0) (2026-06-13), [0.4.0](https://github.com/limehq/munkel/compare/v0.3.0...v0.4.0) (2026-06-13), [0.4.1](https://github.com/limehq/munkel/compare/v0.4.0...v0.4.1) (2026-06-14), [0.4.2](https://github.com/limehq/munkel/compare/v0.4.1...v0.4.2) (2026-06-14), [0.5.0](https://github.com/limehq/munkel/compare/v0.4.2...v0.5.0) (2026-06-15), [0.6.0](https://github.com/limehq/munkel/compare/v0.5.0...v0.6.0) (2026-06-15) (+25 more)
+Nodes (36): 0.1.0 (2026-06-13), [0.2.0](https://github.com/limehq/munkel/compare/v0.1.0...v0.2.0) (2026-06-13), [0.3.0](https://github.com/limehq/munkel/compare/v0.2.0...v0.3.0) (2026-06-13), [0.4.0](https://github.com/limehq/munkel/compare/v0.3.0...v0.4.0) (2026-06-13), [0.4.1](https://github.com/limehq/munkel/compare/v0.4.0...v0.4.1) (2026-06-14), [0.4.2](https://github.com/limehq/munkel/compare/v0.4.1...v0.4.2) (2026-06-14), [0.5.0](https://github.com/limehq/munkel/compare/v0.4.2...v0.5.0) (2026-06-15), [0.6.0](https://github.com/limehq/munkel/compare/v0.5.0...v0.6.0) (2026-06-15) (+28 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.09
-Nodes (14): FetchLike, GitHubAuthError, GitHubAuthErrorResponse, GitHubDeviceAuth, GitHubDeviceAuthOptions, GitHubDeviceCodeGrant, GitHubUser, SleepLike (+6 more)
+Cohesion: 0.06
+Nodes (22): fitWithinBounds(), JPEG_QUALITIES, SharpAvatarCodec, FetchLike, getGitHubClientID(), GitHubAuthError, GitHubAuthErrorResponse, GitHubDeviceAuth (+14 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.08
+Cohesion: 0.07
 Nodes (46): buildPipeName(), ControlGroupInfo, ControlRequest, ControlResponse, abs, args, connectUnixSocket(), fail() (+38 more)
 
 ### Community 8 - "Community 8"
-Cohesion: 0.09
-Nodes (42): window-url module, electron, deriveGroupId(), registerCryptoHandlers(), appState, getWindowType(), gotTheLock, identityStore (+34 more)
+Cohesion: 0.11
+Nodes (27): electron, broadcastStateUpdate(), StatePushTarget, appState, broadcastState(), getWindowType(), gotTheLock, identityStore (+19 more)
 
 ### Community 9 - "Community 9"
 Cohesion: 0.12
 Nodes (12): Bool, Context, CaptureExclusion, CaptureScreenshotPreference, ExcludingView, NSWindow, View, AreaMarker (+4 more)
 
 ### Community 10 - "Community 10"
-Cohesion: 0.07
-Nodes (28): Actual behavior, Actual behavior (user report), Actual behavior (Windows), Changelog, Classification, Diagnosis notes (Phase 1 — pending), Diagnosis notes (Phase 1 — pending), Diagnosis notes (Phase 1 — pending) (+20 more)
+Cohesion: 0.06
+Nodes (31): Actual behavior, Actual behavior (user report), Actual behavior (Windows), Changelog, Classification, Diagnosis notes (Phase 1 — completed), Diagnosis notes (Phase 1 — pending), Diagnosis notes (Phase 1 — pending) (+23 more)
 
 ### Community 11 - "Community 11"
 Cohesion: 0.08
@@ -391,60 +414,60 @@ Cohesion: 0.07
 Nodes (36): AppPayload type, AvatarCodec type, CommandPalettePresenter class, ControlGroupInfo type, ControlRequest type, ControlResponse type, ControlServer class, GitHubConfig type (+28 more)
 
 ### Community 14 - "Community 14"
-Cohesion: 0.09
-Nodes (22): dependencies, class-variance-authority, @cloudflare/vite-plugin, clsx, @fontsource-variable/geist, @fontsource-variable/geist-mono, lucide-react, motion (+14 more)
+Cohesion: 0.05
+Nodes (42): dependencies, class-variance-authority, @cloudflare/vite-plugin, clsx, @fontsource-variable/geist, @fontsource-variable/geist-mono, lucide-react, motion (+34 more)
 
 ### Community 15 - "Community 15"
-Cohesion: 0.08
-Nodes (32): middleware-insertion-facade.js, middleware-loader.entry.ts, dev-vlJTm5/index.js, blob.ts, BLOB_KEY_REGEX constant, BLOB_TTL_MS constant, BlobEnv interface, MAX_BLOB_BYTES constant (+24 more)
+Cohesion: 0.09
+Nodes (31): middleware-insertion-facade.js, middleware-loader.entry.ts, dev-vlJTm5/index.js, blob.ts, BLOB_KEY_REGEX constant, BLOB_TTL_MS constant, BlobEnv interface, MAX_BLOB_BYTES constant (+23 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.15
-Nodes (29): main module, broadcastState function, relayError function, runNotchDemo function, showNotchMessage function, togglePalette function, menu-window module, createMenuWindow function (+21 more)
+Nodes (28): main module, broadcastState function, relayError function, runNotchDemo function, showNotchMessage function, togglePalette function, menu-window module, createMenuWindow function (+20 more)
 
 ### Community 17 - "Community 17"
 Cohesion: 0.13
 Nodes (21): NotchPanel.swift, HoverBehavior, NotchPanel, _hide, buildPanel, expand, fadeOutWindow, handleScreenChange (+13 more)
 
 ### Community 18 - "Community 18"
-Cohesion: 0.14
-Nodes (26): AppPayload, assertPayloadFits(), assertString(), bytesToBase64(), ChatPayload, decodePayload(), encodeImage(), encodeProfile() (+18 more)
+Cohesion: 0.15
+Nodes (12): after, bad, before, bytes, chat, date, decoded, items (+4 more)
 
 ### Community 19 - "Community 19"
-Cohesion: 0.12
-Nodes (25): concatBytes(), CryptoError, deriveBits(), deriveGroupKeys(), encoder, importCodeMaterial(), MUNKEL_SALT, open() (+17 more)
+Cohesion: 0.11
+Nodes (10): bun:test, shouldOpenReplyOnMessageClick(), ShouldOpenReplyParams, bytes, normalized, plaintext, chat, devSendOpen() (+2 more)
 
 ### Community 20 - "Community 20"
 Cohesion: 0.10
 Nodes (22): getCircleColor(), groupPalette, c, seen, chatFrame, chatPayload, chats, cleared (+14 more)
 
 ### Community 21 - "Community 21"
-Cohesion: 0.12
-Nodes (14): Encodable, RelayClient.send, ClientMessage, ping, send, CodingKeys, code, from (+6 more)
+Cohesion: 0.08
+Nodes (23): Encodable, RelayClient.runLoop, RelayClient.send, RelayClient.start, RelayClient.startPingLoop, ClientMessage, ping, send (+15 more)
 
 ### Community 22 - "Community 22"
 Cohesion: 0.09
-Nodes (28): PR #80, Roadmap.md, State.md, apps/windows/README.md, GroupSession class, App.tsx, NotchWidget.tsx, PaletteWindow.tsx (+20 more)
+Nodes (29): PR #80, Roadmap.md, State.md, apps/windows/README.md, GroupSession class, App.tsx, NotchWidget.tsx, PaletteWindow.tsx (+21 more)
 
 ### Community 23 - "Community 23"
-Cohesion: 0.12
-Nodes (25): blobBase, derive(), encoder, fmt, frame, full, groupId, items (+17 more)
+Cohesion: 0.15
+Nodes (16): blobBase, fmt, frame, full, items, mimeFor(), out, paths (+8 more)
 
 ### Community 24 - "Community 24"
 Cohesion: 0.08
 Nodes (26): AvatarView.swift, GroupColor.swift, macOS MunkelApp, App store, Mock data, Avatar component, Frosted field, Icon button (+18 more)
 
 ### Community 25 - "Community 25"
-Cohesion: 0.15
-Nodes (12): 1. Single-Instance-Lock + Self-Heal (Windows) — DONE, gemerged, getaggt, 2. Alter installierter Build entfernt, 3. Dev-Launcher + Windows-Start-Menü-Verknüpfung, 4. Notch Peek/History (PR #22) — implementiert, aber QA offen, 5. Memory + IDEAS, blockers, completed (diese Session), current_state (+4 more)
+Cohesion: 0.08
+Nodes (26): 1. Circle-Leave-Bestätigungsdialog — DONE, gemerged, getaggt, Branch gelöscht, 1. Single-Instance-Lock + Self-Heal (Windows) — DONE, gemerged, getaggt, 2. Alter installierter Build entfernt, 2. Logo-Assets-Pipeline — DONE (placeholder), gemerged, getaggt, Branch gelöscht, 3. Auto-Update (electron-updater) — DONE, gemerged, getaggt, Branch gelöscht, 3. Dev-Launcher + Windows-Start-Menü-Verknüpfung, 4. Notch Peek/History (PR #22) — implementiert, aber QA offen, 4. NSIS-Installer an `main` übergeben — IN PROGRESS / PAUSIERT (+18 more)
 
 ### Community 27 - "Community 27"
-Cohesion: 0.10
-Nodes (37): @jsquash/avif/decode, @jsquash/avif/encode, image-codec.test.ts, CRC_TABLE, chunk, concat, crc32, imageCodec constants tests (+29 more)
+Cohesion: 0.14
+Nodes (26): @jsquash/avif/decode, @jsquash/avif/encode, imageCodec constants tests, perThumbBudget tests, image-codec.ts, ALBUM_THUMB_BUDGET, MAX_FULL_BYTES, MAX_FULL_PIXELS (+18 more)
 
 ### Community 28 - "Community 28"
 Cohesion: 0.14
-Nodes (21): buildPipeName(), ControlGroupInfo, ControlRequest, ControlResponse, createControlClient(), createControlServer(), sanitizePath(), TransportError (+13 more)
+Nodes (19): BROADCAST_ALIASES, buildControlHandler(), ControlAppState, memberLabel(), recipientMatches(), resolveGroup(), snapshotGroup(), SUPPORTED_IMAGE_EXTENSIONS (+11 more)
 
 ### Community 29 - "Community 29"
 Cohesion: 0.08
@@ -460,11 +483,7 @@ Nodes (28): init(model:), MenuView.swift, FrostedField, GroupListHeightKey, Grou
 
 ### Community 32 - "Community 32"
 Cohesion: 0.10
-Nodes (23): dependencies, hono, partyserver, zod, devDependencies, @cloudflare/workers-types, fast-check, @types/node (+15 more)
-
-### Community 33 - "Community 33"
-Cohesion: 0.15
-Nodes (8): GitHubAuthError, accessDenied, deviceFlowDisabled, expired, http, malformedResponse, GitHubDeviceAuth, GitHubUser
+Nodes (23): dependencies, hono, @munkel/shared-wire, partyserver, zod, devDependencies, @cloudflare/workers-types, fast-check (+15 more)
 
 ### Community 34 - "Community 34"
 Cohesion: 0.13
@@ -475,8 +494,8 @@ Cohesion: 0.13
 Nodes (22): codeql-swift.yml, CODE_OF_CONDUCT.md, CONTRIBUTING.md, PRIVACY.md, README.md, SECURITY.md, appcast.xml.ts, wrangler.jsonc (+14 more)
 
 ### Community 36 - "Community 36"
-Cohesion: 0.12
-Nodes (21): ReplyRecipientResult, resolveReplyRecipient(), GroupSessionCallbacks, ImageMessage, api, ProfileBroadcaster, IdentityUpdate, CircleState (+13 more)
+Cohesion: 0.13
+Nodes (15): NotchWidget(), ringStyle, NotchPhase, notchPhaseForElapsed(), pruneNotchHistory(), ReplyRecipientResult, resolveReplyRecipient(), NotchHistoryEntry (+7 more)
 
 ### Community 37 - "Community 37"
 Cohesion: 0.23
@@ -488,19 +507,19 @@ Nodes (9): Bool, String, UpdaterController, SPUStandardUpdaterController, SPUSta
 
 ### Community 39 - "Community 39"
 Cohesion: 0.12
-Nodes (21): @munkel/server package, protocol.ts, ClientMessage type, ErrorCode type, MAX_PAYLOAD_CHARS constant, MEMBER_ID_REGEX constant, ServerMessage type, clientMessageSchema (+13 more)
+Nodes (21): @munkel/server package, protocol.ts, ClientMessage type, ErrorCode type, GROUP_ID_REGEX constant, MAX_PAYLOAD_CHARS constant, MEMBER_ID_REGEX constant, ServerMessage type (+13 more)
 
 ### Community 40 - "Community 40"
-Cohesion: 0.05
-Nodes (51): ci.yml, codeql.yml, deploy-landing.yml, deploy-server.yml, release-please.yml, release.yml, CLI workspace, Landing workspace (+43 more)
+Cohesion: 0.14
+Nodes (20): release-please.yml, release.yml, RELEASING.md, Sparkle, entitlements.plist, Bundler.toml, Appcast XML, Code signing (+12 more)
 
 ### Community 41 - "Community 41"
 Cohesion: 0.10
 Nodes (19): compilerOptions, allowImportingTsExtensions, jsx, lib, module, moduleResolution, noEmit, noFallthroughCasesInSwitch (+11 more)
 
 ### Community 42 - "Community 42"
-Cohesion: 0.17
-Nodes (12): @vitejs/plugin-react, @vitejs/plugin-react, devDependencies, electron, electron-builder, @types/node, @types/react, @types/react-dom (+4 more)
+Cohesion: 0.10
+Nodes (20): dependencies, zod, devDependencies, @types/node, typescript, exports, ./control, ./crypto (+12 more)
 
 ### Community 43 - "Community 43"
 Cohesion: 0.21
@@ -516,7 +535,7 @@ Nodes (16): CommandPaletteView.swift, FlowLayout, placeSubviews, sizeThatFits, L
 
 ### Community 46 - "Community 46"
 Cohesion: 0.14
-Nodes (15): dev.mjs, getElectronPath, main, shutdown, startOrRestartElectron, vite.main.config.ts, vite.renderer.config.ts, config (+7 more)
+Nodes (16): @vitejs/plugin-react, dev.mjs, getElectronPath, main, shutdown, startOrRestartElectron, window-url module, vite.main.config.ts (+8 more)
 
 ### Community 47 - "Community 47"
 Cohesion: 0.09
@@ -544,11 +563,11 @@ Nodes (18): Crypto channel, Main process, Session handlers, Renderer to Main IPC
 
 ### Community 54 - "Community 54"
 Cohesion: 0.10
-Nodes (44): interop test module, devSendOpen helper, interop with dev-send suite, payload test module, assertPayloadFits suite, payload encoding suite, crypto-channel module, deriveGroupId function (+36 more)
+Nodes (28): group-session module, GroupSession.connect, GroupSession.disconnect, GroupSession.handleFrame, GroupSession.sendImages, GroupSession.sendPayload, GroupSessionCallbacks interface, ImageMessage interface (+20 more)
 
 ### Community 55 - "Community 55"
-Cohesion: 0.07
-Nodes (28): AES, Data, String, Data, String, Decodable, Int, GroupKey (+20 more)
+Cohesion: 0.17
+Nodes (3): GroupKey, GroupKeyTests, MessageCryptoTests
 
 ### Community 56 - "Community 56"
 Cohesion: 0.11
@@ -571,7 +590,7 @@ Cohesion: 0.12
 Nodes (16): compilerOptions, esModuleInterop, isolatedModules, lib, module, moduleDetection, moduleResolution, noEmit (+8 more)
 
 ### Community 61 - "Community 61"
-Cohesion: 0.07
+Cohesion: 0.06
 Nodes (37): createLogger, createLogger(), Level, Logger, BLOB_TTL_MS, BlobEnv, log, objectKey() (+29 more)
 
 ### Community 62 - "Community 62"
@@ -607,12 +626,12 @@ Cohesion: 0.21
 Nodes (6): App, AppDelegate, MunkelApp, NSApplicationDelegate, NSObject, NSPopoverDelegate
 
 ### Community 71 - "Community 71"
-Cohesion: 0.12
-Nodes (26): normalize test module, normalizeCircleCode suite, control-handlers module, BROADCAST_ALIASES constant, ControlAppState interface, buildControlHandler function, memberLabel function, recipientMatches function (+18 more)
+Cohesion: 0.18
+Nodes (16): normalize test module, normalizeCircleCode suite, GroupSession.create factory, SendResult type, profile-broadcaster module, ProfileBroadcaster class, session-handlers module, registerSessionHandlers function (+8 more)
 
 ### Community 72 - "Community 72"
 Cohesion: 0.18
-Nodes (10): Classified, IDEAS, Inbox (unsorted), Nach allen Sessions, Session 0 — Repro bestätigen (optional, ~30 Min vor Session 1), Session 1 — P0: WIN-NOTCH-003 Reply & Send (~2 h), Session 2 — P1: WIN-NOTCH-001 Notch-Größe (~2–3 h), Session 3 — P2: WIN-NOTCH-002 Message History (~3–4 h) (+2 more)
+Nodes (10): Classified, IDEAS, Inbox (unsorted), Nach allen Sessions, Session 0 — Repro bestätigen (optional, ~30 Min vor Session 1), Session 1 — P0: WIN-NOTCH-003 Reply & Send (~2 h), Session 2 — P1: WIN-NOTCH-001 Notch-Größe (~2–3 h), Session 3 — P2: WIN-NOTCH-002 Message History (~3–4 h) — **MERGED via PR #22** (+2 more)
 
 ### Community 73 - "Community 73"
 Cohesion: 0.24
@@ -628,7 +647,7 @@ Nodes (16): payload.ts, AppPayload, BLOB_KEY_REGEX, ChatPayload, ImageItem, Imag
 
 ### Community 76 - "Community 76"
 Cohesion: 0.17
-Nodes (9): GithubIcon(), LandingPage(), AnnounceBar(), Features(), HowItWorks(), Nav(), NAV_LINKS, Privacy() (+1 more)
+Nodes (9): LandingPage(), AnnounceBar(), HowItWorks(), LAUNCH_PLATFORMS, LaunchBadge(), LaunchBadgeTrack(), LaunchPlatform, Privacy() (+1 more)
 
 ### Community 78 - "Community 78"
 Cohesion: 0.08
@@ -643,23 +662,23 @@ Cohesion: 0.27
 Nodes (6): Animation, Bool, Bool, Bool, LoginItem, TransitionConfiguration
 
 ### Community 81 - "Community 81"
-Cohesion: 0.17
-Nodes (16): findAvailablePort(), Frame, GROUP_A, GROUP_B, openClients, waitForReady(), node:child_process, node:net (+8 more)
+Cohesion: 0.14
+Nodes (20): findAvailablePort(), Frame, GROUP_A, GROUP_B, openClients, waitForReady(), node:child_process, node:net (+12 more)
 
 ### Community 82 - "Community 82"
 Cohesion: 0.20
 Nodes (14): LoginItem.swift, LoginItem, isEnabled, registerOnFirstLaunchIfNeeded, setEnabled, settingsMenu, UpdaterMenuItems, UpdaterController.swift (+6 more)
 
 ### Community 83 - "Community 83"
-Cohesion: 0.18
-Nodes (13): devDependencies, @types/bun, typescript, name, private, scripts, build, build:release (+5 more)
+Cohesion: 0.15
+Nodes (15): dependencies, @munkel/shared-wire, devDependencies, @types/bun, typescript, name, private, scripts (+7 more)
 
 ### Community 84 - "Community 84"
 Cohesion: 0.12
 Nodes (10): HistoryCopyTarget, HistoryHeightKey, HistoryRow, MessageDisplayModel, MessageNotchContainer, AlbumCell, MessageNotchView, NotchThumb (+2 more)
 
 ### Community 85 - "Community 85"
-Cohesion: 0.24
+Cohesion: 0.26
 Nodes (11): blobBaseUrl(), generateBlobKey(), uploadBlob(), UploadResult, big, body, fetchImpl, k (+3 more)
 
 ### Community 86 - "Community 86"
@@ -675,24 +694,24 @@ Cohesion: 0.25
 Nodes (3): ImageCodec, ImageInfo, Prepared
 
 ### Community 89 - "Community 89"
-Cohesion: 0.12
-Nodes (29): bun:test, decodeToBitmap(), drawInto(), encodeAvifOnce(), ensureAvifReady(), FULL_PIXELS_STEPS(), FULL_QUALITY_STEPS, imageCodec (+21 more)
+Cohesion: 0.21
+Nodes (15): imageCodec, perThumbBudget(), chunk(), concat(), crc32(), CRC_TABLE, info, junk (+7 more)
 
 ### Community 90 - "Community 90"
-Cohesion: 0.16
-Nodes (15): identity-store module, IdentityStore class, PersistedState interface, defaultState function, node fs module, __dirname, entries, header (+7 more)
+Cohesion: 0.13
+Nodes (17): identity-store module, IdentityStore class, PersistedState interface, defaultState function, node fs module, __dirname, entries, header (+9 more)
 
 ### Community 91 - "Community 91"
 Cohesion: 0.29
 Nodes (3): ImageCodecTests, isAVIF(), noisePNG()
 
 ### Community 92 - "Community 92"
-Cohesion: 0.25
-Nodes (12): derive(), encoder, frame, groupId, normalized, positional, relayEndpoint(), safeLog() (+4 more)
+Cohesion: 0.43
+Nodes (5): frame, positional, relayEndpoint(), safeLog(), ws
 
 ### Community 93 - "Community 93"
-Cohesion: 0.13
-Nodes (10): received, encodeChat(), GroupSession, assert(), Received, run(), timeoutMs, Received (+2 more)
+Cohesion: 0.09
+Nodes (21): GroupSession, assert(), Received, run(), timeoutMs, waitFor(), AppPayload, assertPayloadFits() (+13 more)
 
 ### Community 94 - "Community 94"
 Cohesion: 0.21
@@ -755,24 +774,24 @@ Cohesion: 0.11
 Nodes (17): Definition of done, Existing scaffold, Goal, Launch gate (full Windows native), Out of scope, Plan 04: Release packaging (Windows), Product decisions (human — before Task 2), Task 1 — electron-builder dependency + scripts (+9 more)
 
 ### Community 109 - "Community 109"
-Cohesion: 0.20
-Nodes (12): dependencies, image-size, @jsquash/avif, react, react-dom, sharp, ws, main (+4 more)
+Cohesion: 0.07
+Nodes (34): dependencies, electron-updater, image-size, @jsquash/avif, @munkel/shared-wire, react, react-dom, sharp (+26 more)
 
 ### Community 110 - "Community 110"
 Cohesion: 0.35
 Nodes (3): defaultState(), IdentityStore, PersistedState
 
 ### Community 111 - "Community 111"
-Cohesion: 0.29
-Nodes (8): GroupSession.connect, GroupSession.disconnect, relay-client module, RelayClient class, RelayEvent type, ClientMessage type, ServerMessage type, ws WebSocket
+Cohesion: 0.23
+Nodes (19): interop test module, devSendOpen helper, interop with dev-send suite, payload encoding suite, crypto-channel module, deriveGroupId function, openChat function, registerCryptoHandlers function (+11 more)
 
 ### Community 112 - "Community 112"
-Cohesion: 0.21
-Nodes (7): firstName(), GitHubLoginCancelledError, GitHubLoginService, messageForError(), messageForGitHubError(), GitHubLoginPhase, GitHubLoginState
+Cohesion: 0.17
+Nodes (17): debugGuard(), debugMenu(), debugTray(), isDebugTray(), pushGitHubLoginState(), DismissSuppressionInput, isDismissSuppressed(), isGitHubLoginActive() (+9 more)
 
 ### Community 113 - "Community 113"
-Cohesion: 0.32
-Nodes (9): easeInOutQuad(), Avatar(), AVATAR_PALETTES, avatarInitials(), avatarPalette(), Hero(), LockFill(), MESSAGES (+1 more)
+Cohesion: 0.36
+Nodes (8): Avatar(), AVATAR_PALETTES, avatarInitials(), avatarPalette(), Hero(), LockFill(), MESSAGES, Msg
 
 ### Community 114 - "Community 114"
 Cohesion: 0.38
@@ -783,12 +802,12 @@ Cohesion: 0.27
 Nodes (10): Notch widget, Main to Renderer push events, global-shortcut event, notch-hide event, notch-message event, notch-show event, relay-error event, state-update event (+2 more)
 
 ### Community 116 - "Community 116"
-Cohesion: 0.43
-Nodes (7): transport test module, named-pipe transport suite, ControlRequest type, ControlResponse type, buildPipeName, createControlClient, createControlServer
+Cohesion: 0.18
+Nodes (17): transport test module, named-pipe transport suite, control-handlers module, BROADCAST_ALIASES constant, ControlAppState interface, buildControlHandler function, memberLabel function, recipientMatches function (+9 more)
 
 ### Community 117 - "Community 117"
-Cohesion: 0.09
-Nodes (14): ClientMessage, ErrorCode, ServerMessage, RelayClient, RelayEvent, node events module, createFactory(), disconnectedEvents (+6 more)
+Cohesion: 0.10
+Nodes (9): RelayClient, node events module, createFactory(), disconnectedEvents, factory, frames, MockSocket, sockets (+1 more)
 
 ### Community 118 - "Community 118"
 Cohesion: 0.40
@@ -803,8 +822,8 @@ Cohesion: 0.12
 Nodes (16): Agent skill, Architecture decisions, Components, Development, Install, Landing page, Login with GitHub, macOS app (+8 more)
 
 ### Community 121 - "Community 121"
-Cohesion: 0.15
-Nodes (14): Equatable, Identifiable, HistoryEntry, IncomingImage, IncomingMessage, RelayClient.runLoop, RelayClient.start, RelayClient.startPingLoop (+6 more)
+Cohesion: 0.18
+Nodes (11): Equatable, Identifiable, HistoryEntry, IncomingImage, IncomingMessage, GitHubAuthError, accessDenied, deviceFlowDisabled (+3 more)
 
 ### Community 122 - "Community 122"
 Cohesion: 0.27
@@ -847,15 +866,15 @@ Cohesion: 0.18
 Nodes (17): MessageDisplayModel, copy, copyHistory, copyHovered, copyImage, flashCopied, registerHistoryCopy, copyCurrent (+9 more)
 
 ### Community 132 - "Community 132"
-Cohesion: 0.29
-Nodes (6): Audits, Bugs, Guides, Open tasks, Project documentation, Windows integration
+Cohesion: 0.25
+Nodes (7): Audits, Bugs, Guides, Next task, Open tasks, Project documentation, Windows integration
 
 ### Community 133 - "Community 133"
-Cohesion: 0.33
-Nodes (4): broadcastStateUpdate(), StatePushTarget, broadcastState(), sampleUpdate
+Cohesion: 0.16
+Nodes (9): defaultIsDev(), initUpdateService(), isSignatureError(), UpdateSend, UpdateService, UpdateServiceImpl, userMessageForError(), UpdatePhase (+1 more)
 
 ### Community 134 - "Community 134"
-Cohesion: 0.25
+Cohesion: 0.33
 Nodes (7): bump-minor-pre-major, changelog-path, include-component-in-tag, package-name, packages, release-type, $schema
 
 ### Community 135 - "Community 135"
@@ -875,8 +894,8 @@ Cohesion: 0.49
 Nodes (6): Faq(), FAQS, Accordion(), AccordionContent(), AccordionItem(), AccordionTrigger()
 
 ### Community 139 - "Community 139"
-Cohesion: 0.19
-Nodes (12): imports, name, private, scripts, build, cf-typegen, deploy, dev (+4 more)
+Cohesion: 0.24
+Nodes (12): clampNotchHeight(), clearPendingHide(), createNotchWindow(), __dirname, hideNotch(), requestNotchHide(), resizeNotchToContent(), showNotch() (+4 more)
 
 ### Community 140 - "Community 140"
 Cohesion: 0.83
@@ -907,8 +926,8 @@ Cohesion: 0.38
 Nodes (7): munkel broadcast command, munkel circles command, munkel dm command, MUNKEL_SOCKET, Exit code 64, Exit code 75, Munkel CLI skill
 
 ### Community 148 - "Community 148"
-Cohesion: 0.10
-Nodes (17): AvatarCodec, createAvatarCodec(), fitWithinBounds(), ImageData, JPEG_QUALITIES, PassthroughAvatarCodec, SharpAvatarCodec, derivation (+9 more)
+Cohesion: 0.18
+Nodes (10): derivation, imageFixtures, INTEROP_NONCE, ONE_BY_ONE_PNG, OUT, payloads, pngBytes, ROOT (+2 more)
 
 ### Community 149 - "Community 149"
 Cohesion: 0.29
@@ -931,8 +950,8 @@ Cohesion: 0.42
 Nodes (5): BrewCmd(), Cta(), Button(), ButtonProps, buttonVariants
 
 ### Community 155 - "Community 155"
-Cohesion: 0.15
-Nodes (12): Build order, Capture exclusion (2 layers — component never weakens the app's), Component: `NotchPanel<Content>`, Decisions (resolved) + minor defaults, Hover · animation · placement · fallback, Integration diff (`NotchPresenter.swift`), NotchPanel — in-house notch component (drop-in replace DynamicNotchKit), Public API (drop-in contract) (+4 more)
+Cohesion: 0.12
+Nodes (15): compilerOptions, esModuleInterop, isolatedModules, lib, module, moduleDetection, moduleResolution, noEmit (+7 more)
 
 ### Community 156 - "Community 156"
 Cohesion: 0.32
@@ -955,8 +974,8 @@ Cohesion: 0.47
 Nodes (6): CaptureExclusion.swift, CaptureExclusion struct, CaptureScreenshotPreference enum, ExcludingView class, excludedFromScreenCapture modifier, munkelCaptureSharingType property
 
 ### Community 161 - "Community 161"
-Cohesion: 0.15
-Nodes (12): Agent execution plans, Architecture notes, CLI integration, Development, Entry points, Keyboard shortcuts, @munkel/windows, Open packaging tasks (+4 more)
+Cohesion: 0.13
+Nodes (14): Agent execution plans, Architecture notes, Auto-updates, CLI integration, Development, Entry points, Keyboard shortcuts, Logo assets (+6 more)
 
 ### Community 162 - "Community 162"
 Cohesion: 0.33
@@ -975,8 +994,8 @@ Cohesion: 0.40
 Nodes (6): preload module, api object, electron contextBridge, electron ipcRenderer, IpcApi type, StateUpdate type
 
 ### Community 166 - "Community 166"
-Cohesion: 0.17
-Nodes (8): Error, Event, disconnected, received, RelayClient, RelayError, notConnected, error
+Cohesion: 0.23
+Nodes (4): Event, disconnected, received, RelayClient
 
 ### Community 167 - "Community 167"
 Cohesion: 0.33
@@ -998,6 +1017,10 @@ Nodes (5): fetchUser, pollForAccessToken, postForm, requestDeviceCode, send
 Cohesion: 0.40
 Nodes (5): turbo config, build script, dev script, test script, typecheck script
 
+### Community 173 - "Community 173"
+Cohesion: 0.22
+Nodes (4): focusNotchForReply(), NotchFocusWindow, unfocusNotchAfterReply(), FakeTimers
+
 ### Community 174 - "Community 174"
 Cohesion: 0.18
 Nodes (11): AlreadyUploadedError, BadRequestError, ForbiddenError, InternalError, InvalidURLError, MaxFileSizeError, NotFoundError, QuotaReachedError (+3 more)
@@ -1007,8 +1030,8 @@ Cohesion: 0.20
 Nodes (9): How this maps to the code, Launch platforms, Sources for more directories, Status legend, Tier 1 — flagship (schedule deliberately), Tier 2 — solid directories with badges, Tier 3 — long tail, ⚠️ Verify before trusting a row (+1 more)
 
 ### Community 177 - "Community 177"
-Cohesion: 0.20
-Nodes (10): devDependencies, @tailwindcss/typography, @tanstack/devtools-vite, @tanstack/router-cli, @types/node, @types/react, @types/react-dom, typescript (+2 more)
+Cohesion: 0.21
+Nodes (14): asBufferSource(), concatBytes(), CryptoError, deriveBits(), deriveGroupKeys(), encoder, importCodeMaterial(), MUNKEL_SALT (+6 more)
 
 ### Community 178 - "Community 178"
 Cohesion: 0.20
@@ -1038,13 +1061,17 @@ Nodes (3): Avatar illustration 02, Cartoon avatar character, Circular avatar fra
 Cohesion: 0.67
 Nodes (3): Avatar image 05, Monochrome flat avatar style, User avatar illustration
 
+### Community 186 - "Community 186"
+Cohesion: 0.41
+Nodes (14): String, Decodable, Int, Avatar, CodecConstants, DerivationEntry, Image, ImageFixture (+6 more)
+
 ### Community 187 - "Community 187"
 Cohesion: 0.22
 Nodes (8): `apps/windows` IPC contract, Control pipe contract (CLI → Main), `ControlRequest`, `ControlResponse`, Main → Renderer (push), Renderer → Main (invokable), Security notes, Types
 
 ### Community 188 - "Community 188"
-Cohesion: 0.20
-Nodes (10): scripts, build, dev, pack, pack:dir, pack:installer, render-ico, render-tray-icon (+2 more)
+Cohesion: 0.25
+Nodes (13): decodeToBitmap(), drawInto(), encodeAvifOnce(), ensureAvifReady(), FULL_PIXELS_STEPS(), FULL_QUALITY_STEPS, imageTypeToMime(), PreparedImage (+5 more)
 
 ### Community 206 - "Community 206"
 Cohesion: 0.39
@@ -1054,9 +1081,13 @@ Nodes (6): Bool, CGFloat, Void, CGFloat, CopyGlyph, CopyMessageButton
 Cohesion: 0.33
 Nodes (5): ephemeral local messaging, Reporting a vulnerability, Security model, Security Policy, Supported versions
 
+### Community 226 - "Community 226"
+Cohesion: 0.13
+Nodes (14): Core design, Decisions, Definition of done, Dialog behavior, Files involved, Focus trap, Goal, Open questions / deferred (non-blocking) (+6 more)
+
 ### Community 227 - "Community 227"
-Cohesion: 0.25
-Nodes (7): bump-minor-pre-major, changelog-path, include-component-in-tag, package-name, packages, release-type, $schema
+Cohesion: 0.14
+Nodes (13): Core design: `blur` → hide, gated by suppression + a tray-toggle guard, Decisions (fundamental — from user, 2026-07-04), Definition of done, Design notes (verified facts + non-issues), Files involved, Goal, Open questions / deferred (non-blocking, documented scope cuts), Plan 06: Menu Window Click-Away Dismiss (+5 more)
 
 ### Community 228 - "Community 228"
 Cohesion: 0.29
@@ -1075,16 +1106,24 @@ Cohesion: 0.29
 Nodes (6): Definition of done, Deliverables (done), Goal, Known limits, Phase 2: Swift ↔ Windows interop, Post-merge verification
 
 ### Community 237 - "Community 237"
-Cohesion: 0.53
-Nodes (4): LAUNCH_PLATFORMS, LaunchBadge(), LaunchBadgeTrack(), LaunchPlatform
+Cohesion: 0.14
+Nodes (13): Definition of done, Files involved, Goal, Plan 10: Logo assets integration (Windows), Problem, Task 1 — Create `assets/logo.svg`, Task 2 — Point `render-ico.mjs` at `logo.svg`, Task 3 — Expand `render-tray-icon.mjs` (+5 more)
+
+### Community 263 - "Community 263"
+Cohesion: 0.15
+Nodes (12): Evidence base, Feature-parity matrix, Goal, Open questions (human product decisions), Out of scope, P1 implementation notes (2026-07-10), P1 — Open bugs before features (~1 session) — ✅ DONE (2026-07-10), P2 — High-value parity gaps (~2–3 sessions) (+4 more)
 
 ### Community 264 - "Community 264"
-Cohesion: 0.29
-Nodes (6): Agent workflow (every plan), Current status (2026-06-29), Execution order, Fork constraints, Maintenance (2026-06-30), Windows integration — agent execution plans
+Cohesion: 0.25
+Nodes (7): Agent workflow (every plan), Current status (2026-07-04), Execution order, Fork constraints, Maintenance (2026-06-30), Next steps / human gates, Windows integration — agent execution plans
 
 ### Community 265 - "Community 265"
 Cohesion: 0.33
 Nodes (5): GitHub login, Limits, Local data, Privacy, What the relay receives
+
+### Community 266 - "Community 266"
+Cohesion: 0.17
+Nodes (12): ci.yml, codeql.yml, deploy-landing.yml, deploy-server.yml, CLI workspace, Landing workspace, macOS workspace, Server workspace (+4 more)
 
 ### Community 268 - "Community 268"
 Cohesion: 0.40
@@ -1094,9 +1133,17 @@ Nodes (4): Contributing, Development setup, Pull requests, Security reports
 Cohesion: 0.40
 Nodes (4): Limits, List circles (only when a send fails), munkel — munkel into your friends' notches, Notify one person — the common case
 
+### Community 270 - "Community 270"
+Cohesion: 0.20
+Nodes (12): make-bundle.sh script, macos package.json, macos build script, macos build:release script, macos dev script, macos test script, ensure-swift-bundler.sh script, BIN constant (+4 more)
+
 ### Community 271 - "Community 271"
 Cohesion: 0.40
 Nodes (4): file_format_version, ICD, api_version, library_path
+
+### Community 272 - "Community 272"
+Cohesion: 0.35
+Nodes (11): image-codec.test.ts, CRC_TABLE, chunk, concat, crc32, imageCodec pipeline tests, imageCodec.probe tests, makeSolidPng (+3 more)
 
 ### Community 273 - "Community 273"
 Cohesion: 0.50
@@ -1122,25 +1169,81 @@ Nodes (3): Body, Request, Response
 Cohesion: 0.67
 Nodes (3): ByteLengthQueuingStrategy, CountQueuingStrategy, QueuingStrategy
 
+### Community 295 - "Community 295"
+Cohesion: 0.24
+Nodes (3): Data, InteropVectorsTests, sha256Hex()
+
+### Community 296 - "Community 296"
+Cohesion: 0.36
+Nodes (4): GithubIcon(), Features(), Nav(), NAV_LINKS
+
+### Community 297 - "Community 297"
+Cohesion: 0.20
+Nodes (9): Commit `0ef28b8` — Verifikations-Cleanups, Commit `672b94d` — Hauptfix, FP-Note: Tray-Click öffnet Menü-UI nicht (Windows), Hintergrund-Task, Offene Punkte / Nächste Schritte, Problem, Umgesetzte Änderungen, Verifikation (+1 more)
+
+### Community 298 - "Community 298"
+Cohesion: 0.50
+Nodes (5): AES, Data, String, MessageCrypto, SymmetricKey
+
+### Community 299 - "Community 299"
+Cohesion: 0.25
+Nodes (7): Error, CryptoError, invalidPayload, sealFailed, RelayError, notConnected, error
+
+### Community 300 - "Community 300"
+Cohesion: 0.22
+Nodes (8): Contra (implement now), Finding-by-finding decisions, Ponytail audit review, Pro (implement now), Recommended cut order / phase plan, Reviewer sign-off, Summary, Swift/TS shared core milestone decision
+
+### Community 301 - "Community 301"
+Cohesion: 0.25
+Nodes (7): Definition of done, Files changed, Fix, Plan 07: Notch hover-stuck / retract deadlock fix, Problem, Root cause, Verification
+
+### Community 302 - "Community 302"
+Cohesion: 0.38
+Nodes (6): payload test module, assertPayloadFits suite, ImageItem type, MAX_PAYLOAD_CHARS, PayloadTooLargeError, assertPayloadFits
+
+### Community 303 - "Community 303"
+Cohesion: 0.29
+Nodes (7): DMG packaging, Notarization, Sparkle appcast, macOS code signing, build-appcast.sh, build-dmg.sh, build-release.sh
+
+### Community 304 - "Community 304"
+Cohesion: 0.29
+Nodes (6): Context, Decisions & notes, Goal, Plan 11 — Auto-update (Windows), Tasks, Verification
+
+### Community 305 - "Community 305"
+Cohesion: 0.29
+Nodes (6): Application payloads (inside the encrypted blob), Encryption, Guarantees and non-guarantees, Identity and groups, Munkel wire protocol v1, Transport
+
+### Community 307 - "Community 307"
+Cohesion: 0.33
+Nodes (5): Actions performed, Caveat / follow-up, Decision (user, 2026-07-04), Plan 08: Orphaned `%APPDATA%\Electron` Store Cleanup, Problem
+
+### Community 308 - "Community 308"
+Cohesion: 0.60
+Nodes (3): positional, relayEndpoint(), ws
+
+### Community 309 - "Community 309"
+Cohesion: 0.40
+Nodes (4): __dirname, outDir, sizes, svgPath
+
 ## Knowledge Gaps
-- **833 isolated node(s):** `enabledMcpjsonServers`, `dev`, `build`, `build:release`, `test` (+828 more)
+- **939 isolated node(s):** `enabledMcpjsonServers`, `dev`, `build`, `build:release`, `test` (+934 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **88 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **91 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `GroupRoom` connect `Community 61` to `Community 81`, `Community 121`, `Community 21`, `Community 166`?**
-  _High betweenness centrality (0.077) - this node is a cross-community bridge._
-- **Why does `ServerMessage` connect `Community 121` to `Community 166`, `Community 21`, `Community 55`, `Community 61`, `Community 95`?**
-  _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **Why does `GroupRoom` connect `Community 61` to `Community 81`, `Community 21`, `Community 166`?**
+  _High betweenness centrality (0.060) - this node is a cross-community bridge._
+- **Why does `ServerMessage` connect `Community 21` to `Community 299`, `Community 121`, `Community 186`, `Community 61`, `Community 95`?**
+  _High betweenness centrality (0.023) - this node is a cross-community bridge._
 - **What connects `enabledMcpjsonServers`, `dev`, `build` to the rest of the system?**
-  _842 weakly-connected nodes found - possible documentation gaps or missing edges._
+  _948 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `Community 0` be split into smaller, more focused modules?**
   _Cohesion score 0.004219409282700422 - nodes in this community are weakly interconnected._
 - **Should `Community 1` be split into smaller, more focused modules?**
   _Cohesion score 0.004291845493562232 - nodes in this community are weakly interconnected._
 - **Should `Community 2` be split into smaller, more focused modules?**
-  _Cohesion score 0.047619047619047616 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.10526315789473684 - nodes in this community are weakly interconnected._
 - **Should `Community 3` be split into smaller, more focused modules?**
   _Cohesion score 0.05711849957374254 - nodes in this community are weakly interconnected._
