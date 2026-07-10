@@ -80,6 +80,9 @@ Phase 1 is feature-complete for day-to-day messaging:
 - Avatars slide/fade in on mount, with a one-time pulse-ring for the notch's newest message on arrival.
 - Notch: history rows (once reopened via hover) default to a single ellipsized line with a per-row chevron to expand/collapse and a per-row copy button; click-to-reply is unaffected.
 - Menu: the quick-send hotkey is rebindable in Settings via a key-combo recorder (default `Ctrl+Shift+M`), with a reset-to-default button and rollback if the new combo can't be registered.
+- Menu: each circle card has a "Copy code" button that copies the circle's code to the clipboard, with a brief checkmark confirmation.
+- Menu and notch: messages are capped at 2048 characters (matching the macOS app and the CLI), enforced on typed/pasted text and applied to incoming text as well.
+- Notch: sending an inline reply shows a brief "Sent to …" confirmation chip before the reply field closes.
 
 GitHub login is optional. The app still works with a manual display name and
 joined circles even when no GitHub account is connected. A real
