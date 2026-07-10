@@ -407,6 +407,13 @@ select {
 	flex: 1;
 }
 
+/* Copy circle code button (Plan 12 "Menu: copy circle code button"),
+   mirroring macOS's header copy button next to the code. */
+.copy-code-button {
+	flex-shrink: 0;
+	font-size: 12px;
+}
+
 .send-row {
 	display: flex;
 	align-items: center;

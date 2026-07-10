@@ -1725,6 +1725,106 @@ describe('MenuWindow recipient avatar chips (P2.4)', () => {
 	});
 });
 
+describe('MenuWindow copy circle code button', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let clipboardCalls: string[];
+
+	function twoCircleState(): StateUpdate {
+		return makeState([
+			{
+				code: 'blue-table-42',
+				groupId: 'group-1',
+				isConnected: true,
+				members: [],
+				relayUrl: 'wss://relay.example',
+			},
+			{
+				code: 'amber-fox-7',
+				groupId: 'group-2',
+				isConnected: true,
+				members: [],
+				relayUrl: 'wss://relay.example',
+			},
+		]);
+	}
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(twoCircleState());
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+		clipboardCalls = [];
+		(globalThis as unknown as { navigator: unknown }).navigator = {
+			clipboard: {
+				writeText: (text: string) => {
+					clipboardCalls.push(text);
+					return Promise.resolve();
+				},
+			},
+		};
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+		delete (globalThis as unknown as { navigator?: unknown }).navigator;
+	});
+
+	async function renderMenu() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	it('renders a copy-code button for every circle card', async () => {
+		const root = await renderMenu();
+
+		expect(root.root.findByProps({ 'data-testid': 'copy-code-button-blue-table-42' })).toBeDefined();
+		expect(root.root.findByProps({ 'data-testid': 'copy-code-button-amber-fox-7' })).toBeDefined();
+	});
+
+	it('clicking a circle\'s copy button copies that circle\'s own code, not another one\'s', async () => {
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'copy-code-button-amber-fox-7' }).props.onClick();
+		});
+
+		expect(clipboardCalls).toEqual(['amber-fox-7']);
+	});
+
+	it('shows a checkmark after copying, then reverts to the clipboard glyph', async () => {
+		const root = await renderMenu();
+		const button = () => root.root.findByProps({ 'data-testid': 'copy-code-button-blue-table-42' });
+
+		expect(button().children).toEqual(['📋']);
+
+		await act(async () => {
+			button().props.onClick();
+		});
+
+		expect(button().children).toEqual(['✓']);
+
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 1600));
+		});
+
+		expect(button().children).toEqual(['📋']);
+	});
+
+	it('exposes an aria-label naming the circle code for screen readers', async () => {
+		const root = await renderMenu();
+
+		const button = root.root.findByProps({ 'data-testid': 'copy-code-button-blue-table-42' });
+		expect(button.props['aria-label']).toBe('Copy circle code blue-table-42');
+	});
+});
+
 describe('MenuWindow update status', () => {
 	let electronApi: ReturnType<typeof createMockElectronApi>;
 

@@ -7,6 +7,12 @@ import { acceleratorFromKeyboardEvent } from '../lib/hotkey-recorder';
 import { DEFAULT_PALETTE_HOTKEY, formatAcceleratorLabel } from '../../shared/accelerator';
 import type { CircleState, GitHubLoginState, IdentityState, Member, UpdateState } from '../../shared/types';
 
+// Feedback window for the "Copy code" button's checkmark (Plan 12 "Menu:
+// copy circle code button"), matching the copy-button pattern already used
+// for the notch's message copy button (`COPY_FEEDBACK_MS` in
+// `useNotchLifecycle.ts`).
+const CODE_COPY_FEEDBACK_MS = 1_500;
+
 // Mirrors `MAX_IMAGES_PER_MESSAGE` in `core/image-codec.ts` (see
 // PaletteWindow.tsx for why it's a local copy, not an import).
 const MAX_IMAGES_PER_MESSAGE = 8;
@@ -802,6 +808,29 @@ function CircleSection({
 	onPaste,
 }: CircleSectionProps) {
 	const color = useMemo(() => getCircleColor(colorIndex), [colorIndex]);
+	// Copy-code feedback (Plan 12 "Menu: copy circle code button"), mirroring
+	// macOS `MenuView.swift`'s header copy button next to the code. Local to
+	// this card — purely transient UI state, no need to lift it to the
+	// parent (unlike message/recipient/error, which persist per circle
+	// across MenuWindow re-renders).
+	const [codeCopied, setCodeCopied] = useState(false);
+	const codeCopyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	useEffect(() => {
+		return () => {
+			if (codeCopyTimeoutRef.current) clearTimeout(codeCopyTimeoutRef.current);
+		};
+	}, []);
+
+	function handleCopyCode() {
+		void navigator.clipboard.writeText(circle.code);
+		setCodeCopied(true);
+		if (codeCopyTimeoutRef.current) clearTimeout(codeCopyTimeoutRef.current);
+		codeCopyTimeoutRef.current = setTimeout(() => {
+			setCodeCopied(false);
+			codeCopyTimeoutRef.current = null;
+		}, CODE_COPY_FEEDBACK_MS);
+	}
 
 	return (
 		<div className="circle-section">
@@ -812,6 +841,15 @@ function CircleSection({
 					className="circle-dot"
 					style={{ background: color, width: 8, height: 8, borderRadius: '50%', marginLeft: 4 }}
 				/>
+				<button
+					className="icon-button copy-code-button"
+					title="Copy code"
+					aria-label={`Copy circle code ${circle.code}`}
+					data-testid={`copy-code-button-${circle.code}`}
+					onClick={handleCopyCode}
+				>
+					{codeCopied ? '✓' : '📋'}
+				</button>
 				<div style={{ flex: 1 }} />
 				<button
 					className="icon-button"
