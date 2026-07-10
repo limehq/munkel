@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 import fs from 'node:fs';
 import path from 'node:path';
+import { findDisallowedRequires } from '../../../scripts/lib/require-scan.mjs';
 
 // Regression guard for the P0 "UI invisible" bug (2026-07-10): Electron's
 // sandboxed preload context cannot resolve a relative `require("./chunk.cjs")`
@@ -22,8 +23,7 @@ const distBuilt = fs.existsSync(preloadPath);
 describe('preload.cjs build artifact', () => {
 	it.skipIf(!distBuilt)('is self-contained — only requires "electron", no relative chunk imports', () => {
 		const content = fs.readFileSync(preloadPath, 'utf8');
-		const requireCalls = [...content.matchAll(/require\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]);
-		const disallowed = requireCalls.filter((specifier) => specifier !== 'electron');
+		const disallowed = findDisallowedRequires(content);
 		expect(disallowed).toEqual([]);
 	});
 });

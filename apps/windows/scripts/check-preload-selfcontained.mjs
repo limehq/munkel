@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { findDisallowedRequires } from './lib/require-scan.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
@@ -29,8 +30,13 @@ if (!fs.existsSync(preloadPath)) {
 }
 
 const content = fs.readFileSync(preloadPath, 'utf8');
-const requireCalls = [...content.matchAll(/require\(\s*["']([^"']+)["']\s*\)/g)].map((m) => m[1]);
-const disallowed = requireCalls.filter((specifier) => specifier !== 'electron');
+// Uses a small tokenizing scanner (scripts/lib/require-scan.mjs), not a
+// naive regex: a regex over raw text also matches `require("./x")` text
+// sitting inside a string literal or comment (false positive), and misses
+// `require(\`electron\`)` / `require(someVar)` (false negative — a
+// sandboxed preload only survives a literal `require("electron")`, so any
+// non-literal specifier must fail closed).
+const disallowed = findDisallowedRequires(content);
 
 if (disallowed.length > 0) {
 	console.error(
