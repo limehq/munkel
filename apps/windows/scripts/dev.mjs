@@ -15,6 +15,24 @@ const HOST = '127.0.0.1';
 /** @type {import('node:child_process').ChildProcess | null} */
 let electronProcess = null;
 
+// main and preload are separate Vite watchers (see below), each with its own
+// `closeBundle` hook wired to restart Electron. A source file imported by
+// BOTH bundles (e.g. src/shared/ipc-channels.ts) triggers both watchers on a
+// single save, firing closeBundle twice within a few ms of each other — which
+// would restart Electron twice in a row. Debounce so only the trailing
+// closeBundle within this window actually restarts the process.
+const RESTART_DEBOUNCE_MS = 150;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let restartTimer = null;
+
+function scheduleElectronRestart() {
+	if (restartTimer) clearTimeout(restartTimer);
+	restartTimer = setTimeout(() => {
+		restartTimer = null;
+		startOrRestartElectron();
+	}, RESTART_DEBOUNCE_MS);
+}
+
 /**
  * Probe whether `host:port` is free before Vite binds. Avoids collisions with
  * other local Vite/Electron apps (often on 5173).
@@ -104,7 +122,7 @@ async function main() {
 	const electronStarterPlugin = {
 		name: 'electron-starter',
 		closeBundle() {
-			startOrRestartElectron();
+			scheduleElectronRestart();
 		},
 	};
 
@@ -121,6 +139,7 @@ async function main() {
 	});
 
 	const shutdown = () => {
+		if (restartTimer) clearTimeout(restartTimer);
 		rendererServer.close();
 		mainWatcher.close();
 		preloadWatcher.close();
