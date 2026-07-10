@@ -199,11 +199,11 @@ Implemented on `platform/windows/macos-parity-p1` after the hover-copy follow-up
 - Manual QA: copy an image (e.g. Windows Snipping Tool, or copy an image from a browser) and paste it (Ctrl+V) into the palette compose field and into a circle's compose row in the menu; confirm the attachment chip appears and the album sends correctly. Paste plain text in both locations and confirm it is unaffected.
 - Manual QA: paste an oversized/exotic clipboard image and confirm the existing `imageCodec` failure path surfaces a user-facing error (same as an oversized dialog-selected file) rather than a silent failure.
 - Visual QA: confirm the avatar slide-in reads as polish, not distracting, across the notch history list, palette recipient list, and menu member chips.
-- **Not yet wired:** the `pulse` prop is implemented and tested in isolation but not yet connected to `NotchWidget`'s actual new-message arrival — a follow-up task should pass `pulse={entry.id === newest?.id}` (or similar, computed so it's only `true` on the render where that Avatar first mounts) to the notch's message-row `Avatar` once `NotchWidget.tsx` is back in scope. **This wiring is still open; additionally, the hardening commit `fad3300` that closed the Iteration 6 review findings is itself not yet reviewed.**
+- **Not yet wired:** the `pulse` prop is implemented and tested in isolation but not yet connected to `NotchWidget`'s actual new-message arrival — a follow-up task should pass `pulse={entry.id === newest?.id}` (or similar, computed so it's only `true` on the render where that Avatar first mounts) to the notch's message-row `Avatar` once `NotchWidget.tsx` is back in scope. **This wiring is still open.** (The hardening commit `fad3300` was reviewed in Iteration 7: BLOCK → security fixes `2757681`/`0f2efe5` → SHIP.)
 
 #### P3.4 / P3.5 review cycle (Iteration 6, 2026-07-10)
 
-**Review-Verlauf: SHIP-mit-Follow-ups → Härtung (unreviewt)**
+**Review-Verlauf: SHIP-mit-Follow-ups → Härtung → Nachreview BLOCK → Security-Fixes → SHIP (Iteration 7, 2026-07-10)**
 
 - **Erst-Review (gegen Commit `161d15a`):** Verdikt **SHIP-mit-Follow-ups**. 4 MAJOR-Findings:
   1. **Clipboard-IPC ohne Sender-Guard:** `save-clipboard-image` in `session-handlers.ts` akzeptierte von jedem Renderer; bei kompromittiertem Renderer hätte beliebiger Code Temp-Dateien schreiben können.
@@ -211,9 +211,12 @@ Implemented on `platform/windows/macos-parity-p1` after the hover-copy follow-up
   3. **Temp-Cleanup fehlte:** Temp-Dateien aus dem Clipboard-Paste wurden nie gelöscht.
   4. **Mouse-Leave-Race:** `setHoverCopy` setzte intern `active` zurück, bevor der Shortcut-Disarm verarbeitet war; schnelles Re-Enter konnte einen "disarmed aber noch aktiv"-Zustand erzeugen.
 - **Härtung:** Commit `fad3300` — fail-closed Sender-Guard für Palette+Menu, `MAX_CLIPBOARD_PIXELS`-Probe vor Encode, Temp-Cleanup nach erfolgreichem Send + Startup-Sweep, 300ms-Re-Arm-Cooldown, Latch-Semantik-Bugfix.
-- **Status:** `fad3300` ist **noch nicht reviewt** — der Review-Scope der nächsten Iteration beginnt bei `161d15a` und muss `fad3300` einschließen.
+- **Nachreview von `fad3300` (Iteration 7):** Verdikt **BLOCK** mit 2 MAJORs: (1) Temp-Cleanup prüfte nur den Basename und `send-images` hatte keinen Sender-Guard — zusammen ein potenzielles Datei-Lösch-Primitiv für kompromittierte Renderer; (2) Re-Arm-Cooldown auf `Date.now()` — bei NTP-Rücksprung dauerhaft un-armable.
+- **Security-Fixes:** `2757681` (Lösch-Autorität = main-seitiges Ownership-Set selbst geschriebener Temp-Pfade, Basename nur Sekundärfilter, `path.resolve`-Containment in tmpdir, `send-images` mit Palette+Menu-Sender-Guard, Startup-Sweep nur >1h alte Dateien, Caret-korrektes Text-Fallback) und `0f2efe5` (injizierbare monotone Clock `performance.now()`, `null`-Sentinel, Fake-Clock-Tests).
+- **Re-Review: SHIP** — Lösch-Primitiv geschlossen (Renderer kann keine Set-Einträge injizieren), Guard vollständig ohne Bruch legitimer Flows, Clock-Migration regressionsfrei. Teststand: **357 pass / 2 skip / 0 fail**.
+- **Optionales Follow-up (INFO):** `ownedClipboardTempPaths` wächst bei wiederholtem Paste-ohne-Send unbegrenzt für die Prozess-Lebensdauer (minimaler Memory-Impact) — Cap oder Age-Prune möglich.
 
-**Feature-Commits:** `92f4340` (P3.4 initial), `baeb687` (P3.5 initial), `41bd3a2` (P3.5 mount-only pulse latch), `161d15a` (P3.4/P3.5 polish), `fad3300` (Iteration-6-Härtung, unreviewt).
+**Feature-Commits:** `92f4340` (P3.4 initial), `baeb687` (P3.5 initial), `41bd3a2` (P3.5 mount-only pulse latch), `161d15a` (P3.4/P3.5 polish), `fad3300` (Iteration-6-Härtung), `2757681`/`0f2efe5` (Iteration-7-Security-Fixes, Re-Review SHIP).
 
 **Follow-ups aus dem Re-Review — Status nach der Folgesession (2026-07-10):**
 1. ✅ **MAJOR** Sender-Guard auf `save-clipboard-image` — fail-closed auf Palette- und Menu-Fenster; abgelehnte Calls loggen + returnieren `null`.

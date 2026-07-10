@@ -2,12 +2,21 @@
 
 ## current_state
 
-- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `fad3300`).
+- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `0f2efe5`).
 - **Working directory:** sauber bis auf untracked `fp-notes/` (nie committen).
-- **Kontext:** P3-Slice 2 (P3.4 Clipboard-Bild-Paste, P3.5 Avatar-Animation) implementiert. Iteration 6 Review-Cycle: Erst-Review gegen `161d15a` **SHIP-mit-Follow-ups** (4 MAJORs: Clipboard-IPC ohne Sender-Guard/Size-Limit/Cleanup, Mouse-Leave-Race) → Härtungs-Commit `fad3300` schließt alle 4. **WICHTIG:** `fad3300` ist selbst noch nicht reviewt.
-- **Test-Stand:** `bun test` in `apps/windows`: **349 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
+- **Kontext:** P3-Slice 2 (P3.4 Clipboard-Bild-Paste, P3.5 Avatar-Animation) implementiert und über zwei Review-Zyklen (Iteration 6 + 7) vollständig gehärtet; der Clipboard-Security-Pfad ist reviewt und SHIP.
+- **Test-Stand:** `bun test` in `apps/windows`: **357 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
 
 ## completed in dieser Session
+
+### Iteration 7 — Security-Review-Zyklus für `fad3300` (2026-07-10)
+
+- **Nachreview `fad3300` (Kimi k2.6): Verdikt BLOCK.** 2 MAJORs: (1) `isClipboardTempPath` prüfte nur den Basename und `send-images` hatte keinen Sender-Guard — kombiniert ein potenzielles Datei-Lösch-Primitiv für kompromittierte Renderer (Renderer-gelieferter Pfad wie `…\Documents\munkel-clipboard-x.png` wäre nach Send gelöscht worden); (2) Re-Arm-Cooldown auf `Date.now()` — NTP-Rücksprung hätte Hover-C dauerhaft un-armable gemacht.
+- **Fix `2757681` — Lösch-Autorität = Ownership-Set:** Nur Pfade, die der `save-clipboard-image`-Handler dieser Instanz selbst geschrieben hat, sind löschbar (Set-Mitgliedschaft + Basename-Sekundärfilter + `path.resolve`-Containment in tmpdir); `send-images` mit Palette+Menu-Sender-Guard; Startup-Sweep nur >1h alte Dateien; Text-Fallback fügt am Caret ein.
+- **Fix `0f2efe5` — monotone Clock:** injizierbares `now()` (Default `performance.now()`) für die Cooldown-Deadline, `null`-Sentinel, Fake-Clock-Tests.
+- **Re-Review (Kimi k2.6): SHIP** — Lösch-Primitiv geschlossen (keine Set-Injection durch Renderer möglich), Guard vollständig ohne Bruch legitimer Flows, Clock-Migration regressionsfrei. 1 INFO offen: `ownedClipboardTempPaths` wächst bei Paste-ohne-Send unbegrenzt (Cap/Age-Prune optional).
+- **Teststand:** 357 pass / 2 skip / 0 fail (+8 Tests); typecheck grün.
+- **next_action:** `pulse`-Prop in `NotchWidget` verdrahten, dann P3.1 (Rebindable Hotkey) + P3.6 (History expand/collapse); parallel warten manuelles QA-Gate und Open Questions 4/5 auf den User; danach PR nach `platform/windows/v2-clean` (kein Self-Merge).
 
 ### Iteration 6 — P3.4 / P3.5 Review-Cycle (2026-07-10)
 

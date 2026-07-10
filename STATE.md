@@ -2,7 +2,7 @@
 
 ## Now
 
-Windows: **P3-Slice 2 (P3.4 Clipboard-Bild-Paste, P3.5 Avatar-Animation) auf Branch `platform/windows/macos-parity-p1` umgesetzt.** Der Iteration-6-Review-Zyklus lief **SHIP-mit-Follow-ups → Härtung** (4 MAJORs gegen Commit `161d15a`: Clipboard-IPC ohne Sender-Guard/Size-Limit/Cleanup, Mouse-Leave-Race). Alle 4 in Commit `fad3300` geschlossen. **WICHTIG:** `fad3300` ist selbst noch **nicht reviewt**. Teststand in `apps/windows`: **349 pass / 2 skip / 0 fail**; `bun run typecheck` grün. Feature-Parity-Matrix: **27 DONE / 2 PARTIAL / 11 MISSING**. Verbleibend vor dem Merge: **Review von `fad3300`**, **P3.1/P3.6-Rest**, **Iteration-5/6-Follow-ups** (`pulse`-Verdrahtung in `NotchWidget`, `copyText`→`interacted`), dann das **manuelle QA-Gate** und die **User-Entscheidungen zu Open Questions 4 + 5** (Lightbox-Verhalten, CLI-Distributionsmodell), anschließend entweder P2.2/P2.3 oder der **PR nach `platform/windows/v2-clean`**.
+Windows: **Iteration 7 (2026-07-10) abgeschlossen — Security-Härtung des Clipboard-Pfads reviewt und SHIP.** Nachreview von `fad3300` ergab **BLOCK** (Datei-Lösch-Primitiv via Basename-only-Cleanup + fehlendem `send-images`-Guard; `Date.now()`-Cooldown). Fixes `2757681` (Ownership-Set + tmpdir-Containment + `send-images`-Sender-Guard + 1h-Age-Sweep) und `0f2efe5` (monotone Clock) — Re-Review **SHIP**. Teststand in `apps/windows`: **357 pass / 2 skip / 0 fail**; `bun run typecheck` grün. Feature-Parity-Matrix: **27 DONE / 2 PARTIAL / 11 MISSING**. Verbleibend vor dem Merge: **Review von `fad3300`**, **P3.1/P3.6-Rest**, **Iteration-5/6-Follow-ups** (`pulse`-Verdrahtung in `NotchWidget`, `copyText`→`interacted`), dann das **manuelle QA-Gate** und die **User-Entscheidungen zu Open Questions 4 + 5** (Lightbox-Verhalten, CLI-Distributionsmodell), anschließend entweder P2.2/P2.3 oder der **PR nach `platform/windows/v2-clean`**.
 
 ## Progress
 
@@ -21,16 +21,17 @@ Windows: **P3-Slice 2 (P3.4 Clipboard-Bild-Paste, P3.5 Avatar-Animation) auf Bra
 - ✅ **Review-Härtung Iteration 5** — Erst-Review BLOCK (3 CRITICALs am globalShortcut-Lifecycle) → Härtungs-Commits `6b1550e` / `bc24ed5` / `058fc81` → Re-Review **SHIP-mit-Follow-ups**. Teststand: **306 pass / 2 skip / 0 fail**.
 - ✅ **P3.4 Clipboard image paste in palette and menu (Iteration 6)** — `Ctrl+V` in `PaletteWindow.tsx` und `MenuWindow.tsx` leitet an `clipboard-image.ts` weiter; `save-clipboard-image` IPC in `session-handlers.ts` schreibt `NativeImage` temporär als PNG in denselben `sendImages`-Pfad. Härtung in `fad3300`: fail-closed Sender-Guard, `MAX_CLIPBOARD_PIXELS`-Probe vor Encode, Temp-Cleanup + Startup-Sweep.
 - ✅ **P3.5 Avatar entry animation + one-time pulse (Iteration 6)** — CSS-Keyframe `avatar-slide-in` auf `.avatar`; `pulse` prop mount-only via `useState(pulse)` + self-clearing `setTimeout`; `prefers-reduced-motion` beachtet. Verdrahtung des `pulse` props in `NotchWidget.tsx` bleibt offen.
-- ✅ **Review-Härtung Iteration 6** — Erst-Review gegen `161d15a` **SHIP-mit-Follow-ups** mit 4 MAJORs; Härtungs-Commit `fad3300` schließt alle 4. **Noch nicht reviewt.** Teststand: **349 pass / 2 skip / 0 fail**.
+- ✅ **Review-Härtung Iteration 6** — Erst-Review gegen `161d15a` **SHIP-mit-Follow-ups** mit 4 MAJORs; Härtungs-Commit `fad3300` schließt alle 4.
+- ✅ **Security-Review-Zyklus Iteration 7** — Nachreview von `fad3300`: **BLOCK** (Datei-Lösch-Primitiv: Basename-only-Temp-Cleanup + `send-images` ohne Sender-Guard; nicht-monotone Cooldown-Clock). Fixes `2757681` (Ownership-Set als alleinige Lösch-Autorität, tmpdir-Containment, `send-images`-Guard, 1h-Age-Sweep, Caret-korrektes Text-Fallback) + `0f2efe5` (monotone Clock, null-Sentinel). Re-Review **SHIP**. Teststand: **357 pass / 2 skip / 0 fail**.
 - ✅ (früher) Single-Instance/Self-Heal, Circle-Leave-Dialog, Logo-Assets, Auto-Update, Notch Peek/History — alles in `platform/windows/v2-clean` bzw. darunter gemerged.
 
 ## Last
 
-2026-07-10 — **Iteration 6 Review-Cycle (P3.4/P3.5) abgeschlossen bis auf Review von `fad3300`.** P3.4 (Clipboard-Bild-Paste) und P3.5 (Avatar-Animation) wurden implementiert. Erst-Review gegen `161d15a` ergab **SHIP-mit-Follow-ups** mit 4 MAJOR-Findings (Clipboard-IPC ohne Sender-Guard/Size-Limit/Cleanup, Mouse-Leave-Race). Härtung via Commit `fad3300` schließt alle 4 (fail-closed Sender-Guard, `MAX_CLIPBOARD_PIXELS`-Probe vor Encode, Temp-Cleanup + Startup-Sweep, 300ms-Re-Arm-Cooldown + Latch-Semantik-Bugfix). **WICHTIG:** `fad3300` ist selbst noch nicht reviewt — Review-Scope der nächsten Iteration beginnt bei `161d15a`. Teststand: **349 pass / 2 skip / 0 fail**; `bun run typecheck` grün. Doku aktualisiert.
+2026-07-10 — **Iteration 7: Security-Review-Zyklus für `fad3300` abgeschlossen (BLOCK → `2757681`/`0f2efe5` → SHIP), 357 pass / 2 skip / 0 fail.** Davor Iteration 6: P3.4 (Clipboard-Bild-Paste) und P3.5 (Avatar-Animation) wurden implementiert. Erst-Review gegen `161d15a` ergab **SHIP-mit-Follow-ups** mit 4 MAJOR-Findings (Clipboard-IPC ohne Sender-Guard/Size-Limit/Cleanup, Mouse-Leave-Race). Härtung via Commit `fad3300` schließt alle 4 (fail-closed Sender-Guard, `MAX_CLIPBOARD_PIXELS`-Probe vor Encode, Temp-Cleanup + Startup-Sweep, 300ms-Re-Arm-Cooldown + Latch-Semantik-Bugfix). **WICHTIG:** `fad3300` ist selbst noch nicht reviewt — Review-Scope der nächsten Iteration beginnt bei `161d15a`. Teststand: **349 pass / 2 skip / 0 fail**; `bun run typecheck` grün. Doku aktualisiert.
 
 ## Next
 
-1. **Review von `fad3300` durchführen** (Start-Scope `161d15a`, enthält Härtung der 4 Iteration-6-MAJORs).
+1. ~~Review von `fad3300`~~ ✅ erledigt in Iteration 7 (BLOCK → Fixes → SHIP).
 2. **Iteration-5/6-Follow-ups angehen** (vor dem QA-Gate):
    - **MINOR** `pulse` prop in `NotchWidget` verdrahten (`pulse={entry.id === newest?.id}` o. Ä. nur auf dem ersten Mount der neuen Nachricht).
    - **INFO** `copyText` setzt `interacted` nicht — Produktentscheidung, ob Copy als User-Interaction zählt.
