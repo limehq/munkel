@@ -430,7 +430,6 @@ export default function NotchWidget() {
 			});
 			const targetEntryId = entry.id;
 			sentConfirmationTimerRef.current = setTimeout(() => {
-				sentConfirmationTimerRef.current = null;
 				// Formal race guard (belt and suspenders): the various
 				// clearSentConfirmation() call sites (openReply, a new message
 				// arriving, the reply-prune effect above) already cancel this
@@ -439,8 +438,12 @@ export default function NotchWidget() {
 				// *current* confirmation via the ref (not the `entry`/closure
 				// value captured at schedule time) means a hypothetical future
 				// path that leaves it pointing at a different — or no — entry
-				// can't cause this timer to close an unrelated reply.
+				// can't cause this timer to close an unrelated reply. The guard
+				// runs BEFORE nulling the ref, so on a mismatch we neither close
+				// the wrong reply NOR drop the handle to whatever timer is
+				// actually current — only the matching (current) timer clears it.
 				if (sentConfirmationRef.current?.entryId !== targetEntryId) return;
+				sentConfirmationTimerRef.current = null;
 				setSentConfirmation(null);
 				closeReply();
 			}, SENT_CONFIRMATION_MS);
