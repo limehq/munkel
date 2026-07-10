@@ -186,10 +186,14 @@ export class GroupSession {
 		let sealed: string;
 		try {
 			const json = JSON.stringify(payload);
-			// Clamp after sealing: AES-GCM overhead is fixed (12-byte nonce
-			// + 16-byte tag → 28 bytes ≈ 38 base64 chars), so the sealed
-			// length tracks plaintext length closely. Clamping the sealed
-			// string is the actual wire check.
+			// Wire-size check on the sealed payload: AES-GCM overhead is fixed
+			// (12-byte nonce + 16-byte tag → 28 bytes ≈ 38 base64 chars), so the
+			// sealed length tracks the plaintext length closely. `assertPayloadFits`
+			// *rejects* (throws) an over-cap payload rather than truncating it — the
+			// caller then surfaces a "too long" SendResult. This byte-based ~48 KiB
+			// wire cap is separate from, and stricter-failing than, the UI-side
+			// 2048-character clamp (MAX_MESSAGE_CHARS); it is the backstop for any
+			// caller that bypasses the UI clamp.
 			sealed = await seal(json, this.messageKey);
 			assertPayloadFits(sealed);
 		} catch (err) {

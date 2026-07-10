@@ -1595,4 +1595,69 @@ describe('NotchWidget "Sent to …" reply confirmation (Plan 12)', () => {
 			root.unmount();
 		});
 	});
+
+	it('does not let a stale confirmation timer close a reply the user opened on a different entry', async () => {
+		const root = await renderWidget();
+		const widgetNode = () => root.root.findByProps({ 'data-testid': 'notch-widget' });
+		const entryByText = (text: string) => {
+			const candidates = root.root.findAll(
+				(node) =>
+					typeof node.props['data-testid'] === 'string' &&
+					(node.props['data-testid'] as string).startsWith('history-entry-'),
+			);
+			const match = candidates.find((entry) =>
+				entry.findAllByType('p').some((p) => p.props.children === text),
+			);
+			if (!match) throw new Error(`no history entry found for text: ${text}`);
+			return match;
+		};
+
+		// A arrives, then B (A → history, B newest). No new-message clear is in
+		// play by the time we reopen history (that path is covered separately).
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ isDirect: false, text: 'message A' }));
+		});
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ isDirect: false, text: 'message B' }));
+		});
+
+		// Reply to B (the newest / full view) and send → chip + 1.5s timer.
+		await openReplyForNewest(root);
+		await act(async () => {
+			replyInput(root).props.onChange({ target: { value: 'to B' } });
+		});
+		await act(async () => {
+			sendButton(root).props.onClick();
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		expect(findSentConfirmation(root)).toBeDefined();
+
+		// Before the timer fires, reopen history and open a reply on A instead.
+		await act(async () => {
+			widgetNode().props.onMouseEnter();
+		});
+		await act(async () => {
+			root.root.findByProps({ className: 'notch-hover-target' }).props.onMouseEnter();
+		});
+		await act(async () => {
+			entryByText('message A').findByProps({ 'aria-label': 'Reply' }).props.onClick({ stopPropagation: () => {} });
+		});
+
+		// Opening A's reply cancelled B's stale confirmation timer.
+		expect(findSentConfirmation(root)).toBeUndefined();
+
+		// Advancing past B's original 1.5s dwell must NOT close A's reply.
+		await act(async () => {
+			timers.advance(2_000);
+		});
+
+		// A's reply field is still open (its Send button is present).
+		expect(root.root.findAllByProps({ title: 'Send' }).length).toBe(1);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
 });

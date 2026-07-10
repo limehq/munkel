@@ -24,7 +24,42 @@
  */
 export const MAX_MESSAGE_CHARS = 2048;
 
-/** Trims `text` to the character cap, mirroring `MessageLimits.clamp` on macOS. */
+/**
+ * Trims `text` to the character cap, mirroring `MessageLimits.clamp` on macOS.
+ *
+ * macOS counts Swift `String` length in *extended grapheme clusters*
+ * (`text.count` / `text.prefix`), so an emoji, ZWJ sequence (e.g. a family
+ * emoji), flag, or skin-tone modifier counts as one character and is never
+ * split. A naive UTF-16 `String.slice(0, 2048)` would count code units
+ * instead and could sever a surrogate pair or ZWJ cluster mid-way, leaving a
+ * lone surrogate / broken glyph. This clamp mirrors macOS by segmenting into
+ * grapheme clusters via `Intl.Segmenter` (available in Electron's Chromium
+ * runtime and in Bun's test runtime) and cutting on a cluster boundary.
+ */
 export function clampMessageText(text: string): string {
-	return text.length > MAX_MESSAGE_CHARS ? text.slice(0, MAX_MESSAGE_CHARS) : text;
+	// Fast path: UTF-16 length is an upper bound on the grapheme count (a
+	// grapheme is always ≥ 1 code unit), so if the code-unit length already
+	// fits, the grapheme count cannot exceed the cap either — no segmentation
+	// needed. This keeps the common (all-ASCII) case allocation-free.
+	if (text.length <= MAX_MESSAGE_CHARS) return text;
+
+	if (typeof Intl !== 'undefined' && typeof Intl.Segmenter === 'function') {
+		const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+		let result = '';
+		let count = 0;
+		for (const { segment } of segmenter.segment(text)) {
+			if (count >= MAX_MESSAGE_CHARS) break;
+			result += segment;
+			count += 1;
+		}
+		return result;
+	}
+
+	// Fallback for any runtime without Intl.Segmenter: code-unit slice, but
+	// back off one unit if the cut would land between a surrogate pair so we
+	// never emit a lone high surrogate.
+	let end = MAX_MESSAGE_CHARS;
+	const code = text.charCodeAt(end - 1);
+	if (code >= 0xd800 && code <= 0xdbff) end -= 1;
+	return text.slice(0, end);
 }

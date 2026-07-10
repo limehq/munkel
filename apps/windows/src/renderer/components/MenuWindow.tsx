@@ -361,7 +361,13 @@ export default function MenuWindow() {
 					selStart === null
 						? existing + fallbackText
 						: existing.slice(0, selStart) + fallbackText + existing.slice(selEnd ?? selStart);
-				return { ...prev, [code]: next };
+				// Clamp the manually-inserted paste to the 2048 cap. The normal
+				// onChange path already clamps typed/pasted text, but this branch
+				// writes `messages[code]` directly (bypassing onChange), so without
+				// this the fallback text could push the composer over the cap — and
+				// since outgoing text is not clamped at the session layer, handleSend
+				// would then send an over-length message.
+				return { ...prev, [code]: clampMessageText(next) };
 			});
 		}
 	}
@@ -829,8 +835,17 @@ function CircleSection({
 		};
 	}, []);
 
-	function handleCopyCode() {
-		void navigator.clipboard.writeText(circle.code);
+	async function handleCopyCode(e: React.MouseEvent) {
+		// Stop the click from bubbling to the menu-window root's onClick, which
+		// closes the settings popover — copying a code shouldn't dismiss it.
+		e.stopPropagation();
+		try {
+			await navigator.clipboard.writeText(circle.code);
+		} catch {
+			// Clipboard write was denied/failed — don't show a success checkmark
+			// for a copy that didn't happen.
+			return;
+		}
 		setCodeCopied(true);
 		if (codeCopyTimeoutRef.current) clearTimeout(codeCopyTimeoutRef.current);
 		codeCopyTimeoutRef.current = setTimeout(() => {
@@ -853,7 +868,7 @@ function CircleSection({
 					title="Copy code"
 					aria-label={`Copy circle code ${circle.code}`}
 					data-testid={`copy-code-button-${circle.code}`}
-					onClick={handleCopyCode}
+					onClick={(e) => void handleCopyCode(e)}
 				>
 					{codeCopied ? '✓' : '📋'}
 				</button>

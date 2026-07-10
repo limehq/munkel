@@ -331,6 +331,13 @@ export default function NotchWidget() {
 	}, [history, replyingTo, closeReply]);
 
 	function openReply(entry: NotchHistoryEntry) {
+		// Cancel any pending "Sent to …" auto-dismiss before opening a reply.
+		// Otherwise a stale timer scheduled by a previous send (e.g. reply to A)
+		// could fire ~1.5s later and call closeReply() while the user is now
+		// replying to B — closing B's reply field out from under them. Clearing
+		// it here (timer + chip state) makes the timer's target unambiguously
+		// stale, so opening any reply always wins over an in-flight confirmation.
+		clearSentConfirmation();
 		if (replyingTo !== entry.id) {
 			setReplyText('');
 			setError(null);
@@ -520,6 +527,8 @@ export default function NotchWidget() {
 							data-testid={`sent-confirmation-${entry.id}`}
 							role="status"
 							aria-live="polite"
+							aria-label={sentConfirmation.label}
+							title={sentConfirmation.label}
 						>
 							<span className="sent-confirmation-check" aria-hidden="true">✓</span>
 							{sentConfirmation.label}

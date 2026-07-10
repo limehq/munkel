@@ -1792,7 +1792,8 @@ describe('MenuWindow copy circle code button', () => {
 		const root = await renderMenu();
 
 		await act(async () => {
-			root.root.findByProps({ 'data-testid': 'copy-code-button-amber-fox-7' }).props.onClick();
+			root.root.findByProps({ 'data-testid': 'copy-code-button-amber-fox-7' }).props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
 		});
 
 		expect(clipboardCalls).toEqual(['amber-fox-7']);
@@ -1805,7 +1806,8 @@ describe('MenuWindow copy circle code button', () => {
 		expect(button().children).toEqual(['📋']);
 
 		await act(async () => {
-			button().props.onClick();
+			button().props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
 		});
 
 		expect(button().children).toEqual(['✓']);
@@ -1814,6 +1816,42 @@ describe('MenuWindow copy circle code button', () => {
 			await new Promise((resolve) => setTimeout(resolve, 1600));
 		});
 
+		expect(button().children).toEqual(['📋']);
+	});
+
+	it('stops the click from bubbling (so the settings popover / card handlers do not fire)', async () => {
+		const root = await renderMenu();
+		let stopped = false;
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'copy-code-button-blue-table-42' }).props.onClick({
+				stopPropagation: () => {
+					stopped = true;
+				},
+			});
+			await Promise.resolve();
+		});
+
+		expect(stopped).toBe(true);
+	});
+
+	it('does not show a checkmark when the clipboard write is rejected', async () => {
+		// Replace the clipboard with one that always rejects.
+		(globalThis as unknown as { navigator: unknown }).navigator = {
+			clipboard: { writeText: () => Promise.reject(new Error('denied')) },
+		};
+		const root = await renderMenu();
+		const button = () => root.root.findByProps({ 'data-testid': 'copy-code-button-blue-table-42' });
+
+		expect(button().children).toEqual(['📋']);
+
+		await act(async () => {
+			button().props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		// Still the clipboard glyph — no false success feedback.
 		expect(button().children).toEqual(['📋']);
 	});
 
@@ -2140,5 +2178,33 @@ describe('MenuWindow clipboard image paste (Plan 12 P3.4)', () => {
 		// carries the manually inserted clipboard text.
 		expect(root.root.findByProps({ placeholder: 'Message…' }).props.value).toBe('pasted text');
 		expect(root.root.findAllByProps({ className: 'image-attachment-chip' }).length).toBe(0);
+	});
+
+	it('clamps the manually-inserted fallback text to 2048 characters (no composer-cap bypass)', async () => {
+		// Image save fails, so the paste falls back to inserting the clipboard
+		// text directly into `messages[code]`. That direct write bypasses the
+		// input's onChange clamp, so this branch must clamp itself — otherwise
+		// an oversized paste (with outgoing text not clamped at the session
+		// layer) would let handleSend send > 2048 characters.
+		electronApi.saveClipboardImage = () => Promise.resolve(null);
+		const root = await renderMenu();
+
+		const input = root.root.findByProps({ placeholder: 'Message…' });
+		const overLong = 'p'.repeat(3000);
+		await act(async () => {
+			input.props.onPaste({
+				clipboardData: {
+					types: ['image/png', 'text/plain'],
+					getData: (type: string) => (type === 'text/plain' ? overLong : ''),
+				},
+				preventDefault: () => {},
+			});
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const value = root.root.findByProps({ placeholder: 'Message…' }).props.value;
+		expect(value.length).toBe(2048);
+		expect(value).toBe('p'.repeat(2048));
 	});
 });
