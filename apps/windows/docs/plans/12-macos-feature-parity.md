@@ -76,7 +76,7 @@ Close the remaining functional and UX gaps between the Windows Electron client a
 
 Address the Phase-E UI bugs and re-verify the notch sizing claim before shipping any new functionality.
 
-> **Status:** P1.1–P1.4 implemented on branch `platform/windows/macos-parity-p1` (2026-07-10). See [P1 implementation notes](#p1-implementation-notes-2026-07-10) below. Remaining live-QA gates are listed there as follow-ups.
+> **Status:** P1 komplett inkl. Review-Härtung (2026-07-10), **227 pass / 2 skip / 0 fail**. Code-seitig PR-reif. Verbleibendes Gate: manuelles QA. Siehe [P1 implementation notes](#p1-implementation-notes-2026-07-10) unten.
 
 | # | Task | Windows files | Estimate | Verification |
 |---|---|---|---|---|
@@ -98,6 +98,8 @@ Implemented on `platform/windows/macos-parity-p1` (off `platform/windows/tray-cl
 **Follow-ups (not closed by this session):**
 - Manual HITL screenshot QA of the notch at 100 % / 125 % / 150 % display scaling (P1.3 verification row) — code fix landed, live measurement pending.
 - Manual QA: recipient dropdown readability and Enter-name-commit in the running app.
+- **Optional (INFO aus Re-Review):** Testabdeckung für „Blur mit anderem Namen während ein anderer Name in-flight ist" ergänzen.
+- **Optional (INFO aus Re-Review):** `inFlightNameRef`-Reset-Verhalten prüfen, falls `updateProfile` jemals synchron wirft (theoretisch, aktuell nicht beobachtbar).
 - ~~Bug (MAJOR): `updateName()`'s optimistic `lastSavedNameRef` update...~~ **Fixed (2026-07-10):** `updateName()` now only commits `lastSavedNameRef` inside `updateProfile(name).then(...)`, leaving it untouched on rejection so the same name can be retried. Regression test un-skipped in `MenuWindow.test.tsx`.
 - ~~Bug (MAJOR): P1.1 CSS fix `.frosted-field option`...~~ **Fixed (2026-07-10):** added `color-scheme: dark` on `:root` so Chromium themes native popups (including the `<select>` list) dark regardless of the OS theme; the `.frosted-field option` rule remains as a fallback. Manual QA on a light-theme Windows box is still recommended to close the loop.
 - ~~Bug (MAJOR): `notch-resize` in `NotchWidget.tsx:26-34` / `notch-window.ts:36-47` has no debounce/throttle...~~ **Fixed (2026-07-10):** renderer debounces `notch-resize` reports by 80 ms, and `resizeNotchToContent` now tolerates a ±1px difference before calling `setSize`, so display-scaling rounding no longer causes an IPC/resize oscillation loop.

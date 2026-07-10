@@ -2,16 +2,43 @@
 
 ## current_state
 
-- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `0a1184b`).
+- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `b2eea7a`).
 - **Working directory:** sauber bis auf untracked `fp-notes/` (nie committen).
-- **Kontext:** P1 Parity-Fixes (E1/E2/WIN-NOTCH-004) implementiert und reviewt. Kritischer Review der 4 Fix-Commits `d63ea90..HEAD` ergab **keine CRITICAL**, aber **zwei MAJOR**-Residual-Findings, die vor dem Merge nach `platform/windows/v2-clean` behandelt werden sollten.
-- **Test-Stand:** `bun test` in `apps/windows`: **221 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
+- **Kontext:** P1 Parity-Fixes (E1/E2/WIN-NOTCH-004) implementiert, reviewt und code-seitig PR-reif. Iteration 3 Review-Cycle: BLOCK (CRITICAL Enter+Blur-Doppel-Submit) → Fix `b2eea7a` → SHIP mit 2 INFO-Follow-ups.
+- **Test-Stand:** `bun test` in `apps/windows`: **227 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
 
 ## completed in dieser Session
 
 ### Iteration 2 — P1 Major-Fixes (2026-07-10)
 
 Review-Commits `d63ea90..HEAD` (4 Stück), ausschließlich Review + Doku, keine Code-Änderungen außer Dokumentation.
+
+### Iteration 3 — P1 Review-Härtung (2026-07-10)
+
+Code-Änderungen auf `platform/windows/macos-parity-p1` nach dem ersten adversarialen Review.
+
+#### 1. Generation-Guard gegen out-of-order Resolves — DONE
+- **Commit:** `0dcc5e3`
+- **Dateien:** `apps/windows/src/renderer/components/MenuWindow.tsx`, `apps/windows/src/renderer/components/__tests__/MenuWindow.test.tsx`
+- **Inhalt:** `updateName()` stempelt jeden Submit mit einer monoton steigenden `nameSaveGenerationRef` und aktualisiert `lastSavedNameRef` nur noch, wenn das Resolve zur neuesten Generation gehört. Spät eintreffende Resolves älterer Calls können den Ref nicht mehr auf einen veralteten Wert setzen.
+
+#### 2. Error-Hint bei fehlgeschlagenem Name-Save — DONE
+- **Commit:** `2cad9e0`
+- **Dateien:** `apps/windows/src/renderer/components/MenuWindow.tsx`, `apps/windows/src/renderer/components/__tests__/MenuWindow.test.tsx`
+- **Inhalt:** Abgelehntes `updateProfile` zeigt unter dem Display-Name-Input kurzzeitig einen „Saving failed — press Enter to retry"-Hint an. Der Hinweis dismissed automatisch nach ~4 s, sofort bei erneutem Submit oder bei Erfolg. Tests für Anzeige und Dismiss.
+
+#### 3. Synchroner inFlight-Ref gegen Enter+Blur-Doppel-Submit — DONE
+- **Commit:** `b2eea7a`
+- **Dateien:** `apps/windows/src/renderer/components/MenuWindow.tsx`, `apps/windows/src/renderer/components/__tests__/MenuWindow.test.tsx`
+- **Inhalt:** Ein synchroner `inFlightNameRef` verhindert, dass Enter gefolgt von einem nachfolgenden Blur den gleichen Namen zweimal submittet. Durch den fixen Wert des Refs bleibt der zweite Call idempotent, ohne auf den asynchronen `updateProfile`-Resolve warten zu müssen.
+
+#### Review-Verlauf
+- **Erster Review:** Verdikt **BLOCK**. CRITICAL: Enter+Blur-Doppel-Submit war im ersten Testlauf durch synchron wirkende Promise-Mocks verdeckt worden.
+- **Fix:** `b2eea7a` eingespielt.
+- **Re-Review:** Verdikt **SHIP** mit 2 INFO-Punkten:
+  1. Testabdeckung könnte um „Blur mit anderem Namen während in-flight" ergänzt werden.
+  2. Theoretisches Haängenbleiben von `inFlightNameRef`, falls `updateProfile` synchron wirft (kein praktisch beobachtetes Szenario, da `updateProfile` immer asynchron ist).
+- Beide INFO-Punkte werden als optionale Follow-ups geführt, blockieren den PR nicht.
 
 #### 1. Display-name Retry nach fehlgeschlagenem `updateProfile` — DONE
 - **Commit:** `3f07edb`
@@ -58,28 +85,26 @@ Review-Commits `d63ea90..HEAD` (4 Stück), ausschließlich Review + Doku, keine 
 - **Dateien:** `apps/windows/src/main/__tests__/notch-window.test.ts`, `apps/windows/src/renderer/components/__tests__/MenuWindow.test.tsx`, `apps/windows/src/renderer/components/__tests__/NotchWidget.test.tsx`, `apps/windows/docs/plans/12-macos-feature-parity.md`
 - **Inhalt:** Clamp-Boundary-Tests, NaN/negative-Input-Tests, ResizeObserver-Wiring-Tests, Enter/Blur/Whitespace-Tests, dokumentierter `it.skip`-Regressionstest für den updateName-Retry-Bug.
 
-## remaining (Review-Findings)
+## remaining (optional / QA)
 
-| Schwere | Datei:Zeile | Problem | Failure-Szenario |
-|---|---|---|---|
-| **MAJOR** | `apps/windows/src/renderer/components/MenuWindow.tsx:83-98` | `updateName()` serialisiert parallele `updateProfile`-Aufrufe nicht. Wenn zwei schnelle Submits (z. B. A dann B) out-of-order auflösen (B vor A), endet `lastSavedNameRef` auf dem älteren Wert A, obwohl der aktuelle Name B ist. Der Retry-Fix deckt nur das sequentielle "gleicher Name nach Fehler"-Szenario ab, nicht Concurrent-Submits. | User tippt schnell nacheinander zwei verschiedene Namen und drückt jeweils Enter. Löst der zweite Call vor dem ersten auf, zeigt der Ref danach auf den ersten Namen; nachfolgende Edits werden vom `name === lastSavedNameRef.current`-Guard falsch bewertet (z. B. erneute Änderung zu B wird als "unchanged" behandelt). |
-| **MAJOR** | `apps/windows/src/renderer/components/MenuWindow.tsx:90-97` | Abgelehntes `updateProfile` wird zwar von `.then(..., () => {})` gefangen, aber es gibt keine UI-Rückmeldung, dass der Name nicht gespeichert wurde. | Relay/Main-Process-Fehler beim Speichern: User sieht den neuen Namen im Input, geht davon aus, er sei persistiert, und schließt das Menü. Beim nächsten Öffnen steht wieder der alte Name; der User merkt nicht, dass der Save fehlgeschlagen ist. |
-| **MINOR** | `apps/windows/src/renderer/styles/global.css:1-11` | `color-scheme: dark` auf `:root` gilt global für alle Renderer-Fenster (Menu, Palette, Notch), da sie dieselbe `main.tsx`-Entry teilen. Für den aktuellen Always-Dark-Theme korrekt, aber es hard-codiert native Controls und verhindert spätere Light-Theme-Unterstützung ohne größere Restrukturierung. | Zukünftiger Light-Mode müsste diese Regel zurückbauen; aktuell können OS-High-Contrast/Einstellungen für native Scrollbars/Inputs/Checkboxes in manchen Chromium-Builds inkonsistent sein. |
-| **MINOR** | `apps/windows/src/main/notch-window.ts:49` | Die ±1px-Toleranz wird nach dem Clamping angewendet und ignoriert daher bewusst legitime 1px-Höhenänderungen. | Inhalt wächst/schwindet um genau 1px; Fenster bleibt bei alter Höhe, was bei engen Layouts (mehrzeiliger Text, viele Thumbnails) einen winzigen Überlauf oder Leerraum erzeugen kann. |
-| **INFO** | `apps/windows/src/renderer/components/NotchWidget.tsx:303-305` | Inlining von `expanded` zu `!(reopening || replyOpen)` ist exakt verhaltensneutral. | Kein Failure-Szenario; reiner Cleanup. |
-| **INFO** | `apps/windows/src/renderer/components/MenuWindow.tsx:90-97` | Kein Unhandled-Rejection-Pfad: `.then(onResolve, onReject)` fängt die Rejection ab; das `void` verwirft das Ergebnis. | Der Fehler wird still geschluckt, aber nicht als `unhandledrejection` gemeldet. |
+- **Optionale Follow-ups** (INFO aus Re-Review, kein Blocker):
+  1. Testabdeckung in `MenuWindow.test.tsx` um „Blur mit anderem Namen während ein anderer Name in-flight ist" ergänzen.
+  2. `inFlightNameRef`-Reset-Verhalten überprüfen, falls `updateProfile` jemals synchron wirft (theoretisch, aktuell nicht beobachtbar).
+- **Manuelles QA-Gate** vor dem PR:
+  - Retry nach simuliertem Relay-Offline im laufenden App.
+  - Error-Hint-Optik und 4s-Auto-Dismiss.
+  - Notch bei 100 % / 125 % / 150 % Display-Skalierung.
+  - Dropdown-Farben im Light-Theme-Windows.
 
 ## blockers
 
-- **Keine harten Blocker**, aber die beiden **MAJOR**-Findings zu `updateName()` sollten vor dem Merge behoben werden: das Concurrent-Submit-Race kann den Idempotenz-Guard korruptieren, und das fehlende Fehler-Feedback verschleiert echte Persistenz-Probleme.
-- **Offenes manuelles QA** ist noch nicht durchgeführt: Retry nach simuliertem Relay-Offline, Notch bei 125 %/150 % Display-Skalierung, Dropdown im Light-Theme-Windows.
+- **Keine harten Blocker.** Beide MAJOR-Findings aus Iteration 2 wurden in Iteration 3 behoben (Commits `0dcc5e3`, `2cad9e0`, `b2eea7a`).
+- Offen ist nur das manuelle QA-Gate.
 
 ## next_action
 
-1. `MenuWindow.tsx` fixen: Parallele `updateProfile`-Aufrufe serialisieren oder mit einer Request-Generation/Monotonie tracken, sodass `lastSavedNameRef` nur für den zuletzt abgesetzten Namen aktualisiert wird.
-2. `MenuWindow.tsx` UX-Feedback bei abgelehntem `updateProfile` hinzufügen (z. B. kurzzeitiger `saveError`-State am Input oder Toast).
-3. Manuelles QA durchführen und Ergebnisse in Plan 12 / STATE.md eintragen.
-4. PR `platform/windows/macos-parity-p1` → `platform/windows/v2-clean` öffnen; erst nach Review + grünem CI mergen.
+1. Manuelles QA-Gate durchführen und Ergebnisse in Plan 12 / STATE.md eintragen.
+2. PR `platform/windows/macos-parity-p1` → `platform/windows/v2-clean` öffnen; erst nach Review + grünem CI mergen (kein Self-Merge).
 
 ---
 
