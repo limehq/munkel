@@ -68,6 +68,8 @@ Phase 1 is feature-complete for day-to-day messaging:
 - `munkel` CLI integration over a Windows named pipe.
 - Cross-platform crypto interop with the macOS app and server reference.
 - Menu: leaving a circle now shows a confirmation dialog to prevent accidental exits.
+- Menu: recipient picker uses avatar chips (globe = everyone, one chip per member), matching the macOS `TargetChip` design.
+- Menu: opt-in "Launch at login" toggle in Settings (default off; never auto-registers, unlike the macOS release).
 
 GitHub login is optional. The app still works with a manual display name and
 joined circles even when no GitHub account is connected. A real
