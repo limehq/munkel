@@ -1,4 +1,4 @@
-import { describe, expect, it, afterEach } from 'bun:test';
+import { describe, expect, it, afterEach, beforeEach } from 'bun:test';
 import React from 'react';
 import { create, act } from 'react-test-renderer';
 import { TickerText } from '../TickerText';
@@ -277,5 +277,118 @@ describe('TickerText re-render with the same text', () => {
 		await act(async () => {
 			root!.unmount();
 		});
+	});
+});
+
+/** Minimal fake ResizeObserver: records instances and lets a test fire the
+ * callback on demand (no real layout engine in react-test-renderer). */
+class FakeResizeObserver {
+	static instances: FakeResizeObserver[] = [];
+	disconnected = false;
+	private readonly cb: () => void;
+	constructor(cb: () => void) {
+		this.cb = cb;
+		FakeResizeObserver.instances.push(this);
+	}
+	observe() {}
+	disconnect() {
+		this.disconnected = true;
+	}
+	fire() {
+		this.cb();
+	}
+}
+
+describe('TickerText re-measures on container resize (ResizeObserver)', () => {
+	let originalResizeObserver: unknown;
+
+	beforeEach(() => {
+		originalResizeObserver = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+		FakeResizeObserver.instances = [];
+		(globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = FakeResizeObserver;
+		// prefers-reduced-motion must read false so the scroll path is eligible
+		// (the observer re-measure only matters for the animated variant).
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	afterEach(() => {
+		(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+	});
+
+	// A single shared mock node backs both the container ref (reads clientWidth)
+	// and the text-span ref (reads scrollWidth); mutating clientWidth then firing
+	// the observer simulates a container-width change.
+	function sharedNode(clientWidth: number, scrollWidth: number) {
+		const node = { clientWidth, scrollWidth };
+		return { node, createNodeMock: () => node };
+	}
+
+	it('flips a static (fitting) ticker to scrolling when the container shrinks below the text width', async () => {
+		const { node, createNodeMock } = sharedNode(300, 100);
+		await act(async () => {
+			currentRoot = create(
+				<TickerText text="a message that fits at 300px but not at 50px" />,
+				{ createNodeMock },
+			);
+		});
+		expect(tickerClasses(currentRoot!)).not.toContain('ticker-scrolling');
+
+		node.clientWidth = 50; // shrink so the 100px text now overflows
+		await act(async () => {
+			FakeResizeObserver.instances[0]!.fire();
+		});
+
+		expect(tickerClasses(currentRoot!)).toContain('ticker-overflowing');
+		expect(tickerClasses(currentRoot!)).toContain('ticker-scrolling');
+	});
+
+	it('flips a scrolling ticker back to static when the container grows past the text width', async () => {
+		const { node, createNodeMock } = sharedNode(50, 100);
+		await act(async () => {
+			currentRoot = create(
+				<TickerText text="a message wider than the initial 50px container" />,
+				{ createNodeMock },
+			);
+		});
+		expect(tickerClasses(currentRoot!)).toContain('ticker-scrolling');
+
+		node.clientWidth = 300; // grow so the text now fits
+		await act(async () => {
+			FakeResizeObserver.instances[0]!.fire();
+		});
+
+		expect(tickerClasses(currentRoot!)).not.toContain('ticker-overflowing');
+		expect(tickerClasses(currentRoot!)).not.toContain('ticker-scrolling');
+	});
+
+	it('does not re-render when the resize does not change the overflow status', async () => {
+		const { node, createNodeMock } = sharedNode(50, 100);
+		await act(async () => {
+			currentRoot = create(<TickerText text="still overflowing after a tiny resize" />, { createNodeMock });
+		});
+		expect(tickerClasses(currentRoot!)).toContain('ticker-scrolling');
+
+		// Shrink further — still overflowing, so the derived class set is unchanged.
+		node.clientWidth = 40;
+		await act(async () => {
+			FakeResizeObserver.instances[0]!.fire();
+		});
+		expect(tickerClasses(currentRoot!)).toContain('ticker-scrolling');
+	});
+
+	it('disconnects the observer on unmount', async () => {
+		const { createNodeMock } = sharedNode(300, 100);
+		await act(async () => {
+			currentRoot = create(<TickerText text="short" />, { createNodeMock });
+		});
+		const observer = FakeResizeObserver.instances[0]!;
+		expect(observer.disconnected).toBe(false);
+
+		await act(async () => {
+			currentRoot!.unmount();
+		});
+		currentRoot = undefined;
+
+		expect(observer.disconnected).toBe(true);
 	});
 });

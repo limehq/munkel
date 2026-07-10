@@ -947,8 +947,15 @@ select {
 
 /* `prefers-reduced-motion` (or an environment without `matchMedia`) skips
    the scroll animation entirely (see TickerText's `reduced` state) and
-   truncates with an ellipsis instead — no fade masks on a static line. */
-.ticker.ticker-static-truncated {
+   truncates with an ellipsis instead — no fade masks on a static line.
+   The ellipsis must live on the element that directly contains the text:
+   `text-overflow` has no effect across an `inline-block` child, so the
+   truncation is applied to `.ticker-text` (switched to `display: block` so
+   it fills the container's width and clips there), not the `.ticker`
+   wrapper. */
+.ticker.ticker-static-truncated .ticker-text {
+	display: block;
+	overflow: hidden;
 	text-overflow: ellipsis;
 }
 

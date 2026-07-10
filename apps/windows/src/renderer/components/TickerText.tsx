@@ -113,6 +113,29 @@ export function TickerText({ text, className, onFinished }: TickerTextProps) {
 		return () => clearTimeout(doneTimer);
 	}, [scrolling, overflowPx]);
 
+	// Re-measure overflow when the container width (or font metrics that reflow
+	// the text) changes — the initial `useLayoutEffect` only measures on
+	// mount/text-change, so a window resize, display-scaling change, or font
+	// swap would otherwise leave a now-overflowing message rendered static (or
+	// a now-fitting one still scroll-classed). The observer only updates
+	// `overflowPx`; it deliberately does NOT reset `finished`/`scrolling`, so a
+	// resize can't restart the standstill or re-fire the one-shot onFinished
+	// (its `finishedRef` guard still holds). Guarded for runtimes without
+	// ResizeObserver (the layout-effect measurement remains the baseline there).
+	useEffect(() => {
+		const container = containerRef.current;
+		if (!container || typeof ResizeObserver === 'undefined') return;
+		const observer = new ResizeObserver(() => {
+			const span = textRef.current;
+			if (!span) return;
+			const overflow = span.scrollWidth - container.clientWidth;
+			const next = overflow > 0 ? overflow : null;
+			setOverflowPx((prev) => (prev === next ? prev : next));
+		});
+		observer.observe(container);
+		return () => observer.disconnect();
+	}, []);
+
 	const offsetPx = scrolling && overflowPx !== null ? overflowPx + END_PADDING_PX : 0;
 	const durationS = overflowPx !== null ? (overflowPx + END_PADDING_PX) / PIXELS_PER_SECOND : 0;
 

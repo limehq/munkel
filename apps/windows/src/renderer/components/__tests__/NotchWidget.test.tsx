@@ -988,7 +988,12 @@ describe('NotchWidget history expand resize reporting (Iteration-8 review follow
 			chevron.props.onClick({ stopPropagation: () => {} });
 		});
 		nodeMock.offsetHeight = 340;
-		const observer = FakeResizeObserver.instances.at(-1)!;
+		// The `.notch-widget` resize observer is the only one still attached at
+		// this point: TickerText (rendered for the single-message full view)
+		// registers its OWN observer too, but that one was disconnected when the
+		// notch reopened into the history-list branch, so target the live one
+		// rather than `instances.at(-1)` (which would be the stale ticker one).
+		const observer = FakeResizeObserver.instances.find((o) => !o.disconnected)!;
 		await act(async () => {
 			observer.fire();
 			await wait(150);
