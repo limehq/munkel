@@ -950,6 +950,35 @@ select {
 	color: #ff6b6b;
 }
 
+/* "Sent to …" reply confirmation chip (mirrors macOS
+   MessageNotchContainer.swift's `sentConfirmation`): replaces the reply
+   field briefly after a successful send, before the field closes. */
+.sent-confirmation {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 0 4px;
+	font-size: 12px;
+	font-weight: 500;
+	color: rgba(255, 255, 255, 0.7);
+	animation: sent-confirmation-in 0.2s ease-out both;
+}
+
+.sent-confirmation-check {
+	font-size: 12px;
+}
+
+@keyframes sent-confirmation-in {
+	from {
+		opacity: 0;
+		transform: translateY(-2px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
 @media (prefers-reduced-motion: reduce) {
 	.notch-widget,
 	.notch-widget.notch-full,
@@ -962,6 +991,10 @@ select {
 	.notch-ring circle.progress {
 		animation: none;
 		stroke-dashoffset: calc(var(--ring-circumference) / 2);
+	}
+
+	.sent-confirmation {
+		animation: none;
 	}
 
 	/* Plan 12 P3.5: the slide-in and pulse-ring are purely decorative —

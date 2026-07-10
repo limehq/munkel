@@ -1375,3 +1375,224 @@ describe('NotchWidget reply character limit (2048, Plan 12)', () => {
 		});
 	});
 });
+
+describe('NotchWidget "Sent to …" reply confirmation (Plan 12)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let originalResizeObserver: unknown;
+	let timers: FakeTimers;
+
+	function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
+		return {
+			sender: 'Alice',
+			senderMemberId: 'alice-id',
+			text: 'Hello from Alice',
+			isDirect: false,
+			group: 'test-circle',
+			groupColor: '#3b82f6',
+			receivedAt: new Date(Date.now()).toISOString(),
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		timers = new FakeTimers();
+		timers.install();
+		electronApi = createMockElectronApi();
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = {
+			electronAPI: electronApi,
+		};
+		(globalThis as unknown as { navigator: unknown }).navigator = {
+			clipboard: { writeText: (_text: string) => Promise.resolve() },
+		};
+		originalResizeObserver = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+		delete (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+	});
+
+	afterEach(() => {
+		timers.restore();
+		delete (globalThis as unknown as { window?: unknown }).window;
+		delete (globalThis as unknown as { navigator?: unknown }).navigator;
+		(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+	});
+
+	async function renderWidget() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<NotchWidget />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	async function openReplyForNewest(root: ReturnType<typeof create>) {
+		const replyButton = root.root.findByProps({ 'aria-label': 'Reply' });
+		await act(async () => {
+			replyButton.props.onClick({ stopPropagation: () => {} });
+		});
+	}
+
+	function replyInput(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ className: 'frosted-field' });
+	}
+
+	function sendButton(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ title: 'Send' });
+	}
+
+	function findSentConfirmation(root: ReturnType<typeof create>) {
+		const matches = root.root.findAll(
+			(node) =>
+				typeof node.props['data-testid'] === 'string' &&
+				(node.props['data-testid'] as string).startsWith('sent-confirmation-'),
+		);
+		return matches[0];
+	}
+
+	it('shows a "Sent to all" confirmation chip after a successful broadcast reply, replacing the reply field', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ isDirect: false }));
+		});
+		await openReplyForNewest(root);
+
+		await act(async () => {
+			replyInput(root).props.onChange({ target: { value: 'hi everyone' } });
+		});
+		await act(async () => {
+			sendButton(root).props.onClick();
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const chip = findSentConfirmation(root);
+		expect(chip).toBeDefined();
+		expect(chip!.props.children).toEqual([expect.anything(), 'Sent to all']);
+		expect(chip!.props.role).toBe('status');
+		expect(chip!.props['aria-live']).toBe('polite');
+		// The reply field itself is gone while the chip is shown.
+		expect(root.root.findAllByProps({ title: 'Send' }).length).toBe(0);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('shows a "Sent to <sender>" confirmation chip after a successful private reply', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ isDirect: true, sender: 'Alice' }));
+		});
+		await openReplyForNewest(root);
+
+		await act(async () => {
+			replyInput(root).props.onChange({ target: { value: 'just for you' } });
+		});
+		await act(async () => {
+			sendButton(root).props.onClick();
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const chip = findSentConfirmation(root);
+		expect(chip).toBeDefined();
+		expect(chip!.props.children).toEqual([expect.anything(), 'Sent to Alice']);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('auto-dismisses the confirmation chip and closes the reply field after the dwell time', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ isDirect: false }));
+		});
+		await openReplyForNewest(root);
+
+		await act(async () => {
+			replyInput(root).props.onChange({ target: { value: 'hi everyone' } });
+		});
+		await act(async () => {
+			sendButton(root).props.onClick();
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		expect(findSentConfirmation(root)).toBeDefined();
+
+		await act(async () => {
+			timers.advance(1_600);
+		});
+
+		expect(findSentConfirmation(root)).toBeUndefined();
+		// The reply field did not reappear either — the reply is fully closed.
+		expect(root.root.findAllByProps({ title: 'Send' }).length).toBe(0);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('does not show a confirmation chip when the send fails, and keeps the reply field open with the error', async () => {
+		const root = await renderWidget();
+		electronApi.sendChat = (_code: string, _text: string, _to?: string) =>
+			Promise.resolve({ ok: false, error: 'Circle offline — reply not sent.' });
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ isDirect: false }));
+		});
+		await openReplyForNewest(root);
+
+		await act(async () => {
+			replyInput(root).props.onChange({ target: { value: 'hi everyone' } });
+		});
+		await act(async () => {
+			sendButton(root).props.onClick();
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(findSentConfirmation(root)).toBeUndefined();
+		// The reply field is still there (not replaced by a chip).
+		expect(root.root.findAllByProps({ title: 'Send' }).length).toBe(1);
+		expect(root.root.findByProps({ className: 'reply-error' })).toBeDefined();
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('clears a pending confirmation chip when a new message arrives', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ isDirect: false, text: 'first' }));
+		});
+		await openReplyForNewest(root);
+		await act(async () => {
+			replyInput(root).props.onChange({ target: { value: 'hi everyone' } });
+		});
+		await act(async () => {
+			sendButton(root).props.onClick();
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		expect(findSentConfirmation(root)).toBeDefined();
+
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ isDirect: false, text: 'second' }));
+		});
+
+		expect(findSentConfirmation(root)).toBeUndefined();
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+});

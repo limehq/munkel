@@ -27,6 +27,15 @@ const RESIZE_REPORT_DEBOUNCE_MS = 80;
 // cooldown absorbs (see hover-copy-shortcut.ts).
 const HOVER_COPY_PING_THROTTLE_MS = 1_000;
 
+// Duration the "Sent to …" confirmation chip (Plan 12, mirrors macOS
+// `MessageNotchContainer.swift`'s `sentConfirmation`) stays visible after a
+// reply send succeeds, before the reply field closes. macOS schedules the
+// whole notch to hide 1.2s after `replyWasSent()`; Windows only owns closing
+// the reply field here (the notch's own FULL→PEEK→RETRACTED timers, already
+// running independently, govern the notch's own retraction), so a slightly
+// longer dwell gives the confirmation text time to actually be read.
+const SENT_CONFIRMATION_MS = 1_500;
+
 export default function NotchWidget() {
 	const { sendChat } = useAppStore();
 
@@ -36,6 +45,27 @@ export default function NotchWidget() {
 	const [error, setError] = useState<string | null>(null);
 	const replyInputRef = useRef<HTMLInputElement>(null);
 	const widgetRef = useRef<HTMLDivElement>(null);
+
+	// "Sent to …" confirmation chip (macOS `sentConfirmation`). Set on a
+	// successful reply send; rendered in place of the reply field for the
+	// entry it belongs to, then auto-dismissed (which also closes the reply
+	// field) after SENT_CONFIRMATION_MS.
+	const [sentConfirmation, setSentConfirmation] = useState<{ entryId: string; label: string } | null>(null);
+	const sentConfirmationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+	const clearSentConfirmation = useCallback(() => {
+		if (sentConfirmationTimerRef.current) {
+			clearTimeout(sentConfirmationTimerRef.current);
+			sentConfirmationTimerRef.current = null;
+		}
+		setSentConfirmation(null);
+	}, []);
+
+	useEffect(() => {
+		return () => {
+			if (sentConfirmationTimerRef.current) clearTimeout(sentConfirmationTimerRef.current);
+		};
+	}, []);
 
 	// Hover-"C" copy (Plan 12 P3.2). `notchHovered` tracks whether the pointer
 	// is currently over the notch surface; `hoveredEntryId` tracks which
@@ -113,6 +143,7 @@ export default function NotchWidget() {
 	const handleNotchHide = useCallback(() => {
 		setReplyText('');
 		setError(null);
+		clearSentConfirmation();
 		// The window is hiding — no mouseleave will ever arrive for the
 		// pointer that may have armed the hover-copy shortcut, so reset the
 		// hover state here (the main process also disarms on its own 'hide'
@@ -123,7 +154,7 @@ export default function NotchWidget() {
 		// (macOS parity: `historyExpanded` is a transient view toggle, not
 		// persisted per message).
 		setExpandedHistoryIds(new Set());
-	}, []);
+	}, [clearSentConfirmation]);
 	const lifecycle = useNotchLifecycle({ onNotchHide: handleNotchHide });
 	// Pointer-down position on the message body, so a click that was really a
 	// drag-to-select gesture does not open the reply field (see openReply).
@@ -275,6 +306,7 @@ export default function NotchWidget() {
 			// A new message makes any in-flight reply text/context stale.
 			setReplyText('');
 			setError(null);
+			clearSentConfirmation();
 		});
 		const removeUpdate = window.electronAPI.onNotchUpdate((data) => {
 			setReplyPrivate(data.isDirect);
@@ -283,7 +315,7 @@ export default function NotchWidget() {
 			removeMessage();
 			removeUpdate();
 		};
-	}, [onNotchMessage]);
+	}, [onNotchMessage, clearSentConfirmation]);
 
 	useEffect(() => {
 		if (!newest) return;
@@ -359,7 +391,22 @@ export default function NotchWidget() {
 				return; // keep text, leave field open
 			}
 			setReplyText('');
-			closeReply();
+			// Show the "Sent to …" chip in place of the reply field, then close
+			// the reply field once it's had time to be read (macOS parity — see
+			// SENT_CONFIRMATION_MS above). `recipient.to !== undefined` is the
+			// same private/broadcast distinction `resolveReplyRecipient` already
+			// resolved for the send itself, so the label can't disagree with
+			// where the reply actually went.
+			if (sentConfirmationTimerRef.current) clearTimeout(sentConfirmationTimerRef.current);
+			setSentConfirmation({
+				entryId: entry.id,
+				label: recipient.to !== undefined ? `Sent to ${entry.sender}` : 'Sent to all',
+			});
+			sentConfirmationTimerRef.current = setTimeout(() => {
+				sentConfirmationTimerRef.current = null;
+				setSentConfirmation(null);
+				closeReply();
+			}, SENT_CONFIRMATION_MS);
 		} finally {
 			setSending(false);
 		}
@@ -467,43 +514,55 @@ export default function NotchWidget() {
 				</div>
 
 				{replying && (
-					<>
-						<div className="reply-field">
-							<button
-								className="channel-toggle"
-								onClick={() => setReplyPrivate(!replyPrivate)}
-								title={replyPrivate ? 'Private reply' : 'Reply to all'}
-							>
-								{replyPrivate ? '🔒' : '🌐'}
-							</button>
-							<input
-								ref={replyInputRef}
-								className="frosted-field"
-								placeholder={replyPrivate ? `Private to ${entry.sender}…` : 'Reply to all…'}
-								value={replyText}
-								maxLength={MAX_MESSAGE_CHARS}
-								onChange={(e) => {
-									// 2048-char clamp (Plan 12 "Menu: message character
-									// limit"), mirroring macOS `MessageLimits.maxCharacters`.
-									setReplyText(clampMessageText(e.target.value));
-									if (error) setError(null);
-								}}
-								onKeyDown={(e) => {
-									if (e.key === 'Enter') void sendReply(entry);
-									if (e.key === 'Escape') closeReply();
-								}}
-							/>
-							<button
-								className="icon-button"
-								disabled={!replyText.trim() || sending}
-								onClick={() => void sendReply(entry)}
-								title="Send"
-							>
-								➤
-							</button>
+					sentConfirmation && sentConfirmation.entryId === entry.id ? (
+						<div
+							className="sent-confirmation"
+							data-testid={`sent-confirmation-${entry.id}`}
+							role="status"
+							aria-live="polite"
+						>
+							<span className="sent-confirmation-check" aria-hidden="true">✓</span>
+							{sentConfirmation.label}
 						</div>
-						{error && <p className="reply-error">{error}</p>}
-					</>
+					) : (
+						<>
+							<div className="reply-field">
+								<button
+									className="channel-toggle"
+									onClick={() => setReplyPrivate(!replyPrivate)}
+									title={replyPrivate ? 'Private reply' : 'Reply to all'}
+								>
+									{replyPrivate ? '🔒' : '🌐'}
+								</button>
+								<input
+									ref={replyInputRef}
+									className="frosted-field"
+									placeholder={replyPrivate ? `Private to ${entry.sender}…` : 'Reply to all…'}
+									value={replyText}
+									maxLength={MAX_MESSAGE_CHARS}
+									onChange={(e) => {
+										// 2048-char clamp (Plan 12 "Menu: message character
+										// limit"), mirroring macOS `MessageLimits.maxCharacters`.
+										setReplyText(clampMessageText(e.target.value));
+										if (error) setError(null);
+									}}
+									onKeyDown={(e) => {
+										if (e.key === 'Enter') void sendReply(entry);
+										if (e.key === 'Escape') closeReply();
+									}}
+								/>
+								<button
+									className="icon-button"
+									disabled={!replyText.trim() || sending}
+									onClick={() => void sendReply(entry)}
+									title="Send"
+								>
+									➤
+								</button>
+							</div>
+							{error && <p className="reply-error">{error}</p>}
+						</>
+					)
 				)}
 			</div>
 		);
