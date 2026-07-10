@@ -2,11 +2,13 @@ import { describe, expect, it } from 'bun:test';
 import {
 	CLIPBOARD_TEMP_PREFIX,
 	MAX_CLIPBOARD_PIXELS,
+	SWEEP_MIN_AGE_MS,
 	cleanupClipboardTempPaths,
 	isClipboardTempPath,
 	saveClipboardImageToTemp,
 	sweepClipboardTempFiles,
 	type ClipboardImageLike,
+	type CleanupDeps,
 } from '../clipboard-image-save';
 
 function mockImage(overrides: Partial<ClipboardImageLike> = {}): ClipboardImageLike {
@@ -90,6 +92,16 @@ describe('saveClipboardImageToTemp (Plan 12 P3.4 hardening)', () => {
 		expect(await saveClipboardImageToTemp(mockImage({ getSize: () => ({ width: 100, height: -1 }) }), deps)).toBeNull();
 	});
 
+	it('rejects NaN/Infinity dimensions (NaN comparisons would sail past a bare threshold)', async () => {
+		const { deps, writes } = mockDeps();
+		expect(await saveClipboardImageToTemp(mockImage({ getSize: () => ({ width: NaN, height: NaN }) }), deps)).toBeNull();
+		expect(await saveClipboardImageToTemp(mockImage({ getSize: () => ({ width: 100, height: NaN }) }), deps)).toBeNull();
+		expect(
+			await saveClipboardImageToTemp(mockImage({ getSize: () => ({ width: Infinity, height: 1 }) }), deps),
+		).toBeNull();
+		expect(writes).toEqual([]);
+	});
+
 	it('returns null (not a throw) when the temp-file write fails', async () => {
 		const { deps } = mockDeps();
 		deps.writeFile = () => Promise.reject(new Error('disk full'));
@@ -111,57 +123,150 @@ describe('isClipboardTempPath', () => {
 	});
 });
 
-describe('cleanupClipboardTempPaths (post-successful-send)', () => {
-	it('deletes only the clipboard temp files among the sent paths', async () => {
-		const deleted: string[] = [];
-		await cleanupClipboardTempPaths(
-			[
-				`/tmp/${CLIPBOARD_TEMP_PREFIX}1.png`,
-				'C:\\Users\\x\\Pictures\\holiday.png', // dialog-picked: must survive
-				`/tmp/${CLIPBOARD_TEMP_PREFIX}2.png`,
-			],
-			(path) => {
-				deleted.push(path);
-				return Promise.resolve();
-			},
-		);
-
-		expect(deleted).toEqual([`/tmp/${CLIPBOARD_TEMP_PREFIX}1.png`, `/tmp/${CLIPBOARD_TEMP_PREFIX}2.png`]);
-	});
-
-	it('swallows unlink errors and continues with the remaining files', async () => {
-		const deleted: string[] = [];
-		await cleanupClipboardTempPaths(
-			[`/tmp/${CLIPBOARD_TEMP_PREFIX}1.png`, `/tmp/${CLIPBOARD_TEMP_PREFIX}2.png`],
-			(path) => {
-				if (path.endsWith('1.png')) return Promise.reject(new Error('locked'));
-				deleted.push(path);
-				return Promise.resolve();
-			},
-		);
-
-		expect(deleted).toEqual([`/tmp/${CLIPBOARD_TEMP_PREFIX}2.png`]);
-	});
-});
-
-describe('sweepClipboardTempFiles (startup safety net)', () => {
-	it('deletes leftover munkel-clipboard-*.png files and nothing else', async () => {
-		const deleted: string[] = [];
-		await sweepClipboardTempFiles({
-			tmpdir: () => '/tmp',
-			join: (...parts) => parts.join('/'),
-			readdir: () =>
-				Promise.resolve([
-					`${CLIPBOARD_TEMP_PREFIX}stale.png`,
-					'unrelated.png',
-					`${CLIPBOARD_TEMP_PREFIX}stale2.png`,
-					`${CLIPBOARD_TEMP_PREFIX}not-a-png.txt`,
-				]),
+function mockCleanupDeps(): { deleted: string[]; deps: CleanupDeps } {
+	const deleted: string[] = [];
+	return {
+		deleted,
+		deps: {
 			unlink: (path) => {
 				deleted.push(path);
 				return Promise.resolve();
 			},
-		});
+			tmpdir: () => '/tmp',
+			// POSIX-ish resolve for tests: leaves absolute paths alone but
+			// collapses `.` / `..` segments, mirroring what node's resolve
+			// does for the containment check.
+			resolve: (...parts: string[]) => {
+				const joined = parts.join('/');
+				const out: string[] = [];
+				for (const seg of joined.split('/')) {
+					if (seg === '' || seg === '.') continue;
+					if (seg === '..') out.pop();
+					else out.push(seg);
+				}
+				return '/' + out.join('/');
+			},
+			sep: '/',
+		},
+	};
+}
+
+describe('cleanupClipboardTempPaths (post-successful-send, review MAJOR Datei-Lösch-Primitiv)', () => {
+	it('deletes only owned clipboard temp files among the sent paths', async () => {
+		const { deps, deleted } = mockCleanupDeps();
+		const owned = new Set([`/tmp/${CLIPBOARD_TEMP_PREFIX}1.png`, `/tmp/${CLIPBOARD_TEMP_PREFIX}2.png`]);
+
+		await cleanupClipboardTempPaths(
+			[
+				`/tmp/${CLIPBOARD_TEMP_PREFIX}1.png`,
+				'/home/x/Pictures/holiday.png', // dialog-picked: must survive
+				`/tmp/${CLIPBOARD_TEMP_PREFIX}2.png`,
+			],
+			owned,
+			deps,
+		);
+
+		expect(deleted).toEqual([`/tmp/${CLIPBOARD_TEMP_PREFIX}1.png`, `/tmp/${CLIPBOARD_TEMP_PREFIX}2.png`]);
+		expect(owned.size).toBe(0); // deleted paths leave the owned set
+	});
+
+	it('NEVER deletes a foreign path with a matching basename that this instance did not create', async () => {
+		const { deps, deleted } = mockCleanupDeps();
+		// Attack from the review: the renderer passes a user file it renamed
+		// (or that legitimately exists) to match the temp-file naming scheme.
+		const evidence = `/home/x/Documents/${CLIPBOARD_TEMP_PREFIX}evidence.png`;
+
+		await cleanupClipboardTempPaths([evidence], new Set<string>(), deps);
+
+		expect(deleted).toEqual([]);
+	});
+
+	it('NEVER deletes a path in the tmpdir that this instance did not create (other instance/user file)', async () => {
+		const { deps, deleted } = mockCleanupDeps();
+		// Right directory, right naming scheme — but created by someone else
+		// (another running instance): not in the owned set, not deletable.
+		await cleanupClipboardTempPaths([`/tmp/${CLIPBOARD_TEMP_PREFIX}other-instance.png`], new Set<string>(), deps);
+
+		expect(deleted).toEqual([]);
+	});
+
+	it('rejects traversal forms even for owned-set entries (containment belt-and-suspenders)', async () => {
+		const { deps, deleted } = mockCleanupDeps();
+		// Paranoia case: entries that somehow landed in the owned set but
+		// resolve outside the tmpdir must still be refused.
+		const traversal = `/tmp/../home/x/${CLIPBOARD_TEMP_PREFIX}evil.png`;
+		const foreignAbsolute = `/home/x/${CLIPBOARD_TEMP_PREFIX}evil.png`;
+		const owned = new Set([traversal, foreignAbsolute]);
+
+		await cleanupClipboardTempPaths([traversal, foreignAbsolute], owned, deps);
+
+		expect(deleted).toEqual([]);
+	});
+
+	it('rejects owned-set entries whose basename does not match the naming scheme', async () => {
+		const { deps, deleted } = mockCleanupDeps();
+		const weird = '/tmp/some-other-file.png';
+		await cleanupClipboardTempPaths([weird], new Set([weird]), deps);
+
+		expect(deleted).toEqual([]);
+	});
+
+	it('swallows unlink errors, keeps the path owned, and continues with the remaining files', async () => {
+		const { deps, deleted } = mockCleanupDeps();
+		const first = `/tmp/${CLIPBOARD_TEMP_PREFIX}1.png`;
+		const second = `/tmp/${CLIPBOARD_TEMP_PREFIX}2.png`;
+		const owned = new Set([first, second]);
+		deps.unlink = (path) => {
+			if (path === first) return Promise.reject(new Error('locked'));
+			deleted.push(path);
+			return Promise.resolve();
+		};
+
+		await cleanupClipboardTempPaths([first, second], owned, deps);
+
+		expect(deleted).toEqual([second]);
+		expect(owned.has(first)).toBe(true); // failed delete stays owned
+		expect(owned.has(second)).toBe(false);
+	});
+});
+
+describe('sweepClipboardTempFiles (startup safety net)', () => {
+	const NOW = 10_000_000_000;
+	const OLD = NOW - SWEEP_MIN_AGE_MS - 1;
+	const FRESH = NOW - 1_000;
+
+	function sweepDeps(files: Record<string, number>, deleted: string[]) {
+		return {
+			tmpdir: () => '/tmp',
+			join: (...parts: string[]) => parts.join('/'),
+			readdir: () => Promise.resolve(Object.keys(files)),
+			stat: (path: string) => {
+				const name = path.split('/').pop() ?? '';
+				if (!(name in files)) return Promise.reject(new Error('ENOENT'));
+				return Promise.resolve({ mtimeMs: files[name] });
+			},
+			unlink: (path: string) => {
+				deleted.push(path);
+				return Promise.resolve();
+			},
+			now: () => NOW,
+		};
+	}
+
+	it('deletes only old munkel-clipboard-*.png files — never fresh ones (possible live instance)', async () => {
+		const deleted: string[] = [];
+		await sweepClipboardTempFiles(
+			sweepDeps(
+				{
+					[`${CLIPBOARD_TEMP_PREFIX}stale.png`]: OLD,
+					'unrelated.png': OLD,
+					[`${CLIPBOARD_TEMP_PREFIX}fresh.png`]: FRESH,
+					[`${CLIPBOARD_TEMP_PREFIX}stale2.png`]: OLD,
+					[`${CLIPBOARD_TEMP_PREFIX}not-a-png.txt`]: OLD,
+				},
+				deleted,
+			),
+		);
 
 		expect(deleted).toEqual([
 			`/tmp/${CLIPBOARD_TEMP_PREFIX}stale.png`,
@@ -169,12 +274,13 @@ describe('sweepClipboardTempFiles (startup safety net)', () => {
 		]);
 	});
 
-	it('never throws — readdir and unlink failures are swallowed', async () => {
+	it('never throws — readdir, stat, and unlink failures are swallowed', async () => {
 		await expect(
 			sweepClipboardTempFiles({
 				tmpdir: () => '/tmp',
 				join: (...parts) => parts.join('/'),
 				readdir: () => Promise.reject(new Error('EACCES')),
+				stat: () => Promise.reject(new Error('ENOENT')),
 				unlink: () => Promise.reject(new Error('locked')),
 			}),
 		).resolves.toBeUndefined();
@@ -184,6 +290,7 @@ describe('sweepClipboardTempFiles (startup safety net)', () => {
 				tmpdir: () => '/tmp',
 				join: (...parts) => parts.join('/'),
 				readdir: () => Promise.resolve([`${CLIPBOARD_TEMP_PREFIX}x.png`]),
+				stat: () => Promise.resolve({ mtimeMs: 0 }),
 				unlink: () => Promise.reject(new Error('locked')),
 			}),
 		).resolves.toBeUndefined();

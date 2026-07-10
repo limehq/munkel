@@ -108,19 +108,32 @@ export default function PaletteWindow() {
 	// preventDefault must be called synchronously (before the async image
 	// fetch can resolve), so if the fetch then returns null — main-process
 	// save failure, sender-guard rejection, or an image the pixel cap
-	// rejected — the default paste can no longer happen. The clipboard's
-	// text (captured synchronously below) is appended manually in that
-	// case, so a mixed-content clipboard or a failed image save never
-	// silently swallows the user's paste.
+	// rejected — the default paste can no longer happen. In that FAILURE
+	// case the clipboard's text (captured synchronously below, together
+	// with the caret position) is inserted manually at the caret so the
+	// paste is never silently swallowed. When the image attach SUCCEEDS,
+	// the text component of a mixed image+text clipboard (e.g. copied from
+	// Word) is deliberately dropped — the image is the paste's payload;
+	// attaching it AND pasting its serialized text form would duplicate
+	// the content.
 	async function handleMessagePaste(e: React.ClipboardEvent<HTMLInputElement>) {
 		if (!clipboardEventHasImage(e) || imagePaths.length >= MAX_IMAGES_PER_MESSAGE || sending) return;
 		const fallbackText = e.clipboardData?.getData('text/plain') ?? '';
+		// Caret capture must also be synchronous — after the await the input
+		// may have lost focus or moved. Missing selection info (never on a
+		// real input; possible with synthetic test events) appends instead.
+		const selStart = e.currentTarget?.selectionStart ?? null;
+		const selEnd = e.currentTarget?.selectionEnd ?? selStart;
 		e.preventDefault();
 		const path = await pasteClipboardImage();
 		if (path) {
 			setImagePaths((prev) => [...prev, path].slice(0, MAX_IMAGES_PER_MESSAGE));
 		} else if (fallbackText) {
-			setMessage((prev) => prev + fallbackText);
+			setMessage((prev) =>
+				selStart === null
+					? prev + fallbackText
+					: prev.slice(0, selStart) + fallbackText + prev.slice(selEnd ?? selStart),
+			);
 		}
 	}
 

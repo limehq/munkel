@@ -226,13 +226,18 @@ export default function MenuWindow() {
 	// `sending` guard) so an attachment can't slip into an album that is
 	// being cleared by an about-to-resolve successful send. If the image
 	// fetch returns null after preventDefault (save failure, pixel-cap
-	// rejection), the synchronously captured clipboard text is appended
-	// manually so the paste is never silently swallowed.
+	// rejection), the synchronously captured clipboard text is inserted
+	// manually at the (also synchronously captured) caret so the paste is
+	// never silently swallowed; on a SUCCESSFUL image attach the text
+	// component of a mixed image+text clipboard is deliberately dropped —
+	// the image is the paste's payload (see PaletteWindow's comment).
 	async function handleMessagePaste(code: string, e: React.ClipboardEvent<HTMLInputElement>) {
 		const current = imageAttachments[code] ?? [];
 		if (!clipboardEventHasImage(e) || current.length >= MAX_IMAGES_PER_MESSAGE) return;
 		if (sendingCirclesRef.current.has(code)) return;
 		const fallbackText = e.clipboardData?.getData('text/plain') ?? '';
+		const selStart = e.currentTarget?.selectionStart ?? null;
+		const selEnd = e.currentTarget?.selectionEnd ?? selStart;
 		e.preventDefault();
 		const path = await pasteClipboardImage();
 		if (path) {
@@ -241,7 +246,14 @@ export default function MenuWindow() {
 				[code]: [...(prev[code] ?? []), path].slice(0, MAX_IMAGES_PER_MESSAGE),
 			}));
 		} else if (fallbackText) {
-			setMessages((prev) => ({ ...prev, [code]: (prev[code] ?? '') + fallbackText }));
+			setMessages((prev) => {
+				const existing = prev[code] ?? '';
+				const next =
+					selStart === null
+						? existing + fallbackText
+						: existing.slice(0, selStart) + fallbackText + existing.slice(selEnd ?? selStart);
+				return { ...prev, [code]: next };
+			});
 		}
 	}
 
