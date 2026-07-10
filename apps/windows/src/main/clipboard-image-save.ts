@@ -162,6 +162,38 @@ export async function cleanupClipboardTempPaths(
 	}
 }
 
+/**
+ * FIFO cap on the owned-paths set tracked by `session-handlers.ts` (review
+ * INFO): a path only ever leaves that set via a successful send
+ * (`cleanupClipboardTempPaths` above) or this eviction, so repeated
+ * paste-without-send (attachment removed by hand, or simply never sent)
+ * would otherwise grow the set unbounded over a long-running session.
+ * Generous relative to any realistic paste-then-abandon rate — this exists
+ * purely to bound worst-case memory, not because legitimate usage would
+ * ever approach it.
+ */
+export const MAX_OWNED_CLIPBOARD_TEMP_PATHS = 200;
+
+/**
+ * Adds `tempPath` to the owned-paths set, evicting the single oldest entry
+ * first if the set is already at `MAX_OWNED_CLIPBOARD_TEMP_PATHS` (`Set`
+ * iterates in insertion order, so `values().next()` is the oldest surviving
+ * entry — FIFO). Eviction only ever shrinks THIS bookkeeping set; it can
+ * never grant deletion authority it didn't already have, and it can never
+ * revoke authority over a path that was legitimately deleted. An evicted
+ * path simply stops being eligible for `cleanupClipboardTempPaths`' fast
+ * post-send delete and falls back to the startup sweep instead (see the
+ * lifecycle doc above) — never left un-deletable forever, never made
+ * deletable by anything other than this instance having created it.
+ */
+export function addOwnedClipboardTempPath(ownedTempPaths: Set<string>, tempPath: string): void {
+	if (ownedTempPaths.size >= MAX_OWNED_CLIPBOARD_TEMP_PATHS && !ownedTempPaths.has(tempPath)) {
+		const oldest = ownedTempPaths.values().next().value;
+		if (oldest !== undefined) ownedTempPaths.delete(oldest);
+	}
+	ownedTempPaths.add(tempPath);
+}
+
 /** Minimum age before the startup sweep may delete a leftover temp file.
  * The sweep runs at startup, before this instance has created anything, so
  * every matching file is stale in principle — but another *running*

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'bun:test';
 import {
 	CLIPBOARD_TEMP_PREFIX,
 	MAX_CLIPBOARD_PIXELS,
+	MAX_OWNED_CLIPBOARD_TEMP_PATHS,
 	SWEEP_MIN_AGE_MS,
+	addOwnedClipboardTempPath,
 	cleanupClipboardTempPaths,
 	isClipboardTempPath,
 	saveClipboardImageToTemp,
@@ -294,5 +296,84 @@ describe('sweepClipboardTempFiles (startup safety net)', () => {
 				unlink: () => Promise.reject(new Error('locked')),
 			}),
 		).resolves.toBeUndefined();
+	});
+});
+
+describe('addOwnedClipboardTempPath (Iteration-7 review INFO: bounded owned-paths set)', () => {
+	function pathN(n: number): string {
+		return `/tmp/${CLIPBOARD_TEMP_PREFIX}${n}.png`;
+	}
+
+	it('adds paths normally while under the cap', () => {
+		const owned = new Set<string>();
+		addOwnedClipboardTempPath(owned, pathN(1));
+		addOwnedClipboardTempPath(owned, pathN(2));
+
+		expect([...owned]).toEqual([pathN(1), pathN(2)]);
+	});
+
+	it('evicts the single oldest entry (FIFO) once the cap is reached', () => {
+		const owned = new Set<string>();
+		for (let i = 0; i < MAX_OWNED_CLIPBOARD_TEMP_PATHS; i++) {
+			addOwnedClipboardTempPath(owned, pathN(i));
+		}
+		expect(owned.size).toBe(MAX_OWNED_CLIPBOARD_TEMP_PATHS);
+		expect(owned.has(pathN(0))).toBe(true);
+
+		// One more add past the cap must evict exactly the oldest (index 0),
+		// keeping every other previously-added path intact.
+		addOwnedClipboardTempPath(owned, pathN(MAX_OWNED_CLIPBOARD_TEMP_PATHS));
+
+		expect(owned.size).toBe(MAX_OWNED_CLIPBOARD_TEMP_PATHS);
+		expect(owned.has(pathN(0))).toBe(false);
+		expect(owned.has(pathN(1))).toBe(true);
+		expect(owned.has(pathN(MAX_OWNED_CLIPBOARD_TEMP_PATHS))).toBe(true);
+	});
+
+	it('never grows the set past the cap across many more adds than the cap', () => {
+		const owned = new Set<string>();
+		const total = MAX_OWNED_CLIPBOARD_TEMP_PATHS * 3;
+		for (let i = 0; i < total; i++) {
+			addOwnedClipboardTempPath(owned, pathN(i));
+		}
+
+		expect(owned.size).toBe(MAX_OWNED_CLIPBOARD_TEMP_PATHS);
+		// Only the most recent MAX_OWNED_CLIPBOARD_TEMP_PATHS paths survive.
+		for (let i = total - MAX_OWNED_CLIPBOARD_TEMP_PATHS; i < total; i++) {
+			expect(owned.has(pathN(i))).toBe(true);
+		}
+		expect(owned.has(pathN(0))).toBe(false);
+	});
+
+	it('re-adding an already-owned path is a no-op that does not evict anything', () => {
+		const owned = new Set<string>();
+		for (let i = 0; i < MAX_OWNED_CLIPBOARD_TEMP_PATHS; i++) {
+			addOwnedClipboardTempPath(owned, pathN(i));
+		}
+
+		addOwnedClipboardTempPath(owned, pathN(0)); // already present, at the cap
+
+		expect(owned.size).toBe(MAX_OWNED_CLIPBOARD_TEMP_PATHS);
+		expect(owned.has(pathN(0))).toBe(true);
+		expect(owned.has(pathN(1))).toBe(true); // nothing else was evicted
+	});
+
+	it('eviction never revokes deletion authority a real successful send already exercised', async () => {
+		// End-to-end sanity: cap eviction plus a later legitimate cleanup must
+		// never combine into deleting a path this instance did not create, and
+		// a path that was actually sent and cleaned up leaves the set exactly
+		// like an eviction would — the deletion-authority invariant
+		// (cleanupClipboardTempPaths' own tests above) is unaffected by this
+		// bounded-growth change.
+		const owned = new Set<string>();
+		addOwnedClipboardTempPath(owned, pathN(1));
+		addOwnedClipboardTempPath(owned, pathN(2));
+
+		const { deps, deleted } = mockCleanupDeps();
+		await cleanupClipboardTempPaths([pathN(1)], owned, deps);
+
+		expect(deleted).toEqual([pathN(1)]);
+		expect(owned.has(pathN(1))).toBe(false);
+		expect(owned.has(pathN(2))).toBe(true);
 	});
 });

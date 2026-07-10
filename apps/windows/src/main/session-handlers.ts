@@ -5,6 +5,7 @@ import path from 'node:path';
 import type { AppState } from './session-store';
 import type { GitHubLoginService } from './github-login';
 import {
+	addOwnedClipboardTempPath,
 	cleanupClipboardTempPaths,
 	saveClipboardImageToTemp,
 	sweepClipboardTempFiles,
@@ -124,8 +125,11 @@ export function registerSessionHandlers(
 			writeFile,
 		});
 		// Register the path as owned by this instance — the ONLY way a path
-		// becomes eligible for the post-send cleanup deletion above.
-		if (tempPath) ownedClipboardTempPaths.add(tempPath);
+		// becomes eligible for the post-send cleanup deletion above. Bounded
+		// FIFO cap (see addOwnedClipboardTempPath) so repeated
+		// paste-without-send over a long-running session can't grow this set
+		// unbounded.
+		if (tempPath) addOwnedClipboardTempPath(ownedClipboardTempPaths, tempPath);
 		return tempPath;
 	});
 
