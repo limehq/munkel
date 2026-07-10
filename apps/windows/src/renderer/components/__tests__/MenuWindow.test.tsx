@@ -1728,6 +1728,14 @@ describe('MenuWindow recipient avatar chips (P2.4)', () => {
 describe('MenuWindow copy circle code button', () => {
 	let electronApi: ReturnType<typeof createMockElectronApi>;
 	let clipboardCalls: string[];
+	// Unmounted in afterEach below: handleCopyCode arms a real 1500ms
+	// setTimeout (CODE_COPY_FEEDBACK_MS) on every successful copy. Most tests
+	// in this block never wait it out, so without an explicit unmount here
+	// the timer fires later against a still-mounted-but-out-of-scope
+	// CircleSection, outside any act() boundary — the exact "not wrapped in
+	// act(...)" warning this describe block used to produce. Unmounting runs
+	// CircleSection's cleanup effect, which clears the pending timer.
+	let root: ReturnType<typeof create> | undefined;
 
 	function twoCircleState(): StateUpdate {
 		return makeState([
@@ -1762,13 +1770,18 @@ describe('MenuWindow copy circle code button', () => {
 		};
 	});
 
-	afterEach(() => {
+	afterEach(async () => {
+		if (root) {
+			await act(async () => {
+				root!.unmount();
+			});
+			root = undefined;
+		}
 		delete (globalThis as unknown as { window?: unknown }).window;
 		delete (globalThis as unknown as { navigator?: unknown }).navigator;
 	});
 
 	async function renderMenu() {
-		let root: ReturnType<typeof create>;
 		await act(async () => {
 			root = create(
 				<AppProvider>
