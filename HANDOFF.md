@@ -2,12 +2,59 @@
 
 ## current_state
 
-- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `058fc81`).
+- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `fad3300`).
 - **Working directory:** sauber bis auf untracked `fp-notes/` (nie committen).
-- **Kontext:** P3-Slice (P3.2 Hover-"C"-Copy, P3.3 Unread-Dot, P3.7 Auto-Update-Toggle) implementiert, review-gehärtet und code-seitig PR-reif. Iteration 5 Review-Cycle: Erst-Review **BLOCK** (3 CRITICALs am `globalShortcut`-Lifecycle von P3.2) → Härtungs-Commits `6b1550e` / `bc24ed5` / `058fc81` → Re-Review Verdikt **SHIP-mit-Follow-ups**. Alle CRITICALs bestätigt geschlossen.
-- **Test-Stand:** `bun test` in `apps/windows`: **306 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
+- **Kontext:** P3-Slice 2 (P3.4 Clipboard-Bild-Paste, P3.5 Avatar-Animation) implementiert. Iteration 6 Review-Cycle: Erst-Review gegen `161d15a` **SHIP-mit-Follow-ups** (4 MAJORs: Clipboard-IPC ohne Sender-Guard/Size-Limit/Cleanup, Mouse-Leave-Race) → Härtungs-Commit `fad3300` schließt alle 4. **WICHTIG:** `fad3300` ist selbst noch nicht reviewt.
+- **Test-Stand:** `bun test` in `apps/windows`: **349 pass / 2 skip / 0 fail**; `bun run typecheck` clean.
 
 ## completed in dieser Session
+
+### Iteration 6 — P3.4 / P3.5 Review-Cycle (2026-07-10)
+
+Code-Änderungen auf `platform/windows/macos-parity-p1` für den zweiten P3-Slice der macOS-Feature-Parity.
+
+#### 1. P3.4 Clipboard image paste in palette and menu — DONE
+
+- **Commits:** `92f4340` (initial), `161d15a` (polish), `fad3300` (Härtung, unreviewt)
+- **Dateien:** `src/renderer/lib/clipboard-image.ts`, `src/renderer/components/PaletteWindow.tsx`, `src/renderer/components/MenuWindow.tsx`, `src/main/session-handlers.ts`, `src/shared/ipc-channels.ts`, `src/renderer/lib/__tests__/clipboard-image.test.ts`, `src/renderer/components/__tests__/PaletteWindow.test.tsx`, `src/renderer/components/__tests__/MenuWindow.test.tsx`
+- **Inhalt:** `Ctrl+V` in Palette- und Menu-Compose-Inputs erkennt Bilder per `clipboardData.types`; `save-clipboard-image` IPC schreibt `NativeImage` temporär als PNG und returned den Pfad im `select-images`-Format, sodass `sendImages` dieselben `imageCodec`-Limits anwendet. Härtung in `fad3300`: fail-closed Sender-Guard auf Palette+Menu, `MAX_CLIPBOARD_PIXELS`-Probe vor `toPNG()`, sofortiger Temp-Cleanup nach Send + Startup-Sweep für Leichen.
+
+#### 2. P3.5 Compact avatar entry animation + pulse — DONE
+
+- **Commits:** `baeb687` (initial), `41bd3a2` (mount-only pulse latch), `161d15a` (polish), `fad3300` (Härtung, unreviewt)
+- **Dateien:** `src/renderer/components/Avatar.tsx`, `src/renderer/styles/global.css`, `src/renderer/components/__tests__/Avatar.test.tsx`
+- **Inhalt:** CSS-only `avatar-slide-in` für jeden frisch gemounteten Avatar; `pulse` prop mount-only via `useState(pulse)` + self-clearing `setTimeout`, damit Re-renders während der `full`-Phase den Ring nicht neu starten. `prefers-reduced-motion: reduce` beachtet. Die Verdrahtung von `pulse` in `NotchWidget.tsx` ist absichtlich noch offen (außerhalb des P3.5-Scopes).
+
+#### Review-Verlauf
+
+- **Erster Review (gegen `161d15a`):** Verdikt **SHIP-mit-Follow-ups**. 4 MAJOR-Findings:
+  1. **Clipboard-IPC ohne Sender-Guard:** `save-clipboard-image` akzeptierte von jedem Renderer.
+  2. **Clipboard-Encode ohne Size-Limit:** `NativeImage.toPNG()` vor `imageCodec`-Prüfung.
+  3. **Temp-Cleanup fehlte:** Temp-Dateien aus Clipboard-Paste wurden nie gelöscht.
+  4. **Mouse-Leave-Race:** `setHoverCopy` resettete `active` vor dem Disarm.
+- **Härtung:** Commit `fad3300` — fail-closed Sender-Guard für Palette+Menu, `MAX_CLIPBOARD_PIXELS`-Probe vor Encode, Temp-Cleanup nach Send + Startup-Sweep, 300ms-Re-Arm-Cooldown, Latch-Semantik-Bugfix.
+- **Status:** `fad3300` ist **noch nicht reviewt** — Review-Scope der nächsten Iteration beginnt bei `161d15a`.
+
+#### Testzahlen
+
+- Nach P3.4 / P3.5: **332 pass / 2 skip / 0 fail**.
+- Nach Review-Härtung (Iteration 6, `fad3300`): **349 pass / 2 skip / 0 fail**; `bun run typecheck` grün.
+
+#### Verbleibende Follow-ups
+
+- **MINOR** `pulse` prop in `NotchWidget` verdrahten.
+- **INFO** `copyText` setzt `interacted` nicht — Produktentscheidung.
+- Manual QA: Clipboard-Bild-Paste in Palette/Menu, Text-Paste unberührt, Oversized-Fehlerpfad.
+- Manual QA: Avatar slide-in + pulse visuell.
+
+#### next_action
+
+1. Review von `fad3300`.
+2. `pulse`-Verdrahtung + Iteration-5/6-Follow-ups.
+3. P3.1/P3.6 implementieren.
+4. Manuelles QA-Gate.
+5. Open Questions 4/5 klären.
+6. PR `platform/windows/macos-parity-p1` → `platform/windows/v2-clean` vorbereiten (kein Self-Merge).
 
 ### Iteration 5 — P3.2 / P3.3 / P3.7 Review-Cycle (2026-07-10)
 
@@ -196,8 +243,12 @@ Code-Änderungen auf `platform/windows/macos-parity-p1` nach dem adversarialen R
 
 ## next_action
 
-1. Manuelles QA-Gate durchführen und Ergebnisse in Plan 12 / STATE.md eintragen.
-2. PR `platform/windows/macos-parity-p1` → `platform/windows/v2-clean` öffnen; erst nach Review + grünem CI mergen (kein Self-Merge).
+1. Review von `fad3300` durchführen (Start-Scope `161d15a`).
+2. `pulse`-Verdrahtung in `NotchWidget` + verbleibende Iteration-5/6-Follow-ups.
+3. P3.1 (Rebindable global hotkey UI) und P3.6 (History expand/collapse) implementieren.
+4. Manuelles QA-Gate durchführen und Ergebnisse in Plan 12 / STATE.md eintragen.
+5. User-Entscheidungen zu Open Questions 4 + 5 einholen.
+6. PR `platform/windows/macos-parity-p1` → `platform/windows/v2-clean` öffnen; erst nach Review + grünem CI mergen (kein Self-Merge).
 
 ---
 

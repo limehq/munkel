@@ -199,7 +199,37 @@ Implemented on `platform/windows/macos-parity-p1` after the hover-copy follow-up
 - Manual QA: copy an image (e.g. Windows Snipping Tool, or copy an image from a browser) and paste it (Ctrl+V) into the palette compose field and into a circle's compose row in the menu; confirm the attachment chip appears and the album sends correctly. Paste plain text in both locations and confirm it is unaffected.
 - Manual QA: paste an oversized/exotic clipboard image and confirm the existing `imageCodec` failure path surfaces a user-facing error (same as an oversized dialog-selected file) rather than a silent failure.
 - Visual QA: confirm the avatar slide-in reads as polish, not distracting, across the notch history list, palette recipient list, and menu member chips.
-- **Not yet wired:** the `pulse` prop is implemented and tested in isolation but not yet connected to `NotchWidget`'s actual new-message arrival — a follow-up task should pass `pulse={entry.id === newest?.id}` (or similar, computed so it's only `true` on the render where that Avatar first mounts) to the notch's message-row `Avatar` once `NotchWidget.tsx` is back in scope.
+- **Not yet wired:** the `pulse` prop is implemented and tested in isolation but not yet connected to `NotchWidget`'s actual new-message arrival — a follow-up task should pass `pulse={entry.id === newest?.id}` (or similar, computed so it's only `true` on the render where that Avatar first mounts) to the notch's message-row `Avatar` once `NotchWidget.tsx` is back in scope. **This wiring is still open; additionally, the hardening commit `fad3300` that closed the Iteration 6 review findings is itself not yet reviewed.**
+
+#### P3.4 / P3.5 review cycle (Iteration 6, 2026-07-10)
+
+**Review-Verlauf: SHIP-mit-Follow-ups → Härtung (unreviewt)**
+
+- **Erst-Review (gegen Commit `161d15a`):** Verdikt **SHIP-mit-Follow-ups**. 4 MAJOR-Findings:
+  1. **Clipboard-IPC ohne Sender-Guard:** `save-clipboard-image` in `session-handlers.ts` akzeptierte von jedem Renderer; bei kompromittiertem Renderer hätte beliebiger Code Temp-Dateien schreiben können.
+  2. **Clipboard-Encode ohne Size-Limit:** `NativeImage.toPNG()` vor der `imageCodec`-Prüfung konnte riesige Bilder in Speicher/Temp zwingen.
+  3. **Temp-Cleanup fehlte:** Temp-Dateien aus dem Clipboard-Paste wurden nie gelöscht.
+  4. **Mouse-Leave-Race:** `setHoverCopy` setzte intern `active` zurück, bevor der Shortcut-Disarm verarbeitet war; schnelles Re-Enter konnte einen "disarmed aber noch aktiv"-Zustand erzeugen.
+- **Härtung:** Commit `fad3300` — fail-closed Sender-Guard für Palette+Menu, `MAX_CLIPBOARD_PIXELS`-Probe vor Encode, Temp-Cleanup nach erfolgreichem Send + Startup-Sweep, 300ms-Re-Arm-Cooldown, Latch-Semantik-Bugfix.
+- **Status:** `fad3300` ist **noch nicht reviewt** — der Review-Scope der nächsten Iteration beginnt bei `161d15a` und muss `fad3300` einschließen.
+
+**Feature-Commits:** `92f4340` (P3.4 initial), `baeb687` (P3.5 initial), `41bd3a2` (P3.5 mount-only pulse latch), `161d15a` (P3.4/P3.5 polish), `fad3300` (Iteration-6-Härtung, unreviewt).
+
+**Follow-ups aus dem Re-Review — Status nach der Folgesession (2026-07-10):**
+1. ✅ **MAJOR** Sender-Guard auf `save-clipboard-image` — fail-closed auf Palette- und Menu-Fenster; abgelehnte Calls loggen + returnieren `null`.
+2. ✅ **MAJOR** Size-Limit vor Encode — `MAX_CLIPBOARD_PIXELS`-Probe in Main vor `toPNG()`, Rückgabe eines typsicheren Fehlerobjekts an Renderer.
+3. ✅ **MAJOR** Temp-Cleanup — sofortiges `fs.unlink` nach erfolgreichem Send; Startup-Sweep für Leichen vorheriger Sessions.
+4. ✅ **MAJOR** Mouse-Leave-Race — 300ms-Re-Arm-Cooldown + Latch-Semantik-Bugfix; `setHoverCopy` trennt Zustands-Reset und Disarm sauber.
+5. ⏳ **MINOR** `pulse` prop in `NotchWidget` verdrahten — weiterhin offen (benötigt Edit in `NotchWidget.tsx`, außerhalb des P3.5-Scopes).
+6. ⏳ **INFO** `copyText` setzt `interacted` nicht — weiterhin offen, Produktentscheidung ausstehend.
+
+Teststand nach `fad3300`: **349 pass / 2 skip / 0 fail**; `bun run typecheck` grün.
+
+**Open manual QA for this session (not yet performed):**
+- Manual QA: copy an image (e.g. Windows Snipping Tool, or copy an image from a browser) and paste it (`Ctrl+V`) into the palette compose field and into a circle's compose row in the menu; confirm the attachment chip appears and the album sends correctly. Paste plain text in both locations and confirm it is unaffected.
+- Manual QA: paste an oversized/exotic clipboard image and confirm the existing `imageCodec` failure path surfaces a user-facing error (same as an oversized dialog-selected file) rather than a silent failure.
+- Visual QA: confirm the avatar slide-in reads as polish, not distracting, across the notch history list, palette recipient list, and menu member chips.
+- Visual QA: confirm the one-time pulse ring fires only on the first render of a genuinely new message Avatar in the notch (requires the `pulse` wiring follow-up above).
 
 ## Out of scope
 
