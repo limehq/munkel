@@ -2,12 +2,21 @@
 
 ## current_state
 
-- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `4ca7b73`).
+- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `e421a02`).
 - **Working directory:** sauber bis auf untracked `fp-notes/` (nie committen).
-- **Kontext:** **P0 „UI unsichtbar" gefixt und laufzeit-verifiziert** (Bug A: `ELECTRON_RUN_AS_NODE`-Leak → `setName`-Crash; Bug B: sandboxed Preload konnte ausgelagerten IPC-Chunk nicht laden → gesamtes UI tot). Davor: P3 komplett (Iteration 8), Clipboard-Security-Pfad reviewt+SHIP (Iteration 6/7).
-- **Test-Stand:** `bun test` in `apps/windows`: **455 pass / 3 skip / 0 fail**; `bun run typecheck` clean.
+- **Kontext:** **Parity-Gap-Slice** (Copy-Code-Button, 2048-Limit, Sent-to-Chip) umgesetzt + reviewt (SHIP); davor **P0 „UI unsichtbar" gefixt und laufzeit-verifiziert** (Bug A: `ELECTRON_RUN_AS_NODE`-Leak → `setName`-Crash; Bug B: sandboxed Preload konnte ausgelagerten IPC-Chunk nicht laden → gesamtes UI tot). Davor: P3 komplett (Iteration 8), Clipboard-Security-Pfad reviewt+SHIP (Iteration 6/7).
+- **Test-Stand:** `bun test` in `apps/windows`: **487 pass / 3 skip / 0 fail**; `bun run typecheck` clean.
 
 ## completed in dieser Session
+
+### Parity-Gap-Slice — 3 fehlende macOS-Features + Matrix-Reconcile (2026-07-10)
+
+Entscheidungsfreie MISSING-Features aus der Matrix nachgezogen (P2.2/P2.3 bleiben blockiert an OQ4/OQ5):
+- `291cf94` **Copy-Circle-Code-Button** (macOS `MenuView.swift:565-573`) — Icon-Button je Circle-Card, `writeText`+Checkmark, stopPropagation.
+- `52f759d` **2048-Zeichen-Limit** — neue geteilte `src/shared/message-limits.ts` (`MAX_MESSAGE_CHARS=2048`, spiegelt macOS `MessageLimits.swift` + `apps/cli`), erzwungen in Menü-Composer + Notch-Reply, eingehend in `group-session.ts` **nur für die Anzeige** geclampt (kein Payload/Krypto/ID-Eingriff — von Kimi bestätigt); ausgehend rejected weiter via `assertPayloadFits`.
+- `c809ebb` **Notch „Sent to …"-Chip** (macOS `MessageNotchContainer.swift:360-377`) — transienter Bestätigungs-Chip nach Reply-Send, `role=status`, Recipient via `resolveReplyRecipient`.
+- `c3639f6` + `e421a02` Matrix-Reconcile: ⌘V-Paste (P3.4, mit Scope-Note dass Windows nur den fokussierten Compose-Input behandelt) + dynamic-resize (P1.3) auf DONE; **33 DONE / 2 PARTIAL / 5 MISSING**.
+- **Review-Zyklus:** Kimi fand HIGH (stale Sent-to-Timer schließt fremdes Reply-Feld) + MEDIUM (Composer-Paste-Cap-Bypass, grapheme-unsicherer Clamp) → alle in `909ce4b` gefixt (`clearSentConfirmation()` am Start von `openReply()`; `fallbackText` geclampt; `Intl.Segmenter`-Grapheme-Clamp mit ASCII-Fast-Path + lone-surrogate-safe Fallback, exactly-2048 getestet). **Re-Review: SHIP.** Rest-LOWs (Follow-up, nicht blockierend): sub-ms Timer-Race-Guard `NotchWidget.tsx:412-416`, verwaister Prune-Timer, `act()`-Test-Warnung; sowie #10 CLI-Konstanten-Drift (CLI hält eigenen 2048-Literal statt Shared-Import). Teststand **487 pass / 3 skip / 0 fail**.
 
 ### Follow-up-Sweep nach P0 (2026-07-10)
 
