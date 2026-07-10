@@ -1,4 +1,68 @@
+# Handoff — munkel (2026-07-10)
+
+## current_state
+
+- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `77d32c5`).
+- **Working directory:** sauber bis auf untracked `fp-notes/` (nie committen).
+- **Kontext:** P1 Parity-Fixes (E1/E2/WIN-NOTCH-004) implementiert und reviewt. Kritischer Review der 7 Commits `0ef28b8..HEAD` ergab **keine CRITICAL**, aber **drei MAJOR**-Findings, die vor dem Merge nach `platform/windows/v2-clean` behandelt werden sollten.
+- **Test-Stand:** `bun test` in `apps/windows`: **216 pass / 3 skip / 0 fail**; `bun run typecheck` clean.
+
+## completed in dieser Session
+
+### 1. P1.1 Dropdown white-on-white fix — DONE
+- **Commit:** `7f673bc`
+- **Dateien:** `apps/windows/src/renderer/styles/global.css`, `apps/windows/src/renderer/styles/__tests__/global.css.test.ts`
+- **Inhalt:** `.frosted-field option { background-color: #1c1c1e; color: var(--munkel-text) }` gepinnt, CSS-Test prüft Regel + nicht-weißen Hintergrund.
+
+### 2. P1.2 Display-name Enter commit — DONE
+- **Commit:** `c593e54`
+- **Dateien:** `apps/windows/src/renderer/components/MenuWindow.tsx`, `apps/windows/src/renderer/components/__tests__/MenuWindow.test.tsx`
+- **Inhalt:** `commitNameOnEnter` verhindert Default, ruft `updateName()` und blurrt das Input; `lastSavedNameRef` macht Enter + nachfolgenden Blur idempotent; unveränderter/whitespace-only Name wird nicht gesendet.
+
+### 3. P1.3 Notch compact + dynamic resize — DONE
+- **Commit:** `4e4c329`
+- **Dateien:** `apps/windows/src/main/notch-window.ts`, `apps/windows/src/main/main.ts`, `apps/windows/src/renderer/components/NotchWidget.tsx`, `apps/windows/src/renderer/styles/global.css`, `apps/windows/src/main/preload.ts`, `apps/windows/src/shared/ipc-channels.ts`, `apps/windows/src/shared/types.ts`
+- **Inhalt:** Breite 360→280 px, `min-height:100%` entfernt, `ResizeObserver` in `NotchWidget` reported `offsetHeight` via `notch-resize` IPC, Main resizes Fenster clamped [40, 480], Sender-Guard auf `notchWindow`.
+
+### 4. P1.4 Doc-Sync — DONE
+- **Commit:** `135457e`
+- **Dateien:** `apps/windows/docs/plans/12-macos-feature-parity.md`, `apps/windows/docs/plans/README.md`, `docs/bugs/windows-notch-ux-2026-06-30.md`
+- **Inhalt:** Plan 12 P1 als done markiert, Bug-Doc korrigiert (WIN-NOTCH-001 "fixed 2026-07-04" war falsch, tatsächlicher Fix 2026-07-10).
+
+### 5. Test-Härtung — DONE
+- **Commit:** `77d32c5`
+- **Dateien:** `apps/windows/src/main/__tests__/notch-window.test.ts`, `apps/windows/src/renderer/components/__tests__/MenuWindow.test.tsx`, `apps/windows/src/renderer/components/__tests__/NotchWidget.test.tsx`, `apps/windows/docs/plans/12-macos-feature-parity.md`
+- **Inhalt:** Clamp-Boundary-Tests, NaN/negative-Input-Tests, ResizeObserver-Wiring-Tests, Enter/Blur/Whitespace-Tests, dokumentierter `it.skip`-Regressionstest für den updateName-Retry-Bug.
+
+## remaining (Review-Findings)
+
+| Schwere | Datei:Zeile | Problem | Failure-Szenario |
+|---|---|---|---|
+| **MAJOR** | `apps/windows/src/renderer/styles/global.css:354-357` | `.frosted-field option`-Styling funktioniert auf Windows-Chromium nicht zuverlässig; native `<select>`-Popups verwenden oft System-Theme/High-Contrast und ignorieren `option`-CSS. | Dropdown bleibt weiterhin weißer Text auf weißem/hellgrauem Hintergrund, besonders bei aktiviertem Windows-Accent-Color-on-surfaces oder High-Contrast-Mode. |
+| **MAJOR** | `apps/windows/src/renderer/components/MenuWindow.tsx:83-88` | `updateName()` setzt `lastSavedNameRef.current = name` **vor** `updateProfile(name)` settle; bei rejected Promise ist der Ref bereits auf den fehlgeschlagenen Wert. | Ein Netzwerk-/Main-Process-Fehler beim Speichern des Namens blockiert jeden Retry mit demselben Text permanent; der User muss einen anderen Namen eingeben oder die App neu starten. |
+| **MAJOR** | `apps/windows/src/renderer/components/NotchWidget.tsx:26-34` + `apps/windows/src/main/notch-window.ts:36-47` | `ResizeObserver` reported bei jeder Größenänderung sofort via IPC; kein Debounce/Throttle. Bei Display-Skalierung/DPI-Rounding kann `setSize` eine Höhe setzen, die den Observer erneut triggert. | CPU/IPC-Spam während Notch-Animationen; theoretische Endlos-Resize-Schleife oder sichtbares Flackern bei 125 %/150 % Skalierung. |
+| **MINOR** | `apps/windows/src/renderer/components/NotchWidget.tsx:62` | `const expanded = reopening || replyOpen;` wird nie verwendet. | Toter Code; verwirrt beim Lesen des Phasen- / Interaktions-Modells. |
+| **MINOR** | `apps/windows/src/renderer/styles/global.css:953-970` | 8 Bild-Thumbnails à 72 px + Gap passen nicht mehr komfortabel in 280 px Breite (früher 360 px). | Bei Bilderalben mit vielen Thumbnails wird die Reihe mehrzeilig oder überlappt/scrollt horizontal; visuelle Regression gegenüber vorherigem Layout. |
+| **INFO** | `apps/windows/docs/plans/12-macos-feature-parity.md:5` | Plan nennt Branch `platform/windows/macos-feature-parity`, tatsächlicher Branch ist `platform/windows/macos-parity-p1`. | Verwirrt beim Navigieren/Auffinden des Feature-Branches; kein Code-Impact. |
+
+## blockers
+
+- **Keine harten Blocker**, aber der **MAJOR**-Finding zum optimistischen `lastSavedNameRef` sollte vor dem Merge behoben werden, weil er echte Persistenz-Fehler verschleiern kann.
+- **Offenes manuelles QA** ist noch nicht durchgeführt: Notch bei 100/125/150 % Display-Skalierung, Dropdown-Farben, Enter-Name-Commit.
+
+## next_action
+
+1. `MenuWindow.tsx` fixen: `lastSavedNameRef.current` erst in `.then()` von `updateProfile(name)` setzen (bzw. bei Fehler in `.catch()` revertieren), damit Retry nach Fehler funktioniert.
+2. `notch-resize` mit Debounce/Throttle (z. B. 50–100 ms) und ggf. Rundungs-Toleranz versehen, um Oszillationen zu unterbinden.
+3. Dropdown-Lösung evaluieren: custom-Dropdown oder zusätzliche Windows-spezifische Workarounds, falls manuelles QA zeigt, dass `<option>`-Styling nicht greift.
+4. Manuelles QA durchführen und Ergebnisse in Plan 12 / STATE.md eintragen.
+5. PR `platform/windows/macos-parity-p1` → `platform/windows/v2-clean` öffnen; erst nach Review + grünem CI mergen.
+
+---
+
 # Handoff — munkel (2026-07-05)
+
+[Previous handoff content preserved below]
 
 ## current_state
 
@@ -79,8 +143,6 @@
 
 # Handoff — munkel (2026-07-03)
 
-[Previous handoff content preserved below]
-
 ## current_state
 
 - **Aktueller Branch:** `platform/windows/v2-clean` (enthält den Single-Instance-Fix via Merge `50998af`).
@@ -95,7 +157,7 @@
 ### 1. Single-Instance-Lock + Self-Heal (Windows) — DONE, gemerged, getaggt
 - **Root-Cause belegt** (Codex gpt-5.5, Report `scratchpad/wm-circle-drop-analysis.md`): Circle „wm" ging offline, weil **zwei Munkel-Prozesse** (Dev + alter installierter Build 28.06.) mit **derselben `memberId 602a0e2c…`** liefen → gegenseitige Relay-Verdrängung (`core/protocol.ts:14-18`: neue Verbindung gleicher memberId ersetzt alte still) → Flapping `close-1006→reconnect→open`.
 - **Windows-Recherche belegt:** Electron-Lock keyt auf den **`userData`-Pfad** (Message-Window-Titel, case-insensitiv), NICHT auf appId/AppUserModelId. `%APPDATA%\munkel` == `%APPDATA%\Munkel` = derselbe Lock. Footgun = nicht-triviale Namens-/userData-Abweichung.
-- **Fix** (`apps/windows/src/main/main.ts`, Modul-Kopf VOR `requestSingleInstanceLock`): `setName('munkel')` → `fs.mkdirSync(pinnedUserData,{recursive:true})` → `setPath('userData', %APPDATA%\munkel)` → `setAppUserModelId('app.munkel.windows')`; plus `second-instance`-Handler (null/destroyed-safe, `createMenuWindow`-Recreate, `showMenuWindow` restore/show/focus, KEIN alwaysOnTop-Toggle). `menu-window.ts`: neuer Helper `showMenuWindow()`. `relay-client.ts`: Close-/Reconnect-Logs um `groupId` + Close-Code angereichert.
+- **Fix** (`apps/windows/src/main/main.ts`, Modul-Kopf VOR `requestSingleInstanceLock`): `setName('munkel')` → `fs.mkdirSync(pinnedUserData,{recursive:true})` → `setPath('userData', %APPDATA%\munkel)` → `setAppUserModelId('app.munkel.windows')`; plus `second-instance`-Handler (null/destroyed-safe, `createMenuWindow`-Recreate, `showMenuWindow` restore/show/focus, KEIN alwaysOnTop-Toggle). `menu-window.ts`: neuer Helper `showMenuWindow()`.
 - **Orchestriert:** Plan → Codex-Plan-Review (fand `pack:dir`-Blocker + `setPath`-Throw-Risiko + alwaysOnTop-Regression) → Codex-Umsetzung → Sonnet-Review „SHIP".
 - **Empirisch getestet (bestanden):** zweite Instanz → sofortiger Self-Exit (EXITCODE 0, keine Relay-Verbindung), weiterhin genau 1 Instanz (6 electron.exe), **kein** wm-Flapping. User bestätigt „wm funktioniert wieder".
 - **Verifikation:** `bun run typecheck` clean, `bun test` 142 pass / 2 skip / 0 fail.

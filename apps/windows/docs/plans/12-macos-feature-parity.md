@@ -98,9 +98,11 @@ Implemented on `platform/windows/macos-parity-p1` (off `platform/windows/tray-cl
 **Follow-ups (not closed by this session):**
 - Manual HITL screenshot QA of the notch at 100 % / 125 % / 150 % display scaling (P1.3 verification row) — code fix landed, live measurement pending.
 - Manual QA: recipient dropdown readability and Enter-name-commit in the running app.
-- Bug: `updateName()`'s optimistic `lastSavedNameRef` update in `MenuWindow.tsx` should move to `updateProfile(name).then(...)` (or a `.catch` that reverts the ref) so a failed save can be retried — see skipped test in `MenuWindow.test.tsx`.
+- Bug (MAJOR): `updateName()`'s optimistic `lastSavedNameRef` update in `MenuWindow.tsx:83-88` should move to `updateProfile(name).then(...)` (or a `.catch` that reverts the ref) so a failed save can be retried — see skipped test in `MenuWindow.test.tsx`. Failure scenario: a rejected `updateProfile` permanently blocks saving the same name again.
+- Bug (MAJOR): P1.1 CSS fix `.frosted-field option` in `global.css:354-357` is not reliable on Windows-Chromium; native `<select>` popups may still use the system/light theme (accent-color-on-surfaces, High-Contrast). If manual QA confirms white-on-white, replace with a custom dropdown or additional Windows-specific workarounds.
+- Bug (MAJOR): `notch-resize` in `NotchWidget.tsx:26-34` / `notch-window.ts:36-47` has no debounce/throttle and may oscillate when Windows display scaling causes `setSize` to round differently than the renderer's `offsetHeight`. Add a small debounce (e.g. 50–100 ms) and a subpixel tolerance so the notch does not spam IPC or flicker at 125 %/150 % scaling.
 - Untested: the `notch-resize` IPC handler's sender-guard in `main.ts` (`BrowserWindow.fromWebContents(event.sender) !== notchWindow`) has no direct test — `main.ts`'s `app.whenReady()` wiring isn't unit-tested anywhere in this codebase (same gap pre-existed for the other notch channels), so this was left as a known risk rather than introducing a new test-harness pattern.
-- The reduced horizontal padding (18 → 14 px) and 280 px width may need visual fine-tuning against the macOS reference once screenshots exist.
+- The reduced horizontal padding (18 → 14 px) and 280 px width may need visual fine-tuning against the macOS reference once screenshots exist; image albums with many thumbnails (up to 8) may wrap/overlap in the narrower notch.
 
 ### P2 — High-value parity gaps (~2–3 sessions)
 
