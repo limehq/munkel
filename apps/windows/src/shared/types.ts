@@ -98,10 +98,14 @@ export interface IpcApi {
 	notchResize: (contentHeight: number) => Promise<void>;
 	// Hover-"C" copy (Plan 12 P3.2). The notch window is non-focusable outside
 	// of an active reply, so a bare "C" keypress can only be caught via an
-	// OS-level global shortcut in the main process (see `main/shortcuts.ts`).
-	// The renderer arms/disarms that shortcut based on its own hover + reply
-	// state, and receives `onNotchCopyHovered` when it fires.
-	notchSetHoverCopyActive: (active: boolean) => Promise<void>;
+	// OS-level global shortcut in the main process (`main/hover-copy-shortcut.ts`).
+	// The renderer is only a hint provider: `true` arms the shortcut (and,
+	// while armed, acts as a mousemove activity ping that resets the main
+	// process's idle-disarm timer), `false` requests disarm. The main process
+	// additionally force-disarms on window hide, click-through transition,
+	// renderer crash, and idle timeout. Resolves `false` when arming failed
+	// (OS registration rejected) so the renderer can disable the feature.
+	notchSetHoverCopyActive: (active: boolean) => Promise<boolean>;
 
 	checkForUpdates: () => Promise<void>;
 	installUpdate: () => Promise<void>;

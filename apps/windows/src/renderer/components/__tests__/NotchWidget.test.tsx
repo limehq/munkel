@@ -10,6 +10,7 @@ import type { NotchMessage } from '../../../shared/types';
 // its own dependency surface explicitly.
 function createMockElectronApi() {
 	let notchMessageCb: ((data: NotchMessage) => void) | null = null;
+	let notchHideCbs: Array<() => void> = [];
 	let copyHoveredCb: (() => void) | null = null;
 	let copyHoveredRemoved = false;
 
@@ -17,7 +18,7 @@ function createMockElectronApi() {
 		getState: () => Promise.resolve({ identity: null, circles: [] }),
 		notchResize: (_contentHeight: number) => Promise.resolve(),
 		notchSetInteractive: (_interactive: boolean) => Promise.resolve(),
-		notchSetHoverCopyActive: (_active: boolean) => Promise.resolve(),
+		notchSetHoverCopyActive: (_active: boolean) => Promise.resolve(true),
 		notchEmpty: () => Promise.resolve(),
 		beginNotchReply: () => Promise.resolve(),
 		endNotchReply: () => Promise.resolve(),
@@ -30,7 +31,12 @@ function createMockElectronApi() {
 		},
 		onNotchUpdate: (_cb: unknown) => () => {},
 		onNotchShow: (_cb: unknown) => () => {},
-		onNotchHide: (_cb: unknown) => () => {},
+		onNotchHide: (cb: () => void) => {
+			notchHideCbs.push(cb);
+			return () => {
+				notchHideCbs = notchHideCbs.filter((existing) => existing !== cb);
+			};
+		},
 		onNotchReopen: (_cb: unknown) => () => {},
 		onNotchCopyHovered: (cb: () => void) => {
 			copyHoveredCb = cb;
@@ -45,6 +51,7 @@ function createMockElectronApi() {
 		onUpdateState: (_cb: unknown) => () => {},
 
 		simulateNotchMessage: (message: NotchMessage) => notchMessageCb?.(message),
+		simulateNotchHide: () => notchHideCbs.forEach((cb) => cb()),
 		triggerCopyHovered: () => copyHoveredCb?.(),
 		isCopyHoveredRemoved: () => copyHoveredRemoved,
 	};
@@ -360,7 +367,7 @@ describe('NotchWidget hover-"C" copy (Plan 12 P3.2)', () => {
 		let lastActive: boolean | undefined;
 		electronApi.notchSetHoverCopyActive = (active: boolean) => {
 			lastActive = active;
-			return Promise.resolve();
+			return Promise.resolve(true);
 		};
 
 		await act(async () => {
@@ -375,5 +382,140 @@ describe('NotchWidget hover-"C" copy (Plan 12 P3.2)', () => {
 		});
 
 		expect(electronApi.isCopyHoveredRemoved()).toBe(true);
+	});
+
+	it('resets hover state when the main process hides the notch (no mouseleave will arrive)', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'hidden text' }));
+		});
+
+		await act(async () => {
+			widgetNode(root).props.onMouseEnter();
+		});
+
+		const sent: boolean[] = [];
+		electronApi.notchSetHoverCopyActive = (active: boolean) => {
+			sent.push(active);
+			return Promise.resolve(true);
+		};
+
+		await act(async () => {
+			electronApi.simulateNotchHide();
+		});
+
+		// The hide reset hover state → the arm effect requested disarm.
+		expect(sent).toContain(false);
+
+		// And a stray "C" trigger after the hide copies nothing.
+		await act(async () => {
+			electronApi.triggerCopyHovered();
+		});
+		expect(clipboardCalls).toEqual([]);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('latches the feature off when arming fails (register returns false) and stops sending IPC', async () => {
+		const sent: boolean[] = [];
+		electronApi.notchSetHoverCopyActive = (active: boolean) => {
+			sent.push(active);
+			// Simulate OS shortcut registration failure on every arm attempt.
+			return Promise.resolve(!active);
+		};
+
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage());
+		});
+
+		await act(async () => {
+			widgetNode(root).props.onMouseEnter();
+		});
+		const armAttempts = sent.filter((value) => value).length;
+		expect(armAttempts).toBe(1); // one failed arm attempt
+
+		// Further hover cycles must not retry — the feature is latched off.
+		await act(async () => {
+			widgetNode(root).props.onMouseLeave();
+		});
+		await act(async () => {
+			widgetNode(root).props.onMouseEnter();
+		});
+		await act(async () => {
+			widgetNode(root).props.onMouseMove?.();
+		});
+
+		expect(sent.filter((value) => value).length).toBe(armAttempts);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('sends a throttled mousemove activity ping while hovered (keeps the main idle timer alive)', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage());
+		});
+
+		await act(async () => {
+			widgetNode(root).props.onMouseEnter();
+		});
+
+		const sent: boolean[] = [];
+		electronApi.notchSetHoverCopyActive = (active: boolean) => {
+			sent.push(active);
+			return Promise.resolve(true);
+		};
+
+		// First movement after mount always pings (lastPing starts at 0);
+		// an immediate second movement is inside the 1s throttle window.
+		await act(async () => {
+			widgetNode(root).props.onMouseMove();
+		});
+		await act(async () => {
+			widgetNode(root).props.onMouseMove();
+		});
+
+		expect(sent).toEqual([true]);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('does not send activity pings while the reply field is open', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage());
+		});
+
+		await act(async () => {
+			widgetNode(root).props.onMouseEnter();
+		});
+
+		const replyButton = root.root.findByProps({ 'aria-label': 'Reply' });
+		await act(async () => {
+			replyButton.props.onClick({ stopPropagation: () => {} });
+		});
+
+		const sent: boolean[] = [];
+		electronApi.notchSetHoverCopyActive = (active: boolean) => {
+			sent.push(active);
+			return Promise.resolve(true);
+		};
+
+		await act(async () => {
+			widgetNode(root).props.onMouseMove();
+		});
+
+		expect(sent).toEqual([]);
+
+		await act(async () => {
+			root.unmount();
+		});
 	});
 });

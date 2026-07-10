@@ -16,6 +16,12 @@ const ringStyle = { '--ring-circumference': `${RING_CIRCUMFERENCE}` } as CSSProp
 // notch's other UI timing constants (see the reply-focus delay below).
 const RESIZE_REPORT_DEBOUNCE_MS = 80;
 
+// Minimum spacing between hover-copy activity pings sent to the main process
+// on mousemove. The main process disarms the "C" shortcut after ~4s without
+// a ping (HOVER_COPY_IDLE_MS), so ~1s pings keep it alive during genuine
+// pointer activity while staying cheap on the IPC channel.
+const HOVER_COPY_PING_THROTTLE_MS = 1_000;
+
 export default function NotchWidget() {
 	const { sendChat } = useAppStore();
 
@@ -29,15 +35,27 @@ export default function NotchWidget() {
 	// Hover-"C" copy (Plan 12 P3.2). `notchHovered` tracks whether the pointer
 	// is currently over the notch surface; `hoveredEntryId` tracks which
 	// history row (if any) it's over, so the shortcut copies that row instead
-	// of the newest message. Both are mirrored into refs so the stable
-	// `onNotchCopyHovered` listener below always reads the latest value
-	// without having to resubscribe on every hover change.
+	// of the newest message. Both are mirrored into refs (via effects — no
+	// ref mutation during render) so the stable `onNotchCopyHovered` listener
+	// below always reads the latest value without resubscribing.
 	const [notchHovered, setNotchHovered] = useState(false);
 	const [hoveredEntryId, setHoveredEntryId] = useState<string | null>(null);
 	const notchHoveredRef = useRef(false);
-	notchHoveredRef.current = notchHovered;
 	const hoveredEntryIdRef = useRef<string | null>(null);
-	hoveredEntryIdRef.current = hoveredEntryId;
+	useEffect(() => {
+		notchHoveredRef.current = notchHovered;
+	}, [notchHovered]);
+	useEffect(() => {
+		hoveredEntryIdRef.current = hoveredEntryId;
+	}, [hoveredEntryId]);
+	// Feature-off latch: set once the main process reports that registering
+	// the OS-level "C" shortcut failed (e.g. another app owns the key). All
+	// further arm attempts and activity pings are skipped for this session
+	// instead of silently pretending the shortcut is armed.
+	const hoverCopyUnavailableRef = useRef(false);
+	// Throttle for the mousemove activity pings that keep the main process's
+	// idle-disarm timer alive (see hover-copy-shortcut.ts HOVER_COPY_IDLE_MS).
+	const lastHoverCopyPingRef = useRef(0);
 
 	// Report the widget's layout height to the main process so the notch
 	// window shrinks/grows to its content instead of staying a fixed-size
@@ -66,6 +84,12 @@ export default function NotchWidget() {
 	const handleNotchHide = useCallback(() => {
 		setReplyText('');
 		setError(null);
+		// The window is hiding — no mouseleave will ever arrive for the
+		// pointer that may have armed the hover-copy shortcut, so reset the
+		// hover state here (the main process also disarms on its own 'hide'
+		// event as the authoritative backstop).
+		setNotchHovered(false);
+		setHoveredEntryId(null);
 	}, []);
 	const lifecycle = useNotchLifecycle({ onNotchHide: handleNotchHide });
 	// Pointer-down position on the message body, so a click that was really a
@@ -99,41 +123,81 @@ export default function NotchWidget() {
 		: 'notch-retracted';
 
 	const replyOpenRef = useRef(false);
-	replyOpenRef.current = replyOpen;
-
-	// Arm/disarm the main process's hover-"C" global shortcut whenever hover
-	// or reply-open state changes (see shortcuts.ts for why this can't be a
-	// plain page-level keydown listener). Active only while the notch is
-	// hovered AND no reply field is open, matching macOS's
-	// `hovering && !replying` gate in NotchPresenter.
 	useEffect(() => {
-		void window.electronAPI.notchSetHoverCopyActive(notchHovered && !replyOpen);
-	}, [notchHovered, replyOpen]);
+		replyOpenRef.current = replyOpen;
+	}, [replyOpen]);
+	// Latest history/newest for the stable copy listener below — avoids a
+	// stale-closure window between unsubscribe/resubscribe cycles.
+	const historyRef = useRef(history);
+	useEffect(() => {
+		historyRef.current = history;
+	}, [history]);
+	const newestRef = useRef(newest);
+	useEffect(() => {
+		newestRef.current = newest;
+	}, [newest]);
 
-	// Always disarm on unmount, independent of the effect above (which only
-	// fires on hover/replyOpen changes, not on teardown).
+	// Send an arm/disarm hint to the main process. The main process owns the
+	// actual shortcut lifecycle (idle timeout + hide/crash/click-through
+	// disarms); a resolved `false` on an arm attempt means OS registration
+	// failed, which latches the feature off for this session.
+	const sendHoverCopyHint = useCallback((active: boolean) => {
+		if (hoverCopyUnavailableRef.current) return;
+		void window.electronAPI.notchSetHoverCopyActive(active).then((ok) => {
+			if (active && !ok) {
+				hoverCopyUnavailableRef.current = true;
+				console.warn('[notch] hover-"C" copy unavailable (OS shortcut registration failed) — disabled for this session');
+			}
+		});
+	}, []);
+
+	// Arm/disarm whenever hover or reply-open state changes. Active only
+	// while the notch is hovered AND no reply field is open, matching
+	// macOS's `hovering && !replying` gate in NotchPresenter.
+	useEffect(() => {
+		sendHoverCopyHint(notchHovered && !replyOpen);
+	}, [notchHovered, replyOpen, sendHoverCopyHint]);
+
+	// Always request disarm on unmount, independent of the effect above
+	// (which only fires on hover/replyOpen changes, not on teardown). The
+	// main process's renderer-gone/destroyed hooks are the backstop if this
+	// IPC never arrives.
 	useEffect(() => {
 		return () => {
+			if (hoverCopyUnavailableRef.current) return;
 			void window.electronAPI.notchSetHoverCopyActive(false);
 		};
 	}, []);
 
+	// While armed-eligible, mousemove over the notch sends throttled activity
+	// pings that reset the main process's idle-disarm timer — so a pointer
+	// merely *resting* on the notch stops capturing "C" system-wide after
+	// ~4s, but genuine hovering keeps the shortcut alive (and re-arms it
+	// after an idle disarm).
+	const reportHoverCopyActivity = useCallback(() => {
+		if (!notchHoveredRef.current || replyOpenRef.current) return;
+		const now = Date.now();
+		if (now - lastHoverCopyPingRef.current < HOVER_COPY_PING_THROTTLE_MS) return;
+		lastHoverCopyPingRef.current = now;
+		sendHoverCopyHint(true);
+	}, [sendHoverCopyHint]);
+
 	// Perform the actual copy when the main process reports the hover-"C"
-	// shortcut fired. Re-checks hover/reply state itself (via refs) rather
-	// than trusting the main process's gating alone — belt and suspenders,
-	// since the IPC arming call and a fast mouseleave could theoretically
-	// race.
+	// shortcut fired. Subscribed once; all state is read through refs so the
+	// handler can never act on a stale history snapshot. Re-checks
+	// hover/reply state itself rather than trusting the main process's
+	// gating alone — belt and suspenders, since the IPC arming call and a
+	// fast mouseleave could theoretically race.
 	useEffect(() => {
 		return window.electronAPI.onNotchCopyHovered(() => {
 			if (!notchHoveredRef.current || replyOpenRef.current) return;
-			const hovered = hoveredEntryIdRef.current
-				? history.find((entry) => entry.id === hoveredEntryIdRef.current)
-				: undefined;
-			const target = hovered ?? newest;
+			const hoveredId = hoveredEntryIdRef.current;
+			const hovered = hoveredId ? historyRef.current.find((entry) => entry.id === hoveredId) : undefined;
+			const target = hovered ?? newestRef.current;
 			if (!target) return;
 			copyText(target);
 		});
-	}, [history, newest, copyText]);
+	}, [copyText]);
 
 	useEffect(() => {
 		if (!replyingTo) return;
@@ -359,6 +423,7 @@ export default function NotchWidget() {
 				cancelHoverLeave();
 				setNotchHovered(true);
 			}}
+			onMouseMove={reportHoverCopyActivity}
 			onMouseLeave={() => {
 				scheduleHoverLeave();
 				setNotchHovered(false);

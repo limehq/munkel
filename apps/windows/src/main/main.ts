@@ -7,7 +7,12 @@ import { focusNotchForReply, unfocusNotchAfterReply } from './notch-focus';
 import { createPaletteWindow, showPalette, hidePalette } from './palette-window';
 import { createTray } from './tray';
 import { registerTogglePalette, unregisterShortcuts } from './shortcuts';
-import { createHoverCopyController } from './hover-copy-shortcut';
+import {
+	createHoverCopyController,
+	handleNotchSetInteractive,
+	wireHoverCopyDisarm,
+	type HoverCopyWindowLike,
+} from './hover-copy-shortcut';
 import { IdentityStore } from './identity-store';
 import { applyLaunchAtLogin, setLaunchAtLoginPreference } from './login-item';
 import { deriveGroupKeys } from '@munkel/shared-wire/crypto';
@@ -129,13 +134,19 @@ app.whenReady().then(async () => {
 	}
 
 	registerTogglePalette(togglePalette);
-	// Hover-"C" copy (Plan 12 P3.2): the notch renderer arms/disarms this via
-	// NOTCH_SET_HOVER_COPY; see shortcuts.ts for why a global shortcut is
-	// required instead of a page-level keydown listener.
+	// Hover-"C" copy (Plan 12 P3.2): the notch renderer arms this (and keeps
+	// it alive via mousemove activity pings) over NOTCH_SET_HOVER_COPY, but
+	// the MAIN process owns the disarm lifecycle — controller-internal idle
+	// timeout plus the hide / renderer-gone / destroyed / non-interactive
+	// paths wired here. See hover-copy-shortcut.ts for the full rationale.
 	hoverCopyController = createHoverCopyController(
 		() => notchWindow?.webContents.send(PUSH_CHANNELS.NOTCH_COPY_HOVERED),
 		globalShortcut,
 	);
+	// BrowserWindow's overloaded `on` signatures don't structurally satisfy
+	// the minimal HoverCopyWindowLike slice, hence the cast; the helper only
+	// uses on('hide') and webContents.on('render-process-gone'|'destroyed').
+	wireHoverCopyDisarm(hoverCopyController, notchWindow as unknown as HoverCopyWindowLike);
 
 	// Phase-0 diagnostics (presence bug, H-D): the actual userData dir the app
 	// reads state.json from. A mismatch vs the inspected file would mean persisted
@@ -197,6 +208,9 @@ app.whenReady().then(async () => {
 	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_INTERACTIVE, (event, interactive: boolean) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
 		notchWindow?.setIgnoreMouseEvents(!interactive, { forward: true });
+		// Going click-through means the renderer may never get a mouseleave
+		// for the pointer that armed the hover-copy shortcut — force-disarm.
+		handleNotchSetInteractive(hoverCopyController, !!interactive);
 	});
 	ipcMain.handle(IPC_CHANNELS.NOTCH_EMPTY, (event) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
@@ -207,8 +221,13 @@ app.whenReady().then(async () => {
 		resizeNotchToContent(notchWindow, contentHeight);
 	});
 	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_HOVER_COPY, (event, active: boolean) => {
-		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
-		hoverCopyController?.setActive(!!active);
+		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) {
+			console.warn('[munkel] rejected notch-set-hover-copy from non-notch sender');
+			return false;
+		}
+		// Returns false when arming failed (OS shortcut registration), so the
+		// renderer can turn the feature off instead of assuming it is armed.
+		return hoverCopyController?.setActive(!!active) ?? false;
 	});
 	ipcMain.handle(IPC_CHANNELS.START_GITHUB_LOGIN, async () => {
 		githubLoginService.startGitHubLogin();
@@ -266,6 +285,10 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+	// Disarm before the blanket unregisterAll so the controller's internal
+	// state (and pending idle timer) is cleaned up, not just the OS binding.
+	hoverCopyController?.dispose();
+	hoverCopyController = null;
 	unregisterShortcuts();
 	void controlServer?.close();
 	controlServer = null;
