@@ -1825,6 +1825,95 @@ describe('MenuWindow copy circle code button', () => {
 	});
 });
 
+describe('MenuWindow message character limit (2048)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenu() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	it('sets maxLength=2048 on the compose input (native browser clamp)', async () => {
+		const root = await renderMenu();
+		const messageInput = root.root.findByProps({ placeholder: 'Message…' });
+		expect(messageInput.props.maxLength).toBe(2048);
+	});
+
+	it('clamps a pasted/typed value over 2048 characters to exactly 2048', async () => {
+		const root = await renderMenu();
+		const messageInput = root.root.findByProps({ placeholder: 'Message…' });
+		const overLong = 'x'.repeat(3000);
+
+		await act(async () => {
+			messageInput.props.onChange({ target: { value: overLong } });
+		});
+
+		const clamped = root.root.findByProps({ placeholder: 'Message…' });
+		expect(clamped.props.value.length).toBe(2048);
+		expect(clamped.props.value).toBe('x'.repeat(2048));
+	});
+
+	it('allows a value at exactly 2048 characters unmodified', async () => {
+		const root = await renderMenu();
+		const messageInput = root.root.findByProps({ placeholder: 'Message…' });
+		const exact = 'y'.repeat(2048);
+
+		await act(async () => {
+			messageInput.props.onChange({ target: { value: exact } });
+		});
+
+		const updated = root.root.findByProps({ placeholder: 'Message…' });
+		expect(updated.props.value.length).toBe(2048);
+		expect(updated.props.value).toBe(exact);
+	});
+
+	it('sends the clamped (not the raw over-cap) text', async () => {
+		const sendChatSpy = spyOn(electronApi, 'sendChat');
+		const root = await renderMenu();
+		const messageInput = root.root.findByProps({ placeholder: 'Message…' });
+		const overLong = 'z'.repeat(2500);
+
+		await act(async () => {
+			messageInput.props.onChange({ target: { value: overLong } });
+		});
+		await act(async () => {
+			root.root.findByProps({ placeholder: 'Message…' }).props.onKeyDown({ key: 'Enter' });
+		});
+
+		expect(sendChatSpy).toHaveBeenCalledTimes(1);
+		const sentText = sendChatSpy.mock.calls[0]?.[1] as string;
+		expect(sentText.length).toBe(2048);
+	});
+});
+
 describe('MenuWindow update status', () => {
 	let electronApi: ReturnType<typeof createMockElectronApi>;
 

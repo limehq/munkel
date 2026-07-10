@@ -4,6 +4,7 @@ import { useAppStore } from '../store/app-store';
 import { resolveReplyRecipient } from '../lib/resolve-reply-recipient';
 import { shouldOpenReplyOnMessageClick } from '../lib/should-open-reply-on-message-click';
 import { useNotchLifecycle, type NotchHistoryEntry } from '../lib/useNotchLifecycle';
+import { MAX_MESSAGE_CHARS, clampMessageText } from '../../shared/message-limits';
 
 const RING_RADIUS = 8;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
@@ -480,8 +481,11 @@ export default function NotchWidget() {
 								className="frosted-field"
 								placeholder={replyPrivate ? `Private to ${entry.sender}…` : 'Reply to all…'}
 								value={replyText}
+								maxLength={MAX_MESSAGE_CHARS}
 								onChange={(e) => {
-									setReplyText(e.target.value);
+									// 2048-char clamp (Plan 12 "Menu: message character
+									// limit"), mirroring macOS `MessageLimits.maxCharacters`.
+									setReplyText(clampMessageText(e.target.value));
 									if (error) setError(null);
 								}}
 								onKeyDown={(e) => {

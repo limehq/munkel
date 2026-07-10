@@ -251,6 +251,51 @@ describe('GroupSession', () => {
 		session.disconnect();
 	});
 
+	test('clamps an over-cap incoming chat message to 2048 characters before dispatch (Plan 12)', async () => {
+		const wss = startServer();
+		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
+		const code = 'cedar-brook';
+		const { messageKey } = await deriveGroupKeys(code);
+
+		const chats: { sender: string; text: string; isDirect: boolean; sentAt: string }[] = [];
+		const notches: NotchMessage[] = [];
+		const session = await GroupSession.create(
+			code,
+			relayUrl,
+			memberId,
+			{ displayName: 'Windows User' },
+			{
+				onStateChange: () => {},
+				onChat: (payload) => chats.push(payload),
+				onNotch: (message) => notches.push(message),
+				getColorIndex: () => 0,
+			},
+		);
+		session.connect();
+
+		await waitFor(() => serverSocket !== null);
+		serverSocket!.send(JSON.stringify({ type: 'welcome', members: ['peer-1'] }));
+
+		// A peer sending oversized plaintext (bypassing this app's own UI
+		// clamp) must still be clamped on receipt, mirroring macOS
+		// GroupSession.swift's symmetric MessageLimits.clamp on the chat
+		// branch. 3000 chars stays comfortably under the ~48 KiB wire cap so
+		// this exercises the 2048-char display clamp specifically, not the
+		// unrelated byte-size protocol cap.
+		const overLong = 'a'.repeat(3000);
+		const chatPayload = encodeChat(overLong);
+		const sealed = await seal(JSON.stringify(chatPayload), messageKey);
+		serverSocket!.send(JSON.stringify({ type: 'message', from: 'peer-1', payload: sealed }));
+
+		await waitFor(() => chats.length === 1 && notches.length === 1);
+		expect(chats[0].text.length).toBe(2048);
+		expect(chats[0].text).toBe('a'.repeat(2048));
+		expect(notches[0].text.length).toBe(2048);
+		expect(notches[0].text).toBe('a'.repeat(2048));
+
+		session.disconnect();
+	});
+
 	test('sendChat seals and sends a chat frame', async () => {
 		const wss = startServer();
 		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
@@ -374,6 +419,48 @@ describe('GroupSession', () => {
 		expect(notches[0]!.groupColor).toBe(getCircleColor(3));
 		expect(notches[0]!.receivedAt).toEqual(expect.any(String));
 		expect(notches[0]!.receivedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+
+		session.disconnect();
+	});
+
+	test('clamps an over-cap incoming image caption to 2048 characters before dispatch (Plan 12)', async () => {
+		const wss = startServer();
+		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
+		const code = 'quartz-lynx';
+		const { messageKey } = await deriveGroupKeys(code);
+
+		const notches: NotchMessage[] = [];
+		const session = await GroupSession.create(
+			code,
+			relayUrl,
+			memberId,
+			{ displayName: 'Windows User' },
+			{
+				onStateChange: () => {},
+				onChat: () => {},
+				onNotch: (message) => notches.push(message),
+				getColorIndex: () => 0,
+			},
+		);
+		session.connect();
+
+		await waitFor(() => serverSocket !== null);
+		serverSocket!.send(JSON.stringify({ type: 'welcome', members: ['peer-1'] }));
+
+		const imagePayload = {
+			kind: 'image',
+			items: [
+				{ r2Key: 'a'.repeat(16), mime: 'image/avif', width: 800, height: 600, byteLen: 12345, thumb: 'AAAA' },
+			],
+			caption: 'c'.repeat(2500),
+			sentAt: '2025-06-01T12:00:00.000Z',
+		};
+		const sealed = await seal(JSON.stringify(imagePayload), messageKey);
+		serverSocket!.send(JSON.stringify({ type: 'message', from: 'peer-1', payload: sealed }));
+
+		await waitFor(() => notches.length >= 1);
+		expect(notches[0]!.text.length).toBe(2048);
+		expect(notches[0]!.text).toBe('c'.repeat(2048));
 
 		session.disconnect();
 	});

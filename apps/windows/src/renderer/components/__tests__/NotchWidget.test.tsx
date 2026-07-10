@@ -1258,3 +1258,120 @@ describe('NotchWidget history pruning & pulse-across-phase (Iteration-8 review f
 		});
 	});
 });
+
+describe('NotchWidget reply character limit (2048, Plan 12)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let originalResizeObserver: unknown;
+	let timers: FakeTimers;
+
+	function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
+		return {
+			sender: 'Alice',
+			senderMemberId: 'alice-id',
+			text: 'Hello from Alice',
+			isDirect: false,
+			group: 'test-circle',
+			groupColor: '#3b82f6',
+			receivedAt: new Date(Date.now()).toISOString(),
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		timers = new FakeTimers();
+		timers.install();
+		electronApi = createMockElectronApi();
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = {
+			electronAPI: electronApi,
+		};
+		(globalThis as unknown as { navigator: unknown }).navigator = {
+			clipboard: { writeText: (_text: string) => Promise.resolve() },
+		};
+		originalResizeObserver = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+		delete (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+	});
+
+	afterEach(() => {
+		timers.restore();
+		delete (globalThis as unknown as { window?: unknown }).window;
+		delete (globalThis as unknown as { navigator?: unknown }).navigator;
+		(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+	});
+
+	async function renderWidget() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<NotchWidget />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	async function openReplyForNewest(root: ReturnType<typeof create>) {
+		const replyButton = root.root.findByProps({ 'aria-label': 'Reply' });
+		await act(async () => {
+			replyButton.props.onClick({ stopPropagation: () => {} });
+		});
+	}
+
+	function replyInput(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ className: 'frosted-field' });
+	}
+
+	it('sets maxLength=2048 on the reply input', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage());
+		});
+		await openReplyForNewest(root);
+
+		expect(replyInput(root).props.maxLength).toBe(2048);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('clamps typed/pasted reply text over 2048 characters to exactly 2048', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage());
+		});
+		await openReplyForNewest(root);
+
+		const overLong = 'x'.repeat(3000);
+		await act(async () => {
+			replyInput(root).props.onChange({ target: { value: overLong } });
+		});
+
+		expect(replyInput(root).props.value.length).toBe(2048);
+		expect(replyInput(root).props.value).toBe('x'.repeat(2048));
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('allows a reply of exactly 2048 characters unmodified', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage());
+		});
+		await openReplyForNewest(root);
+
+		const exact = 'y'.repeat(2048);
+		await act(async () => {
+			replyInput(root).props.onChange({ target: { value: exact } });
+		});
+
+		expect(replyInput(root).props.value).toBe(exact);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+});

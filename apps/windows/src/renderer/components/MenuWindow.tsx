@@ -5,6 +5,7 @@ import { getCircleColor } from '../../shared/group-color';
 import { clipboardEventHasImage, pasteClipboardImage } from '../lib/clipboard-image';
 import { acceleratorFromKeyboardEvent } from '../lib/hotkey-recorder';
 import { DEFAULT_PALETTE_HOTKEY, formatAcceleratorLabel } from '../../shared/accelerator';
+import { MAX_MESSAGE_CHARS, clampMessageText } from '../../shared/message-limits';
 import type { CircleState, GitHubLoginState, IdentityState, Member, UpdateState } from '../../shared/types';
 
 // Feedback window for the "Copy code" button's checkmark (Plan 12 "Menu:
@@ -558,7 +559,13 @@ export default function MenuWindow() {
 						sendError={sendErrors[circle.code] ?? ''}
 						imagePaths={imageAttachments[circle.code] ?? []}
 						onMessageChange={(text) => {
-							setMessages((prev) => ({ ...prev, [circle.code]: text }))
+							// 2048-char clamp (Plan 12 "Menu: message character limit"),
+							// mirroring macOS `MessageLimits.maxCharacters`. Clamped here
+							// rather than only via the input's `maxLength` so pasted text
+							// (which some environments deliver via a synthetic value
+							// assignment rather than native maxLength enforcement) is
+							// clamped too.
+							setMessages((prev) => ({ ...prev, [circle.code]: clampMessageText(text) }))
 							if (sendErrors[circle.code]) {
 								setSendErrors((prev) => ({ ...prev, [circle.code]: '' }))
 							}
@@ -884,6 +891,7 @@ function CircleSection({
 							: 'Message…'
 					}
 					value={message}
+					maxLength={MAX_MESSAGE_CHARS}
 					onChange={(e) => onMessageChange(e.target.value)}
 					onKeyDown={(e) => {
 						if (e.key === 'Enter') onSend();

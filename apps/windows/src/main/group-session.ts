@@ -20,6 +20,7 @@ import type { ImageItem } from '../core';
 import { readFile } from 'node:fs/promises';
 import { RelayClient } from './relay-client';
 import { getCircleColor } from '../shared/group-color';
+import { clampMessageText } from '../shared/message-limits';
 import type { CircleState, IncomingImage, Member, NotchMessage } from '../shared/types';
 import type { ChatPayload, ClientMessage, ProfilePayload, ServerMessage } from '../core';
 
@@ -286,16 +287,23 @@ export class GroupSession {
 					const colorIndex = this.callbacks.getColorIndex();
 
 					if (decoded.kind === 'chat') {
+						// Display-side 2048-char clamp (Plan 12 "Menu: message
+						// character limit"), mirroring macOS `GroupSession.swift`'s
+						// symmetric `MessageLimits.clamp(text)` on the incoming chat
+						// branch — a peer (malicious or buggy) can't blow up the
+						// menu/notch UI with an oversized message even though the
+						// composer already caps what this app's own UI can send.
+						const text = clampMessageText(decoded.text);
 						this.callbacks.onChat?.({
 							sender: senderLabel,
-							text: decoded.text,
+							text,
 							isDirect,
 							sentAt: decoded.sentAt,
 						});
 						this.callbacks.onNotch({
 							sender: senderLabel,
 							senderMemberId: frame.from,
-							text: decoded.text,
+							text,
 							isDirect,
 							group: this.code,
 							groupColor: getCircleColor(colorIndex),
@@ -330,10 +338,14 @@ export class GroupSession {
 							width: it.width,
 							height: it.height,
 						}));
+						// Same incoming clamp as the chat branch above, applied to
+						// the caption (mirrors macOS's `MessageLimits.clamp(caption)`
+						// in `GroupSession.swift`'s image branch).
+						const caption = clampMessageText(decoded.caption || '');
 						this.callbacks.onNotch({
 							sender: senderLabel,
 							senderMemberId: frame.from,
-							text: decoded.caption || `Sent ${images.length} image${images.length === 1 ? '' : 's'}`,
+							text: caption || `Sent ${images.length} image${images.length === 1 ? '' : 's'}`,
 							isDirect,
 							group: this.code,
 							groupColor: getCircleColor(colorIndex),
