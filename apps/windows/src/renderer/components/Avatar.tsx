@@ -1,3 +1,10 @@
+import { useEffect, useState } from 'react';
+
+// Plan 12 P3.5: how long the one-time pulse ring plays before its class is
+// removed — kept in sync with the `avatar-pulse-ring` keyframe duration in
+// global.css (0.9s). Exported so callers/tests don't have to hardcode it.
+export const AVATAR_PULSE_DURATION_MS = 900;
+
 const palettes: [string, string][] = [
 	['#f56a6a', '#d93069'],
 	['#5ba6fa', '#3857eb'],
@@ -31,13 +38,45 @@ interface AvatarProps {
 	size?: number;
 	isEveryone?: boolean;
 	imageBase64?: string;
+	/**
+	 * Plan 12 P3.5: play a one-time pulse ring (macOS `AvatarView`'s
+	 * new-message pulse). Captured only at *mount* time — deliberately
+	 * ignored on later re-renders (see the mount-only effect below) so a
+	 * caller that keeps passing `pulse={true}` across re-renders of an
+	 * already-mounted Avatar (e.g. the newest message during its `full`
+	 * phase, which re-renders on unrelated state changes like hover) never
+	 * re-triggers the animation. Fresh mounts — a genuinely new message row
+	 * — always get their own fresh Avatar instance, so "mount-only" and
+	 * "new message" coincide in practice.
+	 */
+	pulse?: boolean;
+	/** Test-only override for AVATAR_PULSE_DURATION_MS. */
+	pulseDurationMs?: number;
 }
 
-export function Avatar({ name, size = 34, isEveryone = false, imageBase64 }: AvatarProps) {
+export function Avatar({
+	name,
+	size = 34,
+	isEveryone = false,
+	imageBase64,
+	pulse = false,
+	pulseDurationMs = AVATAR_PULSE_DURATION_MS,
+}: AvatarProps) {
 	const [from, to] = getAvatarPalette(name);
+	const [pulsing, setPulsing] = useState(pulse);
+
+	// eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally
+	// mount-only: only the `pulse` value present at mount should ever start
+	// the animation; see the doc comment on the `pulse` prop above.
+	useEffect(() => {
+		if (!pulsing) return;
+		const timer = setTimeout(() => setPulsing(false), pulseDurationMs);
+		return () => clearTimeout(timer);
+	}, []);
+
 	return (
 		<div
-			className="avatar"
+			className={pulsing ? 'avatar avatar-pulse' : 'avatar'}
 			style={{
 				width: size,
 				height: size,

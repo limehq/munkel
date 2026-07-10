@@ -156,6 +156,13 @@ select {
 	flex-shrink: 0;
 	user-select: none;
 	overflow: hidden;
+	position: relative;
+	/* Plan 12 P3.5: every newly-mounted Avatar slides/fades in — matches
+	 * macOS's `AvatarView` entry transition. `overflow: hidden` above only
+	 * clips the avatar's own circular content (initials/image), not this
+	 * pseudo-element sibling markup, so it doesn't clip the pulse ring
+	 * below (which deliberately overshoots the circle via `inset: -4px`). */
+	animation: avatar-slide-in 0.28s ease-out;
 }
 
 .avatar-image {
@@ -164,6 +171,46 @@ select {
 	border-radius: 50%;
 	object-fit: cover;
 	display: block;
+}
+
+@keyframes avatar-slide-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px) scale(0.85);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+/* One-time pulse ring (Plan 12 P3.5) — an Avatar plays this once when its
+ * `pulse` prop is true at mount (e.g. a newly-arrived message), matching
+ * macOS's `AvatarView` unread-message pulse. Implemented as a ::after ring
+ * so it overshoots the avatar's own circular bounds without needing a
+ * wrapper element; `pointer-events: none` keeps it from intercepting clicks
+ * meant for the avatar/message row underneath. Avatar.tsx removes the
+ * `avatar-pulse` class after `AVATAR_PULSE_DURATION_MS`, so this only ever
+ * plays once per mount, not on every re-render. */
+.avatar-pulse::after {
+	content: '';
+	position: absolute;
+	inset: -4px;
+	border-radius: 50%;
+	border: 2px solid rgba(255, 255, 255, 0.75);
+	animation: avatar-pulse-ring 0.9s ease-out;
+	pointer-events: none;
+}
+
+@keyframes avatar-pulse-ring {
+	from {
+		opacity: 0.9;
+		transform: scale(0.82);
+	}
+	to {
+		opacity: 0;
+		transform: scale(1.35);
+	}
 }
 
 .hint,
@@ -856,6 +903,19 @@ select {
 	.notch-ring circle.progress {
 		animation: none;
 		stroke-dashoffset: calc(var(--ring-circumference) / 2);
+	}
+
+	/* Plan 12 P3.5: the slide-in and pulse-ring are purely decorative —
+	 * skip both under prefers-reduced-motion. The `avatar-pulse` class is
+	 * still applied/removed on the same schedule (Avatar.tsx doesn't read
+	 * this media query), just with nothing visible playing. */
+	.avatar {
+		animation: none;
+	}
+
+	.avatar-pulse::after {
+		animation: none;
+		display: none;
 	}
 }
 
