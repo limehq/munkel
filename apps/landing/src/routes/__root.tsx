@@ -10,10 +10,21 @@ import geistLatinWoff2 from '@fontsource-variable/geist/files/geist-latin-wght-n
 import geistMonoLatinWoff2 from '@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2?url'
 
 const SITE_URL = 'https://munkel.app'
-const TITLE = 'Munkel · ephemeral messages from the notch'
+const TITLE = 'Munkel · Notch messages, ready for the Dynamic Island MacBook'
 const DESCRIPTION =
-  'Quick pings between friends, end-to-end encrypted — they slide out of the MacBook notch, linger a moment, and vanish. Nothing is ever stored.'
+  "Munkel slides tiny encrypted messages out of the MacBook notch today. Rumor has it the MacBook Ultra swaps it for a Dynamic Island. We'll be there on day one."
 const OG_IMAGE = `${SITE_URL}/og.png`
+
+const APP_LD = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Munkel',
+  operatingSystem: 'macOS',
+  applicationCategory: 'CommunicationApplication',
+  description: DESCRIPTION,
+  url: SITE_URL,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+})
 
 // Restore the stored theme before first paint to avoid a light-mode flash.
 // Dark is the default; only an explicit 'light' choice removes the class.
@@ -41,6 +52,7 @@ export const Route = createRootRoute({
       { name: 'twitter:description', content: DESCRIPTION },
       { name: 'twitter:image', content: OG_IMAGE },
     ],
+    scripts: [{ type: 'application/ld+json', children: APP_LD }],
     links: [
       {
         rel: 'preload',

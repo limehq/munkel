@@ -85,10 +85,10 @@ export function Features() {
             <div className="inline-flex items-center justify-center w-9 h-9 rounded-[var(--radius-md)] bg-[var(--brand-soft)] text-brand shadow-[0_0_calc(var(--glow)*20px)_color-mix(in_oklab,var(--brand)_20%,transparent)] mb-4 [&_svg]:w-[18px]! [&_svg]:h-[18px]!">
               <Laptop aria-hidden />
             </div>
-            <h3 className="text-[length:var(--text-base)] font-semibold">Works on any Mac</h3>
+            <h3 className="text-[length:var(--text-base)] font-semibold">Notch, island, or neither</h3>
             <p className="mt-2 text-[length:var(--text-sm)] text-muted-foreground leading-relaxed text-pretty max-w-[46ch]">
-              No notch? No problem. Munkels slide into a tidy floating panel instead — same munkel,
-              different spot.
+              Notch today, Dynamic Island when the rumors come true, a tidy floating panel
+              everywhere else. Same munkel, different spot.
             </p>
             <div className="mt-auto pt-5 flex justify-center" aria-hidden>
               <div className="flex items-center gap-[10px] bg-[color-mix(in_oklab,var(--background)_64%,#000)] border border-[oklch(1_0_0_/_0.12)] rounded-full py-2 pr-[18px] pl-2 shadow-[var(--shadow-md)]">
