@@ -1,5 +1,3 @@
-import type { ReactNode } from 'react'
-
 import {
   Accordion,
   AccordionContent,
@@ -8,7 +6,7 @@ import {
 } from '@/components/ui/accordion'
 import { DISCUSSIONS_URL } from '@/lib/constants'
 
-const FAQS: { q: string; a: ReactNode }[] = [
+const FAQS: { q: string; a: string }[] = [
   {
     q: 'Can anyone else read my messages?',
     a: 'Only the people you share the channel name with. Munkels are end-to-end encrypted, the name doubles as the key, the relay cannot read them, and nothing is stored on the server.',
@@ -33,11 +31,26 @@ const FAQS: { q: string; a: ReactNode }[] = [
     q: 'Will friends on older or non-notch Macs miss out?',
     a: 'Not at all. One universal binary covers Apple Silicon and Intel, and without a notch your munkels fall back to a tidy floating panel. Windows is coming soon.',
   },
+  {
+    q: 'Does Munkel work with the MacBook Ultra Dynamic Island?',
+    a: "The MacBook Ultra is still a rumor, and we'll be honest about that. But munkels already live in the notch, the exact spot a Dynamic Island would take over. The day it ships, your munkels slide out of the island like they always lived there.",
+  },
 ]
+
+const FAQ_LD = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: FAQS.map((f) => ({
+    '@type': 'Question',
+    name: f.q,
+    acceptedAnswer: { '@type': 'Answer', text: f.a },
+  })),
+})
 
 export function Faq() {
   return (
     <section id="faq">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: FAQ_LD }} />
       <div className="mx-auto max-w-[1400px] px-8 flex flex-col items-center">
         <div className="text-center max-w-[600px] mb-14">
           <div className="font-mono text-[length:var(--text-xs)] text-brand tracking-[0.06em] uppercase">FAQ</div>

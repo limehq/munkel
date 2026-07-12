@@ -7,6 +7,7 @@ import { Hero } from '@/components/sections/hero'
 import { HowItWorks } from '@/components/sections/how-it-works'
 import { Features } from '@/components/sections/features'
 import { Screenshots } from '@/components/sections/screenshots'
+import { Ultra } from '@/components/sections/ultra'
 import { Cli } from '@/components/sections/cli'
 import { Agents } from '@/components/sections/agents'
 import { Privacy } from '@/components/sections/privacy'
@@ -28,6 +29,7 @@ function LandingPage() {
         <HowItWorks />
         <Features />
         <Screenshots />
+        <Ultra />
         <Cli />
         <Agents />
         <Privacy />
