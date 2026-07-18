@@ -10,7 +10,7 @@
   - **Plan 14 / OQ4 (Image Quick-Look)** code-seitig **DONE** — Hover 1:1 macOS (`ImagePreviewOverlay`, wide notch, `blob-download` + `openRaw`, Full-Res-Copy). Teststand bei Implementierung: **588 pass / 2 skip / 0 fail**, typecheck clean.
   - **Echo-Opt-in-Fix (2026-07-18):** Dev-Toggle „Echo my broadcasts“ default war `true` → eigene Broadcasts erschienen in der eigenen Notch. Runtime-Beweis: client-side Echo, nicht Relay. Fix: Default/`state.json` v2 → **opt-in `false`** + v1→v2-Migration; User-verifiziert. Feature bleibt in Dev-Settings einschaltbar.
   - **Matrix (Plan 12):** **38 DONE / 1 PARTIAL (About) / 0 MISSING / 1 BLOCKED (P2.2/OQ5)**.
-  - Working tree: Plan-14-Code + Echo-Fix + Doku **noch uncommitted**; `fp-notes/` nie committen.
+  - **Commit:** `fa37329` gepusht; **PR #43** → `platform/windows/v2-clean` (kein Self-Merge). `fp-notes/` bleibt untracked.
 - **Kritischer Umgebungs-Hinweis:** `ELECTRON_RUN_AS_NODE=1`-Strip in `dev.mjs` bleibt Pflicht.
 
 ## completed (diese Session / seit Pause)
@@ -23,14 +23,13 @@
 
 1. **Manual QA Plan 14** (soweit noch offen): Hover-Preview, History, Reply-Clear, Copy Full-Res, Scaling, Content-Protection.
 2. **BLOCKED — OQ5:** CLI-Installer (P2.2) — bundle vs. separat.
-3. **Commit** der uncommitted Änderungen (Plan 14 + Echo-Fix + Doku) — erst auf User-OK.
-4. **PR** `macos-parity-p1` → `v2-clean` (kein Self-Merge).
+3. ~~Commit + PR~~ ✅ `fa37329` / [#43](https://github.com/rodgi040/munkel/pull/43) — wartet auf Review/CI (kein Self-Merge).
 
 ## next_action
 
-1. Optional: Rest-QA Plan 14 abschließen.
-2. Mit User **OQ5** klären.
-3. Auf explizites OK: committen + PR öffnen.
+1. CI/Review für PR #43; nach Merge: Tag + Branch löschen (Konvention).
+2. Optional: Rest-QA Plan 14.
+3. Mit User **OQ5** klären.
 
 ## decisions (verbatim / neu)
 
