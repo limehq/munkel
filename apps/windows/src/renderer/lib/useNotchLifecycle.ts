@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NOTCH_FULL_MS, NOTCH_HISTORY_MS, NOTCH_RETRACT_AT_MS, type NotchPhase } from './notch-phase';
 import { pruneNotchHistory } from './prune-notch-history';
+import { copyAvifBase64ToClipboardAsPng } from './copy-image-to-clipboard';
 import type { NotchMessage } from '../../shared/types';
 
 export interface NotchHistoryEntry extends NotchMessage {
@@ -34,7 +35,7 @@ export interface UseNotchLifecycleReturn {
 	openReply: (entry: NotchHistoryEntry) => void;
 	closeReply: () => void;
 	onNotchMessage: (message: NotchMessage) => void;
-	copyText: (entry: NotchHistoryEntry) => void;
+	copyText: (entry: NotchHistoryEntry, fullImageBase64?: string) => void;
 	scheduleHoverLeave: () => void;
 	cancelHoverLeave: () => void;
 	reopenFromHoverTarget: () => void;
@@ -104,8 +105,23 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		setReplyingTo(null);
 	}, []);
 
-	const copyText = useCallback((entry: NotchHistoryEntry) => {
-		void navigator.clipboard.writeText(entry.text);
+	/**
+	 * Copy an entry's content (Plan 14 task 7: prefer full-res image). When
+	 * the caller has a loaded full-resolution image for this entry's first
+	 * picture, try to copy THAT to the clipboard (mirroring macOS's
+	 * image-copy path); any failure — unsupported clipboard API, decode
+	 * error — falls back to the existing text-only copy rather than doing
+	 * nothing. Entries without a loaded image (no `fullImageBase64`) copy
+	 * text exactly as before.
+	 */
+	const copyText = useCallback((entry: NotchHistoryEntry, fullImageBase64?: string) => {
+		if (fullImageBase64) {
+			void copyAvifBase64ToClipboardAsPng(fullImageBase64).catch(() => {
+				void navigator.clipboard.writeText(entry.text);
+			});
+		} else {
+			void navigator.clipboard.writeText(entry.text);
+		}
 		setCopiedId(entry.id);
 	}, []);
 

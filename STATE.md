@@ -2,6 +2,12 @@
 
 ## Now
 
+**2026-07-18 — Echo-Opt-in-Fix + Doku-Sync.** User meldete: eigene Broadcasts erscheinen in der eigenen Notch. Debug-Lauf: Hypothese A+D bestätigt (`willEcho:true` / `effectiveEcho:true` beim Boot); Relay-Loopback verworfen (kein Incoming-Self-Frame). Ursache: Plan-13-Dev-Toggle `devEchoBroadcasts` Default `true`. Fix: Default + Migration `state.json` **v2 → `false` (opt-in)**; Toggle bleibt in Dev-Settings. User-verifiziert; Debug-Instrumentierung entfernt. Uncommitted auf `platform/windows/macos-parity-p1`.
+
+**2026-07-17 — Plan 14 (OQ4) umgesetzt: Image Quick-Look Overlay, macOS-Hover-Parity.** Tasks 1–8: `blob-download`, `loadFullImage`, IPC, `useImagePreview` (180ms Debounce), `ImagePreviewOverlay`, `setNotchPreviewActive` (ein Fenster → Display-`workArea`), Full-Res-Copy. **Teststand: 588 pass / 2 skip / 0 fail**. Matrix: **38 DONE / 1 PARTIAL (About) / 0 MISSING / 1 BLOCKED (P2.2/OQ5)**. OQ4 geschlossen.
+
+Davor: OQ4-Planung gegen Upstream `4cec964` (`ImagePreviewOverlay.swift`); Entscheidung Hover-Parity.
+
 Windows: **Plan 13 — restliche entscheidungsfreie macOS-Parität komplett (2026-07-10), Verdikt SHIP.** Voller 4-Schritt-Prozess (Kimi-Planer `13-remaining-parity.md` → Kimi-Verifizierer → Sonnet-7er-Batch → Kimi-Review → Fixes → Re-Review SHIP). Neu: Message-Ticker (`7410cae`, macOS `TickerText.swift`, auf 280px Windows-Content kalibriert, ResizeObserver), Dev-only-Toggles „Allow in screenshots" + „Echo my broadcasts" (`f656798`), CLI-Konstanten-Drift zentralisiert (`b924689`, `message-limits` → `@munkel/shared-wire`), plus 3 Low-Follow-ups (act-Warning, Prune-Guard, Sent-to-Race-Guard). Review-MAJOR: Dev-Gate hing an `NODE_ENV` statt `!app.isPackaged` (env-spoofbar — dieselbe Klasse wie der ELECTRON_RUN_AS_NODE-Leak) → `e1ed3ad` auf `!app.isPackaged` umgestellt (unspoofbare 4-Punkte-Release-Garantie), + `0f5e281` alle restlichen NODE_ENV-Dev-Zweige repo-weit entfernt (nur noch Kommentare). **Matrix: 36 DONE / 2 PARTIAL / 0 MISSING / 2 BLOCKED** (P2.2 CLI-Installer = OQ5, P2.3 Bild-Lightbox = OQ4; die image-copy-PARTIAL an P2.3 gekoppelt). Teststand: **537 pass / 3 skip / 0 fail**. **Der Branch ist damit code-seitig komplett bis auf die 2 BLOCKED-Features + visuelle QA → dann PR nach `platform/windows/v2-clean`.**
 
 Davor: **Parity-Gap-Slice (2026-07-10) — 3 fehlende macOS-Features nachgezogen + Matrix reconciled, Verdikt SHIP.** Neu: Copy-Circle-Code-Button (`291cf94`), 2048-Zeichen-Limit in Composer+Reply+eingehend (`52f759d`, neue `src/shared/message-limits.ts`, grapheme-sicher via `Intl.Segmenter`), Notch „Sent to …"-Bestätigungs-Chip (`c809ebb`). Review fand HIGH (stale Sent-to-Timer schließt fremdes Reply) + 2 MEDIUM (Paste-Cap-Bypass, grapheme-unsicherer Clamp) → alle in `909ce4b` gefixt, Re-Review **SHIP** (nur 3 LOW-Follow-ups: untreffbare Timer-Race-Härtung, verwaister-aber-harmloser Prune-Timer, act()-Test-Warnung). 2 stale Matrix-Zeilen korrigiert (⌘V-Paste via P3.4 DONE mit Scope-Note, dynamic-resize via P1.3 DONE). **Matrix: 33 DONE / 2 PARTIAL / 5 MISSING** (offen: CLI-Installer + Lightbox = User-Entscheidung OQ4/OQ5; Message-Ticker; 2 Dev-only-Toggles). Teststand: **487 pass / 3 skip / 0 fail**.
@@ -29,27 +35,16 @@ Davor: **Iteration 8 abgeschlossen — P3 KOMPLETT: pulse-Verdrahtung, P3.6 Hist
 - ✅ **P3.5 Avatar entry animation + one-time pulse (Iteration 6)** — CSS-Keyframe `avatar-slide-in` auf `.avatar`; `pulse` prop mount-only via `useState(pulse)` + self-clearing `setTimeout`; `prefers-reduced-motion` beachtet. Verdrahtung des `pulse` props in `NotchWidget.tsx` bleibt offen.
 - ✅ **Review-Härtung Iteration 6/7** — Erst-Review gegen `161d15a` **SHIP-mit-Follow-ups** mit 4 MAJORs; Härtungs-Commit `fad3300` schloss alle 4. Re-Review von `fad3300` **BLOCK** mit 2 MAJORs (Temp-Cleanup-Authority/Sender-Guard, `Date.now()`-Cooldown); Fixes `2757681` + `0f2efe5` schlossen beide. Re-Re-Review-Verdikt **SHIP** mit 1 INFO (optionales cap/age-prune für `ownedClipboardTempPaths`). Teststand: **357 pass / 2 skip / 0 fail**.
 - ✅ **P3-Abschluss Iteration 8 (2026-07-10)** — pulse-Verdrahtung (`5acfb69`), P3.6 History-Expand/Collapse mit Chevron + Per-Row-Copy (`d8e0a2d`), P3.1 Rebindable Hotkey mit Recorder/Validierung (`24d6340`). Review: P3.1 BLOCK (Rollback-Doppel-Fehler ließ App hotkey-los bei behaupteter Bindung) → Fix `8ba4574` (Confirmed-Binding-Invariante, Default-Heal, unbound-UI mit Retry-Heilung, Shift-only-Ablehnung) → **SHIP**; P3.6+pulse **SHIP** (Follow-ups: 220px-Cap vs. resize-on-expand, Overflow >480px unverifiziert, 3 fehlende Tests). Teststand: **429 pass / 2 skip / 0 fail**.
+- ✅ **Plan 14 / OQ4 Image Quick-Look (2026-07-17)** — Hover-Overlay, wide notch, blob-download, full-res copy; Matrix 38/1/0/1.
+- ✅ **Echo opt-in default (2026-07-18)** — `devEchoBroadcasts` default `false`, `state.json` v2-Migration; User-verifiziert.
 - ✅ (früher) Single-Instance/Self-Heal, Circle-Leave-Dialog, Logo-Assets, Auto-Update, Notch Peek/History — alles in `platform/windows/v2-clean` bzw. darunter gemerged.
 
 ## Last
 
-2026-07-10 — **Iteration 8: P3 komplett (pulse, P3.6, P3.1), Review-Zyklus BLOCK→`8ba4574`→SHIP, 429 pass / 2 skip / 0 fail.** Davor Iteration 7: Der Re-Review von Commit `fad3300` ergab **BLOCK** mit 2 MAJOR-Findings: (1) Temp-Cleanup basierte nur auf einem basename-Vergleich und `send-images` hatte keinen Sender-Guard, was einem kompromittierten Renderer eine potenzielle Datei-Lösch-Primitive ermöglicht hätte; (2) der 300ms-Re-Arm-Cooldown nutzte `Date.now()` und konnte durch einen rückwärtigen Zeit-/NTP-Sprung dauerhaft un-armierbar werden. Fixes: Commit `2757681` beschränkte die Lösch-Autorität auf ein Ownership-Set selbst geschriebener Temp-Pfade, erzwang `tmpdir`-Containment, ergänzte den `send-images`-Sender-Guard, fügte einen 1h-Alters-Sweep hinzu und lieferte einen caret-correcten Text-Fallback; Commit `0f2efe5` machte die Uhr für den Cooldown injizierbar und fügte einen `null`-Sentinel hinzu. Re-Re-Review: **SHIP**, alle MAJORs bestätigt geschlossen; 1 INFO bleibt offen (unbounded growth von `ownedClipboardTempPaths` bei Paste-ohne-Send — optional cap/age-prune). Teststand: **357 pass / 2 skip / 0 fail**; `bun run typecheck` grün. Doku aktualisiert.
+2026-07-18 — Echo-Opt-in-Fix user-verifiziert; Projektdoku (HANDOFF/STATE/Plans) synchronisiert. Davor 2026-07-17 Plan 14 umgesetzt. Branch weiterhin uncommitted gegenüber Tip `9de332f`.
 
 ## Next
 
-1. ~~pulse-Verdrahtung~~ ✅ / ~~P3.6 + P3.1~~ ✅ — alles in Iteration 8 erledigt und reviewt (SHIP).
-2. **Iteration-8-Follow-ups** (klein, vor dem PR): 220px-Cap vs. resize-on-expand entscheiden; Overflow-Verhalten >480px in `notch-window.ts` prüfen; 3 fehlende Tests (Pruning-while-visible, FULL→PEEK-pulse, notchResize-bei-Expand); Chevron `type="button"`; **INFO** `copyText`→`interacted` (Produktentscheidung).
-3. **Manuelles QA-Gate** durchführen (neu dazu: Hotkey-Rebind-QA aus Plan 12, History-Expand/Chevron live, pulse visuell):
-   - Packaged-Build-Autostart für P2.1 (Log-out/-in, Checkbox spiegelt Windows-Startup-Apps wider).
-   - Chip-Row Screenreader/Tastatur für P2.4 (Fokus, Pfeiltasten, Auswahl ankündigen).
-   - Notch-Flicker/Größe bei 100 % / 125 % / 150 % Display-Skalierung (P1.3).
-   - Retry nach simuliertem Relay-Offline im laufenden App (P1.2).
-   - P3.2: Hover-C-Copy live testen (row vs. newest, Idle-Disarm, Hide-Disarm).
-   - P3.3: Unread-Dot bei retracted Nachricht und Clear-on-Hover.
-   - P3.4: Clipboard-Bild-Paste in Palette und Menu, Text-Paste unberührt, Oversized-Fehlerpfad.
-   - P3.5: Avatar slide-in + pulse (nach Verdrahtung) visuell prüfen.
-   - P3.7: "Check Automatically" off über 24h+ im Packaged Build, manueller Check weiterhin erreichbar.
-4. **User-Entscheidungen zu Open Questions 4 + 5** einholen:
-   - Open Question 4: Lightbox-Verhalten für Bilder (Notch-intern, eigenes Fenster oder System-Viewer?).
-   - Open Question 5: CLI-Distributionsmodell (bundled `extraResources` + Menü-Installer oder separate Installation?).
-5. Danach entweder **P2.2 (CLI-Installer) + P2.3 (Lightbox)** angehen oder — falls QA + Entscheidungen zeitlich hintenanstehen — den **PR von `platform/windows/macos-parity-p1` → `platform/windows/v2-clean`** öffnen; erst nach Review + grünem CI mergen (kein Self-Merge).
+1. Restliche visuelle QA Plan 14 (falls noch Punkte offen).
+2. **OQ5** (CLI-Distribution) mit User.
+3. Commit + PR `macos-parity-p1` → `v2-clean` (kein Self-Merge; erst nach User-OK).

@@ -21,12 +21,12 @@ export class AppState {
 	private readonly sessions = new Map<string, GroupSession>();
 	private identity: IdentityState;
 	private profileTimer: ReturnType<typeof setTimeout> | null = null;
-	// Dev-only "echo my own broadcasts" (Plan 13 item 6), mirroring macOS
-	// `AppModel`'s `#if DEBUG static var devEchoBroadcasts` (default `true`
-	// in DEBUG; the code path does not exist at all outside it). `isDev` is
-	// folded in once here — not re-checked per send — so a *packaged* build
-	// launched against a dev-populated userData/state.json can never echo,
-	// even though the persisted field may say `true`.
+	// Dev-only "echo my own broadcasts" (Plan 13 item 6). Feature mirrors
+	// macOS `AppModel.devEchoBroadcasts`, but Windows persists opt-in
+	// (default `false` since state.json v2). `isDev` is folded in once here —
+	// not re-checked per send — so a *packaged* build launched against a
+	// dev-populated userData/state.json can never echo, even though the
+	// persisted field may say `true`.
 	private readonly isDev: boolean;
 	private devEchoBroadcastsEnabled: boolean;
 
@@ -129,6 +129,18 @@ export class AppState {
 			return { ok: false, error: 'Circle offline — message not sent.' };
 		}
 		return session.sendImages(paths, caption, to);
+	}
+
+	/**
+	 * Fetch an incoming album image's full resolution for the notch Quick-Look
+	 * overlay (Plan 14). Looks the session up by normalized code so a stale
+	 * or already-left circle resolves `null` instead of throwing.
+	 */
+	async loadFullImage(code: string, r2Key: string): Promise<Uint8Array | null> {
+		const normalized = normalizeCircleCode(code);
+		const session = this.sessions.get(normalized);
+		if (!session) return null;
+		return session.loadFullImage(r2Key);
 	}
 
 	updateIdentity(next: IdentityUpdate): void {

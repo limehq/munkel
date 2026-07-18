@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'bun:test';
+import { describe, expect, it, afterEach } from 'bun:test';
 import { AppState } from '../session-store';
 import type { IdentityStore, PersistedState } from '../identity-store';
+import { deriveGroupKeys, sealRaw } from '../../core';
 
 /**
  * Minimal in-memory stand-in for `IdentityStore`, so these tests exercise
@@ -128,5 +129,76 @@ describe('AppState.setDevEchoBroadcasts (Plan 13 item 6)', () => {
 
 		expect(patches).toEqual([{ devEchoBroadcasts: true }]);
 		expect(appState.getDevEchoBroadcasts()).toBe(true);
+	});
+});
+
+describe('AppState.loadFullImage (Plan 14 task 2)', () => {
+	const originalFetch = globalThis.fetch;
+	let joinedCode: string | null = null;
+	let appStateToClean: AppState | null = null;
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+		if (joinedCode && appStateToClean) {
+			appStateToClean.leaveCircle(joinedCode);
+		}
+		joinedCode = null;
+		appStateToClean = null;
+	});
+
+	it('returns null when no session is joined for the (normalized) code', async () => {
+		const { store } = stubIdentityStore();
+		const appState = new AppState(store, noop, noop);
+
+		expect(await appState.loadFullImage('  Some-Circle\n', 'any-key')).toBeNull();
+	});
+
+	it('delegates to the joined session and returns the decrypted bytes on success', async () => {
+		const { store } = stubIdentityStore();
+		const appState = new AppState(store, noop, noop);
+		const code = 'preview-delegate-happy';
+		joinedCode = code;
+		appStateToClean = appState;
+
+		await appState.joinCircle(code, 'ws://relay.invalid/ws');
+
+		const { messageKey } = await deriveGroupKeys(code);
+		const plaintext = new Uint8Array([10, 20, 30]);
+		const sealed = await sealRaw(plaintext, messageKey);
+		globalThis.fetch = (async () => new Response(sealed, { status: 200 })) as typeof fetch;
+
+		const result = await appState.loadFullImage(code, 'r2-key-1');
+
+		expect(result).toEqual(plaintext);
+	});
+
+	it('normalizes the code before looking the session up (case/whitespace-insensitive)', async () => {
+		const { store } = stubIdentityStore();
+		const appState = new AppState(store, noop, noop);
+		const code = 'preview-delegate-normalize';
+		joinedCode = code;
+		appStateToClean = appState;
+
+		await appState.joinCircle(code, 'ws://relay.invalid/ws');
+
+		const { messageKey } = await deriveGroupKeys(code);
+		const plaintext = new Uint8Array([1]);
+		const sealed = await sealRaw(plaintext, messageKey);
+		globalThis.fetch = (async () => new Response(sealed, { status: 200 })) as typeof fetch;
+
+		const result = await appState.loadFullImage(`  ${code.toUpperCase()}\n`, 'r2-key-1');
+
+		expect(result).toEqual(plaintext);
+	});
+
+	it('returns null once the circle has been left, instead of resurrecting a stale session', async () => {
+		const { store } = stubIdentityStore();
+		const appState = new AppState(store, noop, noop);
+		const code = 'preview-delegate-left';
+
+		await appState.joinCircle(code, 'ws://relay.invalid/ws');
+		appState.leaveCircle(code);
+
+		expect(await appState.loadFullImage(code, 'any-key')).toBeNull();
 	});
 });

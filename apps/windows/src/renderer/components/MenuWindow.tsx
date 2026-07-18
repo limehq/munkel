@@ -109,9 +109,9 @@ export default function MenuWindow() {
 	// as launchAtLogin/autoUpdateCheck above.
 	const [allowInScreenshots, setAllowInScreenshotsState] = useState(false);
 	const allowInScreenshotsToggleInFlightRef = useRef(false);
-	// "Echo my broadcasts to me" (mirrors macOS `AppModel.devEchoBroadcasts`,
-	// default on in dev).
-	const [devEchoBroadcasts, setDevEchoBroadcastsState] = useState(true);
+	// "Echo my broadcasts to me" — opt-in (default off); hydrated from main
+	// via getDevEchoBroadcasts on mount.
+	const [devEchoBroadcasts, setDevEchoBroadcastsState] = useState(false);
 	const devEchoBroadcastsToggleInFlightRef = useRef(false);
 
 	// Rebindable palette hotkey (Plan 12 P3.1). Default mirrors the persisted

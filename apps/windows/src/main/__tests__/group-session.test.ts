@@ -1,6 +1,6 @@
 import { expect, test, describe, beforeEach, afterEach } from 'bun:test';
 import { WebSocketServer, WebSocket } from 'ws';
-import { deriveGroupKeys, seal, open, encodeChat, encodeProfile } from '../../core';
+import { deriveGroupKeys, seal, open, sealRaw, encodeChat, encodeProfile } from '../../core';
 import { GroupSession, buildEchoImages } from '../group-session';
 import { getCircleColor } from '../../shared/group-color';
 import type { CircleState, NotchMessage } from '../../shared/types';
@@ -635,6 +635,86 @@ async function decrypt(payload: string, messageKey: CryptoKey): Promise<{ kind: 
 	const plaintext = await open(payload, messageKey);
 	return JSON.parse(plaintext) as { kind: string; text?: string };
 }
+
+describe('GroupSession.loadFullImage (Plan 14 task 2 — download+openRaw path)', () => {
+	const originalFetch = globalThis.fetch;
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	async function createSession(code: string): Promise<GroupSession> {
+		return GroupSession.create(code, 'ws://relay.invalid/ws', 'windows-member', { displayName: 'Windows User' }, {
+			onStateChange: () => {},
+			onChat: () => {},
+			onNotch: () => {},
+			getColorIndex: () => 0,
+		});
+	}
+
+	test('downloads and decrypts the blob, returning the original plaintext bytes', async () => {
+		const code = 'preview-happy-path';
+		const { messageKey } = await deriveGroupKeys(code);
+		const session = await createSession(code);
+
+		const plaintext = new Uint8Array([1, 2, 3, 4, 5, 250]);
+		const sealed = await sealRaw(plaintext, messageKey);
+		globalThis.fetch = (async () => new Response(sealed, { status: 200 })) as typeof fetch;
+
+		const result = await session.loadFullImage('r2-key-abc');
+
+		expect(result).toEqual(plaintext);
+	});
+
+	test('returns null (never throws) when the relay download fails (e.g. 404)', async () => {
+		const code = 'preview-download-404';
+		const session = await createSession(code);
+
+		globalThis.fetch = (async () => new Response('not found', { status: 404 })) as typeof fetch;
+
+		const result = await session.loadFullImage('missing-key');
+
+		expect(result).toBeNull();
+	});
+
+	test('returns null (never throws) on a network error', async () => {
+		const code = 'preview-network-error';
+		const session = await createSession(code);
+
+		globalThis.fetch = (async () => {
+			throw new Error('ECONNREFUSED');
+		}) as typeof fetch;
+
+		const result = await session.loadFullImage('any-key');
+
+		expect(result).toBeNull();
+	});
+
+	test('returns null (never throws) when the ciphertext cannot be opened with this session\'s key (wrong/corrupted blob)', async () => {
+		const code = 'preview-bad-ciphertext';
+		const { messageKey: wrongKey } = await deriveGroupKeys('a-completely-different-circle');
+		const session = await createSession(code);
+
+		// Sealed with a different circle's key — openRaw must fail to decrypt.
+		const sealedWithWrongKey = await sealRaw(new Uint8Array([9, 9, 9]), wrongKey);
+		globalThis.fetch = (async () => new Response(sealedWithWrongKey, { status: 200 })) as typeof fetch;
+
+		const result = await session.loadFullImage('any-key');
+
+		expect(result).toBeNull();
+	});
+
+	test('returns null when the relay responds 200 with an empty body', async () => {
+		const code = 'preview-empty-body';
+		const session = await createSession(code);
+
+		globalThis.fetch = (async () => new Response(new Uint8Array(0), { status: 200 })) as typeof fetch;
+
+		const result = await session.loadFullImage('any-key');
+
+		expect(result).toBeNull();
+	});
+});
 
 describe('buildEchoImages (Plan 13 item 6)', () => {
 	test('maps each ImageItem to an IncomingImage, reusing the same thumb/dims already built for the wire send', () => {

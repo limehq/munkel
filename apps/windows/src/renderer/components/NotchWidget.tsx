@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Avatar } from './Avatar';
 import { TickerText } from './TickerText';
+import ImagePreviewOverlay from './ImagePreviewOverlay';
 import { useAppStore } from '../store/app-store';
 import { resolveReplyRecipient } from '../lib/resolve-reply-recipient';
 import { shouldOpenReplyOnMessageClick } from '../lib/should-open-reply-on-message-click';
 import { useNotchLifecycle, type NotchHistoryEntry } from '../lib/useNotchLifecycle';
+import { useImagePreview } from '../lib/useImagePreview';
 import { MAX_MESSAGE_CHARS, clampMessageText } from '@munkel/shared-wire/message-limits';
 
 const RING_RADIUS = 8;
@@ -36,6 +38,23 @@ const HOVER_COPY_PING_THROTTLE_MS = 1_000;
 // running independently, govern the notch's own retraction), so a slightly
 // longer dwell gives the confirmation text time to actually be read.
 const SENT_CONFIRMATION_MS = 1_500;
+
+// Fallback gutter basis for `ImagePreviewOverlay` before the widget's first
+// layout pass has happened (mirrors `main/notch-window.ts`'s
+// `NOTCH_DEFAULT_HEIGHT` — not imported directly since that module pulls in
+// `electron`, which isn't available in the renderer bundle).
+const NOTCH_DEFAULT_HEIGHT_FALLBACK = 180;
+
+/**
+ * The loaded full-resolution bytes for an entry's first image, if any is
+ * cached — used to make "copy" prefer the full-res picture (Plan 14 task 7)
+ * over the message text. `undefined` (not cached, or the entry has no
+ * images) tells `copyText` to fall back to its existing text-only copy.
+ */
+function firstLoadedImageBase64(entry: NotchHistoryEntry, fullImages: Map<string, string>): string | undefined {
+	const firstImageId = entry.images?.[0]?.id;
+	return firstImageId ? fullImages.get(firstImageId) : undefined;
+}
 
 export default function NotchWidget() {
 	const { sendChat } = useAppStore();
@@ -151,6 +170,12 @@ export default function NotchWidget() {
 		});
 	}, []);
 
+	// Image Quick-Look hover preview (Plan 14 / OQ4 macOS-parity overlay).
+	// `clearPreview` is one of the teardown paths below (notch hide, reply
+	// open, notch mouseleave) — see `useImagePreview.ts` for the debounce /
+	// instant-hand-off / owner-check semantics.
+	const { previewImageID, requestPreview: requestImagePreview, endPreview: endImagePreview, clearPreview } = useImagePreview();
+
 	const handleNotchHide = useCallback(() => {
 		setReplyText('');
 		setError(null);
@@ -165,7 +190,11 @@ export default function NotchWidget() {
 		// (macOS parity: `historyExpanded` is a transient view toggle, not
 		// persisted per message).
 		setExpandedHistoryIds(new Set());
-	}, [clearSentConfirmation]);
+		// A cell's hover-out doesn't reliably fire when the notch is torn
+		// down — hard-clear the Quick-Look preview here too (mirrors macOS
+		// NotchPresenter's hide handler calling `clearPreview()`).
+		clearPreview();
+	}, [clearSentConfirmation, clearPreview]);
 	const lifecycle = useNotchLifecycle({ onNotchHide: handleNotchHide });
 	// Pointer-down position on the message body, so a click that was really a
 	// drag-to-select gesture does not open the reply field (see openReply).
@@ -196,6 +225,88 @@ export default function NotchWidget() {
 				? 'notch-full'
 				: `notch-${phase}`
 		: 'notch-retracted';
+
+	// Full-resolution image cache (Plan 14 / OQ4), keyed by r2Key and shared
+	// between the current message and history rows — mirrors macOS
+	// `MessageDisplayModel.fullImages` / `failedImages`. Unlike macOS's
+	// strictly per-cell mount-time fetch, this Windows implementation kicks
+	// the fetch off as soon as an album enters `history` (a superset of
+	// "mounted": every history entry is reachable via hover-reopen within
+	// its 60s window) — simpler to implement/test than gating on each row's
+	// actual DOM mount, and means the preview never has to wait on a fetch
+	// that could have started earlier.
+	const [fullImages, setFullImages] = useState<Map<string, string>>(new Map());
+	const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+	const fullImagesRef = useRef(fullImages);
+	useEffect(() => {
+		fullImagesRef.current = fullImages;
+	}, [fullImages]);
+	// r2Keys already requested (in flight or resolved) — guards against
+	// re-fetching on every `history` re-render (pruning, a new message
+	// arriving, etc.) once a given image's fetch has been kicked off.
+	const requestedImagesRef = useRef<Set<string>>(new Set());
+
+	useEffect(() => {
+		const liveIds = new Set<string>();
+		for (const entry of history) {
+			for (const img of entry.images ?? []) liveIds.add(img.id);
+		}
+
+		// Prune the cache/failed-set/request-tracking for images that aged
+		// out of the 60s history window (mirrors macOS's 1Hz prune of
+		// `fullImages`/`imageLoaders` in `NotchPresenter.pruneImageCache`),
+		// so a long-lived notch session doesn't retain every album forever.
+		requestedImagesRef.current.forEach((id) => {
+			if (!liveIds.has(id)) requestedImagesRef.current.delete(id);
+		});
+		setFullImages((current) => {
+			let changed = false;
+			const next = new Map<string, string>();
+			current.forEach((value, id) => {
+				if (liveIds.has(id)) next.set(id, value);
+				else changed = true;
+			});
+			return changed ? next : current;
+		});
+		setFailedImages((current) => {
+			let changed = false;
+			const next = new Set<string>();
+			current.forEach((id) => {
+				if (liveIds.has(id)) next.add(id);
+				else changed = true;
+			});
+			return changed ? next : current;
+		});
+
+		for (const entry of history) {
+			for (const img of entry.images ?? []) {
+				if (requestedImagesRef.current.has(img.id)) continue;
+				requestedImagesRef.current.add(img.id);
+				void window.electronAPI.notchLoadFullImage(entry.group, img.id).then((result) => {
+					if (result.ok) {
+						setFullImages((current) => {
+							const next = new Map(current);
+							next.set(img.id, result.data);
+							return next;
+						});
+					} else {
+						setFailedImages((current) => {
+							if (current.has(img.id)) return current;
+							const next = new Set(current);
+							next.add(img.id);
+							return next;
+						});
+					}
+				});
+			}
+		}
+	}, [history]);
+
+	// Widen/restore the notch window for the overlay (Plan 14 task 6) — the
+	// main process owns the actual bounds swap (`setNotchPreviewActive`).
+	useEffect(() => {
+		void window.electronAPI.notchSetPreviewActive(!!previewImageID);
+	}, [previewImageID]);
 
 	const replyOpenRef = useRef(false);
 	useEffect(() => {
@@ -287,7 +398,7 @@ export default function NotchWidget() {
 			const hovered = hoveredId ? historyRef.current.find((entry) => entry.id === hoveredId) : undefined;
 			const target = hovered ?? newestRef.current;
 			if (!target) return;
-			copyText(target);
+			copyText(target, firstLoadedImageBase64(target, fullImagesRef.current));
 		});
 	}, [copyText]);
 
@@ -363,11 +474,14 @@ export default function NotchWidget() {
 		}
 		setReplyPrivate(entry.isDirect);
 		openReplyLifecycle(entry);
+		// Opening the reply field dismisses any hover preview so it can't
+		// obscure the text field (mirrors macOS `NotchPresenter.beginReply`).
+		clearPreview();
 	}
 
 	function handleCopyText(entry: NotchHistoryEntry, e: React.MouseEvent) {
 		e.stopPropagation();
-		copyText(entry);
+		copyText(entry, firstLoadedImageBase64(entry, fullImages));
 	}
 
 	/**
@@ -523,6 +637,12 @@ export default function NotchWidget() {
 										src={`data:image/avif;base64,${img.thumb}`}
 										alt={`${img.width}×${img.height}`}
 										title={`${img.width}×${img.height}`}
+										// Hover — NOT click — drives the Quick-Look overlay
+										// (Plan 14 / OQ4 macOS-parity); a click still falls
+										// through to `stopPropagation` above, so it never
+										// opens the reply field either.
+										onMouseEnter={() => requestImagePreview(img.id)}
+										onMouseLeave={() => endImagePreview(img.id)}
 									/>
 								))}
 							</div>
@@ -617,43 +737,66 @@ export default function NotchWidget() {
 		);
 	}
 
+	// Resolve the previewed image across the current message AND history
+	// (mirrors macOS `ImagePreviewOverlay.resolvedImages`) so hovering either
+	// one previews identically.
+	const previewImage = previewImageID
+		? (history.flatMap((entry) => entry.images ?? []).find((img) => img.id === previewImageID) ?? null)
+		: null;
+
 	return (
-		<div
-			ref={widgetRef}
-			className={`notch-widget ${widgetClass}`}
-			data-testid="notch-widget"
-			onMouseEnter={() => {
-				cancelHoverLeave();
-				setNotchHovered(true);
-			}}
-			onMouseMove={reportHoverCopyActivity}
-			onMouseLeave={() => {
-				scheduleHoverLeave();
-				setNotchHovered(false);
-				setHoveredEntryId(null);
-			}}
-		>
-			{history.length > 0 && <div className="notch-hover-target" onMouseEnter={reopenFromHoverTarget} />}
-			<div className="notch-sliver" aria-hidden="true">
-				{phase === 'peek' && !(reopening || replyOpen) && (
-					<svg className="notch-ring" width="20" height="20" viewBox="0 0 20 20" style={ringStyle}>
-						<circle className="track" cx="10" cy="10" r={RING_RADIUS} />
-						<circle className="progress" cx="10" cy="10" r={RING_RADIUS} />
-					</svg>
-				)}
-				<div className="notch-grabber" />
-				{unread && <span className="notch-unread-dot" data-testid="notch-unread-dot" />}
+		<div className={previewImageID ? 'notch-root notch-root-preview-active' : 'notch-root'}>
+			<div
+				ref={widgetRef}
+				className={`notch-widget ${widgetClass}`}
+				data-testid="notch-widget"
+				onMouseEnter={() => {
+					cancelHoverLeave();
+					setNotchHovered(true);
+				}}
+				onMouseMove={reportHoverCopyActivity}
+				onMouseLeave={() => {
+					scheduleHoverLeave();
+					setNotchHovered(false);
+					setHoveredEntryId(null);
+					// Leaving the notch entirely clears the preview — a thumb's own
+					// `onMouseLeave` doesn't reliably fire first when the pointer
+					// exits the notch fast (mirrors macOS NotchPresenter's leave path).
+					clearPreview();
+				}}
+			>
+				{history.length > 0 && <div className="notch-hover-target" onMouseEnter={reopenFromHoverTarget} />}
+				<div className="notch-sliver" aria-hidden="true">
+					{phase === 'peek' && !(reopening || replyOpen) && (
+						<svg className="notch-ring" width="20" height="20" viewBox="0 0 20 20" style={ringStyle}>
+							<circle className="track" cx="10" cy="10" r={RING_RADIUS} />
+							<circle className="progress" cx="10" cy="10" r={RING_RADIUS} />
+						</svg>
+					)}
+					<div className="notch-grabber" />
+					{unread && <span className="notch-unread-dot" data-testid="notch-unread-dot" />}
+				</div>
+
+				{reopening && history.length > 0 ? (
+					<div className="notch-content">
+						<div className="notch-history-list">
+							{history.map((entry) => renderMessageRow(entry, { collapsible: true }))}
+						</div>
+					</div>
+				) : newest && (phase === 'full' || replyingTo === newest.id) ? (
+					<div className="notch-content">{renderMessageRow(newest, { pulse: true })}</div>
+				) : null}
 			</div>
 
-			{reopening && history.length > 0 ? (
-				<div className="notch-content">
-					<div className="notch-history-list">
-						{history.map((entry) => renderMessageRow(entry, { collapsible: true }))}
-					</div>
-				</div>
-			) : newest && (phase === 'full' || replyingTo === newest.id) ? (
-				<div className="notch-content">{renderMessageRow(newest, { pulse: true })}</div>
-			) : null}
+			{previewImageID && previewImage && (
+				<ImagePreviewOverlay
+					previewImageID={previewImageID}
+					image={previewImage}
+					fullDataBase64={fullImages.get(previewImageID) ?? null}
+					failed={failedImages.has(previewImageID)}
+					notchHeight={widgetRef.current?.offsetHeight ?? NOTCH_DEFAULT_HEIGHT_FALLBACK}
+				/>
+			)}
 		</div>
 	);
 }

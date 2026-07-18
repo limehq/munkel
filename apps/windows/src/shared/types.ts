@@ -115,6 +115,15 @@ export interface IpcApi {
 	// (OS registration rejected) so the renderer can disable the feature.
 	notchSetHoverCopyActive: (active: boolean) => Promise<boolean>;
 
+	// Image Quick-Look overlay (Plan 14, macOS-parity hover preview). The
+	// main process owns the R2 download + decrypt (the renderer never sees
+	// `messageKey`); `data` is the decrypted full-res bytes, base64-encoded
+	// for IPC transit. `notchSetPreviewActive` widens/restores the notch
+	// window (main/notch-window.ts) so the overlay can paint outside the
+	// compact 280px canvas — sender-guarded to the notch window only.
+	notchLoadFullImage: (group: string, r2Key: string) => Promise<{ ok: true; data: string } | { ok: false }>;
+	notchSetPreviewActive: (active: boolean) => Promise<void>;
+
 	checkForUpdates: () => Promise<void>;
 	installUpdate: () => Promise<void>;
 
@@ -162,12 +171,10 @@ export interface IpcApi {
 	getAllowInScreenshots: () => Promise<boolean>;
 	setAllowInScreenshots: (enabled: boolean) => Promise<boolean>;
 
-	// Dev-only "Echo my broadcasts" toggle (Plan 13 item 6), mirroring macOS
-	// `AppModel.devEchoBroadcasts` (`#if DEBUG`, default `true`). The relay
-	// only delivers a broadcast (`to: undefined`) to *other* members, so a
-	// solo developer never sees their own send without this — when enabled,
-	// a successful broadcast send is also dispatched locally through the
-	// same `onNotch` path used for real incoming messages.
+	// Dev-only "Echo my broadcasts" toggle (Plan 13 item 6). Opt-in (default
+	// `false`); when enabled, a successful broadcast send is also dispatched
+	// locally through the same `onNotch` path used for real incoming messages
+	// (the relay only delivers broadcasts to *other* members).
 	getDevEchoBroadcasts: () => Promise<boolean>;
 	setDevEchoBroadcasts: (enabled: boolean) => Promise<boolean>;
 

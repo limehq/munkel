@@ -122,8 +122,9 @@ Order rationale: land zero-risk cleanups and test hygiene first, then shared inf
 
 - **Files:** `src/main/session-store.ts`, `src/main/group-session.ts`, `src/main/main.ts`, `src/main/identity-store.ts`, `src/main/preload.ts`, `src/shared/types.ts`, `src/shared/ipc-channels.ts`, `src/renderer/components/MenuWindow.tsx`.
 - **macOS behavior being mirrored:** `AppModel.swift:57-65` (`#if DEBUG static var devEchoBroadcasts`, default `true`); `AppModel.swift:114-136` (text echo) and `141-187` (image album echo). When a broadcast (`to: nil`) is sent, macOS shows it in the sender's own notch because the relay only delivers broadcasts to *other* members.
+- **Post-ship note (2026-07-18):** Windows default later flipped to **opt-in `false`** (`state.json` v2 + migration) after users hit surprise self-echo in the notch. Toggle/feature kept.
 - **Change:**
-  1. Add `devEchoBroadcasts` to `IdentityStore` (default `true` for dev).
+  1. Add `devEchoBroadcasts` to `IdentityStore` (originally default `true` for dev; now `false` — see note above).
   2. Add `GET_DEV_ECHO_BROADCASTS` / `SET_DEV_ECHO_BROADCASTS` IPC channels (menu-window-only sender guard).
   3. Expose the same dev flag to the renderer as in item 5.
   4. In `AppState`, give `GroupSession` a way to read the current echo flag (e.g. pass a getter or read `identityStore` inside `sendChat`/`sendImages`).

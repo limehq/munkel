@@ -1,13 +1,51 @@
-# Handoff — munkel (2026-07-10)
+# Handoff — munkel (2026-07-18)
+
+> **Aktueller Wiederaufsetz-Punkt (2026-07-18).** Die 6 Abschnitte direkt unten sind maßgeblich.
+> Ältere Session-Logs darunter bleiben historischer Record.
 
 ## current_state
 
-- **Aktueller Branch:** `platform/windows/macos-parity-p1` (Tip `0f5e281`).
-- **Working directory:** sauber bis auf untracked `fp-notes/` (nie committen).
-- **Kontext:** **Plan 13** (restliche entscheidungsfreie macOS-Parität: Message-Ticker, 2 Dev-Toggles, CLI-Drift) umgesetzt + reviewt (SHIP). **Matrix 36 DONE / 2 PARTIAL / 0 MISSING / 2 BLOCKED** — code-seitig komplett bis auf P2.2/P2.3 (OQ5/OQ4) + visuelle QA. Davor: Parity-Gap-Slice, P0 „UI unsichtbar" (Bug A `ELECTRON_RUN_AS_NODE`-Leak + Bug B Preload-Chunk), P3 komplett.
-- **Test-Stand:** `bun test` in `apps/windows`: **537 pass / 3 skip / 0 fail**; `bun run typecheck` clean.
+- **Branch:** `platform/windows/macos-parity-p1` (Tip-Base `9de332f` + uncommitted Plan-14 + Echo-Opt-in).
+- **Wo wir stehen (2026-07-18):**
+  - **Plan 14 / OQ4 (Image Quick-Look)** code-seitig **DONE** — Hover 1:1 macOS (`ImagePreviewOverlay`, wide notch, `blob-download` + `openRaw`, Full-Res-Copy). Teststand bei Implementierung: **588 pass / 2 skip / 0 fail**, typecheck clean.
+  - **Echo-Opt-in-Fix (2026-07-18):** Dev-Toggle „Echo my broadcasts“ default war `true` → eigene Broadcasts erschienen in der eigenen Notch. Runtime-Beweis: client-side Echo, nicht Relay. Fix: Default/`state.json` v2 → **opt-in `false`** + v1→v2-Migration; User-verifiziert. Feature bleibt in Dev-Settings einschaltbar.
+  - **Matrix (Plan 12):** **38 DONE / 1 PARTIAL (About) / 0 MISSING / 1 BLOCKED (P2.2/OQ5)**.
+  - Working tree: Plan-14-Code + Echo-Fix + Doku **noch uncommitted**; `fp-notes/` nie committen.
+- **Kritischer Umgebungs-Hinweis:** `ELECTRON_RUN_AS_NODE=1`-Strip in `dev.mjs` bleibt Pflicht.
 
-## completed in dieser Session
+## completed (diese Session / seit Pause)
+
+- Plan 14: Upstream-Analyse (`ImagePreviewOverlay`), Hover-Parity-Entscheidung, Umsetzung Tasks 1–8.
+- Echo-Default-Fix (IdentityStore v2, Migration, MenuWindow initial state, Tests).
+- Früher (Pause-Snapshot 2026-07-10): P1–P3, Plan 13, P0 UI-invisible, Security `!app.isPackaged` — siehe Log unten.
+
+## remaining (in Reihenfolge)
+
+1. **Manual QA Plan 14** (soweit noch offen): Hover-Preview, History, Reply-Clear, Copy Full-Res, Scaling, Content-Protection.
+2. **BLOCKED — OQ5:** CLI-Installer (P2.2) — bundle vs. separat.
+3. **Commit** der uncommitted Änderungen (Plan 14 + Echo-Fix + Doku) — erst auf User-OK.
+4. **PR** `macos-parity-p1` → `v2-clean` (kein Self-Merge).
+
+## next_action
+
+1. Optional: Rest-QA Plan 14 abschließen.
+2. Mit User **OQ5** klären.
+3. Auf explizites OK: committen + PR öffnen.
+
+## decisions (verbatim / neu)
+
+- **OQ4:** macOS-Parity Hover-Quick-Look (nicht Klick / nicht zweites Fenster / nicht System-Viewer) — User 2026-07-17.
+- **Echo default:** Windows weicht bewusst von macOS-DEBUG-Default `true` ab → **opt-in `false`** (User: eigene Sends dürfen nicht in eigener Notch erscheinen) — 2026-07-18, runtime-verifiziert.
+- **Git:** kein Self-Merge nach `main`/`v2-clean`; `fp-notes/` nie committen; Commit nur auf Anfrage.
+- (älter) Dev-Features nur an `!app.isPackaged`; Fresh-Evidence vor Bugfixes.
+
+## blockers
+
+- **OQ5:** CLI-Distribution — Produktentscheid ausstehend.
+
+---
+
+## completed in dieser Session (detaillierter Log)
 
 ### Plan 13 — restliche entscheidungsfreie Parität (2026-07-10, voller 4-Schritt-Prozess)
 

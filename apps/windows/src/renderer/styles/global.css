@@ -632,6 +632,27 @@ select {
 	gap: 8px;
 }
 
+/*
+ * Outer window root (Plan 14 / OQ4 Quick-Look overlay). Always centers
+ * `.notch-widget` at the top — a no-op visually while the window stays
+ * compact (280px, exactly `.notch-widget`'s width), but load-bearing once
+ * `notch-window.ts` widens the window to the display's work area for the
+ * preview: `.notch-widget` must stay pinned top-center instead of stretching
+ * or drifting to the wide window's left edge. `.image-preview-overlay`
+ * (added below) is a sibling so it can paint over the FULL window, escaping
+ * `.notch-widget`'s own clipping/backdrop-filter — the same "sibling of the
+ * masked notch content" structure macOS uses (see
+ * `fp-notes/macos-image-preview-upstream/ImagePreviewOverlay.swift`).
+ */
+.notch-root {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
 /* Notch widget */
 /*
  * Width tracks the macOS reference (`MessageNotchContainer.swift`
@@ -1057,6 +1078,18 @@ select {
 		animation: none;
 	}
 
+	/* Plan 14 / OQ4: the backdrop/card fade+scale and loading spinner are
+	 * purely decorative — skip all three under prefers-reduced-motion. The
+	 * overlay still shows/hides instantly (no animation != no display). */
+	.image-preview-backdrop,
+	.image-preview-card {
+		animation: none;
+	}
+
+	.image-preview-spinner {
+		animation: none;
+	}
+
 	/* Plan 12 P3.5: the slide-in and pulse-ring are purely decorative —
 	 * skip both under prefers-reduced-motion. The `avatar-pulse` class is
 	 * still applied/removed on the same schedule (Avatar.tsx doesn't read
@@ -1261,4 +1294,95 @@ select {
 	border-radius: var(--munkel-radius-sm);
 	border: 1px solid rgba(255, 255, 255, 0.1);
 	background: rgba(255, 255, 255, 0.05);
+}
+
+/*
+ * Image Quick-Look overlay (Plan 14 / OQ4 macOS-parity hover preview),
+ * mirroring `ImagePreviewOverlay.swift`'s backdrop + `PreviewCard`. Fills
+ * the ENTIRE window (a sibling of `.notch-widget` inside `.notch-root`) —
+ * only reachable while `notch-window.ts` has widened the window to the
+ * display's work area, so this never clips against the compact 280px shape.
+ * `pointer-events: none` throughout: the overlay must never steal hover
+ * from the thumbs underneath it (see `.notch-hover-target`'s analogous
+ * click-through posture), matching macOS's `allowsHitTesting(false)`.
+ */
+.image-preview-overlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+	z-index: 50;
+}
+
+.image-preview-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+	animation: image-preview-fade-in 0.24s ease-out both;
+}
+
+.image-preview-card {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 16px;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+	background: rgba(0, 0, 0, 0.55);
+	overflow: hidden;
+	animation: image-preview-card-in 0.24s ease-out both;
+}
+
+.image-preview-card-img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+.image-preview-spinner {
+	position: absolute;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	border: 3px solid rgba(255, 255, 255, 0.25);
+	border-top-color: rgba(255, 255, 255, 0.85);
+	animation: image-preview-spin 0.9s linear infinite;
+}
+
+.image-preview-fail {
+	position: absolute;
+	font-size: 22px;
+	color: rgba(255, 255, 255, 0.6);
+}
+
+@keyframes image-preview-fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes image-preview-card-in {
+	from {
+		opacity: 0;
+		transform: scale(0.92);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+@keyframes image-preview-spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
 }

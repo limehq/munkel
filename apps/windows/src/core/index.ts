@@ -5,5 +5,6 @@ export * from '@munkel/shared-wire/payload';
 export * from './avatar.js';
 export * from './image-codec.js';
 export * from './blob-upload.js';
+export * from './blob-download.js';
 export * from '@munkel/shared-wire/control';
 export * from '@munkel/shared-wire/transport';

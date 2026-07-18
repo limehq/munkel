@@ -263,9 +263,10 @@ describe('IdentityStore devEchoBroadcasts (Plan 13 item 6)', () => {
 		fs.rmSync(dir, { recursive: true, force: true });
 	});
 
-	it('defaults devEchoBroadcasts to true for a freshly created store (mirrors macOS DEBUG default)', () => {
+	it('defaults devEchoBroadcasts to false for a freshly created store (opt-in)', () => {
 		const store = new IdentityStore(dir);
-		expect(store.load().devEchoBroadcasts).toBe(true);
+		expect(store.load().devEchoBroadcasts).toBe(false);
+		expect(store.load().version).toBe(2);
 	});
 
 	it('persists devEchoBroadcasts=false via patch and reflects it on the next load', () => {
@@ -283,7 +284,7 @@ describe('IdentityStore devEchoBroadcasts (Plan 13 item 6)', () => {
 		expect(store.load().devEchoBroadcasts).toBe(true);
 	});
 
-	it('migrates a legacy state.json (no devEchoBroadcasts field) to default true', () => {
+	it('migrates a legacy state.json (no devEchoBroadcasts field) to default false', () => {
 		const filePath = path.join(dir, 'state.json');
 		fs.writeFileSync(
 			filePath,
@@ -297,7 +298,27 @@ describe('IdentityStore devEchoBroadcasts (Plan 13 item 6)', () => {
 
 		const store = new IdentityStore(dir);
 		const state = store.load();
-		expect(state.devEchoBroadcasts).toBe(true);
+		expect(state.devEchoBroadcasts).toBe(false);
+		expect(state.version).toBe(2);
 		expect(state.memberId).toBe('legacy-member');
+	});
+
+	it('v1→v2 migration resets a persisted echo-true (old default) to false once', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 1,
+				memberId: 'legacy-member',
+				displayName: 'Legacy',
+				circles: [],
+				devEchoBroadcasts: true,
+			}),
+		);
+
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.devEchoBroadcasts).toBe(false);
+		expect(state.version).toBe(2);
 	});
 });

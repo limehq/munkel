@@ -3,6 +3,7 @@ import {
 	seal,
 	open,
 	sealRaw,
+	openRaw,
 	encodeChat,
 	encodeProfile,
 	encodeImage,
@@ -14,6 +15,7 @@ import {
 	perThumbBudget,
 	MAX_IMAGES_PER_MESSAGE,
 	uploadBlob,
+	downloadBlob,
 	generateBlobKey,
 } from '../core';
 import type { ImageItem } from '../core';
@@ -218,6 +220,26 @@ export class GroupSession {
 			this.callbacks.onNotch(this.buildOwnNotchMessage(text, images));
 		}
 		return result;
+	}
+
+	/**
+	 * Fetch and decrypt an incoming album image's full resolution (Plan 14 /
+	 * OQ4 Quick-Look overlay), mirroring macOS `GroupSession.swift`'s
+	 * `loadFull(r2Key)`: `downloadBlob` the sealed bytes from R2, then
+	 * `openRaw` with this session's `messageKey`. Never throws to the
+	 * renderer — any failure (network, 404/expired blob, decrypt mismatch)
+	 * resolves `null` so the notch UI can fall back to its warning glyph
+	 * instead of the app crashing on a stale/foreign r2Key.
+	 */
+	async loadFullImage(r2Key: string): Promise<Uint8Array | null> {
+		try {
+			const result = await downloadBlob(this.relayUrl, this.groupId, r2Key);
+			if (!result.ok || !result.body) return null;
+			return await openRaw(result.body, this.messageKey);
+		} catch (err) {
+			console.error('[group-session] loadFullImage failed:', err);
+			return null;
+		}
 	}
 
 	/** Builds a `NotchMessage` for our own successful broadcast send, dev-echo only (Plan 13 item 6). */

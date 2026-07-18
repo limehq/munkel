@@ -19,6 +19,8 @@ function createMockElectronApi() {
 		notchResize: (_contentHeight: number) => Promise.resolve(),
 		notchSetInteractive: (_interactive: boolean) => Promise.resolve(),
 		notchSetHoverCopyActive: (_active: boolean) => Promise.resolve(true),
+		notchLoadFullImage: (_group: string, _r2Key: string) => Promise.resolve({ ok: false as const }),
+		notchSetPreviewActive: (_active: boolean) => Promise.resolve(),
 		notchEmpty: () => Promise.resolve(),
 		beginNotchReply: () => Promise.resolve(),
 		endNotchReply: () => Promise.resolve(),

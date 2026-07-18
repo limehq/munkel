@@ -2,10 +2,16 @@ import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import type { BrowserWindow } from 'electron';
 import { focusNotchForReply, unfocusNotchAfterReply } from '../notch-focus';
 
+const mockDisplay = {
+	workArea: { x: 0, y: 0, width: 1920, height: 1040 },
+	workAreaSize: { width: 1440 },
+};
+
 mock.module('electron', () => ({
 	BrowserWindow: class BrowserWindow {},
 	screen: {
-		getPrimaryDisplay: () => ({ workAreaSize: { width: 1440 } }),
+		getPrimaryDisplay: () => mockDisplay,
+		getDisplayNearestPoint: () => mockDisplay,
 	},
 }));
 
@@ -14,6 +20,8 @@ const {
 	showNotch,
 	clampNotchHeight,
 	resizeNotchToContent,
+	setNotchPreviewActive,
+	isNotchPreviewActive,
 	NOTCH_WIDTH,
 	NOTCH_DEFAULT_HEIGHT,
 	NOTCH_MIN_HEIGHT,
@@ -263,5 +271,108 @@ describe('notch-window sizing (P1.3 / WIN-NOTCH-004)', () => {
 		const win2 = mockResizableWindow(NOTCH_DEFAULT_HEIGHT + 50);
 		resizeNotchToContent(win2 as unknown as BrowserWindow, -100);
 		expect(win2.calls).toContainEqual(['setSize', NOTCH_WIDTH, NOTCH_DEFAULT_HEIGHT]);
+	});
+});
+
+describe('setNotchPreviewActive (Plan 14 task 6 — wide notch bounds)', () => {
+	function mockPreviewWindow(initialBounds: Electron.Rectangle) {
+		const calls: Array<[string, ...unknown[]]> = [];
+		let resizable = false;
+		let bounds = initialBounds;
+		return {
+			calls,
+			getBounds: () => bounds,
+			setBounds: (next: Electron.Rectangle) => {
+				bounds = next;
+				calls.push(['setBounds', next]);
+			},
+			isResizable: () => resizable,
+			setResizable: (value: boolean) => {
+				resizable = value;
+				calls.push(['setResizable', value]);
+			},
+		};
+	}
+
+	// Module-level `previewActive`/`compactBounds` singleton state must not
+	// leak between tests (there is exactly one real notch window at runtime).
+	afterEach(() => {
+		const win = mockPreviewWindow({ x: 0, y: 0, width: NOTCH_WIDTH, height: NOTCH_DEFAULT_HEIGHT });
+		if (isNotchPreviewActive()) {
+			setNotchPreviewActive(win as unknown as BrowserWindow, false);
+		}
+	});
+
+	it('is inactive before any call', () => {
+		expect(isNotchPreviewActive()).toBe(false);
+	});
+
+	it('widens the window to the nearest display work area and flips isNotchPreviewActive', () => {
+		const compact = { x: 580, y: 0, width: NOTCH_WIDTH, height: NOTCH_DEFAULT_HEIGHT };
+		const win = mockPreviewWindow(compact);
+
+		setNotchPreviewActive(win as unknown as BrowserWindow, true);
+
+		expect(isNotchPreviewActive()).toBe(true);
+		expect(win.getBounds()).toEqual(mockDisplay.workArea);
+		expect(win.calls).toContainEqual(['setBounds', mockDisplay.workArea]);
+	});
+
+	it('restores the exact saved compact bounds on deactivation', () => {
+		const compact = { x: 580, y: 0, width: NOTCH_WIDTH, height: NOTCH_DEFAULT_HEIGHT };
+		const win = mockPreviewWindow(compact);
+
+		setNotchPreviewActive(win as unknown as BrowserWindow, true);
+		setNotchPreviewActive(win as unknown as BrowserWindow, false);
+
+		expect(isNotchPreviewActive()).toBe(false);
+		expect(win.getBounds()).toEqual(compact);
+	});
+
+	it('briefly lifts and restores the non-resizable lock around the bounds change', () => {
+		const win = mockPreviewWindow({ x: 0, y: 0, width: NOTCH_WIDTH, height: NOTCH_DEFAULT_HEIGHT });
+
+		setNotchPreviewActive(win as unknown as BrowserWindow, true);
+
+		expect(win.calls[0]).toEqual(['setResizable', true]);
+		expect(win.calls.at(-1)).toEqual(['setResizable', false]);
+		expect(win.isResizable()).toBe(false);
+	});
+
+	it('is a no-op when called with the already-active state (idempotent)', () => {
+		const win = mockPreviewWindow({ x: 0, y: 0, width: NOTCH_WIDTH, height: NOTCH_DEFAULT_HEIGHT });
+
+		setNotchPreviewActive(win as unknown as BrowserWindow, true);
+		const callsAfterFirst = win.calls.length;
+		setNotchPreviewActive(win as unknown as BrowserWindow, true);
+
+		expect(win.calls.length).toBe(callsAfterFirst);
+	});
+
+	it('is a no-op for a null window', () => {
+		expect(() => setNotchPreviewActive(null, true)).not.toThrow();
+		expect(isNotchPreviewActive()).toBe(false);
+	});
+
+	it('resizeNotchToContent ignores content-size requests while the preview is active', () => {
+		const compact = { x: 0, y: 0, width: NOTCH_WIDTH, height: NOTCH_DEFAULT_HEIGHT };
+		const previewWin = mockPreviewWindow(compact);
+		setNotchPreviewActive(previewWin as unknown as BrowserWindow, true);
+
+		const calls: Array<[string, ...unknown[]]> = [];
+		let size: [number, number] = [NOTCH_WIDTH, NOTCH_DEFAULT_HEIGHT];
+		const resizeWin = {
+			getSize: () => size,
+			isResizable: () => false,
+			setResizable: (value: boolean) => calls.push(['setResizable', value]),
+			setSize: (w: number, h: number) => {
+				size = [w, h];
+				calls.push(['setSize', w, h]);
+			},
+		};
+		resizeNotchToContent(resizeWin as unknown as BrowserWindow, 320);
+
+		expect(calls.length).toBe(0);
+		expect(resizeWin.getSize()).toEqual([NOTCH_WIDTH, NOTCH_DEFAULT_HEIGHT]);
 	});
 });

@@ -42,8 +42,27 @@ export function clampNotchHeight(contentHeight: number): number {
  */
 const NOTCH_RESIZE_TOLERANCE_PX = 1;
 
+/**
+ * Compact bounds saved by `setNotchPreviewActive(win, true)` so it can be
+ * restored exactly on `setNotchPreviewActive(win, false)`. Module-level
+ * (like `pendingHide` below) since there is exactly one notch window.
+ */
+let compactBounds: Electron.Rectangle | null = null;
+let previewActive = false;
+
+/** True while the notch window is widened for the image Quick-Look overlay (Plan 14). */
+export function isNotchPreviewActive(): boolean {
+	return previewActive;
+}
+
 export function resizeNotchToContent(win: BrowserWindow | null, contentHeight: number): void {
 	if (!win) return;
+	// While the Quick-Look overlay has widened the window to the display's
+	// full work area (see `setNotchPreviewActive` below), the renderer's
+	// ResizeObserver still fires for `.notch-widget` (unaffected width/height)
+	// — but the WINDOW itself must stay wide, not shrink back to compact
+	// content height, until the preview closes and restores the saved bounds.
+	if (previewActive) return;
 	const height = clampNotchHeight(contentHeight);
 	const [currentWidth, currentHeight] = win.getSize();
 	if (Math.abs(currentHeight - height) <= NOTCH_RESIZE_TOLERANCE_PX) return;
@@ -52,6 +71,43 @@ export function resizeNotchToContent(win: BrowserWindow | null, contentHeight: n
 	const wasResizable = win.isResizable();
 	if (!wasResizable) win.setResizable(true);
 	win.setSize(currentWidth, height);
+	if (!wasResizable) win.setResizable(false);
+}
+
+/**
+ * Widen the notch window to the display's full work area (Plan 14 / OQ4
+ * Quick-Look overlay) so `ImagePreviewOverlay` can paint outside the compact
+ * 280px canvas, or restore the compact bounds once the preview closes.
+ * Mirrors macOS `NotchScreenMetrics.panelFrame(wide:)` attaching the
+ * `floatingOverlay`, adapted to Electron's one-window model (Plan 14 "Task 6"
+ * — no second `BrowserWindow`, since a second always-on-top/content-protected
+ * window would split focus and capture-exclusion).
+ *
+ * **`workArea` vs. `screen.frame`:** macOS uses the raw `screen.frame` (the
+ * overlay draws _under_ the menu bar). Windows has no menu-bar equivalent,
+ * but every display reserves space for the taskbar — using the raw display
+ * `bounds` here would let the wide window (and its overlay) draw fullscreen
+ * OVER the taskbar, which reads as a broken/undocked window on Windows.
+ * `workArea` (bounds minus taskbar) is the platform-idiomatic choice.
+ */
+export function setNotchPreviewActive(win: BrowserWindow | null, active: boolean): void {
+	if (!win) return;
+	if (active === previewActive) return;
+	const wasResizable = win.isResizable();
+	if (!wasResizable) win.setResizable(true);
+	if (active) {
+		compactBounds = win.getBounds();
+		previewActive = true;
+		const bounds = compactBounds;
+		const display = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y }) ?? screen.getPrimaryDisplay();
+		win.setBounds(display.workArea);
+	} else {
+		previewActive = false;
+		if (compactBounds) {
+			win.setBounds(compactBounds);
+			compactBounds = null;
+		}
+	}
 	if (!wasResizable) win.setResizable(false);
 }
 

@@ -2,7 +2,14 @@ import { app, ipcMain, BrowserWindow, IpcMainInvokeEvent, Tray, globalShortcut }
 import fs from 'node:fs';
 import path from 'node:path';
 import { createMenuWindow, showMenuWindow, toggleMenuWindow } from './menu-window';
-import { createNotchWindow, showNotch, requestNotchHide, resizeNotchToContent, updateNotch } from './notch-window';
+import {
+	createNotchWindow,
+	showNotch,
+	requestNotchHide,
+	resizeNotchToContent,
+	updateNotch,
+	setNotchPreviewActive,
+} from './notch-window';
 import { focusNotchForReply, unfocusNotchAfterReply } from './notch-focus';
 import { createPaletteWindow, showPalette, hidePalette } from './palette-window';
 import { createTray } from './tray';
@@ -333,6 +340,22 @@ app.whenReady().then(async () => {
 		// Returns false when arming failed (OS shortcut registration), so the
 		// renderer can turn the feature off instead of assuming it is armed.
 		return hoverCopyController?.setActive(!!active) ?? false;
+	});
+	// Image Quick-Look overlay (Plan 14). Main-owned download+decrypt so the
+	// renderer never sees `messageKey` — same sender-guard posture as the
+	// other notch-only channels above.
+	ipcMain.handle(IPC_CHANNELS.NOTCH_LOAD_FULL_IMAGE, async (event, group: string, r2Key: string) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) {
+			console.warn('[munkel] rejected notch-load-full-image from non-notch sender');
+			return { ok: false };
+		}
+		const bytes = await appState.loadFullImage(group, r2Key);
+		if (!bytes) return { ok: false };
+		return { ok: true, data: Buffer.from(bytes).toString('base64') };
+	});
+	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_PREVIEW_ACTIVE, (event, active: boolean) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
+		setNotchPreviewActive(notchWindow, !!active);
 	});
 	ipcMain.handle(IPC_CHANNELS.START_GITHUB_LOGIN, async () => {
 		githubLoginService.startGitHubLogin();

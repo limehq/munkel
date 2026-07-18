@@ -37,7 +37,10 @@ export interface PersistedState {
 	// packaged build launched against a dev-populated userData folder.
 	allowInScreenshots: boolean;
 	// Dev-only "Echo my broadcasts" toggle (Plan 13 item 6), mirroring macOS
-	// `AppModel.devEchoBroadcasts` (`#if DEBUG`, default `true`). Same
+	// Dev-only "echo my broadcasts to me" (Plan 13 item 6). Mirrors macOS
+	// `AppModel.devEchoBroadcasts` as a *feature*, but Windows defaults to
+	// **opt-in (`false`)** — the previous v1 default of `true` surprised every
+	// `bun run dev` user by showing their own sends in the notch. Same
 	// dev-only enforcement posture as `allowInScreenshots` above — see
 	// `AppState`'s constructor in `session-store.ts` for where the persisted
 	// value is folded together with the runtime `isDev` flag.
@@ -46,7 +49,7 @@ export interface PersistedState {
 
 function defaultState(): PersistedState {
 	return {
-		version: 1,
+		version: 2,
 		memberId: crypto.randomUUID().toLowerCase(),
 		displayName: '',
 		circles: [],
@@ -54,7 +57,7 @@ function defaultState(): PersistedState {
 		autoUpdateCheck: true,
 		paletteHotkey: DEFAULT_PALETTE_HOTKEY,
 		allowInScreenshots: false,
-		devEchoBroadcasts: true,
+		devEchoBroadcasts: false,
 	};
 }
 
@@ -78,7 +81,17 @@ export class IdentityStore {
 		try {
 			const raw = fs.readFileSync(this.filePath, 'utf8');
 			const parsed = JSON.parse(raw) as unknown;
-			return this.migrate(parsed);
+			const migrated = this.migrate(parsed);
+			// Persist v1→v2 (and other) migrations so the echo opt-in reset
+			// sticks across restarts instead of re-applying from a stale file.
+			const prevVersion =
+				parsed && typeof parsed === 'object' && typeof (parsed as { version?: unknown }).version === 'number'
+					? (parsed as { version: number }).version
+					: 0;
+			if (migrated.version !== prevVersion) {
+				this.save(migrated);
+			}
+			return migrated;
 		} catch (err) {
 			console.error(
 				'[identity] state unreadable — resetting to default',
@@ -162,7 +175,18 @@ export class IdentityStore {
 			draft.allowInScreenshots = false;
 		}
 		if (typeof draft.devEchoBroadcasts !== 'boolean') {
-			draft.devEchoBroadcasts = true;
+			draft.devEchoBroadcasts = false;
+		}
+		// v1 → v2: the v1 default was `devEchoBroadcasts: true`, which made
+		// every unpackaged dev session echo own broadcasts into the notch
+		// without an explicit opt-in. Reset once on upgrade; users who want
+		// the solo-test echo can re-enable it in Settings.
+		const prevVersion = typeof (parsed as { version?: unknown }).version === 'number'
+			? (parsed as { version: number }).version
+			: 0;
+		if (prevVersion < 2) {
+			draft.devEchoBroadcasts = false;
+			draft.version = 2;
 		}
 		// Guard against a hand-edited or corrupted state.json shipping an
 		// unregistrable accelerator string straight into globalShortcut.register.

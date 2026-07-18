@@ -39,6 +39,9 @@ export const IPC_CHANNELS = {
   NOTCH_EMPTY: 'notch-empty',
   NOTCH_RESIZE: 'notch-resize',
   NOTCH_SET_HOVER_COPY: 'notch-set-hover-copy',
+  // Image Quick-Look overlay (Plan 14 / OQ4 macOS-parity hover preview).
+  NOTCH_LOAD_FULL_IMAGE: 'notch-load-full-image',
+  NOTCH_SET_PREVIEW_ACTIVE: 'notch-set-preview-active',
 
   GET_AUTO_UPDATE_CHECK: 'get-auto-update-check',
   SET_AUTO_UPDATE_CHECK: 'set-auto-update-check',

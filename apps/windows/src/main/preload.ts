@@ -41,6 +41,8 @@ const api: IpcApi = {
 	notchEmpty: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_EMPTY),
 	notchResize: (contentHeight) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_RESIZE, contentHeight),
 	notchSetHoverCopyActive: (active) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_SET_HOVER_COPY, active),
+	notchLoadFullImage: (group, r2Key) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_LOAD_FULL_IMAGE, group, r2Key),
+	notchSetPreviewActive: (active) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_SET_PREVIEW_ACTIVE, active),
 
 	getAutoUpdateCheck: () => ipcRenderer.invoke(IPC_CHANNELS.GET_AUTO_UPDATE_CHECK),
 	setAutoUpdateCheck: (enabled) => ipcRenderer.invoke(IPC_CHANNELS.SET_AUTO_UPDATE_CHECK, enabled),
