@@ -6,6 +6,7 @@ import { createNotchWindow, showNotch, requestNotchHide, updateNotch } from './n
 import { focusNotchForReply, unfocusNotchAfterReply } from './notch-focus';
 import { createPaletteWindow, showPalette, hidePalette } from './palette-window';
 import { createTray } from './tray';
+import { createFakeNotchInjector } from './fake-notch-injector';
 import { registerTogglePalette, unregisterShortcuts } from './shortcuts';
 import { IdentityStore } from './identity-store';
 import { deriveGroupKeys } from '@munkel/shared-wire/crypto';
@@ -42,10 +43,12 @@ let paletteWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let controlServer: { close(): Promise<void> } | null = null;
 let updateService: ReturnType<typeof initUpdateService> | null = null;
+let fakeNotchInjector: ReturnType<typeof createFakeNotchInjector> | null = null;
 // Menu click-away-to-dismiss suppression state (Plan 06).
 let pickerOpen = false;
 let githubLoginActive = false;
 const isDev = process.env.NODE_ENV === 'development';
+const allowFakeInjector = process.env.NODE_ENV === 'development' && !app.isPackaged;
 
 app.on('second-instance', () => {
 	if (!menuWindow || menuWindow.isDestroyed()) {
@@ -113,12 +116,26 @@ app.whenReady().then(async () => {
 	notchWindow = createNotchWindow();
 	paletteWindow = createPaletteWindow();
 
+	if (allowFakeInjector) {
+		fakeNotchInjector = createFakeNotchInjector({ inject: showNotchMessage });
+	}
+
 	try {
 		tray = createTray({
 			toggleMenu: () => toggleMenuWindow(menuWindow),
 			showPalette: () => showPalette(paletteWindow),
 			checkForUpdates: () => updateService?.check(),
 			quit: () => app.quit(),
+			...(fakeNotchInjector
+				? {
+						toggleFakeNotchInjector: () => {
+							if (!fakeNotchInjector) return;
+							if (fakeNotchInjector.isRunning()) fakeNotchInjector.stop();
+							else fakeNotchInjector.start();
+						},
+						fakeNotchInjectorRunning: () => fakeNotchInjector?.isRunning() ?? false,
+					}
+				: {}),
 		});
 	} catch (err) {
 		console.error('[munkel] failed to create tray icon:', err);
@@ -212,6 +229,8 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+	fakeNotchInjector?.dispose();
+	fakeNotchInjector = null;
 	unregisterShortcuts();
 	void controlServer?.close();
 	controlServer = null;

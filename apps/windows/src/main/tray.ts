@@ -10,6 +10,10 @@ export interface TrayHandlers {
 	showPalette: () => void;
 	checkForUpdates: () => void;
 	quit: () => void;
+	/** DEV-only: toggle the fake notch message injector. */
+	toggleFakeNotchInjector?: () => void;
+	/** DEV-only: whether the fake injector is currently running. */
+	fakeNotchInjectorRunning?: () => boolean;
 }
 
 function loadTrayIcon(): Electron.NativeImage {
@@ -32,6 +36,40 @@ function loadTrayIcon(): Electron.NativeImage {
 	throw new Error('No usable tray icon found in ' + assetDir);
 }
 
+function buildTrayMenuTemplate(handlers: TrayHandlers, rebuild: () => void): Electron.MenuItemConstructorOptions[] {
+	const items: Electron.MenuItemConstructorOptions[] = [
+		{ label: 'Show Menu', click: handlers.toggleMenu },
+		{ label: 'Quick send…', click: handlers.showPalette },
+		{ label: 'Check for Updates…', click: handlers.checkForUpdates },
+	];
+
+	if (handlers.toggleFakeNotchInjector) {
+		items.push(
+			{ type: 'separator' },
+			{
+				label: 'Inject fake notch messages',
+				type: 'checkbox',
+				checked: handlers.fakeNotchInjectorRunning?.() ?? false,
+				click: () => {
+					handlers.toggleFakeNotchInjector?.();
+					rebuild();
+				},
+			},
+		);
+	}
+
+	items.push({ type: 'separator' }, { label: 'Quit', click: handlers.quit });
+	return items;
+}
+
+/**
+ * Rebuild the tray context menu from the current handlers (checkbox state, etc.).
+ */
+export function rebuildTrayMenu(tray: Tray, handlers: TrayHandlers): void {
+	const rebuild = () => rebuildTrayMenu(tray, handlers);
+	tray.setContextMenu(Menu.buildFromTemplate(buildTrayMenuTemplate(handlers, rebuild)));
+}
+
 export function createTray(handlers: TrayHandlers): Tray {
 	const icon = loadTrayIcon();
 	const tray = new Tray(icon);
@@ -39,14 +77,7 @@ export function createTray(handlers: TrayHandlers): Tray {
 	tray.setToolTip('Munkel');
 	tray.on('click', handlers.toggleMenu);
 
-	const contextMenu = Menu.buildFromTemplate([
-		{ label: 'Show Menu', click: handlers.toggleMenu },
-		{ label: 'Quick send…', click: handlers.showPalette },
-		{ label: 'Check for Updates…', click: handlers.checkForUpdates },
-		{ type: 'separator' },
-		{ label: 'Quit', click: handlers.quit },
-	]);
-	tray.setContextMenu(contextMenu);
+	rebuildTrayMenu(tray, handlers);
 
 	return tray;
 }
