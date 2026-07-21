@@ -47,6 +47,46 @@ function objectKey(group: string, key: string): string {
 }
 
 /**
+ * Reads a Web ReadableStream up to `maxBytes`. Returns the collected bytes or
+ * signals that the cap was exceeded, without buffering more than `maxBytes + 1`
+ * bytes in memory.
+ */
+async function readStreamWithCap(
+  stream: ReadableStream<Uint8Array> | null,
+  maxBytes: number,
+): Promise<{ ok: true; bytes: Uint8Array } | { ok: false }> {
+  if (!stream) {
+    return { ok: true, bytes: new Uint8Array(0) };
+  }
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        total += value.byteLength;
+        if (total > maxBytes) {
+          await reader.cancel();
+          return { ok: false };
+        }
+        chunks.push(value);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { ok: true, bytes };
+}
+
+/**
  * Mounts `PUT /blob/:group/:key` and `GET /blob/:group/:key` on `app`. The
  * routes store and serve opaque bytes; all crypto happens on the clients.
  */
@@ -68,18 +108,18 @@ export function registerBlobRoutes<E extends BlobEnv>(app: Hono<{ Bindings: E }>
       return c.text('Payload too large', 413);
     }
 
-    const body = await c.req.arrayBuffer();
-    if (body.byteLength === 0) {
-      return c.text('Empty body', 400);
-    }
-    if (body.byteLength > MAX_BLOB_BYTES) {
+    const read = await readStreamWithCap(c.req.raw.body, MAX_BLOB_BYTES);
+    if (!read.ok) {
       return c.text('Payload too large', 413);
     }
+    if (read.bytes.byteLength === 0) {
+      return c.text('Empty body', 400);
+    }
 
-    await c.env.BLOBS.put(objectKey(group, key), body, {
+    await c.env.BLOBS.put(objectKey(group, key), read.bytes, {
       customMetadata: { uploadedAt: String(Date.now()) },
     });
-    log.info('blob_put', { group, bytes: body.byteLength });
+    log.info('blob_put', { group, bytes: read.bytes.byteLength });
     return c.body(null, 204);
   });
 
