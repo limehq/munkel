@@ -1,12 +1,15 @@
 import { describe, it, expect } from 'bun:test';
 import {
 	imageCodec,
+	isSourceSafe,
 	MAX_FULL_BYTES,
 	MAX_FULL_PIXELS,
 	MAX_THUMB_PIXELS,
 	MAX_THUMB_BYTES,
 	ALBUM_THUMB_BUDGET,
 	MAX_IMAGES_PER_MESSAGE,
+	MAX_SOURCE_BYTES,
+	MAX_DECODE_PIXELS,
 	perThumbBudget,
 } from '../image-codec';
 
@@ -126,6 +129,32 @@ describe('imageCodec.probe', () => {
 
 	it('returns null for an empty buffer', () => {
 		expect(imageCodec.probe(new Uint8Array(0))).toBeNull();
+	});
+});
+
+describe('isSourceSafe', () => {
+	it('accepts a normal PNG within byte and pixel limits', () => {
+		const png = makeSolidPng(64, 64, 0xff, 0x00, 0x00);
+		expect(isSourceSafe(png)).toBe(true);
+	});
+
+	it('rejects a PNG whose declared dimensions exceed MAX_DECODE_PIXELS', () => {
+		const side = Math.ceil(Math.sqrt(MAX_DECODE_PIXELS)) + 1;
+		const png = makeSolidPng(side, side, 0x00, 0x00, 0x00);
+		expect(isSourceSafe(png)).toBe(false);
+	});
+
+	it('rejects an oversized byte buffer', () => {
+		const huge = new Uint8Array(MAX_SOURCE_BYTES + 1);
+		expect(isSourceSafe(huge)).toBe(false);
+	});
+
+	it('rejects undecodable bytes', () => {
+		expect(isSourceSafe(new Uint8Array([0, 1, 2, 3]))).toBe(false);
+	});
+
+	it('rejects a zero-byte buffer', () => {
+		expect(isSourceSafe(new Uint8Array(0))).toBe(false);
 	});
 });
 

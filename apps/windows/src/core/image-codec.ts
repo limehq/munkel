@@ -37,6 +37,8 @@ export const MAX_THUMB_BYTES = 12 * 1024;
 export const MAX_THUMB_PIXELS = 256;
 export const ALBUM_THUMB_BUDGET = 16_384; // 16 KiB shared across the album
 export const MAX_IMAGES_PER_MESSAGE = 8;
+export const MAX_SOURCE_BYTES = 32 * 1024 * 1024;
+export const MAX_DECODE_PIXELS = 64 * 1024 * 1024;
 
 const FULL_QUALITY_STEPS = [0.7, 0.5, 0.35];
 const THUMB_QUALITY_STEPS = [0.6, 0.45, 0.3];
@@ -131,6 +133,25 @@ async function encodeAvifOnce(
 	}
 }
 
+export function isSourceSafe(source: Uint8Array): boolean {
+	if (source.byteLength > MAX_SOURCE_BYTES) return false;
+	const info = probeSource(source);
+	if (!info) return false;
+	const pixels = info.width * info.height;
+	return pixels > 0 && pixels <= MAX_DECODE_PIXELS;
+}
+
+function probeSource(source: Uint8Array): ProbeResult | null {
+	try {
+		const info = imageSize(source);
+		if (!info.width || !info.height) return null;
+		const mime = imageTypeToMime(info.type ?? '');
+		return { width: info.width, height: info.height, mime };
+	} catch {
+		return null;
+	}
+}
+
 export const imageCodec = {
 	/**
 	 * Read source bytes, downsample to fit `MAX_FULL_PIXELS`, AVIF-transcode
@@ -138,6 +159,7 @@ export const imageCodec = {
 	 * input.
 	 */
 	async prepareFull(source: Uint8Array): Promise<PreparedImage | null> {
+		if (!isSourceSafe(source)) return null;
 		await ensureAvifReady();
 		const bitmap = await decodeToBitmap(source);
 		if (!bitmap) return null;
@@ -165,6 +187,7 @@ export const imageCodec = {
 	 * relay's 48 KiB payload cap even at the 8-image max.
 	 */
 	async makeThumbnail(source: Uint8Array, budgetBytes: number): Promise<PreparedThumb | null> {
+		if (!isSourceSafe(source)) return null;
 		await ensureAvifReady();
 		const bitmap = await decodeToBitmap(source);
 		if (!bitmap) return null;
@@ -190,14 +213,7 @@ export const imageCodec = {
 	 * unrecognized formats or corrupt headers.
 	 */
 	probe(source: Uint8Array): ProbeResult | null {
-		try {
-			const info = imageSize(source);
-			if (!info.width || !info.height) return null;
-			const mime = imageTypeToMime(info.type ?? '');
-			return { width: info.width, height: info.height, mime };
-		} catch {
-			return null;
-		}
+		return probeSource(source);
 	},
 };
 
