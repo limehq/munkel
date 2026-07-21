@@ -112,3 +112,15 @@ changes (outputs are deterministic). Visually confirm that
 - [x] README and project docs reflect the new canonical source.
 - [x] `bun run typecheck`, `bun test`, `bun run build`, and `bun run pack:dir` are green.
 - [x] PR opened to `platform/windows/v2-clean`; not self-merged.
+
+## Post-completion note (2026-07-06)
+
+Plan 10 established the placeholder pipeline and the canonical `logo.svg` source.
+The SVG from `apps/landing/public/favicon.svg` on `main` was later copied into
+`apps/windows/assets/logo.svg` and the icon/tray images were regenerated in
+PR #41 (`platform/windows/docs-logo-update`).
+
+> ⚠️ **The current `logo.svg` is not the final brand logo.** The correct logo
+> file is still pending and will be delivered separately. When it arrives,
+> overwrite `apps/windows/assets/logo.svg` and rerun `bun run render-ico` and
+> `bun run render-tray-icon`.

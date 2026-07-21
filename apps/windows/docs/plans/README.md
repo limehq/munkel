@@ -18,12 +18,12 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 | 8 | [Orphaned Electron store cleanup](./08-electron-store-cleanup.md) | — (maintenance, no branch) | — | ✅ Done |
 | 9 | [Circle leave confirmation dialog](./09-circle-leave-confirmation.md) | `platform/windows/circle-leave-confirmation` | `v2-clean` | ✅ Merged |
 | 10 | [Logo assets integration](./10-logo-assets-integration.md) | `platform/windows/logo-assets-integration` | Plan 04 in `v2-clean` | ✅ Merged |
-| 11 | [Auto-update](./11-auto-update.md) | `platform/windows/auto-update` | `v2-clean` | 🔄 In review |
+| 11 | [Auto-update](./11-auto-update.md) | `platform/windows/auto-update` | `v2-clean` | ✅ Merged (PR #40) |
 
-> **Plans 01–07 are merged into `platform/windows/v2-clean`.**
+> **Plans 01–11 are merged into `platform/windows/v2-clean`.**
 > Phase 2 + Plans 01–05 shipped via PR #12–#16 and PR #22; Plan 06 merged via
-> merge commit `1c7c0c2`; Plan 07 merged via merge commit `1b63d37`. The
-> `v2-clean` tip is `5e8442c`.
+> merge commit `1c7c0c2`; Plan 07 merged via merge commit `1b63d37`; Plans 08–11
+> merged via their respective PRs. The `v2-clean` tip is `0272dee`.
 > Plan 05 was implemented in branch `platform/windows/notch-peek-history` and merged via PR #22 (`a72b456`).
 > The feature sub-branches for #01–#04 were tagged (`feat/windows-*`) and deleted
 > after merge. Plan 05 used `platform/windows/notch-peek-history` and was also
@@ -66,42 +66,32 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 - Do not push to `main` or upstream `limehq/munkel`.
 - macOS-only verification steps are marked **human** — skip on Windows-only agents.
 
-## Current status (2026-07-04)
+## Current status (2026-07-06)
 
-- **windows-native-full-build COMPLETE.** Phase 2 + Plans 01–07 all merged into
-  `platform/windows/v2-clean` (tip `bdb51aa`); CI green.
+- **windows-native-full-build COMPLETE.** Phase 2 + Plans 01–11 all merged into
+  `platform/windows/v2-clean` (tip `0272dee`); CI green.
 - **Post-plan features merged into `v2-clean`:** packaged renderer path fix
   (`3555a62`), near-opaque/darker UI + notch fill (`01b8efa`, `aed3267`), UI
   scrollability fix (PR #21), Circle Presence fix (PR #19), single-instance lock
-  fix (PR #23), orphaned Electron store cleanup (Plan 08), and the NSIS one-click
-  installer with Start-Menu shortcuts (PR #25) — landed via the
-  `installer-shortcuts` PR.
+  fix (PR #23), orphaned Electron store cleanup (Plan 08), NSIS one-click
+  installer with Start-Menu shortcuts (PR #25), circle leave confirmation dialog
+  (PR #38), logo assets placeholder pipeline (PR #39), and auto-update via
+  `electron-updater` (PR #40).
 - Per-feature tracking artifacts live in `.planning/phases/{0,A,B,C,D,E}-*/`.
 
 ## Next steps / human gates
 
-- **➡️ Review Ponytail audit report:** immediate next task before any large
-  architectural cuts or the final PR to `main`. Walk findings #1–#25 in
-  [`docs/audits/ponytail-audit-2026-06-30.md`](../../../../docs/audits/ponytail-audit-2026-06-30.md),
-  confirm line/dep estimates, decide implement/defer/reject for each, and
-  resolve whether Swift/TS shared core (#1) becomes a milestone or stays
-  deferred. Record the outcome in
-  [`docs/audits/ponytail-audit-review.md`](../../../../docs/audits/ponytail-audit-review.md).
-  **No code changes until reviewed.**
-- **Final PR to `main`:** human-owned, manually reviewed (see `AGENTS.md` —
-  `main` is reached exactly once). Currently still a draft.
+- **➡️ Final PR to `main`:** human-owned, manually reviewed (see `AGENTS.md` —
+  `main` is reached exactly once). No draft PR currently exists; it needs to be
+  prepared from the current `platform/windows/v2-clean` tip (`0272dee`).
 - **Manual / QA gates (non-blocking):**
   - Circle Presence 2-person visual confirmation (code fix merged in PR #19).
   - Menu click-away dismiss runtime QA (Plan 06 code merged).
   - Notch auto-hide / retract live-animation QA (Plan 07 code merged).
   - Real GitHub login test, fresh-VM QA, Authenticode signing.
 - **Open implementation work:**
-  - Ponytail audit review.
-  - Auto-update architecture + implementation.
-  - Circle leave confirmation dialog (Plan 09 — in review).
-  - Complete "Test notch" removal (button already hidden in production; demo
-    pipeline still present).
-  - Integrate official logo assets — placeholder pipeline is in review via Plan 10 / PR #39; official brand SVG assets still pending.
+  - None — all implementation work currently tracked in `docs/README.md#open-tasks`
+    is either done or deferred.
 - **Backlog:** optional cluster hardening (defense-in-depth, non-blocking).
 
 ## Maintenance (2026-06-30)
