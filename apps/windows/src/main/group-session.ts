@@ -54,6 +54,8 @@ export class GroupSession {
 	private readonly callbacks: GroupSessionCallbacks;
 	private readonly relayUrl: string;
 	private readonly memberId: string;
+	private frameQueue: ServerMessage[] = [];
+	private frameProcessing = false;
 
 	static async create(
 		code: string,
@@ -217,7 +219,7 @@ export class GroupSession {
 
 	private attachListeners(): void {
 		this.relayClient.on('frame', (frame: ServerMessage) => {
-			void this.handleFrame(frame);
+			this.enqueueFrame(frame);
 		});
 
 		this.relayClient.on('disconnected', () => {
@@ -228,6 +230,30 @@ export class GroupSession {
 		this.relayClient.on('error', (err: Error) => {
 			this.callbacks.onError?.(err.message);
 		});
+	}
+
+	/**
+	 * Queue incoming frames and process them one at a time. This prevents
+	 * race conditions where parallel `handleFrame` calls mutate `members`
+	 * while `sendProfile`, `toState`, or callbacks are running.
+	 */
+	private enqueueFrame(frame: ServerMessage): void {
+		this.frameQueue.push(frame);
+		if (this.frameProcessing) return;
+		this.frameProcessing = true;
+		void this.processFrames();
+	}
+
+	private async processFrames(): Promise<void> {
+		while (this.frameQueue.length > 0) {
+			const frame = this.frameQueue.shift()!;
+			try {
+				await this.handleFrame(frame);
+			} catch (err) {
+				console.error('[group-session] frame handler failed:', err);
+			}
+		}
+		this.frameProcessing = false;
 	}
 
 	private async handleFrame(frame: ServerMessage): Promise<void> {
@@ -251,7 +277,7 @@ export class GroupSession {
 						);
 					});
 				this.callbacks.onStateChange(this.toState());
-				await this.sendProfile();
+				void this.sendProfile();
 				break;
 			}
 
@@ -263,7 +289,7 @@ export class GroupSession {
 					});
 				}
 				this.callbacks.onStateChange(this.toState());
-				await this.sendProfile(frame.memberId);
+				void this.sendProfile(frame.memberId);
 				break;
 			}
 
