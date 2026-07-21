@@ -7,10 +7,19 @@ export type ChatPayload = {
   sentAt: string;
 };
 
+export type PresenceStatus = 'online' | 'dnd' | 'away';
+
 export type ProfilePayload = {
   kind: 'profile';
   displayName: string;
   avatar?: string;
+  avatarURL?: string;
+  status?: PresenceStatus;
+};
+
+export type PresencePayload = {
+  kind: 'presence';
+  status: PresenceStatus;
 };
 
 /**
@@ -38,7 +47,7 @@ export interface ImagePayload {
   sentAt: string;
 }
 
-export type AppPayload = ChatPayload | ProfilePayload | ImagePayload;
+export type AppPayload = ChatPayload | ProfilePayload | PresencePayload | ImagePayload;
 
 export class PayloadError extends Error {
   constructor(message: string) {
@@ -72,11 +81,45 @@ export function encodeChat(text: string, sentAt: Date = new Date()): ChatPayload
   return { kind: 'chat', text, sentAt: sentAt.toISOString() };
 }
 
+export interface EncodeProfileOptions {
+  avatar?: Uint8Array | string;
+  avatarURL?: string;
+  status?: PresenceStatus;
+}
+
 /**
  * Build a profile payload. If `avatar` is a Uint8Array it is base64-encoded.
  */
-export function encodeProfile(displayName: string, avatar?: Uint8Array | string): ProfilePayload {
-  return { kind: 'profile', displayName, avatar: avatar === undefined ? undefined : typeof avatar === 'string' ? avatar : bytesToBase64(avatar) };
+export function encodeProfile(displayName: string, avatar?: Uint8Array | string, status?: PresenceStatus): ProfilePayload;
+export function encodeProfile(displayName: string, options?: EncodeProfileOptions): ProfilePayload;
+export function encodeProfile(
+  displayName: string,
+  avatarOrOptions?: Uint8Array | string | EncodeProfileOptions,
+  legacyStatus?: PresenceStatus,
+): ProfilePayload {
+  let avatar: string | undefined;
+  let avatarURL: string | undefined;
+  let status: PresenceStatus | undefined;
+  if (avatarOrOptions !== undefined && typeof avatarOrOptions === 'object' && !(avatarOrOptions instanceof Uint8Array)) {
+    avatar = avatarOrOptions.avatar === undefined ? undefined : typeof avatarOrOptions.avatar === 'string' ? avatarOrOptions.avatar : bytesToBase64(avatarOrOptions.avatar);
+    avatarURL = avatarOrOptions.avatarURL;
+    status = avatarOrOptions.status;
+  } else {
+    avatar = avatarOrOptions === undefined ? undefined : typeof avatarOrOptions === 'string' ? avatarOrOptions : bytesToBase64(avatarOrOptions);
+    status = legacyStatus;
+  }
+  const payload: ProfilePayload = { kind: 'profile', displayName };
+  if (avatar !== undefined) payload.avatar = avatar;
+  if (avatarURL !== undefined) payload.avatarURL = avatarURL;
+  if (status !== undefined) payload.status = status;
+  return payload;
+}
+
+function normalizePresenceStatus(value: unknown): PresenceStatus {
+  if (value === 'online' || value === 'dnd' || value === 'away') {
+    return value;
+  }
+  return 'online';
 }
 
 /**
@@ -89,6 +132,13 @@ export function encodeImage(
   sentAt: Date = new Date(),
 ): ImagePayload {
   return { kind: 'image', items, caption, sentAt: sentAt.toISOString() };
+}
+
+/**
+ * Build a lightweight presence-status delta payload.
+ */
+export function encodePresence(status: PresenceStatus): PresencePayload {
+  return { kind: 'presence', status };
 }
 
 /**
@@ -144,7 +194,20 @@ export function decodePayload(json: string): AppPayload {
     if (parsed.avatar !== undefined && typeof parsed.avatar !== 'string') {
       throw new PayloadError('avatar must be a base64 string when present');
     }
-    return { kind: 'profile', displayName: parsed.displayName, avatar: parsed.avatar };
+    if (parsed.avatarURL !== undefined && typeof parsed.avatarURL !== 'string') {
+      throw new PayloadError('avatarURL must be a string when present');
+    }
+    const payload: ProfilePayload = { kind: 'profile', displayName: parsed.displayName };
+    if (parsed.avatar !== undefined) payload.avatar = parsed.avatar;
+    if (parsed.avatarURL !== undefined) payload.avatarURL = parsed.avatarURL;
+    if (parsed.status !== undefined) {
+      payload.status = normalizePresenceStatus(parsed.status);
+    }
+    return payload;
+  }
+
+  if (parsed.kind === 'presence') {
+    return { kind: 'presence', status: normalizePresenceStatus(parsed.status) };
   }
 
   if (parsed.kind === 'image') {

@@ -23,7 +23,7 @@ function fakeState(opts: {
 
 function circle(
 	code: string,
-	members: Array<{ memberId: string; displayName?: string }> = [],
+	members: Array<{ memberId: string; displayName?: string; status?: import('../../shared/types').PresenceStatus }> = [],
 	isConnected = true,
 ): CircleState {
 	return {
@@ -68,6 +68,19 @@ describe('control-handlers', () => {
 			expect(response.groups).toEqual([
 				{ code: 'blue-table-42', connected: true, members: ['Alex', 'b2'] },
 				{ code: 'kaffee', connected: false, members: ['Chris'] },
+			]);
+		});
+
+		it('ignores optional member status when labeling members', async () => {
+			const state = fakeState({
+				circles: [
+					circle('blue-table-42', [{ memberId: 'a1', displayName: 'Alex', status: 'dnd' }]),
+				],
+			});
+			const response = await call(state, { action: 'groups' });
+			expect(response.ok).toBe(true);
+			expect(response.groups).toEqual([
+				{ code: 'blue-table-42', connected: true, members: ['Alex'] },
 			]);
 		});
 	});

@@ -1,3 +1,5 @@
+import type { PresenceStatus } from '../../shared/types';
+
 const palettes: [string, string][] = [
 	['#f56a6a', '#d93069'],
 	['#5ba6fa', '#3857eb'],
@@ -31,10 +33,25 @@ interface AvatarProps {
 	size?: number;
 	isEveryone?: boolean;
 	imageBase64?: string;
+	imageURL?: string;
+	status?: PresenceStatus;
 }
 
-export function Avatar({ name, size = 34, isEveryone = false, imageBase64 }: AvatarProps) {
+function statusColor(status: PresenceStatus): string {
+	switch (status) {
+		case 'online':
+			return '#34c759';
+		case 'dnd':
+			return '#ff9f0a';
+		case 'away':
+			return '#ff453a';
+	}
+}
+
+export function Avatar({ name, size = 34, isEveryone = false, imageBase64, imageURL, status }: AvatarProps) {
 	const [from, to] = getAvatarPalette(name);
+	const dotSize = Math.max(7, Math.round(size * 0.34));
+	const showImage = imageURL ?? imageBase64;
 	return (
 		<div
 			className="avatar"
@@ -43,18 +60,34 @@ export function Avatar({ name, size = 34, isEveryone = false, imageBase64 }: Ava
 				height: size,
 				fontSize: size * 0.38,
 				background: isEveryone ? 'rgba(255,255,255,0.12)' : `linear-gradient(135deg, ${from}, ${to})`,
+				position: 'relative',
 			}}
 		>
 			{isEveryone ? (
 				'👥'
-			) : imageBase64 ? (
+			) : showImage ? (
 				<img
 					className="avatar-image"
-					src={`data:image/jpeg;base64,${imageBase64}`}
+					src={imageURL ?? `data:image/jpeg;base64,${imageBase64}`}
 					alt={name}
 				/>
 			) : (
 				getInitials(name)
+			)}
+			{status && (
+				<span
+					className="avatar-status-dot"
+					style={{
+						position: 'absolute',
+						bottom: 0,
+						right: 0,
+						width: dotSize,
+						height: dotSize,
+						borderRadius: '50%',
+						background: statusColor(status),
+						border: `2px solid rgba(30,30,30,0.9)`,
+					}}
+				/>
 			)}
 		</div>
 	);

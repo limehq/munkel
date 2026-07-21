@@ -952,3 +952,64 @@ select {
 	border: 1px solid rgba(255, 255, 255, 0.1);
 	background: rgba(255, 255, 255, 0.05);
 }
+
+/* Status section in settings popover */
+.status-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 6px;
+}
+
+.status-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.status-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+
+.status-auto {
+	color: var(--munkel-text-tertiary);
+}
+
+.status-picker {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.status-option {
+	appearance: none;
+	background: transparent;
+	border: none;
+	color: var(--munkel-text-secondary);
+	padding: 6px 8px;
+	border-radius: 6px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+	font-size: 12px;
+}
+
+.status-option:hover {
+	background: rgba(255, 255, 255, 0.08);
+}
+
+.status-option-active {
+	background: rgba(255, 255, 255, 0.12);
+	color: var(--munkel-text-primary);
+}
+
+.status-option .status-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}

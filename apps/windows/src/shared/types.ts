@@ -1,10 +1,16 @@
+import type { PresenceStatus } from '@munkel/shared-wire/payload';
+
+export type { PresenceStatus };
+
 export type WindowType = 'menu' | 'notch' | 'palette';
 
 export interface Member {
 	memberId: string;
 	displayName?: string;
 	avatar?: string;
+	avatarURL?: string;
 	joinedAt: string;
+	status?: PresenceStatus;
 }
 
 export interface CircleState {
@@ -20,6 +26,10 @@ export interface IdentityState {
 	displayName: string;
 	avatar?: string;
 	githubLogin?: string;
+	/** The presence status chosen by the user (local status). */
+	presenceStatus: PresenceStatus;
+	/** The effective status, including auto-away derivation. */
+	effectiveStatus: PresenceStatus;
 }
 
 export interface StateUpdate {
@@ -65,6 +75,8 @@ export interface NotchMessage {
 	/** Local receiver timestamp (ISO-8601) used for notch history expiry. */
 	receivedAt: string;
 	images?: IncomingImage[];
+	/** When true, the incoming message is added to history but the preview is not shown. */
+	silent?: boolean;
 }
 
 export interface IpcApi {
@@ -82,6 +94,7 @@ export interface IpcApi {
 	sendChat: (code: string, text: string, to?: string) => Promise<{ ok: boolean; error?: string }>;
 	sendImages: (code: string, paths: string[], caption: string, to?: string) => Promise<{ ok: boolean; error?: string }>;
 	updateProfile: (displayName: string, avatar?: string) => Promise<void>;
+	setPresenceStatus: (status: PresenceStatus) => Promise<void>;
 	setRelayUrl: (code: string, relayUrl: string) => Promise<void>;
 	getState: () => Promise<StateUpdate>;
 	startGitHubLogin: () => Promise<void>;

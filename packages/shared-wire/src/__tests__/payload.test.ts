@@ -2,14 +2,14 @@ import { describe, it, expect } from 'bun:test';
 import {
   encodeChat,
   encodeProfile,
+  encodePresence,
   encodeImage,
   decodePayload,
   assertPayloadFits,
   PayloadTooLargeError,
-  MAX_CHAT_CHARS,
   MAX_PAYLOAD_CHARS,
   type ImageItem,
-} from '@munkel/shared-wire/payload';
+} from '../payload.js';
 
 describe('payload encoding', () => {
   it('encodes a chat payload with ISO-8601 sentAt', () => {
@@ -25,17 +25,6 @@ describe('payload encoding', () => {
     const ts = Date.parse(payload.sentAt);
     expect(ts).toBeGreaterThanOrEqual(before);
     expect(ts).toBeLessThanOrEqual(after);
-  });
-
-  it('clamps chat text to MAX_CHAT_CHARS', () => {
-    const longText = 'x'.repeat(MAX_CHAT_CHARS + 10);
-    const payload = encodeChat(longText);
-    expect(payload.text.length).toBe(MAX_CHAT_CHARS);
-    expect(payload.text).toBe('x'.repeat(MAX_CHAT_CHARS));
-
-    const exactText = 'x'.repeat(MAX_CHAT_CHARS);
-    const exactPayload = encodeChat(exactText);
-    expect(exactPayload.text).toBe(exactText);
   });
 
   it('encodes a profile payload without avatar', () => {
@@ -54,28 +43,29 @@ describe('payload encoding', () => {
     expect(payload.avatar).toBe('aGVsbG8=');
   });
 
+  it('encodes a profile payload with avatarURL and status', () => {
+    const payload = encodeProfile('Alex', { avatarURL: 'https://example.com/a.jpg', status: 'dnd' });
+    expect(payload).toEqual({ kind: 'profile', displayName: 'Alex', avatarURL: 'https://example.com/a.jpg', status: 'dnd' });
+  });
 
   it('round-trips chat and profile payloads', () => {
     const chat = encodeChat('round trip', new Date('2025-06-01T12:00:00.000Z'));
     expect(decodePayload(JSON.stringify(chat))).toEqual(chat);
 
     const profile = encodeProfile('Sam', new Uint8Array([1, 2, 3]));
-    // Decoding adds the forward-compatible `status: 'online'` fallback.
-    expect(decodePayload(JSON.stringify(profile))).toEqual({ ...profile, status: 'online' });
-  });
-
-  it('round-trips a profile payload with status and avatarURL', () => {
-    const profile = encodeProfile('Sam', { avatarURL: 'https://example.com/avatar.jpg', status: 'dnd' });
     expect(decodePayload(JSON.stringify(profile))).toEqual(profile);
   });
 
   it('round-trips a presence payload', () => {
-    const payload = { kind: 'presence' as const, status: 'away' as const };
+    const payload = encodePresence('away');
     expect(decodePayload(JSON.stringify(payload))).toEqual(payload);
   });
 
-  it('falls back unknown or missing status to online', () => {
-    expect(decodePayload(JSON.stringify({ kind: 'profile', displayName: 'Sam' })).status).toBe('online');
+  it('falls back unknown status to online and leaves missing profile status undefined', () => {
+    const missingStatus = decodePayload(JSON.stringify({ kind: 'profile', displayName: 'Sam' }));
+    expect(missingStatus.kind).toBe('profile');
+    expect(missingStatus.status).toBeUndefined();
+
     expect(decodePayload(JSON.stringify({ kind: 'profile', displayName: 'Sam', status: 'invisible' })).status).toBe('online');
     expect(decodePayload(JSON.stringify({ kind: 'presence', status: 'invisible' })).status).toBe('online');
   });

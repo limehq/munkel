@@ -5,6 +5,7 @@ import {
 	sealRaw,
 	encodeChat,
 	encodeProfile,
+	encodePresence,
 	encodeImage,
 	decodePayload,
 	assertPayloadFits,
@@ -20,8 +21,8 @@ import type { ImageItem } from '../core';
 import { readFile } from 'node:fs/promises';
 import { RelayClient } from './relay-client';
 import { getCircleColor } from '../shared/group-color';
-import type { CircleState, IncomingImage, Member, NotchMessage } from '../shared/types';
-import type { ChatPayload, ClientMessage, ProfilePayload, ServerMessage } from '../core';
+import type { CircleState, IncomingImage, Member, NotchMessage, PresenceStatus } from '../shared/types';
+import type { ChatPayload, ClientMessage, PresencePayload, ProfilePayload, ServerMessage } from '../core';
 
 /**
  * Result of a GroupSession send. Surfaced all the way to the renderer
@@ -50,7 +51,7 @@ export class GroupSession {
 	isConnected = false;
 
 	private readonly messageKey: CryptoKey;
-	private identity: { displayName: string; avatar?: string };
+	private identity: { displayName: string; avatar?: string; presenceStatus: PresenceStatus };
 	private readonly callbacks: GroupSessionCallbacks;
 	private readonly relayUrl: string;
 	private readonly memberId: string;
@@ -61,7 +62,7 @@ export class GroupSession {
 		code: string,
 		relayUrl: string,
 		memberId: string,
-		identity: { displayName: string; avatar?: string },
+		identity: { displayName: string; avatar?: string; presenceStatus: PresenceStatus },
 		callbacks: GroupSessionCallbacks,
 	): Promise<GroupSession> {
 		const normalized = normalizeCircleCode(code);
@@ -75,7 +76,7 @@ export class GroupSession {
 		relayUrl: string,
 		memberId: string,
 		messageKey: CryptoKey,
-		identity: { displayName: string; avatar?: string },
+		identity: { displayName: string; avatar?: string; presenceStatus: PresenceStatus },
 		callbacks: GroupSessionCallbacks,
 	) {
 		this.code = code;
@@ -97,7 +98,7 @@ export class GroupSession {
 		this.relayClient.disconnect();
 	}
 
-	updateIdentity(identity: { displayName: string; avatar?: string }): void {
+	updateIdentity(identity: { displayName: string; avatar?: string; presenceStatus: PresenceStatus }): void {
 		this.identity = identity;
 	}
 
@@ -111,7 +112,11 @@ export class GroupSession {
 	}
 
 	async sendProfile(to?: string): Promise<SendResult> {
-		return this.sendPayload(encodeProfile(this.identity.displayName, this.identity.avatar), to);
+		return this.sendPayload(encodeProfile(this.identity.displayName, { avatar: this.identity.avatar, status: this.identity.presenceStatus }), to);
+	}
+
+	async broadcastPresence(status: PresenceStatus): Promise<SendResult> {
+		return this.sendPayload(encodePresence(status));
 	}
 
 	/**
@@ -183,7 +188,7 @@ export class GroupSession {
 		return this.sendPayload(encodeImage(items, caption), to);
 	}
 
-	private async sendPayload(payload: ChatPayload | ProfilePayload | { kind: 'image'; items: ImageItem[]; caption: string; sentAt: string }, to?: string): Promise<SendResult> {
+	private async sendPayload(payload: ChatPayload | ProfilePayload | PresencePayload | { kind: 'image'; items: ImageItem[]; caption: string; sentAt: string }, to?: string): Promise<SendResult> {
 		let sealed: string;
 		try {
 			const json = JSON.stringify(payload);
@@ -331,20 +336,49 @@ export class GroupSession {
 						const index = this.members.findIndex((m) => m.memberId === frame.from);
 						if (index >= 0) {
 							this.members[index].displayName = decoded.displayName;
-							if (decoded.avatar !== undefined) {
+							if (decoded.avatarURL !== undefined) {
+								this.members[index].avatarURL = decoded.avatarURL;
+								delete this.members[index].avatar;
+							} else if (decoded.avatar !== undefined) {
 								this.members[index].avatar = decoded.avatar;
+								delete this.members[index].avatarURL;
 							} else {
 								// Sender explicitly cleared their avatar (relay
 								// sends `{kind:'profile', displayName}` with no
 								// `avatar` key). macOS already honors this; the
 								// Windows side used to keep the stale avatar.
 								delete this.members[index].avatar;
+								delete this.members[index].avatarURL;
 							}
+							if (decoded.status !== undefined) {
+								this.members[index].status = decoded.status;
+							}
+						} else {
+							const member: Member = {
+								memberId: frame.from,
+								displayName: decoded.displayName,
+								joinedAt: new Date().toISOString(),
+							};
+							if (decoded.status !== undefined) {
+								member.status = decoded.status;
+							}
+
+							if (decoded.avatarURL !== undefined) {
+								member.avatarURL = decoded.avatarURL;
+							} else if (decoded.avatar !== undefined) {
+								member.avatar = decoded.avatar;
+							}
+							this.members.push(member);
+						}
+						this.callbacks.onStateChange(this.toState());
+					} else if (decoded.kind === 'presence') {
+						const index = this.members.findIndex((m) => m.memberId === frame.from);
+						if (index >= 0) {
+							this.members[index].status = decoded.status;
 						} else {
 							this.members.push({
 								memberId: frame.from,
-								displayName: decoded.displayName,
-								...(decoded.avatar !== undefined ? { avatar: decoded.avatar } : {}),
+								status: decoded.status,
 								joinedAt: new Date().toISOString(),
 							});
 						}

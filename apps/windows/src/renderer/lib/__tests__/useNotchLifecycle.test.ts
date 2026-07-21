@@ -395,6 +395,28 @@ describe('useNotchLifecycle', () => {
 		expect(result.current.history[0].text).toBe('second');
 	});
 
+	it('silent message skips full preview but still enters history', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ silent: true }));
+		});
+
+		expect(result.current.history.length).toBe(1);
+		expect(result.current.phase).toBe('peek');
+	});
+
+	it('non-silent message still enters full preview', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ silent: false }));
+		});
+
+		expect(result.current.history.length).toBe(1);
+		expect(result.current.phase).toBe('full');
+	});
+
 	it('handles StrictMode double-invoke without duplicating phase or prune timers', async () => {
 		const emptySpy = spyOn(electronApi, 'notchEmpty');
 		const { result, unmount } = renderHookStrict(useNotchLifecycle);
