@@ -6,7 +6,7 @@
 
 import { homedir } from "node:os"
 import { basename, join, resolve as resolvePath } from "node:path"
-import { buildPipeName, type ControlGroupInfo, type ControlRequest, type ControlResponse } from "@munkel/shared-wire/control"
+import { readControlPipeName, type ControlGroupInfo, type ControlRequest, type ControlResponse } from "@munkel/shared-wire/control"
 import { createControlClient, type ControlClient } from "@munkel/shared-wire/transport"
 
 // `MUNKEL_DEV=1` (or a binary named `munkel-dev`) targets the parallel "Munkel
@@ -20,8 +20,8 @@ const devMode =
 // MARK: - Transport selection
 //
 // Platform default: a Unix-domain socket at the macOS-app standard
-// location. On Windows the system-tray app binds a named pipe
-// (`\\.\pipe\Munkel-<user>-Control`) — see apps/windows/src/main/main.ts.
+// location. On Windows the system-tray app binds a named pipe and
+// publishes the name in a user-private file — see apps/windows/src/main/main.ts.
 // Explicit env vars override either direction: MUNKEL_SOCKET forces the
 // Unix path (used by the existing tests on every platform) and
 // MUNKEL_PIPE forces the named-pipe path (used by the new Windows
@@ -32,7 +32,7 @@ const explicitSocket = process.env.MUNKEL_SOCKET
 // MUNKEL_SOCKET wins on every platform so the Unix-path tests are
 // reproducible; MUNKEL_PIPE forces the pipe path even on macOS/Linux.
 const usePipe = explicitSocket === undefined && (explicitPipe !== undefined || isWindows)
-const pipePath = explicitPipe ?? (isWindows ? buildPipeName() : null)
+const pipePath = explicitPipe ?? (isWindows ? readControlPipeName() : null)
 const socketPath = usePipe
   ? null
   : (process.env.MUNKEL_SOCKET ??
