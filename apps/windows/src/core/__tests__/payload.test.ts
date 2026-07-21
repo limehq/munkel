@@ -6,6 +6,7 @@ import {
   decodePayload,
   assertPayloadFits,
   PayloadTooLargeError,
+  MAX_CHAT_CHARS,
   MAX_PAYLOAD_CHARS,
   type ImageItem,
 } from '@munkel/shared-wire/payload';
@@ -24,6 +25,17 @@ describe('payload encoding', () => {
     const ts = Date.parse(payload.sentAt);
     expect(ts).toBeGreaterThanOrEqual(before);
     expect(ts).toBeLessThanOrEqual(after);
+  });
+
+  it('clamps chat text to MAX_CHAT_CHARS', () => {
+    const longText = 'x'.repeat(MAX_CHAT_CHARS + 10);
+    const payload = encodeChat(longText);
+    expect(payload.text.length).toBe(MAX_CHAT_CHARS);
+    expect(payload.text).toBe('x'.repeat(MAX_CHAT_CHARS));
+
+    const exactText = 'x'.repeat(MAX_CHAT_CHARS);
+    const exactPayload = encodeChat(exactText);
+    expect(exactPayload.text).toBe(exactText);
   });
 
   it('encodes a profile payload without avatar', () => {
