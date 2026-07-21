@@ -50,10 +50,18 @@
 - **AGENTS.md:** `main` darf nur einmal am Ende via manuell reviewed PR erreicht werden.
 - **Nächster Schritt:** Diff `v2-clean` ↔ `main` analysieren, Draft-PR erstellen/prüfen, Handover-Checkliste erstellen.
 
-### 2. Manuelle QA-Gates dokumentieren — PENDING
+### 2. Notch-Regressionen dokumentieren und beheben — PENDING
+Neue Notch-Bugs aus manuellem QA am 2026-07-06:
+- **WIN-NOTCH-004:** Notch wird vertikal zu groß dargestellt (mehrere Kasten/Frames unter der Nachricht).
+- **WIN-NOTCH-005:** Ladekreis/Ring in der Peek-Phase ist nicht sichtbar.
+- **WIN-NOTCH-006:** Hover über die eingefahrene Notch öffnet sie nicht wieder.
+- **Dokumentation:** [`docs/bugs/windows-notch-regression-2026-07-06.md`](../../docs/bugs/windows-notch-regression-2026-07-06.md)
+- **Nächster Schritt:** Reproduzieren, technische Diagnose, anschließend Fix + QA.
+
+### 3. Manuelle QA-Gates dokumentieren — PENDING
 - **Circle Presence 2-Personen-Visueller-Check**
 - **Menü click-away dismiss**
-- **Notch auto-hide/retract**
+- **Notch auto-hide/retract** (teilweise durch WIN-NOTCH-004/005/006 abgedeckt)
 - **Nächster Schritt:** Strukturierte QA-Testpläne/Checklisten in der Dokumentation anlegen.
 
 ## Offene Pull Requests

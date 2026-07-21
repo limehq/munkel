@@ -495,7 +495,7 @@ select {
 
 /* Notch widget */
 .notch-widget {
-  min-height: 100%;
+	max-height: 100%;
 	width: 360px;
 	padding: 26px 18px 18px;
 	background: rgba(8, 8, 10, 0.99);
@@ -511,6 +511,16 @@ select {
 	transform: translateY(calc(-100% + 10px));
 	transition: transform 0.3s ease, opacity 0.25s ease-out;
 	pointer-events: auto;
+	display: flex;
+	flex-direction: column;
+}
+
+.notch-inner {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden;
 }
 
 .notch-widget::before {
@@ -533,11 +543,54 @@ select {
 }
 
 .notch-widget.notch-peek {
-	transform: translateY(calc(-100% + 18px));
+	transform: translateY(calc(-100% + 20px));
 }
 
 .notch-widget.notch-retracted {
-	transform: translateY(calc(-100% + 8px));
+	transform: translateY(calc(-100% + 12px));
+}
+
+.notch-widget.notch-preview {
+	transform: translateY(calc(-100% + 110px));
+}
+
+.notch-preview .notch-sliver {
+	opacity: 1;
+	transform: translate(-50%, 0);
+}
+
+.notch-preview-content {
+	display: flex;
+	flex-direction: column;
+	padding: 10px 2px 18px;
+	cursor: pointer;
+}
+
+.preview-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+}
+
+.preview-body {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.preview-text {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 1.35;
+	color: var(--munkel-text);
+	max-height: 2.7em;
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
 }
 
 @keyframes notch-enter {
@@ -551,21 +604,23 @@ select {
 
 .notch-hover-target {
 	position: absolute;
-	top: 0;
+	bottom: 0;
 	left: 0;
 	right: 0;
 	height: 24px;
 	z-index: 4;
+	cursor: default;
 }
 
 .notch-full .notch-hover-target,
-.notch-reopened .notch-hover-target {
+.notch-reopened .notch-hover-target,
+.notch-preview .notch-hover-target {
 	pointer-events: none;
 }
 
 .notch-sliver {
 	position: absolute;
-	top: 8px;
+	bottom: 0;
 	left: 50%;
 	transform: translateX(-50%);
 	display: inline-flex;
@@ -574,6 +629,7 @@ select {
 	gap: 8px;
 	min-width: 52px;
 	height: 20px;
+	z-index: 3;
 	opacity: 1;
 	transition: opacity 0.2s ease-out, transform 0.3s ease;
 }
@@ -633,13 +689,16 @@ select {
 	display: flex;
 	flex-direction: column;
 	gap: 10px;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: auto;
 }
 
 .notch-history-list {
 	display: flex;
 	flex-direction: column;
 	gap: 6px;
-	max-height: 220px;
+	max-height: calc(260px - 26px - 18px - 10px);
 	overflow-y: auto;
 	padding-right: 4px;
 }
@@ -708,6 +767,11 @@ select {
 	font-weight: 500;
 	line-height: 1.35;
 	color: var(--munkel-text);
+	max-height: 5.4em; /* 4 lines × 1.35 line-height */
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 4;
+	-webkit-box-orient: vertical;
 }
 
 .copy-button {
@@ -936,9 +1000,10 @@ select {
 /* Inline image previews in notch */
 .image-preview-row {
 	display: flex;
-	flex-wrap: wrap;
+	flex-wrap: nowrap;
 	gap: 6px;
 	margin-top: 6px;
+	overflow-x: auto;
 	/* Thumbnails don't open reply (they stopPropagation), so don't inherit the
 	   message-body pointer affordance. */
 	cursor: default;

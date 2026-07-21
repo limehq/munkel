@@ -90,8 +90,10 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
   - Notch auto-hide / retract live-animation QA (Plan 07 code merged).
   - Real GitHub login test, fresh-VM QA, Authenticode signing.
 - **Open implementation work:**
-  - None — all implementation work currently tracked in `docs/README.md#open-tasks`
-    is either done or deferred.
+  - Notch regressions reported 2026-07-06: vertical oversize, missing peek-phase
+    loading ring, and hover-reopen not working. Tracked in
+    [`docs/bugs/windows-notch-regression-2026-07-06.md`](../../../../docs/bugs/windows-notch-regression-2026-07-06.md)
+    and `docs/README.md#open-tasks`.
 - **Backlog:** optional cluster hardening (defense-in-depth, non-blocking).
 
 ## Maintenance (2026-06-30)
