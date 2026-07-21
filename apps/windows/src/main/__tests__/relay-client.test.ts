@@ -217,4 +217,49 @@ describe('RelayClient', () => {
 		await new Promise((resolve) => setTimeout(resolve, 1100));
 		expect(sockets.length).toBe(1);
 	});
+
+	test('disconnect while connecting ignores later open and close events', async () => {
+		const factory = createFactory();
+		client = new RelayClient('wss://relay.example.com', 'group', 'member', {
+			createWebSocket: factory,
+		});
+
+		const disconnectedEvents: unknown[] = [];
+		client.on('disconnected', () => disconnectedEvents.push(true));
+
+		client.connect();
+		await waitFor(() => sockets.length === 1);
+		client.disconnect();
+
+		// The socket later reports open and then close — both must be ignored.
+		sockets[0].open();
+		sockets[0].close();
+
+		await new Promise((resolve) => setTimeout(resolve, 1100));
+		expect(disconnectedEvents.length).toBe(0);
+		expect(sockets.length).toBe(1);
+	});
+
+	test('disconnect ignores a later socket error', async () => {
+		const factory = createFactory();
+		client = new RelayClient('wss://relay.example.com', 'group', 'member', {
+			createWebSocket: factory,
+		});
+
+		const errors: unknown[] = [];
+		const disconnectedEvents: unknown[] = [];
+		client.on('error', () => errors.push(true));
+		client.on('disconnected', () => disconnectedEvents.push(true));
+
+		client.connect();
+		await waitFor(() => sockets.length === 1);
+		client.disconnect();
+
+		sockets[0].emit('error', new Error('after disconnect'));
+
+		await new Promise((resolve) => setTimeout(resolve, 1100));
+		expect(errors.length).toBe(1); // error event is still forwarded
+		expect(disconnectedEvents.length).toBe(0);
+		expect(sockets.length).toBe(1);
+	});
 });
