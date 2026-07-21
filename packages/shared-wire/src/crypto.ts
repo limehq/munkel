@@ -1,4 +1,5 @@
 import { normalizeCircleCode } from './normalize.js';
+import { base64ToBytes, bytesToBase64 } from './base64.js';
 
 const encoder = new TextEncoder();
 
@@ -96,7 +97,7 @@ export async function sealWithNonce(
     const ciphertext = new Uint8Array(
       await crypto.subtle.encrypt({ name: 'AES-GCM', iv: asBufferSource(nonce) }, messageKey, asBufferSource(toUint8Array(plaintext))),
     );
-    return Buffer.from(concatBytes(nonce, ciphertext)).toString('base64');
+    return bytesToBase64(concatBytes(nonce, ciphertext));
   } catch (err) {
     throw new CryptoError('Failed to seal payload', err);
   }
@@ -143,7 +144,7 @@ export async function openRaw(payload: Uint8Array, messageKey: CryptoKey): Promi
 export async function open(payload: string, messageKey: CryptoKey): Promise<string> {
   let combined: Uint8Array;
   try {
-    combined = new Uint8Array(Buffer.from(payload, 'base64'));
+    combined = base64ToBytes(payload);
   } catch (err) {
     throw new CryptoError('Payload is not valid base64', err);
   }

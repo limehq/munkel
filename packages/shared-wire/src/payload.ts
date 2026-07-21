@@ -1,4 +1,5 @@
 import { BLOB_KEY_REGEX, MAX_CHAT_CHARS, MAX_PAYLOAD_CHARS } from './wire-constants.js';
+import { bytesToBase64 } from './base64.js';
 export { BLOB_KEY_REGEX, MAX_CHAT_CHARS, MAX_PAYLOAD_CHARS };
 
 export type ChatPayload = {
@@ -65,10 +66,6 @@ export class PayloadError extends Error {
  * see it.
  */
 export class PayloadTooLargeError extends PayloadError {}
-
-function bytesToBase64(data: Uint8Array): string {
-  return Buffer.from(data).toString('base64');
-}
 
 /**
  * Build a chat payload. `sentAt` defaults to the current time as ISO-8601.
