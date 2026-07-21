@@ -86,7 +86,10 @@ export function showMenuWindow(win: BrowserWindow | null): void {
 	if (win.isMinimized()) {
 		win.restore();
 	}
-	win.show();
+	// Harden foreground activation on Windows: showInactive + moveTop keeps the
+	// window on top of the shell, then focus() gives it keyboard focus.
+	win.showInactive();
+	win.moveTop();
 	win.focus();
 }
 

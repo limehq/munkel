@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { getWindowUrl } from './window-url';
 import { unfocusNotchAfterReply } from './notch-focus';
 import type { NotchMessage } from '../shared/types';
+import { PUSH_CHANNELS } from '../shared/ipc-channels';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -58,7 +59,7 @@ export function showNotch(win: BrowserWindow | null): void {
 	if (!win) return;
 	clearPendingHide();
 	win.showInactive();
-	win.webContents.send('notch-show');
+	win.webContents.send(PUSH_CHANNELS.NOTCH_SHOW);
 }
 
 export function hideNotch(win: BrowserWindow | null): void {
@@ -68,7 +69,7 @@ export function hideNotch(win: BrowserWindow | null): void {
 export function requestNotchHide(win: BrowserWindow | null): void {
 	if (!win) return;
 	unfocusNotchAfterReply(win);
-	win.webContents.send('notch-hide');
+	win.webContents.send(PUSH_CHANNELS.NOTCH_HIDE);
 	// Give the renderer time to animate out before hiding the window.
 	clearPendingHide();
 	pendingHide = setTimeout(() => {
@@ -79,5 +80,5 @@ export function requestNotchHide(win: BrowserWindow | null): void {
 
 export function updateNotch(win: BrowserWindow | null, data: NotchMessage): void {
 	if (!win) return;
-	win.webContents.send('notch-update', data);
+	win.webContents.send(PUSH_CHANNELS.NOTCH_UPDATE, data);
 }

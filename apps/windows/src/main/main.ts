@@ -22,6 +22,7 @@ import { broadcastStateUpdate } from './broadcast-state';
 import { isDismissSuppressed, isGitHubLoginActive } from './menu-dismiss';
 import { initUpdateService } from './update-service';
 import type { UpdateState, WindowType } from '../shared/types';
+import { IPC_CHANNELS, PUSH_CHANNELS } from '../shared/ipc-channels';
 
 // Pin the app name BEFORE anything reads userData. Without this, `electron`
 // launched directly in dev falls back to the generic "Electron" name, so dev
@@ -86,23 +87,23 @@ function broadcastState(update: ReturnType<AppState['getState']>): void {
 function showNotchMessage(message: import('../shared/types').NotchMessage, opts?: { silent?: boolean }): void {
 	updateNotch(notchWindow, message);
 	showNotch(notchWindow);
-	notchWindow?.webContents.send('notch-message', { ...message, silent: opts?.silent ?? false });
+	notchWindow?.webContents.send(PUSH_CHANNELS.NOTCH_MESSAGE, { ...message, silent: opts?.silent ?? false });
 }
 
 function relayError(message: string): void {
-	menuWindow?.webContents.send('relay-error', message);
-	paletteWindow?.webContents.send('relay-error', message);
+	menuWindow?.webContents.send(PUSH_CHANNELS.RELAY_ERROR, message);
+	paletteWindow?.webContents.send(PUSH_CHANNELS.RELAY_ERROR, message);
 }
 
 function pushGitHubLoginState(state: import('../shared/types').GitHubLoginState): void {
 	// Keep the menu open while the user may be in the browser entering the code.
 	githubLoginActive = isGitHubLoginActive(state.phase);
-	menuWindow?.webContents.send('github-login-state', state);
+	menuWindow?.webContents.send(PUSH_CHANNELS.GITHUB_LOGIN_STATE, state);
 }
 
 function pushUpdateState(state: UpdateState): void {
-	menuWindow?.webContents.send('update-state', state);
-	paletteWindow?.webContents.send('update-state', state);
+	menuWindow?.webContents.send(PUSH_CHANNELS.UPDATE_STATE, state);
+	paletteWindow?.webContents.send(PUSH_CHANNELS.UPDATE_STATE, state);
 }
 
 app.whenReady().then(async () => {
@@ -192,44 +193,44 @@ app.whenReady().then(async () => {
 		console.error('[munkel] control pipe failed to start:', err);
 	}
 
-	ipcMain.handle('get-window-type', (event: IpcMainInvokeEvent) => getWindowType(event.sender));
-	ipcMain.handle('hide-window', (event: IpcMainInvokeEvent) => {
+	ipcMain.handle(IPC_CHANNELS.GET_WINDOW_TYPE, (event: IpcMainInvokeEvent) => getWindowType(event.sender));
+	ipcMain.handle(IPC_CHANNELS.HIDE_WINDOW, (event: IpcMainInvokeEvent) => {
 		BrowserWindow.fromWebContents(event.sender)?.hide();
 	});
-	ipcMain.handle('show-palette', () => showPalette(paletteWindow));
-	ipcMain.handle('toggle-menu', () => toggleMenuWindow(menuWindow));
-	ipcMain.handle('menu-picker-state', (_event, open: boolean) => {
+	ipcMain.handle(IPC_CHANNELS.SHOW_PALETTE, () => showPalette(paletteWindow));
+	ipcMain.handle(IPC_CHANNELS.TOGGLE_MENU, () => toggleMenuWindow(menuWindow));
+	ipcMain.handle(IPC_CHANNELS.MENU_PICKER_STATE, (_event, open: boolean) => {
 		// Renderer signals when a native picker (recipient <select>) is open so its
 		// focus-stealing popup doesn't blur-dismiss the menu mid-selection.
 		pickerOpen = !!open;
 	});
-	ipcMain.handle('quit-app', () => app.quit());
-	ipcMain.handle('notch-begin-reply', (event) => {
+	ipcMain.handle(IPC_CHANNELS.QUIT_APP, () => app.quit());
+	ipcMain.handle(IPC_CHANNELS.NOTCH_BEGIN_REPLY, (event) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
 		focusNotchForReply(notchWindow);
 	});
-	ipcMain.handle('notch-end-reply', (event) => {
+	ipcMain.handle(IPC_CHANNELS.NOTCH_END_REPLY, (event) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
 		unfocusNotchAfterReply(notchWindow);
 	});
-	ipcMain.handle('notch-set-interactive', (event, interactive: boolean) => {
+	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_INTERACTIVE, (event, interactive: boolean) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
 		notchWindow?.setIgnoreMouseEvents(!interactive, { forward: true });
 	});
-	ipcMain.handle('notch-empty', (event) => {
+	ipcMain.handle(IPC_CHANNELS.NOTCH_EMPTY, (event) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
 		requestNotchHide(notchWindow);
 	});
-	ipcMain.handle('start-github-login', async () => {
+	ipcMain.handle(IPC_CHANNELS.START_GITHUB_LOGIN, async () => {
 		githubLoginService.startGitHubLogin();
 	});
-	ipcMain.handle('cancel-github-login', async () => {
+	ipcMain.handle(IPC_CHANNELS.CANCEL_GITHUB_LOGIN, async () => {
 		githubLoginService.cancelGitHubLogin();
 	});
-	ipcMain.handle('check-for-updates', async () => {
+	ipcMain.handle(IPC_CHANNELS.CHECK_FOR_UPDATES, async () => {
 		return updateService?.check() ?? { ok: false };
 	});
-	ipcMain.handle('install-update', async () => {
+	ipcMain.handle(IPC_CHANNELS.INSTALL_UPDATE, async () => {
 		return updateService?.install() ?? { ok: false };
 	});
 

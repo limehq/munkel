@@ -1,6 +1,7 @@
 import { createServer, build } from 'vite';
 import { spawn } from 'node:child_process';
 import net from 'node:net';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -48,7 +49,12 @@ function getElectronPath() {
 	return path.join(root, 'node_modules', '.bin', 'electron');
 }
 
+function areOutputsReady() {
+	return ['main.cjs', 'preload.cjs'].every((name) => fs.existsSync(path.join(root, 'dist', name)));
+}
+
 function startOrRestartElectron() {
+	if (!areOutputsReady()) return;
 	if (electronProcess) {
 		electronProcess.kill();
 		electronProcess = null;

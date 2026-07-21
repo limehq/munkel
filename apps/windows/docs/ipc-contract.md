@@ -3,6 +3,11 @@
 This document describes the renderer ↔ main-process contract for the Munkel
 Windows Electron app.
 
+> **Single source of truth:** the actual channel name strings live in
+> `apps/windows/src/shared/ipc-channels.ts` (`IPC_CHANNELS` for renderer→main
+> invokes, `PUSH_CHANNELS` for main→renderer pushes). This document mirrors
+> those constants; when adding or renaming a channel, update both.
+
 ## Renderer → Main (invokable)
 
 All renderer-to-main calls go through `window.electronAPI` and are handled in

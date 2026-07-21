@@ -1,86 +1,87 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import type { GitHubLoginState, IpcApi, NotchMessage, PresenceStatus, StateUpdate, UpdateState } from '../shared/types';
+import { IPC_CHANNELS, PUSH_CHANNELS } from '../shared/ipc-channels';
 
 const api: IpcApi = {
-	getWindowType: () => ipcRenderer.invoke('get-window-type'),
-	hideWindow: () => ipcRenderer.invoke('hide-window'),
-	showPalette: () => ipcRenderer.invoke('show-palette'),
-	toggleMenu: () => ipcRenderer.invoke('toggle-menu'),
-	setMenuPickerOpen: (open) => ipcRenderer.invoke('menu-picker-state', open),
-	quitApp: () => ipcRenderer.invoke('quit-app'),
+	getWindowType: () => ipcRenderer.invoke(IPC_CHANNELS.GET_WINDOW_TYPE),
+	hideWindow: () => ipcRenderer.invoke(IPC_CHANNELS.HIDE_WINDOW),
+	showPalette: () => ipcRenderer.invoke(IPC_CHANNELS.SHOW_PALETTE),
+	toggleMenu: () => ipcRenderer.invoke(IPC_CHANNELS.TOGGLE_MENU),
+	setMenuPickerOpen: (open) => ipcRenderer.invoke(IPC_CHANNELS.MENU_PICKER_STATE, open),
+	quitApp: () => ipcRenderer.invoke(IPC_CHANNELS.QUIT_APP),
 	onGlobalShortcut: (callback) => {
 		const handler = () => callback();
-		ipcRenderer.on('global-shortcut', handler);
-		return () => ipcRenderer.removeListener('global-shortcut', handler);
+		ipcRenderer.on(PUSH_CHANNELS.GLOBAL_SHORTCUT, handler);
+		return () => ipcRenderer.removeListener(PUSH_CHANNELS.GLOBAL_SHORTCUT, handler);
 	},
 
-	joinCircle: (code, relayUrl) => ipcRenderer.invoke('join-circle', code, relayUrl),
-	leaveCircle: (code) => ipcRenderer.invoke('leave-circle', code),
-	sendChat: (code, text, to) => ipcRenderer.invoke('send-chat', code, text, to),
-	sendImages: (code, paths, caption, to) => ipcRenderer.invoke('send-images', code, paths, caption, to),
-	updateProfile: (displayName, avatar) => ipcRenderer.invoke('update-profile', displayName, avatar),
-	setPresenceStatus: (status: PresenceStatus) => ipcRenderer.invoke('set-presence-status', status),
-	setRelayUrl: (code, relayUrl) => ipcRenderer.invoke('set-relay-url', code, relayUrl),
-	getState: () => ipcRenderer.invoke('get-state'),
-	startGitHubLogin: () => ipcRenderer.invoke('start-github-login'),
-	cancelGitHubLogin: () => ipcRenderer.invoke('cancel-github-login'),
-	githubLogout: () => ipcRenderer.invoke('github-logout'),
+	joinCircle: (code, relayUrl) => ipcRenderer.invoke(IPC_CHANNELS.JOIN_CIRCLE, code, relayUrl),
+	leaveCircle: (code) => ipcRenderer.invoke(IPC_CHANNELS.LEAVE_CIRCLE, code),
+	sendChat: (code, text, to) => ipcRenderer.invoke(IPC_CHANNELS.SEND_CHAT, code, text, to),
+	sendImages: (code, paths, caption, to) => ipcRenderer.invoke(IPC_CHANNELS.SEND_IMAGES, code, paths, caption, to),
+	updateProfile: (displayName, avatar) => ipcRenderer.invoke(IPC_CHANNELS.UPDATE_PROFILE, displayName, avatar),
+	setPresenceStatus: (status: PresenceStatus) => ipcRenderer.invoke(IPC_CHANNELS.SET_PRESENCE_STATUS, status),
+	setRelayUrl: (code, relayUrl) => ipcRenderer.invoke(IPC_CHANNELS.SET_RELAY_URL, code, relayUrl),
+	getState: () => ipcRenderer.invoke(IPC_CHANNELS.GET_STATE),
+	startGitHubLogin: () => ipcRenderer.invoke(IPC_CHANNELS.START_GITHUB_LOGIN),
+	cancelGitHubLogin: () => ipcRenderer.invoke(IPC_CHANNELS.CANCEL_GITHUB_LOGIN),
+	githubLogout: () => ipcRenderer.invoke(IPC_CHANNELS.GITHUB_LOGOUT),
 
-	selectImages: () => ipcRenderer.invoke('select-images'),
+	selectImages: () => ipcRenderer.invoke(IPC_CHANNELS.SELECT_IMAGES),
 
-	checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
-	installUpdate: () => ipcRenderer.invoke('install-update'),
+	checkForUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.CHECK_FOR_UPDATES),
+	installUpdate: () => ipcRenderer.invoke(IPC_CHANNELS.INSTALL_UPDATE),
 
-	beginNotchReply: () => ipcRenderer.invoke('notch-begin-reply'),
-	endNotchReply: () => ipcRenderer.invoke('notch-end-reply'),
-	notchSetInteractive: (interactive) => ipcRenderer.invoke('notch-set-interactive', interactive),
-	notchEmpty: () => ipcRenderer.invoke('notch-empty'),
+	beginNotchReply: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_BEGIN_REPLY),
+	endNotchReply: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_END_REPLY),
+	notchSetInteractive: (interactive) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_SET_INTERACTIVE, interactive),
+	notchEmpty: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_EMPTY),
 
 	onStateUpdate: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: StateUpdate) => callback(data);
-		ipcRenderer.on('state-update', handler);
-		return () => ipcRenderer.removeListener('state-update', handler);
+		ipcRenderer.on(PUSH_CHANNELS.STATE_UPDATE, handler);
+		return () => ipcRenderer.removeListener(PUSH_CHANNELS.STATE_UPDATE, handler);
 	},
 	onGitHubLoginState: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: GitHubLoginState) => callback(data);
-		ipcRenderer.on('github-login-state', handler);
-		return () => ipcRenderer.removeListener('github-login-state', handler);
+		ipcRenderer.on(PUSH_CHANNELS.GITHUB_LOGIN_STATE, handler);
+		return () => ipcRenderer.removeListener(PUSH_CHANNELS.GITHUB_LOGIN_STATE, handler);
 	},
 	onUpdateState: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: UpdateState) => callback(data);
-		ipcRenderer.on('update-state', handler);
-		return () => ipcRenderer.removeListener('update-state', handler);
+		ipcRenderer.on(PUSH_CHANNELS.UPDATE_STATE, handler);
+		return () => ipcRenderer.removeListener(PUSH_CHANNELS.UPDATE_STATE, handler);
 	},
 	onNotchMessage: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: NotchMessage) => callback(data);
-		ipcRenderer.on('notch-message', handler);
-		return () => ipcRenderer.removeListener('notch-message', handler);
+		ipcRenderer.on(PUSH_CHANNELS.NOTCH_MESSAGE, handler);
+		return () => ipcRenderer.removeListener(PUSH_CHANNELS.NOTCH_MESSAGE, handler);
 	},
 	onRelayError: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: string) => callback(data);
-		ipcRenderer.on('relay-error', handler);
-		return () => ipcRenderer.removeListener('relay-error', handler);
+		ipcRenderer.on(PUSH_CHANNELS.RELAY_ERROR, handler);
+		return () => ipcRenderer.removeListener(PUSH_CHANNELS.RELAY_ERROR, handler);
 	},
 	onNotchShow: (callback) => {
 		const handler = () => callback();
-		ipcRenderer.on('notch-show', handler);
-		return () => ipcRenderer.removeListener('notch-show', handler);
+		ipcRenderer.on(PUSH_CHANNELS.NOTCH_SHOW, handler);
+		return () => ipcRenderer.removeListener(PUSH_CHANNELS.NOTCH_SHOW, handler);
 	},
 	onNotchHide: (callback) => {
 		const handler = () => callback();
-		ipcRenderer.on('notch-hide', handler);
-		return () => ipcRenderer.removeListener('notch-hide', handler);
+		ipcRenderer.on(PUSH_CHANNELS.NOTCH_HIDE, handler);
+		return () => ipcRenderer.removeListener(PUSH_CHANNELS.NOTCH_HIDE, handler);
 	},
 	onNotchUpdate: (callback) => {
 		const handler = (_event: Electron.IpcRendererEvent, data: NotchMessage) => callback(data);
-		ipcRenderer.on('notch-update', handler);
-		return () => ipcRenderer.removeListener('notch-update', handler);
+		ipcRenderer.on(PUSH_CHANNELS.NOTCH_UPDATE, handler);
+		return () => ipcRenderer.removeListener(PUSH_CHANNELS.NOTCH_UPDATE, handler);
 	},
 	// Reserved fallback for cursor-polling reopen; do not remove as dead code.
 	onNotchReopen: (callback) => {
 		const handler = () => callback();
-		ipcRenderer.on('notch-reopen', handler);
-		return () => ipcRenderer.removeListener('notch-reopen', handler);
+		ipcRenderer.on(PUSH_CHANNELS.NOTCH_REOPEN, handler);
+		return () => ipcRenderer.removeListener(PUSH_CHANNELS.NOTCH_REOPEN, handler);
 	},
 };
 
