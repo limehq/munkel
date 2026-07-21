@@ -2,7 +2,15 @@ import { app, ipcMain, BrowserWindow, IpcMainInvokeEvent, Tray } from 'electron'
 import fs from 'node:fs';
 import path from 'node:path';
 import { createMenuWindow, showMenuWindow, toggleMenuWindow } from './menu-window';
-import { createNotchWindow, showNotch, requestNotchHide, updateNotch } from './notch-window';
+import {
+	createNotchWindow,
+	showNotch,
+	requestNotchHide,
+	updateNotch,
+	enterPreviewMode,
+	exitPreviewMode,
+	isPreviewMode,
+} from './notch-window';
 import { focusNotchForReply, unfocusNotchAfterReply } from './notch-focus';
 import { createPaletteWindow, showPalette, hidePalette } from './palette-window';
 import { createTray } from './tray';
@@ -220,6 +228,14 @@ app.whenReady().then(async () => {
 	ipcMain.handle(IPC_CHANNELS.NOTCH_EMPTY, (event) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
 		requestNotchHide(notchWindow);
+	});
+	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_PREVIEW_MODE, (event, preview: boolean) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
+		if (preview) {
+			enterPreviewMode(notchWindow);
+		} else {
+			exitPreviewMode(notchWindow);
+		}
 	});
 	ipcMain.handle(IPC_CHANNELS.START_GITHUB_LOGIN, async () => {
 		githubLoginService.startGitHubLogin();

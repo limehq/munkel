@@ -35,7 +35,10 @@ export const IPC_CHANNELS = {
   NOTCH_BEGIN_REPLY: 'notch-begin-reply',
   NOTCH_END_REPLY: 'notch-end-reply',
   NOTCH_SET_INTERACTIVE: 'notch-set-interactive',
+  NOTCH_SET_PREVIEW_MODE: 'notch-set-preview-mode',
   NOTCH_EMPTY: 'notch-empty',
+
+  FETCH_FULL_IMAGE: 'fetch-full-image',
 } as const;
 
 /** Main → renderer push channels. */

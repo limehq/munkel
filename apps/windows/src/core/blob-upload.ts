@@ -53,6 +53,13 @@ export interface UploadResult {
 	error?: string;
 }
 
+export interface DownloadResult {
+	ok: boolean;
+	data?: Uint8Array;
+	status?: number;
+	error?: string;
+}
+
 /**
  * PUT sealed ciphertext to `<relay>/blob/<groupId>/<r2Key>`. Returns
  * `{ok:true}` on 204, otherwise a structured failure suitable for
@@ -96,5 +103,57 @@ export async function uploadBlob(
 		ok: false,
 		status: res.status,
 		error: `Blob upload failed (${res.status}): ${text || res.statusText}`,
+	};
+}
+
+/**
+ * GET sealed ciphertext from `<relay>/blob/<groupId>/<r2Key>`. Returns the raw
+ * bytes on 200, otherwise a structured failure suitable for surfacing in the
+ * preview overlay. Mirrors `uploadBlob` URL derivation.
+ */
+export async function downloadBlob(
+	relayUrl: string,
+	groupId: string,
+	r2Key: string,
+	fetchImpl: typeof fetch = fetch,
+): Promise<DownloadResult> {
+	const url = `${blobBaseUrl(relayUrl)}blob/${groupId}/${r2Key}`;
+	let res: Response;
+	try {
+		res = await fetchImpl(url, {
+			method: 'GET',
+			headers: { accept: 'application/octet-stream' },
+		});
+	} catch (err) {
+		return {
+			ok: false,
+			error: `Blob download failed: ${err instanceof Error ? err.message : String(err)}`,
+		};
+	}
+	if (res.status === 200) {
+		try {
+			const data = new Uint8Array(await res.arrayBuffer());
+			if (data.byteLength > MAX_BLOB_BYTES) {
+				return {
+					ok: false,
+					error: `Blob too large (${data.byteLength} bytes; max ${MAX_BLOB_BYTES})`,
+				};
+			}
+			return { ok: true, data, status: res.status };
+		} catch (err) {
+			return {
+				ok: false,
+				error: `Blob download failed: ${err instanceof Error ? err.message : String(err)}`,
+			};
+		}
+	}
+	if (res.status === 404) {
+		return { ok: false, status: res.status, error: 'Image no longer available' };
+	}
+	const text = await res.text().catch(() => '');
+	return {
+		ok: false,
+		status: res.status,
+		error: `Blob download failed (${res.status}): ${text || res.statusText}`,
 	};
 }

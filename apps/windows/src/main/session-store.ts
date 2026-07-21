@@ -122,6 +122,24 @@ export class AppState {
 		return session.sendImages(paths, caption, to);
 	}
 
+	async fetchFullImage(
+		code: string,
+		r2Key: string,
+	): Promise<{ ok: true; data: Uint8Array; mime: string } | { ok: false; error: string }> {
+		const normalized = normalizeCircleCode(code);
+		const session = this.sessions.get(normalized);
+		if (!session) {
+			return { ok: false, error: 'Circle offline' };
+		}
+		const mime = session.findImageMime(r2Key) ?? 'image/avif';
+		try {
+			const data = await session.fetchFullImage(r2Key);
+			return { ok: true, data, mime };
+		} catch (err) {
+			return { ok: false, error: err instanceof Error ? err.message : String(err) };
+		}
+	}
+
 	updateIdentity(next: IdentityUpdate): void {
 		this.identity = { ...this.identity, ...next };
 		this.identityStore.patch(next);

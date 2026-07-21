@@ -12,6 +12,7 @@
 	--munkel-radius-md: 12px;
 	--munkel-radius-lg: 16px;
 	--munkel-radius-xl: 20px;
+	--notch-gutter: 80px;
 }
 
 * {
@@ -1016,6 +1017,62 @@ select {
 	border-radius: var(--munkel-radius-sm);
 	border: 1px solid rgba(255, 255, 255, 0.1);
 	background: rgba(255, 255, 255, 0.05);
+	cursor: zoom-in;
+}
+
+.image-preview-overlay {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100;
+}
+
+.image-preview-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+}
+
+.image-preview-card {
+	position: relative;
+	max-width: calc(100vw - 2 * var(--notch-gutter, 80px));
+	max-height: calc(100vh - 2 * var(--notch-gutter, 80px));
+	border-radius: var(--munkel-radius-lg);
+	overflow: hidden;
+	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.image-preview-card img {
+	display: block;
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+}
+
+.image-preview-spinner {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.35);
+}
+
+.image-preview-error {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	text-align: center;
+	color: rgba(255, 255, 255, 0.85);
+	background: rgba(0, 0, 0, 0.35);
+	font-size: 13px;
+	line-height: 1.4;
 }
 
 /* Status section in settings popover */
