@@ -2,6 +2,7 @@ import { Tray, Menu, nativeImage } from 'electron';
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { debugTray } from './logger';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -64,8 +65,13 @@ function buildTrayMenuTemplate(handlers: TrayHandlers, rebuild: () => void): Ele
 
 /**
  * Rebuild the tray context menu from the current handlers (checkbox state, etc.).
+ * On Windows this is a no-op for the sticky context menu (click events would be
+ * suppressed); the menu is rebuilt on each right-click popup instead.
  */
 export function rebuildTrayMenu(tray: Tray, handlers: TrayHandlers): void {
+	if (process.platform === 'win32') {
+		return;
+	}
 	const rebuild = () => rebuildTrayMenu(tray, handlers);
 	tray.setContextMenu(Menu.buildFromTemplate(buildTrayMenuTemplate(handlers, rebuild)));
 }
@@ -75,10 +81,29 @@ export function createTray(handlers: TrayHandlers): Tray {
 	const tray = new Tray(icon);
 
 	tray.setToolTip('Munkel');
-	tray.on('click', handlers.toggleMenu);
-	tray.on('double-click', handlers.toggleMenu);
+	tray.on('click', () => {
+		debugTray('click fired');
+		handlers.toggleMenu();
+	});
+	tray.on('double-click', () => {
+		debugTray('double-click fired');
+		handlers.toggleMenu();
+	});
 
-	rebuildTrayMenu(tray, handlers);
+	// On Windows, setting a context menu suppresses the click/double-click events.
+	// Keep the menu for non-Windows platforms and pop it manually on right-click.
+	if (process.platform !== 'win32') {
+		rebuildTrayMenu(tray, handlers);
+	} else {
+		tray.on('right-click', (_event, bounds) => {
+			debugTray('right-click fired');
+			const rebuild = () => {
+				/* next right-click rebuilds via buildTrayMenuTemplate */
+			};
+			const menu = Menu.buildFromTemplate(buildTrayMenuTemplate(handlers, rebuild));
+			tray.popUpContextMenu(menu, bounds);
+		});
+	}
 
 	return tray;
 }

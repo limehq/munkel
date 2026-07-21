@@ -1,4 +1,5 @@
 import type { GitHubLoginPhase } from '../shared/types';
+import { debugGuard } from './logger';
 
 // Guard window for the tray blur→click race: if the menu was hidden by its own
 // blur handler within this many ms, a tray/IPC toggle is treated as the same
@@ -57,6 +58,7 @@ export function shouldReopenMenu({
 	guardMs = MENU_TOGGLE_GUARD_MS,
 }: MenuReopenInput): boolean {
 	if (visible) return false;
-	if (lastHideWasBlur && now - hiddenByBlurAt < guardMs) return false;
-	return true;
+	const insideGuard = lastHideWasBlur && now - hiddenByBlurAt < guardMs;
+	debugGuard('shouldReopenMenu: visible=', visible, 'lastHideWasBlur=', lastHideWasBlur, 'delta=', now - hiddenByBlurAt, 'insideGuard=', insideGuard);
+	return !insideGuard;
 }

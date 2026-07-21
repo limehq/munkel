@@ -3,6 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getWindowUrl } from './window-url';
 import { shouldReopenMenu } from './menu-dismiss';
+import { debugMenu } from './logger';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -13,8 +14,6 @@ let menuHiddenByBlurAt = 0;
 let lastHideWasBlur = false;
 
 export function createMenuWindow(opts: { isDismissSuppressed?: () => boolean } = {}): BrowserWindow {
-	const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-
 	const win = new BrowserWindow({
 		width: 320,
 		height: 520,
@@ -35,11 +34,7 @@ export function createMenuWindow(opts: { isDismissSuppressed?: () => boolean } =
 	});
 
 	win.setContentProtection(true);
-
-	const margin = 16;
-	const x = Math.max(0, width - 320 - margin);
-	const y = Math.max(0, height - 520 - margin);
-	win.setPosition(x, y);
+	win.setAlwaysOnTop(true, 'pop-up-menu');
 
 	win.loadURL(getWindowUrl('/menu'));
 
@@ -58,38 +53,66 @@ export function createMenuWindow(opts: { isDismissSuppressed?: () => boolean } =
 }
 
 export function toggleMenuWindow(win: BrowserWindow | null): void {
-	if (!win) return;
-	if (win.isVisible()) {
+	if (!win) {
+		debugMenu('toggleMenuWindow: win is null');
+		return;
+	}
+
+	const visible = win.isVisible();
+	debugMenu('toggleMenuWindow: visible=', visible, 'lastHideWasBlur=', lastHideWasBlur);
+
+	if (visible) {
 		win.hide();
 		return;
 	}
-	if (
-		shouldReopenMenu({
-			visible: false,
-			lastHideWasBlur,
-			hiddenByBlurAt: menuHiddenByBlurAt,
-			now: Date.now(),
-		})
-	) {
+
+	const shouldShow = shouldReopenMenu({
+		visible: false,
+		lastHideWasBlur,
+		hiddenByBlurAt: menuHiddenByBlurAt,
+		now: Date.now(),
+	});
+
+	debugMenu('toggleMenuWindow: shouldShow=', shouldShow);
+
+	if (shouldShow) {
 		showMenuWindow(win);
 	} else {
 		// This toggle is the same gesture as a just-happened blur-hide (e.g. a
 		// tray click that blurred the menu first). Consume the guard so the next
 		// toggle reopens normally.
+		debugMenu('toggleMenuWindow: guard consumed, resetting lastHideWasBlur');
 		lastHideWasBlur = false;
 	}
 }
 
+function positionMenuWindow(win: BrowserWindow): void {
+	const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+	const { width: workWidth, height: workHeight, x: workX, y: workY } = display.workArea;
+
+	const margin = 16;
+	const winWidth = 320;
+	const winHeight = 520;
+	const x = Math.max(workX, workX + workWidth - winWidth - margin);
+	const y = Math.max(workY, workY + workHeight - winHeight - margin);
+	win.setPosition(x, y);
+}
+
 export function showMenuWindow(win: BrowserWindow | null): void {
 	if (!win) return;
+	debugMenu('showMenuWindow: showing and focusing');
 	lastHideWasBlur = false;
 	if (win.isMinimized()) {
 		win.restore();
 	}
-	// Harden foreground activation on Windows: showInactive + moveTop keeps the
-	// window on top of the shell, then focus() gives it keyboard focus.
-	win.showInactive();
-	win.moveTop();
+
+	// Position near the tray icon on the display where the cursor currently is,
+	// respecting that display's work area (taskbar position, multi-monitor).
+	positionMenuWindow(win);
+
+	// Plan 06: show() + focus() is more reliable on Windows than showInactive()
+	// + moveTop() for tray-activated popups.
+	win.show();
 	win.focus();
 }
 
