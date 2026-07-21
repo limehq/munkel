@@ -4,6 +4,9 @@ import { deriveGroupKeys, seal, open, encodeChat, encodeProfile, MAX_CHAT_CHARS 
 import { GroupSession } from '../group-session';
 import { getCircleColor } from '../../shared/group-color';
 import type { CircleState, NotchMessage } from '../../shared/types';
+import { mkdtemp, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 function getPort(server: WebSocketServer): number {
 	const address = server.address();
@@ -551,6 +554,41 @@ describe('GroupSession', () => {
 		expect(notches[0]!.groupColor).toBe(getCircleColor(3));
 		expect(notches[0]!.receivedAt).toEqual(expect.any(String));
 		expect(notches[0]!.receivedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+
+		session.disconnect();
+	});
+
+	test('sendImages processes multiple paths and reports encoding failures', async () => {
+		const wss = startServer();
+		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
+		const code = 'parallel-album';
+
+		const tempDir = await mkdtemp(join(tmpdir(), 'munkel-sendimages-'));
+		const path1 = join(tempDir, 'a.png');
+		const path2 = join(tempDir, 'b.png');
+		await writeFile(path1, 'not-a-valid-image-1');
+		await writeFile(path2, 'not-a-valid-image-2');
+
+		const session = await GroupSession.create(
+			code,
+			relayUrl,
+			memberId,
+			{ displayName: 'Windows User' },
+			{
+				onStateChange: () => {},
+				onChat: () => {},
+				onNotch: () => {},
+				getColorIndex: () => 0,
+			},
+		);
+		session.connect();
+
+		await waitFor(() => serverSocket !== null);
+		serverSocket!.send(JSON.stringify({ type: 'welcome', members: [] }));
+
+		const result = await session.sendImages([path1, path2], 'album caption');
+		expect(result.ok).toBe(false);
+		expect(result.error).toEqual(expect.any(String));
 
 		session.disconnect();
 	});

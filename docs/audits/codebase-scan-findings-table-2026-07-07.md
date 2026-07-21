@@ -2,7 +2,7 @@
 
 **Datum:** 2026-07-07  
 **Scope:** `apps/cli`, `apps/macos`, `apps/server`, `apps/windows`, `packages/shared-wire`  
-**Methode:** AgentSwarm-Review (4 parallele Read-Only-Reviews)
+**Methode:** AgentSwarm-Review (5 parallele Read-Only-Reviews nach Bereich)
 
 ---
 
@@ -10,7 +10,7 @@
 
 | Bewertung | Bedeutung |
 |-----------|-----------|
-| 🔴 Kritisch | Sicherheitsrisiko, Datenverlust oder stabiler Bug; sollte sofort behoben werden |
+| 🔴 Kritisch | Sicherheitsrisiko, Datenverlust oder stabiler Bug; sofort beheben |
 | 🟡 Warnung | Inkonsistenz, fehlende Robustheit oder erhöhtes Bug-Potenzial; bald angehen |
 | 🟢 Info | Wartbarkeit, Duplikation oder kleinere Verbesserung |
 
@@ -18,51 +18,57 @@
 
 ## Findings
 
-| # | Kategorie | Finding | Erläuterung | Bewertung |
-|---|-----------|---------|-------------|-----------|
-| 1 | IPC / CLI | Globale `firstLine`-Promise in `apps/cli/src/munkel.ts` | Promise wird auf Modulebene einmalig erzeugt; bei Retry/Auto-Launch wartet die CLI auf den Response der ersten Verbindung | 🔴 |
-| 2 | IPC / Sicherheit | Windows Named Pipe ohne DACL in `packages/shared-wire/src/transport.ts` | Vorhersagbarer Pipe-Name `Munkel-<user>-Control` ohne Sicherheitsbeschreibung; andere Prozesse können sich verbinden | 🔴 |
-| 3 | Race Condition | `session-store.ts` / `group-session.ts` teilen mutable State | `joinCircle`, `setRelayUrl` und Frame-Handler mutieren `members`/Sessions ohne Synchronisation | 🔴 |
-| 4 | Sicherheit | `shell.openExternal` ohne URL-Validierung in `github-login.ts` | `verificationURI` aus GitHub-Response wird direkt geöffnet; `file://` oder andere Schemas möglich | 🔴 |
-| 5 | Sicherheit | `IdentityStore.save` ohne Dateiberechtigungen | `state.json` wird ohne `mode: 0o600` geschrieben; andere Benutzer können lesen | 🔴 |
-| 6 | Sicherheit / DoS | Bilddekompressions-Bombe in `apps/windows/src/core/image-codec.ts` | `createImageBitmap(blob)` ohne Größenlimits; kleine Dateien können riesige Dimensionen deklarieren | 🔴 |
-| 7 | Stabilität | `OffscreenCanvas` im Electron-Main-Prozess | Web-APIs sind im Main-Prozess nicht garantiert verfügbar; Bildversand kann komplett ausfallen | 🔴 |
-| 8 | Race Condition | `RelayClient.handleConnectionLost` nicht idempotent | `error`/`close` können gleichzeitig feuern; `emit('disconnected')` vor `socket = null` | 🔴 |
-| 9 | Protokoll-Drift | macOS sendet keinen Presence-Status | `ProfilePayload.status`/`avatarURL` existieren nur in TypeScript; macOS-Peers überschreiben Windows-Status mit `undefined` | 🔴 |
-| 10 | Plattform-Drift | `sendChat` kürzt Text nicht auf 2048 Zeichen | Windows lässt Texte bis ~48 KiB durch, macOS kürgt auf 2048 Zeichen | 🔴 |
-| 11 | Performance / Robustheit | `sendImages` auf Windows sequentiell | macOS lädt parallel; Windows ist langsamer und bricht bei Fehler komplett ab | 🔴 |
-| 12 | Sicherheit | Updates ohne Signaturprüfung in `update-service.ts` | `quitAndInstall` wird direkt aufgerufen; keine Hash-/Signaturprüfung | 🔴 |
-| 13 | Server / DoS | Blob-Upload ohne Streaming-Limit in `apps/server/src/blob.ts` | `c.req.arrayBuffer()` lädt den gesamten Body; fehlender/lügender `Content-Length` führt zu Speicherüberlastung | 🟡 |
-| 14 | Server / DoS | Kein Rate-Limiting auf Relay-Nachrichten | Ein Client kann mit Hochgeschwindigkeit Frames senden und DO/Peers belasten | 🟡 |
-| 15 | Kompatibilität | `Buffer` in `packages/shared-wire` | `Buffer.from` ist kein Browser-Global; spätere Verwendung in Web-Worker/Renderer führt zu Laufzeitfehlern | 🟡 |
-| 16 | Validierung | `ControlRequest` wird nur gecastet | `as ControlRequest` ohne Feldprüfung; beliebige Werte können eindringen | 🟡 |
-| 17 | Validierung | `ServerMessage` hat keine Laufzeitvalidierung | Clients casten/parse und schlucken Decode-Fehler still | 🟡 |
-| 18 | DoS | `createControlServer` puffert unbegrenzt | Keine Maximallänge für Zeilenpuffer; Speicherüberlastung möglich | 🟡 |
-| 19 | DoS | `createControlServer` ohne Verbindungs-Timeout | Client ohne Newline hält Verbindung unbegrenzt offen | 🟡 |
-| 20 | Krypto | Leerer Circle-Code erzeugt vorhersagbare Schlüssel | `GroupKey.init(code:)` wirft bei leerem Code nicht; HKDF mit leerem IKM | 🟡 |
-| 21 | Sicherheit | macOS `BlobClient` akzeptiert URL-Credentials | `wss://user:pass@host/ws` wird stillschweigend weitergegeben; Windows lehnt korrekterweise ab | 🟡 |
-| 22 | Plattform-Drift | `sentAt`-Validierung inkonsistent | TypeScript nutzt `Date.parse` (tolerant), macOS `ISO8601DateFormatter` (streng) | 🟡 |
-| 23 | Validierung | `restoreCircles` prüft Hostname mit Regex auf ganzer URL | `localhost` im Pfad/Query führt zu falscher Erkennung | 🟡 |
-| 24 | Robustheit | `IdentityStore` resettet bei korruptem State | `JSON.parse`-Fehler erzeugt neue `memberId`; Nutzer verliert Identität | 🟡 |
-| 25 | Sicherheit | `getWindowUrl` verwendet `VITE_DEV_SERVER_URL` ohne Validierung | Manipulierte Env-Variable kann Renderer auf externe Seite umleiten | 🟡 |
-| 26 | Rendering | `Avatar.tsx` hartkodiert `data:image/jpeg` | Andere Avatar-Formate werden falsch dargestellt | 🟡 |
-| 27 | Fehlerbehandlung | macOS `ControlServer` schluckt JSON-Decode-Fehler | `try?` liefert nur generische `"Invalid request"`-Antwort | 🟡 |
-| 28 | Fehlerbehandlung | `broadcastProfiles` fire-and-forget | `void session.sendProfile()` ohne `await` oder Logging | 🟡 |
-| 29 | Plattform-Drift | Bildvalidierung nur auf Windows | macOS liest Dateien ohne Größen-/Erweiterungsprüfung | 🟡 |
-| 30 | Wartbarkeit | Bildlimits sind dupliziert | `MAX_IMAGES_PER_MESSAGE` / Magic Number 8 / `maxImagesPerMessage` an mehreren Stellen | 🟡 |
-| 31 | Tooling | Unterschiedliche TypeScript-Versionen | Windows `^5.4.5`, andere Apps `^6.0.3` | 🟡 |
-| 32 | Robustheit | `blobBaseUrl()` ersetzt nur exakt `/ws` | Relay hinter `/v1/ws` führt zu falscher Blob-URL | 🟡 |
-| 33 | Wartbarkeit | `apps/windows/src/main/main.ts` ist überladen | ~237 Zeilen vereinen Lifecycle, IPC, State, Updates, Login, Presence, Control-Server | 🟢 |
-| 34 | Wartbarkeit | `useNotchLifecycle` hat viele gekoppelte `useEffect` | Sechs Effects verwalten Timer, History, Hover etc. | 🟢 |
-| 35 | Wartbarkeit | `GroupSession.handleFrame` zu lang | Eine Methode behandelt alle Frame-Typen | 🟢 |
-| 36 | Wartbarkeit | `encodeProfile` mit fragiler Überladung | Laufzeit-Check zwischen positional und options object | 🟢 |
-| 37 | Korrektheit | `assertPayloadFits` prüft Zeichen statt Bytes | `json.length` ≠ versiegelte Base64-Größe | 🟢 |
-| 38 | Typsicherheit | `asBufferSource` ist reiner Cast | Kein Laufzeitschutz für TypedArray-Form | 🟢 |
-| 39 | Fehlerbehandlung | macOS Fire-and-Forget-Sends | `send(text:)` / `send(images:)` werten Bool-Ergebnis nicht aus | 🟢 |
-| 40 | Sicherheit | `rollCode` verwendet `Math.random` | Code-Vorschlag nicht kryptographisch stark | 🟢 |
-| 41 | UX | `MenuWindow` Escape-Handler nicht global | `onKeyDown` nur aktiv, wenn Fokus im `div` liegt | 🟢 |
-| 42 | Sicherheit | Electron 31 ist veraltet | Stable ist 33+; bekannte Chromium/Node-Lücken | 🟢 |
-| 43 | Wartbarkeit | Magic Numbers in Fenster-Modulen | Dimensionen/Positionen/Delays hartkodiert in `menu-window.ts`, `notch-window.ts`, `palette-window.ts` | 🟢 |
+| # | Bereich | Ort | Finding | Erläuterung | Bewertung |
+|---|---------|-----|---------|-------------|-----------|
+| 1 | IPC / shared-wire | `packages/shared-wire/src/transport.ts:39-91` | Unbegrenzter Zeilenpuffer im Control-Server | Client ohne `\n` lässt Puffer unbegrenzt wachsen → Speicherüberlastung | 🔴 |
+| 2 | IPC / shared-wire | `packages/shared-wire/src/transport.ts:107-155` | `ControlClient.close()` ist No-Op | In-Flight-Requests können nicht abgebrochen werden; kein Timeout | 🔴 |
+| 3 | Windows / Sicherheit | `apps/windows/src/main/session-handlers.ts:19-20` → `group-session.ts:167-176` | Renderer kann beliebige Pfade zum Upload zwingen | `send-images` liest `paths` aus dem Renderer ohne Validierung | 🔴 |
+| 4 | Windows / Sicherheit | `apps/windows/src/main/session-handlers.ts:54-58` → `core/blob-upload.ts` | `r2Key` unvalidiert in URL interpoliert | Pfad-Traversal auf Relay-Origin möglich | 🔴 |
+| 5 | Windows / Sicherheit | `apps/windows/src/main/session-handlers.ts:7-58` | IPC-Handler casten Argumente blind | Falscher Typ führt zu `TypeError` im Main-Prozess | 🔴 |
+| 6 | Windows / Stabilität | `apps/windows/src/core/image-codec.ts:92-120` | Browser-APIs im Main-Prozess | `createImageBitmap`/`OffscreenCanvas` in Node/Bun `undefined` | 🔴 |
+| 7 | Windows / Renderer | `apps/windows/src/renderer/components/NotchWidget.tsx:132-153` | Race im Image-Preview | Schnelles Wechseln zeigt veraltetes Bild | 🔴 |
+| 8 | Windows / Race | `apps/windows/src/main/session-store.ts:43-74` | Race bei `joinCircle` | Parallele Aufrufe für denselben Code erzeugen doppelte Sessions | 🟡 |
+| 9 | Windows / Race | `apps/windows/src/main/session-store.ts:168-177` | `setRelayUrl` persistiert vor erfolgreichem Connect | Schlechte URL wird gespeichert, bevor Verbindung steht | 🟡 |
+| 10 | Windows / Speicher | `apps/windows/src/main/group-session.ts:60, 376` | `receivedImages` wächst unbegrenzt | Jede empfangene Bild-UUID bleibt für immer in der Map | 🟡 |
+| 11 | Windows / Netzwerk | `apps/windows/src/main/relay-client.ts:169-173` | Kein Ping/Pong-Timeout | Half-Open-Sockets werden nie erkannt | 🟡 |
+| 12 | Windows / Speicher | `apps/windows/src/renderer/components/NotchWidget.tsx:26` | `fullImageCache` unbegrenzt | Viele Bildvorschauen blasen Speicher auf | 🟡 |
+| 13 | Windows / UI | `apps/windows/src/renderer/components/NotchWidget.tsx:144-152` | `fetchFullImage`-Rejection unbehandelt | Unhandled rejection bei Fehler | 🟡 |
+| 14 | Windows / UI | `apps/windows/src/renderer/components/NotchWidget.tsx:349-371` | Preview-Overlay ohne Fokus-Trap/ARIA | Tastaturnutzer können aus dem Dialog heraus tabben | 🟡 |
+| 15 | Windows / UI | `apps/windows/src/renderer/components/NotchWidget.tsx:83-89` | Reply-Text wird bei jeder Nachricht gelöscht | Datenverlust während des Tippens | 🟡 |
+| 16 | Windows / Sicherheit | `apps/windows/src/renderer/components/MenuWindow.tsx:43-48` | `rollCode` nutzt `Math.random()` | Nicht-kryptographischer Code-Vorschlag | 🟡 |
+| 17 | Windows / Sicherheit | `apps/windows/src/renderer/components/Avatar.tsx:69-72` | Avatar immer als `image/jpeg` gerendert | PNG/AVIF-Avatare werden möglicherweise falsch dargestellt | 🟡 |
+| 18 | Windows / Sicherheit | `apps/windows/src/renderer/components/Avatar.tsx:54-72` | Externe Avatar-URLs unverändert gerendert | Tracking/SSRF-Risiko | 🟡 |
+| 19 | shared-wire | `packages/shared-wire/src/payload.ts:146-152` | `assertPayloadFits` zählt Zeichen statt Bytes | Multi-Byte-UTF-8 unterläuft Relay-Limit | 🟡 |
+| 20 | shared-wire | `packages/shared-wire/src/crypto.ts:160` | `TextDecoder` ohne `fatal: true` | Ungültiges UTF-8 wird still ersetzt | 🟡 |
+| 21 | shared-wire | `packages/shared-wire/src/transport.ts:48-70` | Keine Socket-Timeouts | Half-Open-Verbindungen persistieren | 🟡 |
+| 22 | shared-wire | `packages/shared-wire/src/transport.ts:58, 130` | Keine Runtime-Validierung von Control-Frames | `as ControlRequest`/`as ControlResponse` ohne Schema | 🟡 |
+| 23 | Windows / core | `apps/windows/src/core/image-codec.ts:57-69` | WASM-Init race + keine Retry | Doppelte Inits, permanenter Fehler nach einmaligem Reject | 🟡 |
+| 24 | Windows / core | `apps/windows/src/core/image-codec.ts:140-186` | Keine Input-Size-Limits vor Decode | Decompressions-Bombe / OOM möglich | 🟡 |
+| 25 | Windows / core | `apps/windows/src/core/blob-upload.ts:68-159` | Keine `fetch`-Timeouts | Upload/Download können unendlich hängen | 🟡 |
+| 26 | Windows / core | `apps/windows/src/core/github-device-auth.ts:62-86` | `interval` von GitHub nicht lower-bounded | `interval: 0` führt zu tight poll loop | 🟡 |
+| 27 | Windows / main | `apps/windows/src/main/main.ts:113-242` | Kein top-level Error-Handling beim Startup | Unhandled rejection kann App halb-initialisieren | 🟡 |
+| 28 | Windows / main | `apps/windows/src/main/broadcast-state.ts:16-18` | `webContents.send()` ohne destroyed-Check | Zerstörtes Fenster wirft und bricht Broadcast ab | 🟡 |
+| 29 | Windows / main | `apps/windows/src/main/menu-window.ts:83-91`, `palette-window.ts`, `notch-window.ts` | Window-Helpers ohne `isDestroyed()`-Checks | Zerstörte Fenster führen zu Throws | 🟡 |
+| 30 | CLI | `apps/cli/src/munkel.ts:228-273, 361` | Globale `firstLine`-Promise | Retry wartet auf Response der ersten Verbindung | 🟡 |
+| 31 | CLI | `apps/cli/src/munkel.ts:322-339` | `waitForTransport` leakt Probe-Sockets | Sockets werden nie geschlossen | 🟡 |
+| 32 | Server | `apps/server/src/group-room.ts:65` | `onConnect` überschreibt Alarm blind | Neuer Connect verschiebt sauberen Cleanup hinaus | 🟡 |
+| 33 | Server | `apps/server/src/blob.ts:66-77` | Blob-Upload ohne Streaming-Limit | Fehlender `Content-Length` → Speicherüberlastung | 🟡 |
+| 34 | macOS | `apps/macos/Sources/MunkelApp/AppModel.swift:350-355` | Bild-Uploads lesen beliebige Dateien | Keine Validierung von `imagePaths` | 🟡 |
+| 35 | macOS | `apps/macos/Sources/MunkelApp/GroupSession.swift:261-289` | Eingehende Bilder nicht vollständig validiert | `r2Key`, Dimensionen werden ungeprüft weitergegeben | 🟡 |
+| 36 | macOS | `apps/macos/Sources/MunkelApp/MenuView.swift:167,192,...` | `.help()`-Tooltips in capture-excluded UI | Tooltips können trotz Screen-Capture-Exclusion leak | 🟡 |
+| 37 | macOS | `apps/macos/Sources/MunkelApp/CaptureExclusion.swift:60-69` | Notification-Observer wird nie entfernt | Dangling pointer möglich | 🟡 |
+| 38 | macOS | `apps/macos/Sources/MunkelApp/MenuView.swift:461-465`, `CommandPalettePresenter.swift:95-99` | Staged images ohne Byte-Budget | Große Bilder vor Transcode im Speicher | 🟡 |
+| 39 | Windows / Wartbarkeit | `apps/windows/src/main/main.ts` | `main.ts` überladen | ~237 Zeilen Lifecycle/IPC/State/Updates/Login | 🟢 |
+| 40 | Windows / Wartbarkeit | `apps/windows/src/renderer/lib/useNotchLifecycle.ts` | Viele gekoppelte `useEffect` | Sechs Effects für Timer/History/Hover | 🟢 |
+| 41 | Windows / Wartbarkeit | `apps/windows/src/main/group-session.ts` | `handleFrame` zu lang | Eine Methode für alle Frame-Typen | 🟢 |
+| 42 | Windows / Wartbarkeit | `packages/shared-wire/src/payload.ts` | `encodeProfile` mit fragiler Überladung | Laufzeit-Check positional vs options object | 🟢 |
+| 43 | Windows / Testabdeckung | `apps/windows/src/renderer` | Keine Tests für `NotchWidget`, `PaletteWindow`, `Avatar` | Komplexe neue Funktionen ungetestet | 🟢 |
+| 44 | shared-wire | `packages/shared-wire/src/payload.ts:207-219` | Decoder droppt Extra-Bilder statt zu validieren | `encodeImage` clamped nicht, Kommentar stimmt nicht | 🟢 |
+| 45 | shared-wire | `packages/shared-wire/src/normalize.ts:6-12` | `normalizeCircleCode` wirft generischen `Error` | Rest des Pakets nutzt Domain-Errors | 🟢 |
+| 46 | shared-wire | `packages/shared-wire/src/protocol.ts` | `ServerMessage` TypeScript-only | Keine Runtime-Schema-Validierung | 🟢 |
+| 47 | macOS | `apps/macos/Sources/MunkelApp/NotchPresenter.swift:141-153` | Offener Reply blockiert neue Nachrichten | `display()` wartet in `while current.replying` | 🟢 |
+| 48 | macOS | `apps/macos/Sources/MunkelApp/CLIInstaller.swift:65-78` | Shell-PATH-Update ignoriert Fish | Nur `.bash_profile` / `.zshrc` | 🟢 |
+| 49 | Tooling | `scripts/build-appcast.sh:43-45` | Sparkle-Tarball ohne Checksum | MITM-Risiko beim Download des Sign-Tools | 🟢 |
 
 ---
 
@@ -71,9 +77,9 @@
 | Bereich | Zustand | Hauptprobleme |
 |---------|---------|---------------|
 | Krypto | ✅ solide | AES-256-GCM, HKDF, Nonce-Handling korrekt |
-| Lokale IPC | 🔴 problematisch | Race Conditions, fehlende DACL, unbegrenzte Puffer |
-| Windows-Client | 🟡 verbesserungswürdig | Race Conditions, DoS-Bildpfad, veraltete Electron-Version |
-| macOS-Client | 🟡 gut, aber Drift | Fehlt `status`/`avatarURL`, Bildvalidierung zu lasch |
+| Lokale IPC | 🔴 problematisch | Unbegrenzte Puffer, No-Op-Close, keine DACL |
+| Windows-Client | 🔴/🟡 kritisch bis verbesserungswürdig | IPC-Trust-Gaps, Browser-APIs im Main, Races |
+| macOS-Client | 🟡 gut, aber Drift | Bildvalidierung, Capture-Exclusion-Edge-Cases |
 | Server | 🟡 robust, aber ungeschützt | Kein Rate-Limit, Blob-Upload ohne Stream-Cap |
-| Protokoll/Shared-Wire | 🟡 Inkonsistenzen | `Buffer`-Nutzung, duplizierte Konstanten, fehlende Laufzeitvalidierung |
+| Protokoll/Shared-Wire | 🟡 Inkonsistenzen | Zeichen- statt Byte-Check, fehlende Runtime-Validierung |
 | Architektur | 🟢 funktional | `main.ts` überladen, viele Magic Numbers |
