@@ -143,7 +143,7 @@ describe('UpdateService state transitions', () => {
 		});
 		expect(mock.checkSpy.calls).toBe(1); // auto-check on init
 		await new Promise((resolve) => setImmediate(resolve));
-		localService.check();
+		expect(localService.check()).toEqual({ ok: true });
 		expect(mock.checkSpy.calls).toBe(2);
 		localService.dispose();
 	});
@@ -155,11 +155,11 @@ describe('UpdateService state transitions', () => {
 			autoUpdater: mock.updater as never,
 			isDev: false,
 		});
-		localService.install();
+		expect(localService.install()).toEqual({ ok: false });
 		expect(mock.installSpy.calls).toBe(0);
 
 		mock.updater.emit('update-downloaded', { version: '0.2.0' });
-		localService.install();
+		expect(localService.install()).toEqual({ ok: true });
 		expect(mock.installSpy.calls).toBe(1);
 		localService.dispose();
 	});
@@ -183,8 +183,8 @@ describe('UpdateService state transitions', () => {
 
 		// The auto-check from init is in flight.
 		expect(checkCount).toBe(1);
-		localService.check();
-		localService.check();
+		expect(localService.check()).toEqual({ ok: false });
+		expect(localService.check()).toEqual({ ok: false });
 		expect(checkCount).toBe(1); // duplicate calls ignored while in flight
 
 		expect(resolveCheck).not.toBeNull();
@@ -192,7 +192,7 @@ describe('UpdateService state transitions', () => {
 		await new Promise((resolve) => setImmediate(resolve));
 
 		// After the in-flight check resolves, subsequent manual checks are allowed.
-		localService.check();
+		expect(localService.check()).toEqual({ ok: true });
 		expect(checkCount).toBe(2);
 
 		localService.dispose();
@@ -210,12 +210,12 @@ describe('UpdateService state transitions', () => {
 		expect(sendCapture.states.at(-1)).toEqual({ phase: 'downloaded', version: '0.2.0' });
 
 		// A new check should be ignored while an update is downloaded.
-		localService.check();
+		expect(localService.check()).toEqual({ ok: false });
 		expect(mock.checkSpy.calls).toBe(1); // only the init auto-check
 
 		// Install should be a one-shot action.
-		localService.install();
-		localService.install();
+		expect(localService.install()).toEqual({ ok: true });
+		expect(localService.install()).toEqual({ ok: false });
 		expect(mock.installSpy.calls).toBe(1);
 
 		localService.dispose();

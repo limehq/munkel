@@ -96,8 +96,8 @@ export interface IpcApi {
 	notchSetInteractive: (interactive: boolean) => Promise<void>;
 	notchEmpty: () => Promise<void>;
 
-	checkForUpdates: () => Promise<void>;
-	installUpdate: () => Promise<void>;
+	checkForUpdates: () => Promise<{ ok: boolean }>;
+	installUpdate: () => Promise<{ ok: boolean }>;
 
 	// Main → renderer push channels.
 	onStateUpdate: (callback: (update: StateUpdate) => void) => () => void;

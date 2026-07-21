@@ -192,10 +192,10 @@ app.whenReady().then(async () => {
 		githubLoginService.cancelGitHubLogin();
 	});
 	ipcMain.handle('check-for-updates', async () => {
-		updateService?.check();
+		return updateService?.check() ?? { ok: false };
 	});
 	ipcMain.handle('install-update', async () => {
-		updateService?.install();
+		return updateService?.install() ?? { ok: false };
 	});
 
 	await appState.restoreCircles();
