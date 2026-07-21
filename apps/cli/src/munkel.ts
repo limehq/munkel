@@ -222,21 +222,26 @@ async function sendOverPipe(path: string, req: ControlRequest): Promise<ControlR
 
 // Unix-domain-socket roundtrip. Mirrors the macOS app's ControlServer
 // (apps/macos/Sources/MunkelApp/ControlServer.swift): one request/response
-// per connection, newline-delimited JSON. The firstLine promise is
-// resolved either by a newline, EOF or socket error — whichever comes
-// first; JSON.parse then decides if the result is usable.
-const { promise: firstLine, resolve: resolveFirstLine } = Promise.withResolvers<string>()
-let received = ""
-
-function feed(text: string) {
-  received += text
-  const newline = received.indexOf("\n")
-  if (newline !== -1) {
-    resolveFirstLine(received.slice(0, newline))
-  }
+// per connection, newline-delimited JSON. Each connection gets its own
+// line-buffer and resolver so retries (including the auto-launch path)
+// never reuse a settled promise.
+type UnixSocketConnection = {
+  socket: Bun.Socket<unknown>
+  firstLine: Promise<string>
 }
 
-function connectUnixSocket() {
+function connectUnixSocket(): Promise<UnixSocketConnection | null> {
+  const { promise: firstLine, resolve: resolveFirstLine } = Promise.withResolvers<string>()
+  let received = ""
+
+  function feed(text: string) {
+    received += text
+    const newline = received.indexOf("\n")
+    if (newline !== -1) {
+      resolveFirstLine(received.slice(0, newline))
+    }
+  }
+
   return Bun.connect({
     unix: socketPath as string,
     socket: {
@@ -250,7 +255,9 @@ function connectUnixSocket() {
         resolveFirstLine(received)
       },
     },
-  }).catch(() => null)
+  })
+    .then((socket) => ({ socket, firstLine }))
+    .catch(() => null)
 }
 
 // MARK: - Connect (with auto-launch when the address is the default)
@@ -267,10 +274,14 @@ async function openAndSend(req: ControlRequest): Promise<ControlResponse | null>
       return null
     }
   }
-  const socket = await connectUnixSocket()
-  if (!socket) return null
-  socket.write(JSON.stringify(req) + "\n")
-  return JSON.parse(await Promise.race([firstLine, responseTimeout()]))
+  const conn = await connectUnixSocket()
+  if (!conn) return null
+  conn.socket.write(JSON.stringify(req) + "\n")
+  try {
+    return JSON.parse(await Promise.race([conn.firstLine, responseTimeout()]))
+  } finally {
+    conn.socket.end()
+  }
 }
 
 // Ask the OS to launch the menu-bar / tray app. The macOS path uses
@@ -317,8 +328,25 @@ function shouldAutoLaunch(): boolean {
   return process.env.MUNKEL_SOCKET === undefined || process.env.MUNKEL_LAUNCH_CMD !== undefined
 }
 
-// Poll until the transport is reachable or we give up. Re-initialises
-// the line-buffer state because the firstLine promise is one-shot.
+// Probe whether the Unix-domain socket is accepting connections.
+// Uses a fresh connection that does not share state with openAndSend.
+function probeUnixSocket(): Promise<boolean> {
+  return Bun.connect({
+    unix: socketPath as string,
+    socket: {
+      data() {},
+      close() {},
+      error() {},
+    },
+  })
+    .then((socket) => {
+      socket.end()
+      return true
+    })
+    .catch(() => false)
+}
+
+// Poll until the transport is reachable or we give up.
 async function waitForTransport(timeoutMs = 8000, intervalMs = 150) {
   const deadline = Date.now() + timeoutMs
   for (;;) {
@@ -330,7 +358,7 @@ async function waitForTransport(timeoutMs = 8000, intervalMs = 150) {
       } catch {
         // not reachable yet
       }
-    } else if (await connectUnixSocket()) {
+    } else if (await probeUnixSocket()) {
       return true
     }
     if (Date.now() >= deadline) return false
@@ -357,8 +385,6 @@ if (!response) {
   if (!(await waitForTransport())) {
     fail(`started the Munkel app but its ${usePipe ? "control pipe" : "control socket"} never came up`)
   }
-  // Reset the line buffer so the second connection's data is read fresh.
-  received = ""
   try {
     response = await openAndSend(request)
   } catch (error) {
