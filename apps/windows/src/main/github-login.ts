@@ -6,6 +6,7 @@ import {
 	type GitHubAuthError,
 } from '../core/github-device-auth';
 import type { GitHubLoginPhase, GitHubLoginState } from '../shared/types';
+import { isAllowedGitHubVerificationUrl } from './github-login-url';
 import type { AppState } from './session-store';
 
 export type { GitHubLoginPhase, GitHubLoginState } from '../shared/types';
@@ -76,6 +77,9 @@ export class GitHubLoginService {
 			this.ensureCurrentGeneration(generation);
 
 			clipboard.writeText(grant.userCode);
+			if (!isAllowedGitHubVerificationUrl(grant.verificationURI)) {
+				throw new GitHubAuthErrorResponse('malformed');
+			}
 			void shell.openExternal(grant.verificationURI).catch(() => undefined);
 			this.setState({ phase: 'awaiting', userCode: grant.userCode });
 
