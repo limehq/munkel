@@ -31,7 +31,7 @@ export const clientMessageSchema = z.discriminatedUnion('type', [
 
 export type ClientMessage = z.infer<typeof clientMessageSchema>;
 
-export type ErrorCode = 'invalid-message' | 'unknown-recipient';
+export type ErrorCode = 'invalid-message' | 'unknown-recipient' | 'rate-limited';
 
 /**
  * Server → client frames. `welcome` is the first frame after connecting and
