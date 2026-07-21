@@ -18,7 +18,15 @@ import { buildPipeName } from '@munkel/shared-wire/control';
 import { broadcastStateUpdate } from './broadcast-state';
 import { isDismissSuppressed, isGitHubLoginActive } from './menu-dismiss';
 import { initUpdateService } from './update-service';
-import type { UpdateState, WindowType } from '../shared/types';
+import type { NotchMessage, UpdateState, WindowType } from '../shared/types';
+
+// Plan 12 Phase 0 — startup marks (stderr so they show next to Electron logs).
+const startupT0 = Date.now();
+function startupMark(label: string): void {
+	if (process.env.MUNKEL_STARTUP_MARKS === '0') return;
+	console.error(`[startup] ${label} +${Date.now() - startupT0}ms`);
+}
+startupMark('requires.done');
 
 // Pin the app name BEFORE anything reads userData. Without this, `electron`
 // launched directly in dev falls back to the generic "Electron" name, so dev
@@ -47,11 +55,51 @@ let pickerOpen = false;
 let githubLoginActive = false;
 const isDev = process.env.NODE_ENV === 'development';
 
-app.on('second-instance', () => {
+function createMenu(): BrowserWindow {
+	return createMenuWindow({
+		isDismissSuppressed: () =>
+			isDismissSuppressed({
+				pickerOpen,
+				githubLoginActive,
+				devToolsOpen: menuWindow?.webContents.isDevToolsOpened() ?? false,
+				isDev,
+			}),
+	});
+}
+
+function ensureMenuWindow(): BrowserWindow {
 	if (!menuWindow || menuWindow.isDestroyed()) {
-		menuWindow = createMenuWindow();
+		menuWindow = createMenu();
 	}
-	showMenuWindow(menuWindow);
+	return menuWindow;
+}
+
+function ensureNotchWindow(): BrowserWindow {
+	if (!notchWindow || notchWindow.isDestroyed()) {
+		notchWindow = createNotchWindow();
+		startupMark('window.notch.created');
+	}
+	return notchWindow;
+}
+
+function ensurePaletteWindow(): BrowserWindow {
+	if (!paletteWindow || paletteWindow.isDestroyed()) {
+		paletteWindow = createPaletteWindow();
+		startupMark('window.palette.created');
+	}
+	return paletteWindow;
+}
+
+function whenWindowReady(win: BrowserWindow, run: () => void): void {
+	if (win.webContents.isLoading()) {
+		win.webContents.once('did-finish-load', run);
+		return;
+	}
+	run();
+}
+
+app.on('second-instance', () => {
+	showMenuWindow(ensureMenuWindow());
 });
 
 function getWindowType(sender: Electron.WebContents): WindowType {
@@ -63,10 +111,11 @@ function getWindowType(sender: Electron.WebContents): WindowType {
 }
 
 function togglePalette() {
-	if (paletteWindow?.isVisible()) {
-		hidePalette(paletteWindow);
+	const win = ensurePaletteWindow();
+	if (win.isVisible()) {
+		hidePalette(win);
 	} else {
-		showPalette(paletteWindow);
+		whenWindowReady(win, () => showPalette(win));
 	}
 }
 
@@ -78,10 +127,13 @@ function broadcastState(update: ReturnType<AppState['getState']>): void {
 	});
 }
 
-function showNotchMessage(message: import('../shared/types').NotchMessage): void {
-	updateNotch(notchWindow, message);
-	showNotch(notchWindow);
-	notchWindow?.webContents.send('notch-message', message);
+function showNotchMessage(message: NotchMessage): void {
+	const win = ensureNotchWindow();
+	whenWindowReady(win, () => {
+		updateNotch(win, message);
+		showNotch(win);
+		win.webContents.send('notch-message', message);
+	});
 }
 
 function relayError(message: string): void {
@@ -101,28 +153,27 @@ function pushUpdateState(state: UpdateState): void {
 }
 
 app.whenReady().then(async () => {
-	menuWindow = createMenuWindow({
-		isDismissSuppressed: () =>
-			isDismissSuppressed({
-				pickerOpen,
-				githubLoginActive,
-				devToolsOpen: menuWindow?.webContents.isDevToolsOpened() ?? false,
-				isDev,
-			}),
-	});
-	notchWindow = createNotchWindow();
-	paletteWindow = createPaletteWindow();
+	startupMark('whenReady');
 
+	// Plan 12 Phase 1.1 — tray first so the app signals life before Chromium windows.
 	try {
 		tray = createTray({
-			toggleMenu: () => toggleMenuWindow(menuWindow),
-			showPalette: () => showPalette(paletteWindow),
+			toggleMenu: () => toggleMenuWindow(ensureMenuWindow()),
+			showPalette: () => {
+				const win = ensurePaletteWindow();
+				whenWindowReady(win, () => showPalette(win));
+			},
 			checkForUpdates: () => updateService?.check(),
 			quit: () => app.quit(),
 		});
+		startupMark('tray');
 	} catch (err) {
 		console.error('[munkel] failed to create tray icon:', err);
 	}
+
+	// Menu is needed for tray open; create after tray. Notch/Palette stay lazy (1.2).
+	menuWindow = createMenu();
+	startupMark('window.menu');
 
 	registerTogglePalette(togglePalette);
 
@@ -146,6 +197,7 @@ app.whenReady().then(async () => {
 			buildPipeName(),
 			buildControlHandler(appState),
 		);
+		startupMark('control');
 		console.log(`[munkel] control pipe: ${buildPipeName()}`);
 	} catch (err) {
 		// Don't abort startup: another instance may already own the pipe and
@@ -158,8 +210,11 @@ app.whenReady().then(async () => {
 	ipcMain.handle('hide-window', (event: IpcMainInvokeEvent) => {
 		BrowserWindow.fromWebContents(event.sender)?.hide();
 	});
-	ipcMain.handle('show-palette', () => showPalette(paletteWindow));
-	ipcMain.handle('toggle-menu', () => toggleMenuWindow(menuWindow));
+	ipcMain.handle('show-palette', () => {
+		const win = ensurePaletteWindow();
+		whenWindowReady(win, () => showPalette(win));
+	});
+	ipcMain.handle('toggle-menu', () => toggleMenuWindow(ensureMenuWindow()));
 	ipcMain.handle('menu-picker-state', (_event, open: boolean) => {
 		// Renderer signals when a native picker (recipient <select>) is open so its
 		// focus-stealing popup doesn't blur-dismiss the menu mid-selection.
@@ -196,6 +251,7 @@ app.whenReady().then(async () => {
 	});
 
 	await appState.restoreCircles();
+	startupMark('restoreCircles');
 	appState.broadcast();
 
 	if (process.env.NODE_ENV === 'development') {
@@ -205,6 +261,7 @@ app.whenReady().then(async () => {
 			console.error('[munkel-smoke] GOLDEN VECTOR MISMATCH');
 		}
 	}
+	startupMark('whenReady.done');
 });
 
 app.on('window-all-closed', () => {

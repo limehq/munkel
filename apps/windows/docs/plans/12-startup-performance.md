@@ -53,8 +53,9 @@ git worktree add -b platform/windows/startup-perf \
 
 ## Status
 
-📋 **Planned — discuss before implement.** This doc is the agreed roadmap.
-Do not start Phase 0+ code until phases are prioritized with the owner.
+🔄 **In progress** — Phase 0 instrumentation + Phase 1.1–1.3 landed on this
+branch (tray first, lazy notch/palette, lazy `sharp`). Discuss remaining
+Phase 1.4–1.6 / Phase 2–3 before expanding scope.
 
 ## Tasks
 

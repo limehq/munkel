@@ -1,11 +1,17 @@
 import { createServer, build } from 'vite';
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
+const t0 = Date.now();
+
+function mark(label) {
+	process.stdout.write(`[startup] ${label} +${Date.now() - t0}ms\n`);
+}
 
 const PREFERRED_PORT = Number(process.env.VITE_DEV_PORT ?? 5174);
 const MAX_PORT_TRIES = 50;
@@ -49,6 +55,7 @@ function getElectronPath() {
 }
 
 function startOrRestartElectron() {
+	mark('electron.spawn');
 	if (electronProcess) {
 		electronProcess.kill();
 		electronProcess = null;
@@ -60,6 +67,7 @@ function startOrRestartElectron() {
 }
 
 async function main() {
+	mark('dev.t0');
 	const port = await findAvailablePort(PREFERRED_PORT);
 	if (port !== PREFERRED_PORT) {
 		process.stdout.write(
@@ -71,10 +79,14 @@ async function main() {
 		configFile: path.join(root, 'vite.renderer.config.ts'),
 	});
 	await rendererServer.listen({ port, host: HOST, strictPort: true });
+	mark('renderer.listen');
 
 	const url = `http://${HOST}:${port}`;
 	process.stdout.write(`[dev] renderer at ${url}\n`);
 	process.env.VITE_DEV_SERVER_URL = url;
+
+	const mainCjs = path.join(root, 'dist', 'main.cjs');
+	const hadMainBundle = fs.existsSync(mainCjs);
 
 	const mainWatcher = await build({
 		configFile: path.join(root, 'vite.main.config.ts'),
@@ -83,11 +95,18 @@ async function main() {
 			{
 				name: 'electron-starter',
 				closeBundle() {
+					mark('main.closeBundle');
 					startOrRestartElectron();
 				},
 			},
 		],
 	});
+
+	// If a prior dist/main.cjs already existed, the first closeBundle still
+	// owns the spawn (Phase 2 may spawn earlier). Log presence for baselines.
+	if (hadMainBundle) {
+		mark('main.bundle.preexisting');
+	}
 
 	const shutdown = () => {
 		rendererServer.close();
