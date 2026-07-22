@@ -216,7 +216,18 @@ export function initUpdateService(
 	send: UpdateSend,
 	options: { autoUpdater?: AppUpdater; isDev?: boolean; autoCheckEnabled?: boolean } = {},
 ): UpdateService {
-	const autoUpdater = options.autoUpdater ?? (defaultAutoUpdater as AppUpdater);
+	let autoUpdater = options.autoUpdater;
+	if (!autoUpdater) {
+		try {
+			// Accessing the module getter constructs a platform updater and
+			// validates `app.getVersion()` — throws ERR_UPDATER_INVALID_VERSION
+			// when dist/package.json is missing (dev cold start) or "0.0".
+			autoUpdater = defaultAutoUpdater as AppUpdater;
+		} catch (err) {
+			console.error('[update-service] autoUpdater unavailable:', err);
+			return new NoopUpdateService(send);
+		}
+	}
 	const isDev = options.isDev ?? defaultIsDev();
 	// Defaults to `true` — today's unconditional-check behavior — for any
 	// caller that doesn't pass a persisted preference (e.g. existing tests).
@@ -232,4 +243,25 @@ export function initUpdateService(
 	service.startPeriodicCheck();
 
 	return service;
+}
+
+/** Dev/test fallback when electron-updater cannot construct (invalid app version). */
+class NoopUpdateService implements UpdateService {
+	constructor(private readonly send: UpdateSend) {
+		this.send({ phase: 'idle' });
+	}
+	check(): { ok: boolean } {
+		return { ok: false };
+	}
+	install(): { ok: boolean } {
+		return { ok: false };
+	}
+	confirmInstall(): { ok: boolean } {
+		return { ok: false };
+	}
+	cancelInstall(): { ok: boolean } {
+		return { ok: false };
+	}
+	dispose(): void {}
+	setAutoCheckEnabled(_enabled: boolean): void {}
 }

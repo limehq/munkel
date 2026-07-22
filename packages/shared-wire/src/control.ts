@@ -35,27 +35,53 @@ export interface ControlResponse {
   groups?: ControlGroupInfo[];
 }
 
-/**
- * Build the Windows named-pipe path for the per-user Munkel control channel.
- *
- * This is the legacy, predictable name. Newer app builds write a randomised
- * pipe name to {@link getControlPipePath} on startup; {@link readControlPipeName}
- * prefers that file and falls back to this function when it is missing.
- */
-export function buildPipeName(username?: string): string {
-  const user = username ?? process.env.USERNAME ?? process.env.USER ?? 'default';
-  return `\\\\.\\pipe\\Munkel-${user}-Control`;
+/** Config dir used for the published pipe-name file and POSIX sockets. */
+function controlConfigDir(): string {
+  if (process.platform === 'win32') {
+    return join(process.env.LOCALAPPDATA ?? homedir(), 'Munkel');
+  }
+  return join(process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'), 'munkel');
+}
+
+function ensureControlConfigDir(): string {
+  const dir = controlConfigDir();
+  if (!existsSync(dir)) {
+    mkdirSync(dir, { recursive: true, mode: 0o700 });
+  }
+  return dir;
 }
 
 /**
- * Generate an unpredictable Windows named-pipe name. The random suffix makes
+ * Build the per-user Munkel control channel address.
+ *
+ * Windows: named pipe `\\.\pipe\Munkel-<user>-Control`.
+ * POSIX: Unix-domain socket under the user config dir (so Linux/macOS
+ * cloud/dev hosts can run the Windows app without hanging on a Win32 pipe).
+ *
+ * Newer app builds write a randomised name via {@link generatePipeName} to
+ * {@link getControlPipePath}; {@link readControlPipeName} prefers that file
+ * and falls back to this function when it is missing.
+ */
+export function buildPipeName(username?: string): string {
+  const user = username ?? process.env.USERNAME ?? process.env.USER ?? 'default';
+  if (process.platform === 'win32') {
+    return `\\\\.\\pipe\\Munkel-${user}-Control`;
+  }
+  return join(ensureControlConfigDir(), 'control.sock');
+}
+
+/**
+ * Generate an unpredictable control-channel address. The random suffix makes
  * the path unguessable for other processes on the same session, which replaces
- * the DACL we cannot set from plain Node.js.
+ * the DACL we cannot set from plain Node.js on Windows.
  */
 export function generatePipeName(username?: string): string {
   const user = username ?? process.env.USERNAME ?? process.env.USER ?? 'default';
   const suffix = randomBytes(16).toString('hex');
-  return `\\\\.\\pipe\\Munkel-${user}-${suffix}`;
+  if (process.platform === 'win32') {
+    return `\\\\.\\pipe\\Munkel-${user}-${suffix}`;
+  }
+  return join(ensureControlConfigDir(), `control-${suffix}.sock`);
 }
 
 /**
@@ -64,14 +90,7 @@ export function generatePipeName(username?: string): string {
  * it (Windows: %LOCALAPPDATA% is profile-private; macOS/Linux: 0o600 is set).
  */
 export function getControlPipePath(): string {
-  if (process.platform === 'win32') {
-    return join(process.env.LOCALAPPDATA ?? homedir(), 'Munkel', 'control.pipe');
-  }
-  return join(
-    process.env.XDG_CONFIG_HOME ?? join(homedir(), '.config'),
-    'munkel',
-    'control.pipe',
-  );
+  return join(controlConfigDir(), 'control.pipe');
 }
 
 /**

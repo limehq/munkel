@@ -137,10 +137,10 @@ export class GroupSession {
 	 */
 	async fetchFullImage(r2Key: string): Promise<Uint8Array> {
 		const result = await downloadBlob(this.relayUrl, this.groupId, r2Key);
-		if (!result.ok || !result.data) {
+		if (!result.ok || !result.body) {
 			throw new Error(result.error ?? 'Download failed');
 		}
-		return openRaw(result.data, this.messageKey);
+		return openRaw(result.body, this.messageKey);
 	}
 
 	findImageMime(r2Key: string): string | undefined {

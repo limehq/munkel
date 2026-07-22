@@ -6,10 +6,11 @@
 // before starting the watch-mode builds.
 import fs from 'node:fs';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
 const distDir = path.join(root, 'dist');
 
 fs.rmSync(distDir, { recursive: true, force: true });
+await import(pathToFileURL(path.join(__dirname, 'write-dist-package.mjs')).href);

@@ -58,10 +58,25 @@ startupMark('requires.done');
 // and packaged builds read DIFFERENT state.json stores (userData mismatch) —
 // the root cause of persisted circles silently not loading (presence bug H-D).
 app.setName('munkel');
+// Electron on Linux (unpackaged `dist/main.cjs`) can report getVersion() as
+// `"0.0"` after setName, which makes electron-updater throw
+// ERR_UPDATER_INVALID_VERSION and abort whenReady before IPC registers.
+// Prefer the version from dist/package.json (scripts/write-dist-package.mjs).
+try {
+	const pkgPath = path.join(app.getAppPath(), 'package.json');
+	const raw = JSON.parse(fs.readFileSync(pkgPath, 'utf8')) as { version?: string };
+	const pinned = raw.version;
+	if (typeof pinned === 'string' && /^\d+\.\d+\.\d+/.test(pinned) && app.getVersion() === '0.0') {
+		app.getVersion = () => pinned;
+	}
+} catch {
+	// packaged builds already have a valid version; ignore missing dist pkg
+}
 const pinnedUserData = path.join(app.getPath('appData'), 'munkel');
 fs.mkdirSync(pinnedUserData, { recursive: true });
 app.setPath('userData', pinnedUserData);
 app.setAppUserModelId('app.munkel.windows');
+
 
 const gotTheLock = app.requestSingleInstanceLock();
 if (!gotTheLock) {
@@ -386,26 +401,10 @@ app.whenReady().then(async () => {
 	// it; dev always skips. Manual "Check for Updates…" always works.
 	updateService = initUpdateService(pushUpdateState, { isDev, autoCheckEnabled: persisted.autoUpdateCheck });
 
-	// Named-pipe control server for the `munkel` CLI. Mirrors the macOS app's
-	// Unix-domain-socket `ControlServer` — one request/response per connection,
-	// same wire format. Use an unpredictable pipe name and publish it to a
-	// user-private file, because Node.js cannot set a Windows DACL directly.
-	const controlPipeName = generatePipeName();
-	try {
-		controlServer = await createControlServer(
-			controlPipeName,
-			buildControlHandler(appState),
-		);
-		writeControlPipeName(controlPipeName);
-		startupMark('control');
-		console.log(`[munkel] control pipe: ${controlPipeName}`);
-	} catch (err) {
-		// Don't abort startup: another instance may already own the pipe and
-		// the single-instance lock above would have caught that. Surface a
-		// hint so the user can investigate if `munkel circles` can't connect.
-		console.error('[munkel] control pipe failed to start:', err);
-	}
-
+	// Register IPC before the control pipe. Windows/menu renderers invoke
+	// channels as soon as they load; awaiting the control server first can
+	// leave those invokes without handlers (e.g. a hung Win32 pipe path on
+	// non-Windows hosts).
 	ipcMain.handle(IPC_CHANNELS.GET_WINDOW_TYPE, (event: IpcMainInvokeEvent) => getWindowType(event.sender));
 	ipcMain.handle(IPC_CHANNELS.HIDE_WINDOW, (event: IpcMainInvokeEvent) => {
 		BrowserWindow.fromWebContents(event.sender)?.hide();
@@ -604,6 +603,26 @@ app.whenReady().then(async () => {
 		appState.setDevEchoBroadcasts(!!enabled);
 		return true;
 	});
+
+	// Named-pipe / Unix-socket control server for the `munkel` CLI. One
+	// request/response per connection. Unpredictable name published to a
+	// user-private file (Node cannot set a Windows DACL directly). Started
+	// after IPC so a listen hang never blocks the tray/menu/notch.
+	const controlPipeName = generatePipeName();
+	try {
+		controlServer = await createControlServer(
+			controlPipeName,
+			buildControlHandler(appState),
+		);
+		writeControlPipeName(controlPipeName);
+		startupMark('control');
+		console.log(`[munkel] control pipe: ${controlPipeName}`);
+	} catch (err) {
+		// Don't abort startup: another instance may already own the pipe and
+		// the single-instance lock above would have caught that. Surface a
+		// hint so the user can investigate if `munkel circles` can't connect.
+		console.error('[munkel] control pipe failed to start:', err);
+	}
 
 	await appState.restoreCircles();
 	startupMark('restoreCircles');

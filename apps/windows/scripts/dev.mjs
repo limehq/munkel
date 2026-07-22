@@ -128,6 +128,7 @@ async function main() {
 	const mainCjs = path.join(root, 'dist', 'main.cjs');
 	const hadMainBundle = fs.existsSync(mainCjs);
 	fs.rmSync(path.join(root, 'dist'), { recursive: true, force: true });
+	await import('./write-dist-package.mjs');
 
 	const electronStarterPlugin = {
 		name: 'electron-starter',
