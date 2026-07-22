@@ -279,7 +279,7 @@ describe('useNotchLifecycle', () => {
 		expect(result.current.ui).toBe('collapsed');
 	});
 
-	it('mouse leave from open does nothing', async () => {
+	it('mouse leave from open collapses back to phase-driven sliver', async () => {
 		const { result } = renderHook(useNotchLifecycle);
 
 		await act(async () => {
@@ -300,7 +300,62 @@ describe('useNotchLifecycle', () => {
 			result.current.scheduleHoverLeave();
 			timers.advance(150);
 		});
+		expect(result.current.ui).toBe('collapsed');
+	});
+
+	it('closeReply re-arms a leave that was suppressed while reply was open', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'reply me' }));
+		});
+		await act(async () => {
+			timers.advance(5_000);
+		});
+		await act(async () => {
+			result.current.reopenFromHoverTarget();
+			result.current.openFromPreview();
+		});
 		expect(result.current.ui).toBe('open');
+
+		const entry = result.current.history[0];
+		await act(async () => {
+			result.current.openReply(entry);
+		});
+		expect(result.current.replyOpen).toBe(true);
+
+		await act(async () => {
+			result.current.scheduleHoverLeave();
+		});
+		expect(result.current.ui).toBe('open');
+
+		await act(async () => {
+			result.current.closeReply();
+			timers.advance(150);
+		});
+		expect(result.current.replyOpen).toBe(false);
+		expect(result.current.ui).toBe('collapsed');
+	});
+
+	it('hover ceiling clears stuck open UI in peek', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage());
+		});
+		await act(async () => {
+			timers.advance(5_000);
+		});
+		await act(async () => {
+			result.current.reopenFromHoverTarget();
+			result.current.openFromPreview();
+		});
+		expect(result.current.ui).toBe('open');
+
+		await act(async () => {
+			timers.advance(8_000);
+		});
+		expect(result.current.ui).toBe('collapsed');
 	});
 
 	it('timer expiry still prunes while in preview', async () => {
@@ -713,17 +768,24 @@ describe('useNotchLifecycle', () => {
 			await act(async () => {
 				result.current.onNotchMessage(makeMessage());
 			});
+			// Hover reopen is ignored while phase is full — wait for peek first.
+			await act(async () => {
+				timers.advance(5_000);
+			});
+			expect(result.current.phase).toBe('peek');
 
 			await act(async () => {
 				result.current.reopenFromHoverTarget();
 			});
+			expect(result.current.ui).toBe('preview');
 			expect(result.current.unread).toBe(false);
 
 			await act(async () => {
-				result.current.setHovering(false);
+				result.current.scheduleHoverLeave();
+				timers.advance(150);
 			});
 			await act(async () => {
-				timers.advance(35_000);
+				timers.advance(30_000);
 			});
 			expect(result.current.phase).toBe('retracted');
 			expect(result.current.unread).toBe(false);
@@ -774,13 +836,17 @@ describe('useNotchLifecycle', () => {
 				result.current.onNotchMessage(makeMessage({ text: 'first' }));
 			});
 			await act(async () => {
+				timers.advance(5_000);
+			});
+			await act(async () => {
 				result.current.reopenFromHoverTarget();
 			});
 			await act(async () => {
-				result.current.setHovering(false);
+				result.current.scheduleHoverLeave();
+				timers.advance(150);
 			});
 			await act(async () => {
-				timers.advance(35_000);
+				timers.advance(30_000);
 			});
 			expect(result.current.unread).toBe(false);
 
