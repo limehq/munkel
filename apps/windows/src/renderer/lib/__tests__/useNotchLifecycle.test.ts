@@ -683,4 +683,117 @@ describe('useNotchLifecycle', () => {
 			unmount();
 		});
 	});
+
+	describe('unread indicator dot (Plan 12 P3.3)', () => {
+		it('is false while full/peek, and becomes true once the message retracts without interaction', async () => {
+			const { result } = renderHook(useNotchLifecycle);
+
+			await act(async () => {
+				result.current.onNotchMessage(makeMessage());
+			});
+			expect(result.current.phase).toBe('full');
+			expect(result.current.unread).toBe(false);
+
+			await act(async () => {
+				timers.advance(5_000);
+			});
+			expect(result.current.phase).toBe('peek');
+			expect(result.current.unread).toBe(false);
+
+			await act(async () => {
+				timers.advance(30_000);
+			});
+			expect(result.current.phase).toBe('retracted');
+			expect(result.current.unread).toBe(true);
+		});
+
+		it('never becomes true if the user hovered (reopened) before it retracted', async () => {
+			const { result } = renderHook(useNotchLifecycle);
+
+			await act(async () => {
+				result.current.onNotchMessage(makeMessage());
+			});
+
+			await act(async () => {
+				result.current.reopenFromHoverTarget();
+			});
+			expect(result.current.unread).toBe(false);
+
+			await act(async () => {
+				result.current.setHovering(false);
+			});
+			await act(async () => {
+				timers.advance(35_000);
+			});
+			expect(result.current.phase).toBe('retracted');
+			expect(result.current.unread).toBe(false);
+		});
+
+		it('never becomes true if the user opened a reply (click/reply interaction) before it retracted', async () => {
+			const { result } = renderHook(useNotchLifecycle);
+
+			await act(async () => {
+				result.current.onNotchMessage(makeMessage());
+			});
+
+			await act(async () => {
+				result.current.openReply(result.current.newest!);
+			});
+			await act(async () => {
+				result.current.closeReply();
+			});
+
+			await act(async () => {
+				timers.advance(35_000);
+			});
+			expect(result.current.phase).toBe('retracted');
+			expect(result.current.unread).toBe(false);
+		});
+
+		it('clears once hovered (reopened) after already retracted unread', async () => {
+			const { result } = renderHook(useNotchLifecycle);
+
+			await act(async () => {
+				result.current.onNotchMessage(makeMessage());
+			});
+			await act(async () => {
+				timers.advance(35_000);
+			});
+			expect(result.current.unread).toBe(true);
+
+			await act(async () => {
+				result.current.reopenFromHoverTarget();
+			});
+			expect(result.current.unread).toBe(false);
+		});
+
+		it('resets to unread for each new message, independent of the previous message being read', async () => {
+			const { result } = renderHook(useNotchLifecycle);
+
+			await act(async () => {
+				result.current.onNotchMessage(makeMessage({ text: 'first' }));
+			});
+			await act(async () => {
+				result.current.reopenFromHoverTarget();
+			});
+			await act(async () => {
+				result.current.setHovering(false);
+			});
+			await act(async () => {
+				timers.advance(35_000);
+			});
+			expect(result.current.unread).toBe(false);
+
+			await act(async () => {
+				result.current.onNotchMessage(makeMessage({ text: 'second' }));
+			});
+			expect(result.current.unread).toBe(false); // full phase, not retracted yet
+
+			await act(async () => {
+				timers.advance(35_000);
+			});
+			expect(result.current.phase).toBe('retracted');
+			expect(result.current.unread).toBe(true);
+		});
+	});
 });

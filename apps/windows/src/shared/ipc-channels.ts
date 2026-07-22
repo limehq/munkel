@@ -22,6 +22,7 @@ export const IPC_CHANNELS = {
   SET_RELAY_URL: 'set-relay-url',
   GET_STATE: 'get-state',
   SELECT_IMAGES: 'select-images',
+  SAVE_CLIPBOARD_IMAGE: 'save-clipboard-image',
   GITHUB_LOGOUT: 'github-logout',
 
   START_GITHUB_LOGIN: 'start-github-login',
@@ -32,13 +33,39 @@ export const IPC_CHANNELS = {
   CONFIRM_INSTALL_UPDATE: 'confirm-install-update',
   CANCEL_INSTALL_UPDATE: 'cancel-install-update',
 
+  GET_LAUNCH_AT_LOGIN: 'get-launch-at-login',
+  SET_LAUNCH_AT_LOGIN: 'set-launch-at-login',
+
   NOTCH_BEGIN_REPLY: 'notch-begin-reply',
   NOTCH_END_REPLY: 'notch-end-reply',
   NOTCH_SET_INTERACTIVE: 'notch-set-interactive',
   NOTCH_SET_PREVIEW_MODE: 'notch-set-preview-mode',
   NOTCH_EMPTY: 'notch-empty',
+  NOTCH_RESIZE: 'notch-resize',
+  NOTCH_SET_HOVER_COPY: 'notch-set-hover-copy',
+  // Image Quick-Look overlay (Plan 14 / OQ4 macOS-parity hover preview).
+  NOTCH_LOAD_FULL_IMAGE: 'notch-load-full-image',
+  NOTCH_SET_PREVIEW_ACTIVE: 'notch-set-preview-active',
 
   FETCH_FULL_IMAGE: 'fetch-full-image',
+
+  GET_AUTO_UPDATE_CHECK: 'get-auto-update-check',
+  SET_AUTO_UPDATE_CHECK: 'set-auto-update-check',
+
+  GET_PALETTE_HOTKEY: 'get-palette-hotkey',
+  SET_PALETTE_HOTKEY: 'set-palette-hotkey',
+
+  // Dev-only flag (Plan 13 items 5–6): backed by `!app.isPackaged` in main.ts
+  // (NOT an env var like NODE_ENV, which a launcher could spoof to unlock the
+  // toggles in a release build). Gates the two dev-only settings-popover
+  // toggles below so release builds never render or persist them.
+  GET_IS_DEV: 'get-is-dev',
+
+  GET_ALLOW_IN_SCREENSHOTS: 'get-allow-in-screenshots',
+  SET_ALLOW_IN_SCREENSHOTS: 'set-allow-in-screenshots',
+
+  GET_DEV_ECHO_BROADCASTS: 'get-dev-echo-broadcasts',
+  SET_DEV_ECHO_BROADCASTS: 'set-dev-echo-broadcasts',
 } as const;
 
 /** Main → renderer push channels. */
@@ -51,6 +78,7 @@ export const PUSH_CHANNELS = {
   NOTCH_HIDE: 'notch-hide',
   NOTCH_UPDATE: 'notch-update',
   NOTCH_REOPEN: 'notch-reopen',
+  NOTCH_COPY_HOVERED: 'notch-copy-hovered',
   RELAY_ERROR: 'relay-error',
   GLOBAL_SHORTCUT: 'global-shortcut',
 } as const;

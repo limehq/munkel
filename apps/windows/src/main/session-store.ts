@@ -22,12 +22,21 @@ export class AppState {
 	private readonly joinLocks = new Map<string, Promise<void>>();
 	private identity: IdentityState;
 	private profileTimer: ReturnType<typeof setTimeout> | null = null;
+	// Dev-only "echo my own broadcasts" (Plan 13 item 6). Feature mirrors
+	// macOS `AppModel.devEchoBroadcasts`, but Windows persists opt-in
+	// (default `false` since state.json v2). `isDev` is folded in once here —
+	// not re-checked per send — so a *packaged* build launched against a
+	// dev-populated userData/state.json can never echo, even though the
+	// persisted field may say `true`.
+	private readonly isDev: boolean;
+	private devEchoBroadcastsEnabled: boolean;
 
 	constructor(
 		private readonly identityStore: IdentityStore,
 		private readonly onBroadcast: (update: StateUpdate) => void,
 		private readonly onNotch: (message: NotchMessage) => void,
 		private readonly onRelayError?: (message: string) => void,
+		options?: { isDev?: boolean },
 	) {
 		const persisted = identityStore.load();
 		const presenceStatus = persisted.presenceStatus ?? 'online';
@@ -39,6 +48,25 @@ export class AppState {
 			presenceStatus,
 			effectiveStatus: presenceStatus,
 		};
+		this.isDev = !!options?.isDev;
+		this.devEchoBroadcastsEnabled = this.isDev && persisted.devEchoBroadcasts;
+	}
+
+	/** Current effective echo-my-broadcasts value — always `false` outside a dev build. */
+	getDevEchoBroadcasts(): boolean {
+		return this.devEchoBroadcastsEnabled;
+	}
+
+	/**
+	 * Dev-only setter. Callers (the `set-dev-echo-broadcasts` IPC handler in
+	 * main.ts) must gate reachability behind `isDev` themselves — this is a
+	 * second, independent guard: even if called while `!this.isDev`, the
+	 * effective value folds `this.isDev` back in and stays `false`.
+	 */
+	setDevEchoBroadcasts(enabled: boolean): void {
+		const value = !!enabled;
+		this.devEchoBroadcastsEnabled = this.isDev && value;
+		this.identityStore.patch({ devEchoBroadcasts: value });
 	}
 
 	async joinCircle(code: string, relayUrl?: string): Promise<void> {
@@ -81,6 +109,10 @@ export class AppState {
 					// order after `leaveCircle` / `setRelayUrl`.
 					return this.getState().circles.findIndex((c) => c.code === normalized);
 				},
+				// Dev-only broadcast echo (Plan 13 item 6) — read at call time (not
+				// captured once) so a toggle flip during a live session takes
+				// effect on the very next send.
+				shouldEchoBroadcasts: () => this.devEchoBroadcastsEnabled,
 			});
 
 			this.sessions.set(normalized, session);
@@ -138,6 +170,18 @@ export class AppState {
 		} catch (err) {
 			return { ok: false, error: err instanceof Error ? err.message : String(err) };
 		}
+	}
+
+	/**
+	 * Fetch an incoming album image's full resolution for the notch Quick-Look
+	 * overlay (Plan 14). Looks the session up by normalized code so a stale
+	 * or already-left circle resolves `null` instead of throwing.
+	 */
+	async loadFullImage(code: string, r2Key: string): Promise<Uint8Array | null> {
+		const normalized = normalizeCircleCode(code);
+		const session = this.sessions.get(normalized);
+		if (!session) return null;
+		return session.loadFullImage(r2Key);
 	}
 
 	updateIdentity(next: IdentityUpdate): void {

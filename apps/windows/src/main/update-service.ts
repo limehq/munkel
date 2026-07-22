@@ -11,6 +11,11 @@ export interface UpdateService {
 	confirmInstall: () => { ok: boolean };
 	cancelInstall: () => { ok: boolean };
 	dispose: () => void;
+	// Auto-update "Check Automatically" toggle (Plan 12 P3.7). Starts/stops
+	// the 24h periodic check loop; the manual `check()` above always works
+	// regardless of this setting, mirroring macOS's Sparkle
+	// `automaticallyChecksForUpdates` (which only gates *automatic* checks).
+	setAutoCheckEnabled: (enabled: boolean) => void;
 }
 
 const CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -50,14 +55,16 @@ class UpdateServiceImpl implements UpdateService {
 	private intervalId: ReturnType<typeof setInterval> | null = null;
 	private checking = false;
 	private installing = false;
+	private autoCheckEnabled: boolean;
 	private readonly send: UpdateSend;
 	private readonly autoUpdater: AppUpdater;
 	private readonly isDev: boolean;
 
-	constructor(send: UpdateSend, autoUpdater: AppUpdater, isDev: boolean) {
+	constructor(send: UpdateSend, autoUpdater: AppUpdater, isDev: boolean, autoCheckEnabled: boolean) {
 		this.send = send;
 		this.autoUpdater = autoUpdater;
 		this.isDev = isDev;
+		this.autoCheckEnabled = autoCheckEnabled;
 
 		this.autoUpdater.logger = null;
 		this.autoUpdater.autoDownload = true;
@@ -139,16 +146,29 @@ class UpdateServiceImpl implements UpdateService {
 		return { ok: true };
 	}
 	startPeriodicCheck(): void {
-		if (this.isDev || this.intervalId !== null) return;
+		if (this.isDev || !this.autoCheckEnabled || this.intervalId !== null) return;
 		this.intervalId = setInterval(() => this.check(), CHECK_INTERVAL_MS);
 	}
 
-	dispose(): void {
+	stopPeriodicCheck(): void {
 		if (this.intervalId !== null) {
 			clearInterval(this.intervalId);
 			this.intervalId = null;
 		}
 		this.autoUpdater.removeAllListeners();
+	}
+
+	setAutoCheckEnabled(enabled: boolean): void {
+		this.autoCheckEnabled = enabled;
+		if (enabled) {
+			this.startPeriodicCheck();
+		} else {
+			this.stopPeriodicCheck();
+		}
+	}
+
+	dispose(): void {
+		this.stopPeriodicCheck();
 	}
 
 	private setPhase(phase: UpdatePhase, extras: { version?: string; progress?: number; error?: string } = {}): void {
@@ -181,23 +201,35 @@ class UpdateServiceImpl implements UpdateService {
 }
 
 function defaultIsDev(): boolean {
-	// Match the existing codebase convention; do not import electron here so the
-	// service stays testable in a Node/Bun environment without Electron binaries.
-	return process.env.NODE_ENV === 'development';
+	// Fail-safe default (Plan 13 review): a caller that omits `isDev` gets the
+	// SAFE branch — `false` — so no dev / auto-check special-casing kicks in by
+	// accident. This deliberately does NOT read `process.env.NODE_ENV`, which is
+	// spoofable by any launcher (the env-var gate bug class). In production the
+	// real value flows in from `main.ts`, which passes `isDev = !app.isPackaged`.
+	// This module stays electron-free (dependency-injected `isDev`) so it remains
+	// testable in a Node/Bun environment without Electron binaries — hence it
+	// cannot read `app.isPackaged` itself here.
+	return false;
 }
 
 export function initUpdateService(
 	send: UpdateSend,
-	options: { autoUpdater?: AppUpdater; isDev?: boolean } = {},
+	options: { autoUpdater?: AppUpdater; isDev?: boolean; autoCheckEnabled?: boolean } = {},
 ): UpdateService {
 	const autoUpdater = options.autoUpdater ?? (defaultAutoUpdater as AppUpdater);
 	const isDev = options.isDev ?? defaultIsDev();
-	const service = new UpdateServiceImpl(send, autoUpdater, isDev);
+	// Defaults to `true` — today's unconditional-check behavior — for any
+	// caller that doesn't pass a persisted preference (e.g. existing tests).
+	const autoCheckEnabled = options.autoCheckEnabled ?? true;
+	const service = new UpdateServiceImpl(send, autoUpdater, isDev, autoCheckEnabled);
 
-	if (!isDev) {
+	if (!isDev && autoCheckEnabled) {
 		service.check();
-		service.startPeriodicCheck();
 	}
+	// startPeriodicCheck() no-ops on its own when dev-mode or auto-check is
+	// disabled (the constructor already stored autoCheckEnabled), so no
+	// conditional or setAutoCheckEnabled() round-trip is needed here.
+	service.startPeriodicCheck();
 
 	return service;
 }

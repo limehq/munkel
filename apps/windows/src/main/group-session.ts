@@ -2,8 +2,8 @@ import {
 	deriveGroupKeys,
 	seal,
 	open,
-	openRaw,
 	sealRaw,
+	openRaw,
 	encodeChat,
 	encodeProfile,
 	encodePresence,
@@ -23,6 +23,7 @@ import type { ImageItem } from '../core';
 import { readFile } from 'node:fs/promises';
 import { RelayClient } from './relay-client';
 import { getCircleColor } from '../shared/group-color';
+import { clampMessageText } from '@munkel/shared-wire/message-limits';
 import type { CircleState, IncomingImage, Member, NotchMessage, PresenceStatus } from '../shared/types';
 import type { ChatPayload, ClientMessage, PresencePayload, ProfilePayload, ServerMessage } from '../core';
 
@@ -43,6 +44,31 @@ export interface GroupSessionCallbacks {
 	 * order after `leaveCircle` / `setRelayUrl`.
 	 */
 	getColorIndex(): number;
+	/**
+	 * Dev-only "echo my own broadcasts" (Plan 13 item 6), mirroring macOS
+	 * `AppModel.devEchoBroadcasts`. When this returns `true`, a successful
+	 * *broadcast* (`to === undefined`) send is also dispatched locally via
+	 * `onNotch`, since the relay only delivers a broadcast to the *other*
+	 * members — without this a solo developer never sees their own send.
+	 * Read at send time (not cached), so a toggle flip mid-session applies
+	 * to the very next send. Omitted entirely by callers that never echo
+	 * (e.g. tests that don't care about the feature).
+	 */
+	shouldEchoBroadcasts?(): boolean;
+}
+
+/**
+ * Maps the `ImageItem[]` already built for the wire send into the
+ * `IncomingImage[]` shape `onNotch` expects, for the dev-broadcast-echo path
+ * (Plan 13 item 6). Deliberately reuses the same thumbnails already
+ * generated for peers — no second `imageCodec` pass, no R2 round-trip —
+ * matching macOS's echo, which also reuses locally-available image data
+ * rather than re-fetching from the relay. Exported as a pure function so the
+ * mapping is unit-testable without exercising the (WASM/OffscreenCanvas
+ * -dependent) image codec pipeline that produces `items` in the first place.
+ */
+export function buildEchoImages(items: ImageItem[]): IncomingImage[] {
+	return items.map((it) => ({ id: it.r2Key, thumb: it.thumb, width: it.width, height: it.height }));
 }
 
 export class GroupSession {
@@ -127,7 +153,11 @@ export class GroupSession {
 	 * "too long" / sealing failures vs. an opaque relay-disconnect.
 	 */
 	async sendChat(text: string, to?: string): Promise<SendResult> {
-		return this.sendPayload(encodeChat(text), to);
+		const result = await this.sendPayload(encodeChat(text), to);
+		if (result.ok && to === undefined && this.callbacks.shouldEchoBroadcasts?.()) {
+			this.callbacks.onNotch(this.buildOwnNotchMessage(text));
+		}
+		return result;
 	}
 
 	async sendProfile(to?: string): Promise<SendResult> {
@@ -209,21 +239,68 @@ export class GroupSession {
 			const items = results
 				.sort((a, b) => a.index - b.index)
 				.map((r) => r.item);
-			return this.sendPayload(encodeImage(items, caption), to);
+			const result = await this.sendPayload(encodeImage(items, caption), to);
+			if (result.ok && to === undefined && this.callbacks.shouldEchoBroadcasts?.()) {
+				const images = buildEchoImages(items);
+				// Same fallback caption text as the incoming-image onNotch branch in
+				// handleFrame below, so the echoed album reads identically to how a
+				// peer would see it.
+				const text = caption || `Sent ${images.length} image${images.length === 1 ? '' : 's'}`;
+				this.callbacks.onNotch(this.buildOwnNotchMessage(text, images));
+			}
+			return result;
 		} catch (err) {
 			const message = err instanceof Error ? err.message : 'Could not send images';
 			return { ok: false, error: message };
 		}
 	}
 
+	/**
+	 * Fetch and decrypt an incoming album image's full resolution (Plan 14 /
+	 * OQ4 Quick-Look overlay), mirroring macOS `GroupSession.swift`'s
+	 * `loadFull(r2Key)`: `downloadBlob` the sealed bytes from R2, then
+	 * `openRaw` with this session's `messageKey`. Never throws to the
+	 * renderer — any failure (network, 404/expired blob, decrypt mismatch)
+	 * resolves `null` so the notch UI can fall back to its warning glyph
+	 * instead of the app crashing on a stale/foreign r2Key.
+	 */
+	async loadFullImage(r2Key: string): Promise<Uint8Array | null> {
+		try {
+			const result = await downloadBlob(this.relayUrl, this.groupId, r2Key);
+			if (!result.ok || !result.body) return null;
+			return await openRaw(result.body, this.messageKey);
+		} catch (err) {
+			console.error('[group-session] loadFullImage failed:', err);
+			return null;
+		}
+	}
+
+	/** Builds a `NotchMessage` for our own successful broadcast send, dev-echo only (Plan 13 item 6). */
+	private buildOwnNotchMessage(text: string, images?: IncomingImage[]): NotchMessage {
+		return {
+			sender: this.identity.displayName || 'You',
+			senderMemberId: this.memberId,
+			text,
+			isDirect: false,
+			group: this.code,
+			groupColor: getCircleColor(this.callbacks.getColorIndex()),
+			receivedAt: new Date().toISOString(),
+			...(images ? { images } : {}),
+		};
+	}
+
 	private async sendPayload(payload: ChatPayload | ProfilePayload | PresencePayload | { kind: 'image'; items: ImageItem[]; caption: string; sentAt: string }, to?: string): Promise<SendResult> {
 		let sealed: string;
 		try {
 			const json = JSON.stringify(payload);
-			// Clamp after sealing: AES-GCM overhead is fixed (12-byte nonce
-			// + 16-byte tag → 28 bytes ≈ 38 base64 chars), so the sealed
-			// length tracks plaintext length closely. Clamping the sealed
-			// string is the actual wire check.
+			// Wire-size check on the sealed payload: AES-GCM overhead is fixed
+			// (12-byte nonce + 16-byte tag → 28 bytes ≈ 38 base64 chars), so the
+			// sealed length tracks the plaintext length closely. `assertPayloadFits`
+			// *rejects* (throws) an over-cap payload rather than truncating it — the
+			// caller then surfaces a "too long" SendResult. This byte-based ~48 KiB
+			// wire cap is separate from, and stricter-failing than, the UI-side
+			// 2048-character clamp (MAX_MESSAGE_CHARS); it is the backstop for any
+			// caller that bypasses the UI clamp.
 			sealed = await seal(json, this.messageKey);
 			assertPayloadFits(sealed);
 		} catch (err) {
@@ -345,16 +422,23 @@ export class GroupSession {
 					const colorIndex = this.callbacks.getColorIndex();
 
 					if (decoded.kind === 'chat') {
+						// Display-side 2048-char clamp (Plan 12 "Menu: message
+						// character limit"), mirroring macOS `GroupSession.swift`'s
+						// symmetric `MessageLimits.clamp(text)` on the incoming chat
+						// branch — a peer (malicious or buggy) can't blow up the
+						// menu/notch UI with an oversized message even though the
+						// composer already caps what this app's own UI can send.
+						const text = clampMessageText(decoded.text);
 						this.callbacks.onChat?.({
 							sender: senderLabel,
-							text: decoded.text,
+							text,
 							isDirect,
 							sentAt: decoded.sentAt,
 						});
 						this.callbacks.onNotch({
 							sender: senderLabel,
 							senderMemberId: frame.from,
-							text: decoded.text,
+							text,
 							isDirect,
 							group: this.code,
 							groupColor: getCircleColor(colorIndex),
@@ -422,10 +506,14 @@ export class GroupSession {
 							height: it.height,
 							mime: it.mime,
 						}));
+						// Same incoming clamp as the chat branch above, applied to
+						// the caption (mirrors macOS's `MessageLimits.clamp(caption)`
+						// in `GroupSession.swift`'s image branch).
+						const caption = clampMessageText(decoded.caption || '');
 						this.callbacks.onNotch({
 							sender: senderLabel,
 							senderMemberId: frame.from,
-							text: decoded.caption || `Sent ${images.length} image${images.length === 1 ? '' : 's'}`,
+							text: caption || `Sent ${images.length} image${images.length === 1 ? '' : 's'}`,
 							isDirect,
 							group: this.code,
 							groupColor: getCircleColor(colorIndex),

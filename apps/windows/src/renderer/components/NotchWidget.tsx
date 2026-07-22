@@ -1,14 +1,61 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Avatar } from './Avatar';
+import { TickerText } from './TickerText';
+import ImagePreviewOverlay from './ImagePreviewOverlay';
 import { useAppStore } from '../store/app-store';
 import { resolveReplyRecipient } from '../lib/resolve-reply-recipient';
 import { shouldOpenReplyOnMessageClick } from '../lib/should-open-reply-on-message-click';
 import { useNotchLifecycle, type NotchHistoryEntry } from '../lib/useNotchLifecycle';
 import type { IncomingImage } from '../../shared/types';
+import { useImagePreview } from '../lib/useImagePreview';
+import { MAX_MESSAGE_CHARS, clampMessageText } from '@munkel/shared-wire/message-limits';
 
 const RING_RADIUS = 8;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 const ringStyle = { '--ring-circumference': `${RING_CIRCUMFERENCE}` } as CSSProperties;
+
+// Debounce ResizeObserver-driven `notch-resize` IPC calls. Windows display
+// scaling (125 %/150 %) can round `setSize()` to a height that differs
+// slightly from the renderer's `offsetHeight`, which can retrigger the
+// observer and cause an IPC-spamming resize oscillation. 80ms matches the
+// notch's other UI timing constants (see the reply-focus delay below).
+const RESIZE_REPORT_DEBOUNCE_MS = 80;
+
+// Minimum spacing between hover-copy activity pings sent to the main process
+// on mousemove. The main process disarms the "C" shortcut after ~15s without
+// a ping (HOVER_COPY_IDLE_MS), so ~1s pings keep it alive during genuine
+// pointer activity while staying cheap on the IPC channel. Pings are sent
+// synchronously from the mousemove handler (no deferred timer), so nothing
+// here can fire after a mouseleave — a "late ping" only exists as an IPC
+// message already in flight, which the main process's post-disarm re-arm
+// cooldown absorbs (see hover-copy-shortcut.ts).
+const HOVER_COPY_PING_THROTTLE_MS = 1_000;
+
+// Duration the "Sent to …" confirmation chip (Plan 12, mirrors macOS
+// `MessageNotchContainer.swift`'s `sentConfirmation`) stays visible after a
+// reply send succeeds, before the reply field closes. macOS schedules the
+// whole notch to hide 1.2s after `replyWasSent()`; Windows only owns closing
+// the reply field here (the notch's own FULL→PEEK→RETRACTED timers, already
+// running independently, govern the notch's own retraction), so a slightly
+// longer dwell gives the confirmation text time to actually be read.
+const SENT_CONFIRMATION_MS = 1_500;
+
+// Fallback gutter basis for `ImagePreviewOverlay` before the widget's first
+// layout pass has happened (mirrors `main/notch-window.ts`'s
+// `NOTCH_DEFAULT_HEIGHT` — not imported directly since that module pulls in
+// `electron`, which isn't available in the renderer bundle).
+const NOTCH_DEFAULT_HEIGHT_FALLBACK = 180;
+
+/**
+ * The loaded full-resolution bytes for an entry's first image, if any is
+ * cached — used to make "copy" prefer the full-res picture (Plan 14 task 7)
+ * over the message text. `undefined` (not cached, or the entry has no
+ * images) tells `copyText` to fall back to its existing text-only copy.
+ */
+function firstLoadedImageBase64(entry: NotchHistoryEntry, fullImages: Map<string, string>): string | undefined {
+	const firstImageId = entry.images?.[0]?.id;
+	return firstImageId ? fullImages.get(firstImageId) : undefined;
+}
 
 export default function NotchWidget() {
 	const { sendChat } = useAppStore();
@@ -18,6 +65,117 @@ export default function NotchWidget() {
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const replyInputRef = useRef<HTMLInputElement>(null);
+	const widgetRef = useRef<HTMLDivElement>(null);
+
+	// "Sent to …" confirmation chip (macOS `sentConfirmation`). Set on a
+	// successful reply send; rendered in place of the reply field for the
+	// entry it belongs to, then auto-dismissed (which also closes the reply
+	// field) after SENT_CONFIRMATION_MS.
+	const [sentConfirmation, setSentConfirmation] = useState<{ entryId: string; label: string } | null>(null);
+	const sentConfirmationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	// Mirrors `sentConfirmation` for the timer callback below. React 18
+	// batches/defers `setState` updater functions even outside of React
+	// event handlers, so a setTimeout callback cannot read the *result* of
+	// its own `setSentConfirmation(...)` call synchronously — a plain ref,
+	// kept in sync via the effect just below, is what makes a same-tick
+	// "is this still current?" check possible.
+	const sentConfirmationRef = useRef<{ entryId: string; label: string } | null>(null);
+	useEffect(() => {
+		sentConfirmationRef.current = sentConfirmation;
+	}, [sentConfirmation]);
+
+	const clearSentConfirmation = useCallback(() => {
+		if (sentConfirmationTimerRef.current) {
+			clearTimeout(sentConfirmationTimerRef.current);
+			sentConfirmationTimerRef.current = null;
+		}
+		setSentConfirmation(null);
+	}, []);
+
+	useEffect(() => {
+		return () => {
+			if (sentConfirmationTimerRef.current) clearTimeout(sentConfirmationTimerRef.current);
+		};
+	}, []);
+
+	// Hover-"C" copy (Plan 12 P3.2). `notchHovered` tracks whether the pointer
+	// is currently over the notch surface; `hoveredEntryId` tracks which
+	// history row (if any) it's over, so the shortcut copies that row instead
+	// of the newest message. Both are mirrored into refs (via effects — no
+	// ref mutation during render) so the stable `onNotchCopyHovered` listener
+	// below always reads the latest value without resubscribing.
+	const [notchHovered, setNotchHovered] = useState(false);
+	const [hoveredEntryId, setHoveredEntryId] = useState<string | null>(null);
+	const notchHoveredRef = useRef(false);
+	const hoveredEntryIdRef = useRef<string | null>(null);
+	useEffect(() => {
+		notchHoveredRef.current = notchHovered;
+	}, [notchHovered]);
+	useEffect(() => {
+		hoveredEntryIdRef.current = hoveredEntryId;
+	}, [hoveredEntryId]);
+	// Feature-off latch: set once the main process reports that registering
+	// the OS-level "C" shortcut failed (e.g. another app owns the key). All
+	// further arm attempts and activity pings are skipped for this session
+	// instead of silently pretending the shortcut is armed.
+	const hoverCopyUnavailableRef = useRef(false);
+	// Throttle for the mousemove activity pings that keep the main process's
+	// idle-disarm timer alive (see hover-copy-shortcut.ts HOVER_COPY_IDLE_MS).
+	const lastHoverCopyPingRef = useRef(0);
+
+	// Report the widget's layout height to the main process so the notch
+	// window shrinks/grows to its content instead of staying a fixed-size
+	// box (WIN-NOTCH-004). offsetHeight is used because it ignores the
+	// slide-up transforms of the peek/retracted states.
+	useEffect(() => {
+		const el = widgetRef.current;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+		let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+		const report = () => void window.electronAPI.notchResize(el.offsetHeight);
+		const debouncedReport = () => {
+			if (debounceTimer) clearTimeout(debounceTimer);
+			debounceTimer = setTimeout(report, RESIZE_REPORT_DEBOUNCE_MS);
+		};
+		const observer = new ResizeObserver(debouncedReport);
+		observer.observe(el);
+		// Report the initial size immediately so the window is sized correctly
+		// before the first observer callback would otherwise fire.
+		report();
+		return () => {
+			observer.disconnect();
+			if (debounceTimer) clearTimeout(debounceTimer);
+		};
+	}, []);
+
+	// History expand/collapse (Plan 12 P3.6). History-list rows (rendered
+	// while reopened via hover — see the `reopening` branch below) default to
+	// a single ellipsized line; a per-row chevron toggles that row's id into
+	// this set to show the full text. Deliberately a *separate* affordance
+	// from the row click: the message body's click already opens a reply
+	// (`openReplyFromMessage`, pre-existing on both the single "current
+	// message" view and history rows), so overloading that same click for
+	// expand/collapse would silently break click-to-reply on history rows.
+	// The macOS reference (`NotchPresenter`'s click monitor) can afford to
+	// give a whole-row click double duty because it dispatches by AppKit hit
+	// -testing against separate marker frames (row body vs. reply/copy
+	// targets); the Windows DOM-event model does not have an equivalent
+	// "click landed in this specific sub-region" primitive, so a dedicated
+	// button is the smallest change that keeps both behaviors intact.
+	const [expandedHistoryIds, setExpandedHistoryIds] = useState<Set<string>>(new Set());
+	const toggleHistoryExpanded = useCallback((id: string) => {
+		setExpandedHistoryIds((current) => {
+			const next = new Set(current);
+			if (next.has(id)) next.delete(id);
+			else next.add(id);
+			return next;
+		});
+	}, []);
+
+	// Image Quick-Look hover preview (Plan 14 / OQ4 macOS-parity overlay).
+	// `clearPreview` is one of the teardown paths below (notch hide, reply
+	// open, notch mouseleave) — see `useImagePreview.ts` for the debounce /
+	// instant-hand-off / owner-check semantics.
+	const { previewImageID, requestPreview: requestImagePreview, endPreview: endImagePreview, clearPreview } = useImagePreview();
 
 	const [previewImage, setPreviewImage] = useState<IncomingImage | null>(null);
 	const [fullImage, setFullImage] = useState<{ data: string; mime: string } | null>(null);
@@ -28,7 +186,22 @@ export default function NotchWidget() {
 	const handleNotchHide = useCallback(() => {
 		setReplyText('');
 		setError(null);
-	}, []);
+		clearSentConfirmation();
+		// The window is hiding — no mouseleave will ever arrive for the
+		// pointer that may have armed the hover-copy shortcut, so reset the
+		// hover state here (the main process also disarms on its own 'hide'
+		// event as the authoritative backstop).
+		setNotchHovered(false);
+		setHoveredEntryId(null);
+		// Each reopen of the notch starts every history row collapsed again
+		// (macOS parity: `historyExpanded` is a transient view toggle, not
+		// persisted per message).
+		setExpandedHistoryIds(new Set());
+		// A cell's hover-out doesn't reliably fire when the notch is torn
+		// down — hard-clear the Quick-Look preview here too (mirrors macOS
+		// NotchPresenter's hide handler calling `clearPreview()`).
+		clearPreview();
+	}, [clearSentConfirmation, clearPreview]);
 	const lifecycle = useNotchLifecycle({ onNotchHide: handleNotchHide });
 	// Pointer-down position on the message body, so a click that was really a
 	// drag-to-select gesture does not open the reply field (see openReply).
@@ -43,6 +216,7 @@ export default function NotchWidget() {
 		replyOpen,
 		replyingTo,
 		copiedId,
+		unread,
 		openReply: openReplyLifecycle,
 		closeReply,
 		onNotchMessage,
@@ -63,6 +237,182 @@ export default function NotchWidget() {
 				? 'notch-preview'
 				: `notch-${phase}`
 		: 'notch-retracted';
+
+	// Full-resolution image cache (Plan 14 / OQ4), keyed by r2Key and shared
+	// between the current message and history rows — mirrors macOS
+	// `MessageDisplayModel.fullImages` / `failedImages`. Unlike macOS's
+	// strictly per-cell mount-time fetch, this Windows implementation kicks
+	// the fetch off as soon as an album enters `history` (a superset of
+	// "mounted": every history entry is reachable via hover-reopen within
+	// its 60s window) — simpler to implement/test than gating on each row's
+	// actual DOM mount, and means the preview never has to wait on a fetch
+	// that could have started earlier.
+	const [fullImages, setFullImages] = useState<Map<string, string>>(new Map());
+	const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+	const fullImagesRef = useRef(fullImages);
+	useEffect(() => {
+		fullImagesRef.current = fullImages;
+	}, [fullImages]);
+	// r2Keys already requested (in flight or resolved) — guards against
+	// re-fetching on every `history` re-render (pruning, a new message
+	// arriving, etc.) once a given image's fetch has been kicked off.
+	const requestedImagesRef = useRef<Set<string>>(new Set());
+
+	useEffect(() => {
+		const liveIds = new Set<string>();
+		for (const entry of history) {
+			for (const img of entry.images ?? []) liveIds.add(img.id);
+		}
+
+		// Prune the cache/failed-set/request-tracking for images that aged
+		// out of the 60s history window (mirrors macOS's 1Hz prune of
+		// `fullImages`/`imageLoaders` in `NotchPresenter.pruneImageCache`),
+		// so a long-lived notch session doesn't retain every album forever.
+		requestedImagesRef.current.forEach((id) => {
+			if (!liveIds.has(id)) requestedImagesRef.current.delete(id);
+		});
+		setFullImages((current) => {
+			let changed = false;
+			const next = new Map<string, string>();
+			current.forEach((value, id) => {
+				if (liveIds.has(id)) next.set(id, value);
+				else changed = true;
+			});
+			return changed ? next : current;
+		});
+		setFailedImages((current) => {
+			let changed = false;
+			const next = new Set<string>();
+			current.forEach((id) => {
+				if (liveIds.has(id)) next.add(id);
+				else changed = true;
+			});
+			return changed ? next : current;
+		});
+
+		for (const entry of history) {
+			for (const img of entry.images ?? []) {
+				if (requestedImagesRef.current.has(img.id)) continue;
+				requestedImagesRef.current.add(img.id);
+				void window.electronAPI.notchLoadFullImage(entry.group, img.id).then((result) => {
+					if (result.ok) {
+						setFullImages((current) => {
+							const next = new Map(current);
+							next.set(img.id, result.data);
+							return next;
+						});
+					} else {
+						setFailedImages((current) => {
+							if (current.has(img.id)) return current;
+							const next = new Set(current);
+							next.add(img.id);
+							return next;
+						});
+					}
+				});
+			}
+		}
+	}, [history]);
+
+	// Widen/restore the notch window for the overlay (Plan 14 task 6) — the
+	// main process owns the actual bounds swap (`setNotchPreviewActive`).
+	useEffect(() => {
+		void window.electronAPI.notchSetPreviewActive(!!previewImageID);
+	}, [previewImageID]);
+
+	const replyOpenRef = useRef(false);
+	useEffect(() => {
+		replyOpenRef.current = replyOpen;
+	}, [replyOpen]);
+	// Latest history/newest for the stable copy listener below — avoids a
+	// stale-closure window between unsubscribe/resubscribe cycles.
+	const historyRef = useRef(history);
+	useEffect(() => {
+		historyRef.current = history;
+	}, [history]);
+	const newestRef = useRef(newest);
+	useEffect(() => {
+		newestRef.current = newest;
+	}, [newest]);
+
+	// Prune expanded-history ids for entries that have since expired out of
+	// `history` (60s pruning, see useNotchLifecycle), so the set doesn't grow
+	// unbounded over a long-lived notch session.
+	useEffect(() => {
+		setExpandedHistoryIds((current) => {
+			if (current.size === 0) return current;
+			const validIds = new Set(history.map((entry) => entry.id));
+			let changed = false;
+			const next = new Set<string>();
+			current.forEach((id) => {
+				if (validIds.has(id)) next.add(id);
+				else changed = true;
+			});
+			return changed ? next : current;
+		});
+	}, [history]);
+
+	// Send an arm/disarm hint to the main process. The main process owns the
+	// actual shortcut lifecycle (idle timeout + hide/crash/click-through
+	// disarms); a resolved `false` on an arm attempt means OS registration
+	// failed, which latches the feature off for this session.
+	const sendHoverCopyHint = useCallback((active: boolean) => {
+		if (hoverCopyUnavailableRef.current) return;
+		void window.electronAPI.notchSetHoverCopyActive(active).then((ok) => {
+			if (active && !ok) {
+				hoverCopyUnavailableRef.current = true;
+				console.warn('[notch] hover-"C" copy unavailable (OS shortcut registration failed) — disabled for this session');
+			}
+		});
+	}, []);
+
+	// Arm/disarm whenever hover or reply-open state changes. Active only
+	// while the notch is hovered AND no reply field is open, matching
+	// macOS's `hovering && !replying` gate in NotchPresenter.
+	useEffect(() => {
+		sendHoverCopyHint(notchHovered && !replyOpen);
+	}, [notchHovered, replyOpen, sendHoverCopyHint]);
+
+	// Always request disarm on unmount, independent of the effect above
+	// (which only fires on hover/replyOpen changes, not on teardown). The
+	// main process's renderer-gone/destroyed hooks are the backstop if this
+	// IPC never arrives.
+	useEffect(() => {
+		return () => {
+			if (hoverCopyUnavailableRef.current) return;
+			void window.electronAPI.notchSetHoverCopyActive(false);
+		};
+	}, []);
+
+	// While armed-eligible, mousemove over the notch sends throttled activity
+	// pings that reset the main process's idle-disarm timer — so a pointer
+	// merely *resting* on the notch stops capturing "C" system-wide after
+	// ~15s, but genuine hovering keeps the shortcut alive (and re-arms it
+	// after an idle disarm).
+	const reportHoverCopyActivity = useCallback(() => {
+		if (!notchHoveredRef.current || replyOpenRef.current) return;
+		const now = Date.now();
+		if (now - lastHoverCopyPingRef.current < HOVER_COPY_PING_THROTTLE_MS) return;
+		lastHoverCopyPingRef.current = now;
+		sendHoverCopyHint(true);
+	}, [sendHoverCopyHint]);
+
+	// Perform the actual copy when the main process reports the hover-"C"
+	// shortcut fired. Subscribed once; all state is read through refs so the
+	// handler can never act on a stale history snapshot. Re-checks
+	// hover/reply state itself rather than trusting the main process's
+	// gating alone — belt and suspenders, since the IPC arming call and a
+	// fast mouseleave could theoretically race.
+	useEffect(() => {
+		return window.electronAPI.onNotchCopyHovered(() => {
+			if (!notchHoveredRef.current || replyOpenRef.current) return;
+			const hoveredId = hoveredEntryIdRef.current;
+			const hovered = hoveredId ? historyRef.current.find((entry) => entry.id === hoveredId) : undefined;
+			const target = hovered ?? newestRef.current;
+			if (!target) return;
+			copyText(target, firstLoadedImageBase64(target, fullImagesRef.current));
+		});
+	}, [copyText]);
 
 	useEffect(() => {
 		if (!replyingTo) return;
@@ -90,6 +440,7 @@ export default function NotchWidget() {
 			// A new message makes any in-flight reply text/context stale.
 			setReplyText('');
 			setError(null);
+			clearSentConfirmation();
 		});
 		const removeUpdate = window.electronAPI.onNotchUpdate((data) => {
 			setReplyPrivate(data.isDirect);
@@ -98,7 +449,7 @@ export default function NotchWidget() {
 			removeMessage();
 			removeUpdate();
 		};
-	}, [onNotchMessage]);
+	}, [onNotchMessage, clearSentConfirmation]);
 
 	useEffect(() => {
 		if (!newest) return;
@@ -108,10 +459,18 @@ export default function NotchWidget() {
 	useEffect(() => {
 		if (!replyingTo) return;
 		if (history.some((entry) => entry.id === replyingTo)) return;
+		// The target entry aged out of the 60s history window. Any "Sent to …"
+		// confirmation chip showing here necessarily belongs to this same
+		// entry (sentConfirmation.entryId always tracks replyingTo — every
+		// other path that changes replyingTo clears it first via
+		// clearSentConfirmation), so its pending SENT_CONFIRMATION_MS timer
+		// must be cancelled together with the reply field it's about to close;
+		// otherwise the chip/timer would outlive the field that owns it.
+		clearSentConfirmation();
 		closeReply();
 		setReplyText('');
 		setError(null);
-	}, [history, replyingTo, closeReply]);
+	}, [history, replyingTo, closeReply, clearSentConfirmation]);
 
 	useEffect(() => {
 		if (!previewImage) return;
@@ -165,17 +524,27 @@ export default function NotchWidget() {
 	}
 
 	function openReply(entry: NotchHistoryEntry) {
+		// Cancel any pending "Sent to …" auto-dismiss before opening a reply.
+		// Otherwise a stale timer scheduled by a previous send (e.g. reply to A)
+		// could fire ~1.5s later and call closeReply() while the user is now
+		// replying to B — closing B's reply field out from under them. Clearing
+		// it here (timer + chip state) makes the timer's target unambiguously
+		// stale, so opening any reply always wins over an in-flight confirmation.
+		clearSentConfirmation();
 		if (replyingTo !== entry.id) {
 			setReplyText('');
 			setError(null);
 		}
 		setReplyPrivate(entry.isDirect);
 		openReplyLifecycle(entry);
+		// Opening the reply field dismisses any hover preview so it can't
+		// obscure the text field (mirrors macOS `NotchPresenter.beginReply`).
+		clearPreview();
 	}
 
 	function handleCopyText(entry: NotchHistoryEntry, e: React.MouseEvent) {
 		e.stopPropagation();
-		copyText(entry);
+		copyText(entry, firstLoadedImageBase64(entry, fullImages));
 	}
 
 	/**
@@ -225,20 +594,84 @@ export default function NotchWidget() {
 				return; // keep text, leave field open
 			}
 			setReplyText('');
-			closeReply();
+			// Show the "Sent to …" chip in place of the reply field, then close
+			// the reply field once it's had time to be read (macOS parity — see
+			// SENT_CONFIRMATION_MS above). `recipient.to !== undefined` is the
+			// same private/broadcast distinction `resolveReplyRecipient` already
+			// resolved for the send itself, so the label can't disagree with
+			// where the reply actually went.
+			if (sentConfirmationTimerRef.current) clearTimeout(sentConfirmationTimerRef.current);
+			setSentConfirmation({
+				entryId: entry.id,
+				label: recipient.to !== undefined ? `Sent to ${entry.sender}` : 'Sent to all',
+			});
+			const targetEntryId = entry.id;
+			sentConfirmationTimerRef.current = setTimeout(() => {
+				// Formal race guard (belt and suspenders): the various
+				// clearSentConfirmation() call sites (openReply, a new message
+				// arriving, the reply-prune effect above) already cancel this
+				// timer outright whenever it would otherwise race, so this
+				// should always be true when the timer fires. Reading the
+				// *current* confirmation via the ref (not the `entry`/closure
+				// value captured at schedule time) means a hypothetical future
+				// path that leaves it pointing at a different — or no — entry
+				// can't cause this timer to close an unrelated reply. The guard
+				// runs BEFORE nulling the ref, so on a mismatch we neither close
+				// the wrong reply NOR drop the handle to whatever timer is
+				// actually current — only the matching (current) timer clears it.
+				if (sentConfirmationRef.current?.entryId !== targetEntryId) return;
+				sentConfirmationTimerRef.current = null;
+				setSentConfirmation(null);
+				closeReply();
+			}, SENT_CONFIRMATION_MS);
 		} finally {
 			setSending(false);
 		}
 	}
 
-	function renderMessageRow(entry: NotchHistoryEntry) {
+	/**
+	 * `pulse` is only ever passed `true` from the single/"full-view" render
+	 * branch below (never from the reopened history-list branch), and only
+	 * for the entry that is currently `newest`. Those two branches render
+	 * structurally different JSX (a bare row vs. a `.notch-history-list`
+	 * wrapper), so React unmounts/remounts this row's subtree — including
+	 * `Avatar` — whenever the widget switches between them. Combined with
+	 * `Avatar`'s own mount-only pulse capture (see `Avatar.tsx`), this means
+	 * the ring plays exactly once: on the fresh mount that happens when a
+	 * genuinely new message arrives (`phase` resets to `'full'`, which
+	 * changes this row's `key` in the parent `newest.id` sense). Re-renders
+	 * while `newest` stays visible (e.g. phase decaying to `'peek'` while a
+	 * reply stays open) reuse the same mounted Avatar and do not re-pulse;
+	 * reopening the notch via hover re-mounts the row in the *other* branch,
+	 * which never passes `pulse`, so already-seen history rows never pulse.
+	 *
+	 * `collapsible` (Plan 12 P3.6) marks a row as belonging to the reopened
+	 * history list: it defaults to a single ellipsized line and renders a
+	 * chevron button that toggles this row's id in `expandedHistoryIds`. The
+	 * single "current message" view (`collapsible` unset) is never
+	 * ellipsis-truncated — long text there instead scrolls once via
+	 * `TickerText` (Plan 13 item 7), mirroring the macOS reference's
+	 * always-expanded "current message" (`fullyExpanded` teaser is separate
+	 * from `historyExpanded`, which only governs the rows *below* it). The
+	 * two are mutually exclusive per row: history rows never get the ticker,
+	 * and the single-message view never gets the chevron-driven ellipsis.
+	 */
+	function renderMessageRow(entry: NotchHistoryEntry, options?: { pulse?: boolean; collapsible?: boolean }) {
 		const hasImages = !!entry.images?.length;
 		const replying = replyingTo === entry.id;
+		const collapsible = options?.collapsible ?? false;
+		const collapsed = collapsible && !expandedHistoryIds.has(entry.id);
 
 		return (
-			<div key={entry.id} className="history-entry">
+			<div
+				key={entry.id}
+				className="history-entry"
+				data-testid={`history-entry-${entry.id}`}
+				onMouseEnter={() => setHoveredEntryId(entry.id)}
+				onMouseLeave={() => setHoveredEntryId((current) => (current === entry.id ? null : current))}
+			>
 				<div className="message-row">
-					<Avatar name={entry.sender} size={40} />
+					<Avatar name={entry.sender} size={40} pulse={options?.pulse ?? false} />
 					<div
 						className="message-body"
 						onPointerDown={(e) => {
@@ -253,7 +686,11 @@ export default function NotchWidget() {
 							<span className="circle-dot" style={{ background: entry.groupColor }} />
 							<span className="circle-name">{entry.group}</span>
 						</div>
-						<p className="message-text">{entry.text}</p>
+						{collapsible ? (
+							<p className={collapsed ? 'message-text message-text-collapsed' : 'message-text'}>{entry.text}</p>
+						) : (
+							<TickerText text={entry.text} className="message-text" />
+						)}
 						{hasImages && (
 							<div className="image-preview-row" onClick={(e) => e.stopPropagation()}>
 								{entry.images!.map((img) => (
@@ -269,6 +706,22 @@ export default function NotchWidget() {
 							</div>
 						)}
 					</div>
+					{collapsible && (
+						<button
+							type="button"
+							className="icon-button history-expand-button"
+							data-testid={`history-expand-${entry.id}`}
+							onClick={(e) => {
+								e.stopPropagation();
+								toggleHistoryExpanded(entry.id);
+							}}
+							aria-label={collapsed ? 'Expand message' : 'Collapse message'}
+							aria-expanded={!collapsed}
+							title={collapsed ? 'Expand message' : 'Collapse message'}
+						>
+							{collapsed ? '▸' : '▾'}
+						</button>
+					)}
 					<button className="icon-button copy-button" onClick={(e) => handleCopyText(entry, e)}>
 						{copiedId === entry.id ? '✓' : '📋'}
 					</button>
@@ -286,40 +739,57 @@ export default function NotchWidget() {
 				</div>
 
 				{replying && (
-					<>
-						<div className="reply-field">
-							<button
-								className="channel-toggle"
-								onClick={() => setReplyPrivate(!replyPrivate)}
-								title={replyPrivate ? 'Private reply' : 'Reply to all'}
-							>
-								{replyPrivate ? '🔒' : '🌐'}
-							</button>
-							<input
-								ref={replyInputRef}
-								className="frosted-field"
-								placeholder={replyPrivate ? `Private to ${entry.sender}…` : 'Reply to all…'}
-								value={replyText}
-								onChange={(e) => {
-									setReplyText(e.target.value);
-									if (error) setError(null);
-								}}
-								onKeyDown={(e) => {
-									if (e.key === 'Enter') void sendReply(entry);
-									if (e.key === 'Escape') closeReply();
-								}}
-							/>
-							<button
-								className="icon-button"
-								disabled={!replyText.trim() || sending}
-								onClick={() => void sendReply(entry)}
-								title="Send"
-							>
-								➤
-							</button>
+					sentConfirmation && sentConfirmation.entryId === entry.id ? (
+						<div
+							className="sent-confirmation"
+							data-testid={`sent-confirmation-${entry.id}`}
+							role="status"
+							aria-live="polite"
+							aria-label={sentConfirmation.label}
+							title={sentConfirmation.label}
+						>
+							<span className="sent-confirmation-check" aria-hidden="true">✓</span>
+							{sentConfirmation.label}
 						</div>
-						{error && <p className="reply-error">{error}</p>}
-					</>
+					) : (
+						<>
+							<div className="reply-field">
+								<button
+									className="channel-toggle"
+									onClick={() => setReplyPrivate(!replyPrivate)}
+									title={replyPrivate ? 'Private reply' : 'Reply to all'}
+								>
+									{replyPrivate ? '🔒' : '🌐'}
+								</button>
+								<input
+									ref={replyInputRef}
+									className="frosted-field"
+									placeholder={replyPrivate ? `Private to ${entry.sender}…` : 'Reply to all…'}
+									value={replyText}
+									maxLength={MAX_MESSAGE_CHARS}
+									onChange={(e) => {
+										// 2048-char clamp (Plan 12 "Menu: message character
+										// limit"), mirroring macOS `MessageLimits.maxCharacters`.
+										setReplyText(clampMessageText(e.target.value));
+										if (error) setError(null);
+									}}
+									onKeyDown={(e) => {
+										if (e.key === 'Enter') void sendReply(entry);
+										if (e.key === 'Escape') closeReply();
+									}}
+								/>
+								<button
+									className="icon-button"
+									disabled={!replyText.trim() || sending}
+									onClick={() => void sendReply(entry)}
+									title="Send"
+								>
+									➤
+								</button>
+							</div>
+							{error && <p className="reply-error">{error}</p>}
+						</>
+					)
 				)}
 			</div>
 		);

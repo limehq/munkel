@@ -15,6 +15,24 @@ const HOST = '127.0.0.1';
 /** @type {import('node:child_process').ChildProcess | null} */
 let electronProcess = null;
 
+// main and preload are separate Vite watchers (see below), each with its own
+// `closeBundle` hook wired to restart Electron. A source file imported by
+// BOTH bundles (e.g. src/shared/ipc-channels.ts) triggers both watchers on a
+// single save, firing closeBundle twice within a few ms of each other — which
+// would restart Electron twice in a row. Debounce so only the trailing
+// closeBundle within this window actually restarts the process.
+const RESTART_DEBOUNCE_MS = 150;
+/** @type {ReturnType<typeof setTimeout> | null} */
+let restartTimer = null;
+
+function scheduleElectronRestart() {
+	if (restartTimer) clearTimeout(restartTimer);
+	restartTimer = setTimeout(() => {
+		restartTimer = null;
+		startOrRestartElectron();
+	}, RESTART_DEBOUNCE_MS);
+}
+
 /**
  * Probe whether `host:port` is free before Vite binds. Avoids collisions with
  * other local Vite/Electron apps (often on 5173).
@@ -59,9 +77,19 @@ function startOrRestartElectron() {
 		electronProcess.kill();
 		electronProcess = null;
 	}
+	// `ELECTRON_RUN_AS_NODE` can leak in from a VS Code / Claude Code terminal
+	// parent process (not persisted, but inherited by any shell it spawns). If
+	// it survives into the child env, the real Electron binary runs in plain
+	// Node mode (`require('electron')` resolves to a path string, not the
+	// API), so `app.setName()` throws at main.ts's top level and the app dies
+	// before a window ever opens — no error dialog, just silence. Strip it
+	// defensively so a dev launch never silently no-ops. See
+	// docs/bugs/windows-ui-invisible-2026-07-10.md.
+	const childEnv = { ...process.env, NODE_ENV: 'development' };
+	delete childEnv.ELECTRON_RUN_AS_NODE;
 	electronProcess = spawn(getElectronPath(), [path.join(root, 'dist', 'main.cjs')], {
 		stdio: 'inherit',
-		env: { ...process.env, NODE_ENV: 'development' },
+		env: childEnv,
 	});
 }
 
@@ -82,22 +110,39 @@ async function main() {
 	process.stdout.write(`[dev] renderer at ${url}\n`);
 	process.env.VITE_DEV_SERVER_URL = url;
 
+	// main and preload are separate single-entry Vite lib builds (see
+	// vite.main.config.ts / vite.preload.config.ts) so Rollup never code-splits
+	// a shared chunk that a sandboxed preload script cannot require() at
+	// runtime — docs/bugs/windows-ui-invisible-2026-07-10.md. Both configs use
+	// `emptyOutDir: false` (each only ever writes its own file into dist/), so
+	// we clear dist/ once here ourselves before starting either watcher —
+	// otherwise the two watchers would never wipe stale output on a cold start.
+	fs.rmSync(path.join(root, 'dist'), { recursive: true, force: true });
+
+	const electronStarterPlugin = {
+		name: 'electron-starter',
+		closeBundle() {
+			scheduleElectronRestart();
+		},
+	};
+
 	const mainWatcher = await build({
 		configFile: path.join(root, 'vite.main.config.ts'),
 		build: { watch: {} },
-		plugins: [
-			{
-				name: 'electron-starter',
-				closeBundle() {
-					startOrRestartElectron();
-				},
-			},
-		],
+		plugins: [electronStarterPlugin],
+	});
+
+	const preloadWatcher = await build({
+		configFile: path.join(root, 'vite.preload.config.ts'),
+		build: { watch: {} },
+		plugins: [electronStarterPlugin],
 	});
 
 	const shutdown = () => {
+		if (restartTimer) clearTimeout(restartTimer);
 		rendererServer.close();
 		mainWatcher.close();
+		preloadWatcher.close();
 		if (electronProcess) electronProcess.kill();
 		process.exit(0);
 	};

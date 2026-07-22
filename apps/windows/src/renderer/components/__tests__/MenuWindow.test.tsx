@@ -31,11 +31,26 @@ function createMockElectronApi(initialState: StateUpdate) {
 		githubLogout: () => Promise.resolve(),
 		checkForUpdates: () => Promise.resolve({ ok: true }),
 		installUpdate: () => Promise.resolve({ ok: true }),
+		confirmInstallUpdate: () => Promise.resolve({ ok: true }),
+		cancelInstallUpdate: () => Promise.resolve({ ok: true }),
+		getLaunchAtLogin: () => Promise.resolve(false),
+		setLaunchAtLogin: (_enabled: boolean) => Promise.resolve(true),
+		getAutoUpdateCheck: () => Promise.resolve(true),
+		setAutoUpdateCheck: (_enabled: boolean) => Promise.resolve(true),
+		getPaletteHotkey: () => Promise.resolve('Ctrl+Shift+M'),
+		setPaletteHotkey: (accelerator: string) => Promise.resolve({ ok: true, accelerator }),
+		isDev: () => Promise.resolve(false),
+		getAllowInScreenshots: () => Promise.resolve(false),
+		setAllowInScreenshots: (_enabled: boolean) => Promise.resolve(true),
+		getDevEchoBroadcasts: () => Promise.resolve(true),
+		setDevEchoBroadcasts: (_enabled: boolean) => Promise.resolve(true),
 		selectImages: () => Promise.resolve(undefined),
+		saveClipboardImage: () => Promise.resolve(null),
 		beginNotchReply: () => Promise.resolve(),
 		endNotchReply: () => Promise.resolve(),
 		notchSetInteractive: (_interactive: boolean) => Promise.resolve(),
 		notchEmpty: () => Promise.resolve(),
+		notchResize: (_contentHeight: number) => Promise.resolve(),
 		onStateUpdate: (cb: (update: StateUpdate) => void) => {
 			stateUpdateCb = cb;
 			return () => {
@@ -287,6 +302,1676 @@ describe('MenuWindow circle leave confirmation', () => {
 	});
 });
 
+describe('MenuWindow settings display-name Enter save (P1.2)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenuWithSettingsOpen() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const settingsButton = root!.root.findByProps({ title: 'Settings' });
+		await act(async () => {
+			settingsButton.props.onClick({ stopPropagation: () => {} });
+		});
+
+		return root!;
+	}
+
+	it('pressing Enter in the display-name field commits the new name exactly once', async () => {
+		const updateProfileSpy = spyOn(electronApi, 'updateProfile');
+		const root = await renderMenuWithSettingsOpen();
+
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+
+		let prevented = false;
+		let blurred = false;
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {
+					prevented = true;
+				},
+				currentTarget: {
+					blur: () => {
+						blurred = true;
+					},
+				},
+			});
+		});
+
+		expect(prevented).toBe(true);
+		expect(blurred).toBe(true);
+		expect(updateProfileSpy).toHaveBeenCalledTimes(1);
+		expect(updateProfileSpy).toHaveBeenCalledWith('New Name', undefined);
+	});
+
+	it('a blur that follows the Enter commit does not re-submit the same name', async () => {
+		const updateProfileSpy = spyOn(electronApi, 'updateProfile');
+		const root = await renderMenuWithSettingsOpen();
+
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+
+		// Blur fires as a natural consequence of the Enter-triggered blur() call
+		// (or of clicking elsewhere afterward); it must not double-submit.
+		await act(async () => {
+			input.props.onBlur();
+		});
+
+		expect(updateProfileSpy).toHaveBeenCalledTimes(1);
+		expect(updateProfileSpy).toHaveBeenCalledWith('New Name', undefined);
+	});
+
+	it('does not call updateProfile when Enter is pressed without changing the name', async () => {
+		const updateProfileSpy = spyOn(electronApi, 'updateProfile');
+		const root = await renderMenuWithSettingsOpen();
+
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+
+		expect(updateProfileSpy).toHaveBeenCalledTimes(0);
+	});
+
+	it('does not call updateProfile when Enter is pressed with a whitespace-only name', async () => {
+		const updateProfileSpy = spyOn(electronApi, 'updateProfile');
+		const root = await renderMenuWithSettingsOpen();
+
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: '   ' } });
+		});
+
+		let prevented = false;
+		let blurred = false;
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {
+					prevented = true;
+				},
+				currentTarget: {
+					blur: () => {
+						blurred = true;
+					},
+				},
+			});
+		});
+
+		// The keydown handler still prevents default and blurs (matching
+		// macOS Enter behavior) even though the trimmed name is empty and
+		// therefore never reaches updateProfile.
+		expect(prevented).toBe(true);
+		expect(blurred).toBe(true);
+		expect(updateProfileSpy).toHaveBeenCalledTimes(0);
+	});
+
+	it('ignores non-Enter keys in the display-name field', async () => {
+		const updateProfileSpy = spyOn(electronApi, 'updateProfile');
+		const root = await renderMenuWithSettingsOpen();
+
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+
+		let prevented = false;
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'a',
+				preventDefault: () => {
+					prevented = true;
+				},
+				currentTarget: { blur: () => {} },
+			});
+		});
+
+		expect(prevented).toBe(false);
+		expect(updateProfileSpy).toHaveBeenCalledTimes(0);
+	});
+
+	// Regression test for a MAJOR review finding: updateName() used to set
+	// lastSavedNameRef.current = name *before* the `void updateProfile(name)`
+	// promise settled. If the IPC call rejected (relay/main-process error),
+	// the ref was already updated to the failed name, so a later retry with
+	// the same text was treated as "unchanged" and silently dropped. Fixed by
+	// only committing the ref inside updateProfile(name).then(...).
+	it('retries the same name after a failed updateProfile instead of silently dropping it', async () => {
+		let rejectNext = true;
+		const failingUpdateProfile = (_name: string) =>
+			rejectNext ? Promise.reject(new Error('relay offline')) : Promise.resolve();
+		electronApi.updateProfile = failingUpdateProfile;
+		const updateProfileSpy = spyOn(electronApi, 'updateProfile');
+		const root = await renderMenuWithSettingsOpen();
+
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+
+		// First Enter: the IPC call rejects.
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+			await Promise.resolve().catch(() => {});
+		});
+
+		expect(updateProfileSpy).toHaveBeenCalledTimes(1);
+
+		// Second Enter with the *same* unchanged text should retry, since the
+		// first attempt never actually succeeded.
+		rejectNext = false;
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+
+		expect(updateProfileSpy).toHaveBeenCalledTimes(2);
+	});
+
+	// Regression test for a MAJOR review finding: updateName() had no
+	// generation guard, so if two submits (A then B) resolved out of order
+	// (B first, then a late A), the stale A resolve could overwrite
+	// lastSavedNameRef back to A's name even though B was the most recent
+	// submit. Fixed by only letting the settle whose generation matches the
+	// latest submit mutate lastSavedNameRef.
+	it('when submit A resolves after submit B, only B is committed as the saved name', async () => {
+		let resolveA: (() => void) | undefined;
+		let resolveB: (() => void) | undefined;
+		const calls: string[] = [];
+		electronApi.updateProfile = (name: string) => {
+			calls.push(name);
+			if (calls.length === 1) {
+				return new Promise<void>((resolve) => {
+					resolveA = resolve;
+				});
+			}
+			return new Promise<void>((resolve) => {
+				resolveB = resolve;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		// Submit A ("Name A") via Enter, then submit B ("Name B") via Enter
+		// before A has resolved — both IPC calls are now in flight.
+		await act(async () => {
+			input.props.onChange({ target: { value: 'Name A' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+		await act(async () => {
+			input.props.onChange({ target: { value: 'Name B' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+
+		expect(calls).toEqual(['Name A', 'Name B']);
+
+		// B resolves first (out of order).
+		await act(async () => {
+			resolveB?.();
+			await Promise.resolve();
+		});
+
+		// Then the stale A resolves late.
+		await act(async () => {
+			resolveA?.();
+			await Promise.resolve();
+		});
+
+		// Retyping "Name A" and pressing Enter again must be treated as a real
+		// change (i.e. lastSavedNameRef points at "Name B", not "Name A"),
+		// proving the late A-resolve never overwrote it.
+		await act(async () => {
+			input.props.onChange({ target: { value: 'Name A' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+
+		expect(calls).toEqual(['Name A', 'Name B', 'Name A']);
+	});
+
+	// Regression test for a CRITICAL review finding: lastSavedNameRef is only
+	// committed once the updateProfile promise *resolves*, so the blur that
+	// synchronously follows an Enter commit (Enter commits, then blurs the
+	// input) still saw the name as unsaved and started a second, duplicate
+	// updateProfile call under a new generation. A deferred (manually
+	// resolvable) promise is essential here: with a Promise.resolve() mock,
+	// act() flushes the resolve before onBlur runs and the bug is masked.
+	// Fixed by the synchronously-set inFlightNameRef.
+	it('a blur firing while the Enter-triggered save is still in flight does not double-submit', async () => {
+		let resolveSave: (() => void) | undefined;
+		const calls: string[] = [];
+		electronApi.updateProfile = (name: string) => {
+			calls.push(name);
+			return new Promise<void>((resolve) => {
+				resolveSave = resolve;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+
+		// Enter commits (save now in flight, promise NOT yet settled), then the
+		// blur handler runs synchronously via the Enter handler's blur() call —
+		// exactly the real DOM event order.
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => input.props.onBlur() },
+			});
+		});
+
+		expect(calls).toEqual(['New Name']);
+
+		// After the save resolves, a further blur is still a no-op because the
+		// name is now recorded as successfully saved.
+		await act(async () => {
+			resolveSave?.();
+			await Promise.resolve();
+		});
+		await act(async () => {
+			input.props.onBlur();
+		});
+
+		expect(calls).toEqual(['New Name']);
+	});
+
+	// After a failed save, an immediate Enter on the *same* name must retry:
+	// the in-flight slot is released on rejection, so the duplicate-submit
+	// guard must not swallow the retry.
+	it('an Enter retry of the same name straight after a rejected save goes through', async () => {
+		let rejectSave: ((err: Error) => void) | undefined;
+		const calls: string[] = [];
+		electronApi.updateProfile = (name: string) => {
+			calls.push(name);
+			return new Promise<void>((_resolve, reject) => {
+				rejectSave = reject;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => input.props.onBlur() },
+			});
+		});
+		expect(calls).toEqual(['New Name']);
+
+		await act(async () => {
+			rejectSave?.(new Error('relay offline'));
+			await Promise.resolve().catch(() => {});
+		});
+
+		// Immediate retry with the unchanged name.
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => input.props.onBlur() },
+			});
+		});
+
+		expect(calls).toEqual(['New Name', 'New Name']);
+	});
+});
+
+describe('MenuWindow settings display-name save error feedback', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenuWithSettingsOpen() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const settingsButton = root!.root.findByProps({ title: 'Settings' });
+		await act(async () => {
+			settingsButton.props.onClick({ stopPropagation: () => {} });
+		});
+
+		return root!;
+	}
+
+	it('shows an error hint when updateProfile rejects, and clears it on the next successful save', async () => {
+		let reject = true;
+		electronApi.updateProfile = (_name: string) =>
+			reject ? Promise.reject(new Error('relay offline')) : Promise.resolve();
+		const root = await renderMenuWithSettingsOpen();
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+
+		expect(root.root.findAllByProps({ 'data-testid': 'display-name-error' }).length).toBe(0);
+
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+			await Promise.resolve().catch(() => {});
+		});
+
+		const errorHint = root.root.findByProps({ 'data-testid': 'display-name-error' });
+		expect(errorHint).toBeDefined();
+
+		// The field stays editable — the same input node is still present and
+		// accepts further changes.
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name Retry' } });
+		});
+
+		reject = false;
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+			await Promise.resolve();
+		});
+
+		expect(root.root.findAllByProps({ 'data-testid': 'display-name-error' }).length).toBe(0);
+	});
+
+	// A late REJECT of a stale generation must not surface the error hint
+	// when a newer submit has already succeeded — the user's latest intent
+	// was saved, so showing "Saving failed" would be wrong.
+	it('does not show the error hint when a stale save rejects after a newer save succeeded', async () => {
+		let rejectA: ((err: Error) => void) | undefined;
+		let resolveB: (() => void) | undefined;
+		const calls: string[] = [];
+		electronApi.updateProfile = (name: string) => {
+			calls.push(name);
+			if (calls.length === 1) {
+				return new Promise<void>((_resolve, reject) => {
+					rejectA = reject;
+				});
+			}
+			return new Promise<void>((resolve) => {
+				resolveB = resolve;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		// Submit A, then B while A is still pending.
+		await act(async () => {
+			input.props.onChange({ target: { value: 'Name A' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+		await act(async () => {
+			input.props.onChange({ target: { value: 'Name B' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+		});
+		expect(calls).toEqual(['Name A', 'Name B']);
+
+		// Newer save B succeeds first…
+		await act(async () => {
+			resolveB?.();
+			await Promise.resolve();
+		});
+
+		// …then the stale A rejects late. No error hint may appear.
+		await act(async () => {
+			rejectA?.(new Error('relay offline'));
+			await Promise.resolve().catch(() => {});
+		});
+
+		expect(root.root.findAllByProps({ 'data-testid': 'display-name-error' }).length).toBe(0);
+	});
+
+	// The 4s auto-hide timer must not fire against an unmounted component
+	// (cleanup effect clears it on unmount).
+	it('unmounting while the error-hint timer is pending does not throw or update state', async () => {
+		electronApi.updateProfile = (_name: string) => Promise.reject(new Error('relay offline'));
+		const root = await renderMenuWithSettingsOpen();
+		const input = root.root.findByProps({ 'data-testid': 'display-name-input' });
+
+		await act(async () => {
+			input.props.onChange({ target: { value: 'New Name' } });
+		});
+		await act(async () => {
+			input.props.onKeyDown({
+				key: 'Enter',
+				preventDefault: () => {},
+				currentTarget: { blur: () => {} },
+			});
+			await Promise.resolve().catch(() => {});
+		});
+
+		expect(root.root.findAllByProps({ 'data-testid': 'display-name-error' }).length).toBe(1);
+
+		// Unmount while the 4s auto-hide timeout is still pending.
+		await act(async () => {
+			root.unmount();
+		});
+	});
+});
+
+describe('MenuWindow launch-at-login toggle (P2.1)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenuWithSettingsOpen() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const settingsButton = root!.root.findByProps({ title: 'Settings' });
+		await act(async () => {
+			settingsButton.props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
+		});
+
+		return root!;
+	}
+
+	it('defaults to unchecked when no launch-at-login preference is persisted', async () => {
+		const root = await renderMenuWithSettingsOpen();
+		const checkbox = root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' });
+		expect(checkbox.props.checked).toBe(false);
+	});
+
+	it('reflects a persisted true preference fetched on mount', async () => {
+		electronApi.getLaunchAtLogin = () => Promise.resolve(true);
+		const root = await renderMenuWithSettingsOpen();
+		const checkbox = root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' });
+		expect(checkbox.props.checked).toBe(true);
+	});
+
+	it('toggling calls setLaunchAtLogin(true) and reflects the new checked state', async () => {
+		const setSpy = spyOn(electronApi, 'setLaunchAtLogin');
+		const root = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' }).props.onChange();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledTimes(1);
+		expect(setSpy).toHaveBeenCalledWith(true);
+		const checkbox = root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' });
+		expect(checkbox.props.checked).toBe(true);
+	});
+
+	it('toggling off calls setLaunchAtLogin(false) when currently enabled', async () => {
+		electronApi.getLaunchAtLogin = () => Promise.resolve(true);
+		const setSpy = spyOn(electronApi, 'setLaunchAtLogin');
+		const root = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' }).props.onChange();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledWith(false);
+	});
+
+	it('snaps the checkbox back to its previous state when setLaunchAtLogin fails', async () => {
+		electronApi.setLaunchAtLogin = (_enabled: boolean) => Promise.resolve(false);
+		const root = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' }).props.onChange();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const checkbox = root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' });
+		expect(checkbox.props.checked).toBe(false);
+	});
+
+	// In-flight guard: a rapid double-click must not fire a second IPC call
+	// while the first is still unresolved (analogous to inFlightNameRef on
+	// the display-name save). A deferred promise is essential here — with a
+	// Promise.resolve() mock, act() would settle call #1 before click #2.
+	it('ignores a second toggle while the first setLaunchAtLogin call is still in flight', async () => {
+		let resolveFirst: ((ok: boolean) => void) | undefined;
+		const calls: boolean[] = [];
+		electronApi.setLaunchAtLogin = (enabled: boolean) => {
+			calls.push(enabled);
+			return new Promise<boolean>((resolve) => {
+				resolveFirst = resolve;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		const checkbox = () => root.root.findByProps({ 'data-testid': 'launch-at-login-checkbox' });
+
+		// Two clicks in the same interaction burst; the first promise is
+		// still pending when the second click lands.
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+
+		expect(calls).toEqual([true]);
+
+		// After the first call settles, toggling works again.
+		await act(async () => {
+			resolveFirst?.(true);
+			await Promise.resolve();
+		});
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+
+		expect(calls).toEqual([true, false]);
+	});
+});
+
+describe('MenuWindow auto-update "Check Automatically" toggle (P3.7)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenuWithSettingsOpen() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const settingsButton = root!.root.findByProps({ title: 'Settings' });
+		await act(async () => {
+			settingsButton.props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
+		});
+
+		return root!;
+	}
+
+	it('defaults to checked (today\'s unconditional-check behavior) before the persisted value loads', async () => {
+		// getAutoUpdateCheck never resolves in this test, so the component's
+		// initial `true` default is what renders.
+		electronApi.getAutoUpdateCheck = () => new Promise(() => {});
+		const root = await renderMenuWithSettingsOpen();
+		const checkbox = root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' });
+		expect(checkbox.props.checked).toBe(true);
+	});
+
+	it('reflects a persisted false preference fetched on mount', async () => {
+		electronApi.getAutoUpdateCheck = () => Promise.resolve(false);
+		const root = await renderMenuWithSettingsOpen();
+		const checkbox = root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' });
+		expect(checkbox.props.checked).toBe(false);
+	});
+
+	it('toggling off calls setAutoUpdateCheck(false) and reflects the new checked state', async () => {
+		const setSpy = spyOn(electronApi, 'setAutoUpdateCheck');
+		const root = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' }).props.onChange();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledTimes(1);
+		expect(setSpy).toHaveBeenCalledWith(false);
+		const checkbox = root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' });
+		expect(checkbox.props.checked).toBe(false);
+	});
+
+	it('toggling on calls setAutoUpdateCheck(true) when currently disabled', async () => {
+		electronApi.getAutoUpdateCheck = () => Promise.resolve(false);
+		const setSpy = spyOn(electronApi, 'setAutoUpdateCheck');
+		const root = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' }).props.onChange();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledWith(true);
+	});
+
+	it('snaps the checkbox back to its previous state when setAutoUpdateCheck fails', async () => {
+		electronApi.setAutoUpdateCheck = (_enabled: boolean) => Promise.resolve(false);
+		const root = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' }).props.onChange();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const checkbox = root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' });
+		expect(checkbox.props.checked).toBe(true);
+	});
+
+	// In-flight guard, same rationale as the launch-at-login toggle above: a
+	// rapid double-click must not fire a second IPC call while the first is
+	// still unresolved.
+	it('ignores a second toggle while the first setAutoUpdateCheck call is still in flight', async () => {
+		let resolveFirst: ((ok: boolean) => void) | undefined;
+		const calls: boolean[] = [];
+		electronApi.setAutoUpdateCheck = (enabled: boolean) => {
+			calls.push(enabled);
+			return new Promise<boolean>((resolve) => {
+				resolveFirst = resolve;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		const checkbox = () => root.root.findByProps({ 'data-testid': 'auto-update-check-checkbox' });
+
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+
+		expect(calls).toEqual([false]);
+
+		await act(async () => {
+			resolveFirst?.(true);
+			await Promise.resolve();
+		});
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+
+		expect(calls).toEqual([false, true]);
+	});
+});
+
+describe('MenuWindow rebindable palette hotkey recorder (P3.1)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenuWithSettingsOpen() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const settingsButton = root!.root.findByProps({ title: 'Settings' });
+		await act(async () => {
+			settingsButton.props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
+		});
+
+		return root!;
+	}
+
+	function recorder(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ 'data-testid': 'palette-hotkey-recorder' });
+	}
+
+	function pressKey(
+		root: ReturnType<typeof create>,
+		overrides: Partial<{ key: string; ctrlKey: boolean; altKey: boolean; shiftKey: boolean; metaKey: boolean }>,
+	) {
+		return recorder(root).props.onKeyDown({
+			key: 'a',
+			ctrlKey: false,
+			altKey: false,
+			shiftKey: false,
+			metaKey: false,
+			preventDefault: () => {},
+			currentTarget: { blur: () => {} },
+			...overrides,
+		});
+	}
+
+	it('defaults to the persisted hotkey (Ctrl+Shift+M) before/after mount', async () => {
+		const root = await renderMenuWithSettingsOpen();
+		expect(recorder(root).props.children).toBe('Ctrl + Shift + M');
+	});
+
+	it('reflects a persisted non-default hotkey fetched on mount', async () => {
+		electronApi.getPaletteHotkey = () => Promise.resolve('Ctrl+Alt+P');
+		const root = await renderMenuWithSettingsOpen();
+		expect(recorder(root).props.children).toBe('Ctrl + Alt + P');
+	});
+
+	it('shows a recording placeholder on focus', async () => {
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+		expect(recorder(root).props.children).toBe('Press a key combo…');
+	});
+
+	it('commits a captured combo via setPaletteHotkey and displays the confirmed value', async () => {
+		const setSpy = spyOn(electronApi, 'setPaletteHotkey');
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true, altKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledTimes(1);
+		expect(setSpy).toHaveBeenCalledWith('Ctrl+Alt+P');
+		expect(recorder(root).props.children).toBe('Ctrl + Alt + P');
+	});
+
+	it('ignores a bare modifier press and keeps recording (no IPC call)', async () => {
+		const setSpy = spyOn(electronApi, 'setPaletteHotkey');
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'Control', ctrlKey: true });
+		});
+
+		expect(setSpy).not.toHaveBeenCalled();
+		expect(recorder(root).props.children).toBe('Press a key combo…');
+	});
+
+	it('Escape cancels recording without committing a change', async () => {
+		const setSpy = spyOn(electronApi, 'setPaletteHotkey');
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		let blurred = false;
+		await act(async () => {
+			recorder(root).props.onKeyDown({
+				key: 'Escape',
+				ctrlKey: false,
+				altKey: false,
+				shiftKey: false,
+				metaKey: false,
+				preventDefault: () => {},
+				currentTarget: {
+					blur: () => {
+						blurred = true;
+					},
+				},
+			});
+		});
+
+		expect(blurred).toBe(true);
+		expect(setSpy).not.toHaveBeenCalled();
+
+		// Blur (simulated separately, since the fake event's blur() above does
+		// not trigger React's onBlur) ends the recording UI state.
+		await act(async () => {
+			recorder(root).props.onBlur();
+		});
+		expect(recorder(root).props.children).toBe('Ctrl + Shift + M');
+	});
+
+	it('snaps back to the accelerator the main process reports on a failed rebind (rollback)', async () => {
+		electronApi.setPaletteHotkey = (_accelerator: string) =>
+			Promise.resolve({ ok: false, accelerator: 'Ctrl+Shift+M', error: 'registration-failed' });
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true, altKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(recorder(root).props.children).toBe('Ctrl + Shift + M');
+		expect(root.root.findByProps({ 'data-testid': 'palette-hotkey-error' })).toBeTruthy();
+
+		// The failed rebind above armed a 4s auto-clear timer for the error
+		// hint (see hotkeyErrorTimeoutRef in MenuWindow.tsx); unmount here so
+		// its cleanup effect clears the timer instead of it firing later,
+		// outside any act(), during a subsequent test in this file.
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('shows an invalid-accelerator hint distinct from the registration-failed hint', async () => {
+		electronApi.setPaletteHotkey = (_accelerator: string) =>
+			Promise.resolve({ ok: false, accelerator: 'Ctrl+Shift+M', error: 'invalid-accelerator' });
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const error = root.root.findByProps({ 'data-testid': 'palette-hotkey-error' });
+		expect(error.props.children).toContain('Invalid shortcut');
+
+		// Same rationale as above: clear the armed auto-clear timer.
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('ignores a second key capture while the first setPaletteHotkey call is still in flight', async () => {
+		let resolveFirst: ((result: { ok: boolean; accelerator: string }) => void) | undefined;
+		const calls: string[] = [];
+		electronApi.setPaletteHotkey = (accelerator: string) => {
+			calls.push(accelerator);
+			return new Promise((resolve) => {
+				resolveFirst = resolve;
+			});
+		};
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true });
+		});
+		await act(async () => {
+			pressKey(root, { key: 'q', ctrlKey: true });
+		});
+
+		expect(calls).toEqual(['Ctrl+P']);
+
+		await act(async () => {
+			resolveFirst?.({ ok: true, accelerator: 'Ctrl+P' });
+			await Promise.resolve();
+		});
+
+		expect(calls).toEqual(['Ctrl+P']);
+	});
+
+	it('the reset button restores the default hotkey via setPaletteHotkey', async () => {
+		electronApi.getPaletteHotkey = () => Promise.resolve('Ctrl+Alt+P');
+		const setSpy = spyOn(electronApi, 'setPaletteHotkey');
+		const root = await renderMenuWithSettingsOpen();
+
+		const resetButton = root.root.findByProps({ 'data-testid': 'palette-hotkey-reset' });
+		await act(async () => {
+			resetButton.props.onClick();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledWith('Ctrl+Shift+M');
+		expect(recorder(root).props.children).toBe('Ctrl + Shift + M');
+	});
+
+	it('the bottom Quick-send hotkey label reflects the persisted (non-default) hotkey', async () => {
+		electronApi.getPaletteHotkey = () => Promise.resolve('Ctrl+Alt+P');
+		const root = await renderMenuWithSettingsOpen();
+		const label = root.root.findByProps({ className: 'hotkey' });
+		expect(label.props.children).toBe('Ctrl + Alt + P');
+	});
+
+	// Rollback-failed double failure (Kimi-Review of 24d6340): the main
+	// process reports accelerator: null when the new combo failed AND the
+	// rollback (and default fallback) could not be re-registered — the
+	// recorder must show "unbound" reality plus a distinct hint, never the
+	// dead old combo, and a later successful capture must heal the state.
+	it('shows the unbound state and a rollback-failed hint when the main process reports accelerator: null', async () => {
+		electronApi.setPaletteHotkey = (_accelerator: string) =>
+			Promise.resolve({ ok: false, accelerator: null, error: 'rollback-failed' });
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true, altKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(recorder(root).props.children).toBe('Not bound — press to record');
+		const error = root.root.findByProps({ 'data-testid': 'palette-hotkey-error' });
+		expect(error.props.children).toContain('could not be bound');
+		// The bottom Quick-send row must not claim a binding either.
+		expect(root.root.findByProps({ className: 'hotkey' }).props.children).toBe('Not bound');
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('displays the healed default when a rollback-failed rebind fell back to the default combo', async () => {
+		electronApi.setPaletteHotkey = (_accelerator: string) =>
+			Promise.resolve({ ok: false, accelerator: 'Ctrl+Shift+M', error: 'rollback-failed' });
+		electronApi.getPaletteHotkey = () => Promise.resolve('Ctrl+Alt+Q');
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true, altKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		// Not the requested Ctrl+Alt+P and not the dead old Ctrl+Alt+Q — the
+		// display mirrors what the main process confirmed is actually bound.
+		expect(recorder(root).props.children).toBe('Ctrl + Shift + M');
+		expect(root.root.findByProps({ 'data-testid': 'palette-hotkey-error' })).toBeTruthy();
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('a retry capture from the unbound state heals it without a restart', async () => {
+		// First set: double failure → unbound. Second set: succeeds.
+		let call = 0;
+		electronApi.setPaletteHotkey = (accelerator: string) => {
+			call += 1;
+			return call === 1
+				? Promise.resolve({ ok: false, accelerator: null, error: 'rollback-failed' })
+				: Promise.resolve({ ok: true, accelerator });
+		};
+		const root = await renderMenuWithSettingsOpen();
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+		await act(async () => {
+			pressKey(root, { key: 'p', ctrlKey: true, altKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		expect(recorder(root).props.children).toBe('Not bound — press to record');
+
+		// Retry with a fresh combo — the null state must not block the commit
+		// (no early-out, no leftover in-flight lock) and the success must both
+		// update the display and clear the error hint.
+		await act(async () => {
+			recorder(root).props.onFocus();
+		});
+		await act(async () => {
+			pressKey(root, { key: 'r', ctrlKey: true, altKey: true });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(call).toBe(2);
+		expect(recorder(root).props.children).toBe('Ctrl + Alt + R');
+		expect(root.root.findAllByProps({ 'data-testid': 'palette-hotkey-error' }).length).toBe(0);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+});
+
+describe('MenuWindow recipient avatar chips (P2.4)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	function stateWithMembers(): StateUpdate {
+		return makeState([
+			{
+				code: 'blue-table-42',
+				groupId: 'group-1',
+				isConnected: true,
+				members: [
+					{ memberId: 'member-1', displayName: 'Ada Lovelace', joinedAt: '2026-01-01T00:00:00.000Z' },
+					{ memberId: 'member-2', displayName: 'Grace Hopper', joinedAt: '2026-01-01T00:00:00.000Z' },
+				],
+				relayUrl: 'wss://relay.example',
+			},
+		]);
+	}
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(stateWithMembers());
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenu() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	it('renders an "All" chip plus one chip per member', async () => {
+		const root = await renderMenu();
+
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-all' })).toBeDefined();
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' })).toBeDefined();
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-2' })).toBeDefined();
+	});
+
+	it('the "All" chip is selected by default', async () => {
+		const root = await renderMenu();
+
+		const allChip = root.root.findByProps({ 'data-testid': 'recipient-chip-all' });
+		expect(allChip.props['aria-checked']).toBe(true);
+		expect(allChip.props.className).toContain('selected');
+
+		const memberChip = root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' });
+		expect(memberChip.props['aria-checked']).toBe(false);
+	});
+
+	it('clicking a member chip selects it and deselects "All"', async () => {
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props.onClick();
+		});
+
+		const memberChip = root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' });
+		expect(memberChip.props['aria-checked']).toBe(true);
+		expect(memberChip.props.className).toContain('selected');
+
+		const allChip = root.root.findByProps({ 'data-testid': 'recipient-chip-all' });
+		expect(allChip.props['aria-checked']).toBe(false);
+	});
+
+	it('clicking a member chip then sending routes the message to that member (same selection contract as the old select)', async () => {
+		const sendChatSpy = spyOn(electronApi, 'sendChat');
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-member-2' }).props.onClick();
+		});
+
+		const messageInput = root.root.findByProps({ placeholder: 'Message…' });
+		await act(async () => {
+			messageInput.props.onChange({ target: { value: 'hello' } });
+		});
+		await act(async () => {
+			messageInput.props.onKeyDown({ key: 'Enter' });
+		});
+
+		expect(sendChatSpy).toHaveBeenCalledWith('blue-table-42', 'hello', 'member-2');
+	});
+
+	it('clicking the "All" chip after selecting a member sends without a recipient (broadcast)', async () => {
+		const sendChatSpy = spyOn(electronApi, 'sendChat');
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props.onClick();
+		});
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props.onClick();
+		});
+
+		const messageInput = root.root.findByProps({ placeholder: 'Message…' });
+		await act(async () => {
+			messageInput.props.onChange({ target: { value: 'hi everyone' } });
+		});
+		await act(async () => {
+			messageInput.props.onKeyDown({ key: 'Enter' });
+		});
+
+		expect(sendChatSpy).toHaveBeenCalledWith('blue-table-42', 'hi everyone', undefined);
+	});
+
+	it('renders a tooltip title with the full member name', async () => {
+		const root = await renderMenu();
+
+		const memberChip = root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' });
+		expect(memberChip.props.title).toBe('Ada Lovelace');
+	});
+
+	it('shows "No one else online" text when a circle has no other members', async () => {
+		electronApi = createMockElectronApi(makeState([
+			{
+				code: 'blue-table-42',
+				groupId: 'group-1',
+				isConnected: true,
+				members: [],
+				relayUrl: 'wss://relay.example',
+			},
+		]));
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+
+		const root = await renderMenu();
+
+		const emptyHint = root.root.findByProps({ className: 'caption recipient-empty' });
+		expect(emptyHint.children).toContain('No one else online');
+		expect(root.root.findAllByProps({ 'data-testid': 'recipient-chip-member-1' }).length).toBe(0);
+	});
+
+	it('exposes WAI-ARIA radiogroup semantics (radiogroup row, radio chips)', async () => {
+		const root = await renderMenu();
+
+		const row = root.root.findByProps({ 'data-testid': 'recipient-row' });
+		expect(row.props.role).toBe('radiogroup');
+		expect(row.props['aria-label']).toBe('Recipient');
+
+		for (const testid of ['recipient-chip-all', 'recipient-chip-member-1', 'recipient-chip-member-2']) {
+			expect(root.root.findByProps({ 'data-testid': testid }).props.role).toBe('radio');
+		}
+	});
+
+	it('uses a roving tabindex: only the selected chip is a Tab stop', async () => {
+		const root = await renderMenu();
+
+		// Default: "All" selected → tabIndex 0, members -1.
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props.tabIndex).toBe(0);
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props.tabIndex).toBe(-1);
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props.onClick();
+		});
+
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props.tabIndex).toBe(-1);
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props.tabIndex).toBe(0);
+	});
+
+	it('ArrowRight moves the selection to the next chip, wrapping at the end', async () => {
+		const root = await renderMenu();
+		const keyEvent = (key: string) => {
+			let prevented = false;
+			return {
+				event: {
+					key,
+					preventDefault: () => {
+						prevented = true;
+					},
+				},
+				wasPrevented: () => prevented,
+			};
+		};
+
+		// All → member-1
+		const e1 = keyEvent('ArrowRight');
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props.onKeyDown(e1.event);
+		});
+		expect(e1.wasPrevented()).toBe(true);
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props['aria-checked']).toBe(true);
+
+		// member-1 → member-2 → wraps back to All
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-member-1' }).props.onKeyDown(keyEvent('ArrowRight').event);
+		});
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-2' }).props['aria-checked']).toBe(true);
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-member-2' }).props.onKeyDown(keyEvent('ArrowRight').event);
+		});
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props['aria-checked']).toBe(true);
+	});
+
+	it('ArrowLeft moves the selection backwards, wrapping from All to the last chip', async () => {
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props.onKeyDown({
+				key: 'ArrowLeft',
+				preventDefault: () => {},
+			});
+		});
+
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-member-2' }).props['aria-checked']).toBe(true);
+	});
+
+	it('non-arrow keys on a chip do not change the selection or prevent default', async () => {
+		const root = await renderMenu();
+		let prevented = false;
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props.onKeyDown({
+				key: 'Tab',
+				preventDefault: () => {
+					prevented = true;
+				},
+			});
+		});
+
+		expect(prevented).toBe(false);
+		expect(root.root.findByProps({ 'data-testid': 'recipient-chip-all' }).props['aria-checked']).toBe(true);
+	});
+});
+
+describe('MenuWindow copy circle code button', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let clipboardCalls: string[];
+	// Unmounted in afterEach below: handleCopyCode arms a real 1500ms
+	// setTimeout (CODE_COPY_FEEDBACK_MS) on every successful copy. Most tests
+	// in this block never wait it out, so without an explicit unmount here
+	// the timer fires later against a still-mounted-but-out-of-scope
+	// CircleSection, outside any act() boundary — the exact "not wrapped in
+	// act(...)" warning this describe block used to produce. Unmounting runs
+	// CircleSection's cleanup effect, which clears the pending timer.
+	let root: ReturnType<typeof create> | undefined;
+
+	function twoCircleState(): StateUpdate {
+		return makeState([
+			{
+				code: 'blue-table-42',
+				groupId: 'group-1',
+				isConnected: true,
+				members: [],
+				relayUrl: 'wss://relay.example',
+			},
+			{
+				code: 'amber-fox-7',
+				groupId: 'group-2',
+				isConnected: true,
+				members: [],
+				relayUrl: 'wss://relay.example',
+			},
+		]);
+	}
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(twoCircleState());
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+		clipboardCalls = [];
+		(globalThis as unknown as { navigator: unknown }).navigator = {
+			clipboard: {
+				writeText: (text: string) => {
+					clipboardCalls.push(text);
+					return Promise.resolve();
+				},
+			},
+		};
+	});
+
+	afterEach(async () => {
+		if (root) {
+			await act(async () => {
+				root!.unmount();
+			});
+			root = undefined;
+		}
+		delete (globalThis as unknown as { window?: unknown }).window;
+		delete (globalThis as unknown as { navigator?: unknown }).navigator;
+	});
+
+	async function renderMenu() {
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	it('renders a copy-code button for every circle card', async () => {
+		const root = await renderMenu();
+
+		expect(root.root.findByProps({ 'data-testid': 'copy-code-button-blue-table-42' })).toBeDefined();
+		expect(root.root.findByProps({ 'data-testid': 'copy-code-button-amber-fox-7' })).toBeDefined();
+	});
+
+	it('clicking a circle\'s copy button copies that circle\'s own code, not another one\'s', async () => {
+		const root = await renderMenu();
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'copy-code-button-amber-fox-7' }).props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
+		});
+
+		expect(clipboardCalls).toEqual(['amber-fox-7']);
+	});
+
+	it('shows a checkmark after copying, then reverts to the clipboard glyph', async () => {
+		const root = await renderMenu();
+		const button = () => root.root.findByProps({ 'data-testid': 'copy-code-button-blue-table-42' });
+
+		expect(button().children).toEqual(['📋']);
+
+		await act(async () => {
+			button().props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
+		});
+
+		expect(button().children).toEqual(['✓']);
+
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 1600));
+		});
+
+		expect(button().children).toEqual(['📋']);
+	});
+
+	it('stops the click from bubbling (so the settings popover / card handlers do not fire)', async () => {
+		const root = await renderMenu();
+		let stopped = false;
+
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'copy-code-button-blue-table-42' }).props.onClick({
+				stopPropagation: () => {
+					stopped = true;
+				},
+			});
+			await Promise.resolve();
+		});
+
+		expect(stopped).toBe(true);
+	});
+
+	it('does not show a checkmark when the clipboard write is rejected', async () => {
+		// Replace the clipboard with one that always rejects.
+		(globalThis as unknown as { navigator: unknown }).navigator = {
+			clipboard: { writeText: () => Promise.reject(new Error('denied')) },
+		};
+		const root = await renderMenu();
+		const button = () => root.root.findByProps({ 'data-testid': 'copy-code-button-blue-table-42' });
+
+		expect(button().children).toEqual(['📋']);
+
+		await act(async () => {
+			button().props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		// Still the clipboard glyph — no false success feedback.
+		expect(button().children).toEqual(['📋']);
+	});
+
+	it('exposes an aria-label naming the circle code for screen readers', async () => {
+		const root = await renderMenu();
+
+		const button = root.root.findByProps({ 'data-testid': 'copy-code-button-blue-table-42' });
+		expect(button.props['aria-label']).toBe('Copy circle code blue-table-42');
+	});
+});
+
+describe('MenuWindow message character limit (2048)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenu() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	it('sets maxLength=2048 on the compose input (native browser clamp)', async () => {
+		const root = await renderMenu();
+		const messageInput = root.root.findByProps({ placeholder: 'Message…' });
+		expect(messageInput.props.maxLength).toBe(2048);
+	});
+
+	it('clamps a pasted/typed value over 2048 characters to exactly 2048', async () => {
+		const root = await renderMenu();
+		const messageInput = root.root.findByProps({ placeholder: 'Message…' });
+		const overLong = 'x'.repeat(3000);
+
+		await act(async () => {
+			messageInput.props.onChange({ target: { value: overLong } });
+		});
+
+		const clamped = root.root.findByProps({ placeholder: 'Message…' });
+		expect(clamped.props.value.length).toBe(2048);
+		expect(clamped.props.value).toBe('x'.repeat(2048));
+	});
+
+	it('allows a value at exactly 2048 characters unmodified', async () => {
+		const root = await renderMenu();
+		const messageInput = root.root.findByProps({ placeholder: 'Message…' });
+		const exact = 'y'.repeat(2048);
+
+		await act(async () => {
+			messageInput.props.onChange({ target: { value: exact } });
+		});
+
+		const updated = root.root.findByProps({ placeholder: 'Message…' });
+		expect(updated.props.value.length).toBe(2048);
+		expect(updated.props.value).toBe(exact);
+	});
+
+	it('sends the clamped (not the raw over-cap) text', async () => {
+		const sendChatSpy = spyOn(electronApi, 'sendChat');
+		const root = await renderMenu();
+		const messageInput = root.root.findByProps({ placeholder: 'Message…' });
+		const overLong = 'z'.repeat(2500);
+
+		await act(async () => {
+			messageInput.props.onChange({ target: { value: overLong } });
+		});
+		await act(async () => {
+			root.root.findByProps({ placeholder: 'Message…' }).props.onKeyDown({ key: 'Enter' });
+		});
+
+		expect(sendChatSpy).toHaveBeenCalledTimes(1);
+		const sentText = sendChatSpy.mock.calls[0]?.[1] as string;
+		expect(sentText.length).toBe(2048);
+	});
+});
+
 describe('MenuWindow update status', () => {
 	let electronApi: ReturnType<typeof createMockElectronApi>;
 
@@ -399,5 +2084,321 @@ describe('MenuWindow update status', () => {
 			updateItem.props.onClick();
 		});
 		expect(checkSpy).toHaveBeenCalledTimes(1);
+	});
+});
+
+describe('MenuWindow clipboard image paste (Plan 12 P3.4)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenu() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	it('attaches the clipboard image and suppresses default paste when the clipboard holds an image', async () => {
+		electronApi.saveClipboardImage = () => Promise.resolve('C:\\temp\\munkel-clipboard-1.png');
+		const sendImagesSpy = spyOn(electronApi, 'sendImages');
+		const root = await renderMenu();
+
+		const input = root.root.findByProps({ placeholder: 'Message…' });
+		let prevented = false;
+		await act(async () => {
+			input.props.onPaste({
+				clipboardData: { types: ['image/png', 'Files'], getData: () => '' },
+				preventDefault: () => {
+					prevented = true;
+				},
+			});
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(prevented).toBe(true);
+		const chip = root.root.findByProps({ className: 'image-attachment-chip' });
+		expect(chip).toBeDefined();
+
+		const sendRow = root.root.findByProps({ className: 'send-row' });
+		const send = sendRow.findAllByType('button')[1];
+		await act(async () => {
+			send.props.onClick();
+			await Promise.resolve();
+		});
+
+		expect(sendImagesSpy).toHaveBeenCalledTimes(1);
+		expect(sendImagesSpy.mock.calls[0]?.[1]).toEqual(['C:\\temp\\munkel-clipboard-1.png']);
+	});
+
+	it('leaves normal text paste untouched when the clipboard has no image', async () => {
+		const saveClipboardImageSpy = spyOn(electronApi, 'saveClipboardImage');
+		const root = await renderMenu();
+
+		const input = root.root.findByProps({ placeholder: 'Message…' });
+		let prevented = false;
+		await act(async () => {
+			input.props.onPaste({
+				clipboardData: { types: ['text/plain'] },
+				preventDefault: () => {
+					prevented = true;
+				},
+			});
+			await Promise.resolve();
+		});
+
+		expect(prevented).toBe(false);
+		expect(saveClipboardImageSpy).toHaveBeenCalledTimes(0);
+		expect(root.root.findAllByProps({ className: 'image-attachment-chip' }).length).toBe(0);
+	});
+
+	it('falls back to inserting the clipboard text when the image fetch returns null after preventDefault', async () => {
+		electronApi.saveClipboardImage = () => Promise.resolve(null);
+		const root = await renderMenu();
+
+		const input = root.root.findByProps({ placeholder: 'Message…' });
+		await act(async () => {
+			input.props.onPaste({
+				clipboardData: {
+					types: ['image/png', 'text/plain'],
+					getData: (type: string) => (type === 'text/plain' ? 'pasted text' : ''),
+				},
+				preventDefault: () => {},
+			});
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		// Placeholder stays 'Message…' (no attachment), and the input now
+		// carries the manually inserted clipboard text.
+		expect(root.root.findByProps({ placeholder: 'Message…' }).props.value).toBe('pasted text');
+		expect(root.root.findAllByProps({ className: 'image-attachment-chip' }).length).toBe(0);
+	});
+
+	it('clamps the manually-inserted fallback text to 2048 characters (no composer-cap bypass)', async () => {
+		// Image save fails, so the paste falls back to inserting the clipboard
+		// text directly into `messages[code]`. That direct write bypasses the
+		// input's onChange clamp, so this branch must clamp itself — otherwise
+		// an oversized paste (with outgoing text not clamped at the session
+		// layer) would let handleSend send > 2048 characters.
+		electronApi.saveClipboardImage = () => Promise.resolve(null);
+		const root = await renderMenu();
+
+		const input = root.root.findByProps({ placeholder: 'Message…' });
+		const overLong = 'p'.repeat(3000);
+		await act(async () => {
+			input.props.onPaste({
+				clipboardData: {
+					types: ['image/png', 'text/plain'],
+					getData: (type: string) => (type === 'text/plain' ? overLong : ''),
+				},
+				preventDefault: () => {},
+			});
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const value = root.root.findByProps({ placeholder: 'Message…' }).props.value;
+		expect(value.length).toBe(2048);
+		expect(value).toBe('p'.repeat(2048));
+	});
+});
+
+describe('MenuWindow dev-only settings toggles (Plan 13 items 5–6)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let root: ReturnType<typeof create> | undefined;
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi(
+			makeState([
+				{
+					code: 'blue-table-42',
+					groupId: 'group-1',
+					isConnected: true,
+					members: [],
+					relayUrl: 'wss://relay.example',
+				},
+			]),
+		);
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(async () => {
+		if (root) {
+			await act(async () => {
+				root!.unmount();
+			});
+			root = undefined;
+		}
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function renderMenuWithSettingsOpen() {
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<MenuWindow />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		const settingsButton = root!.root.findByProps({ title: 'Settings' });
+		await act(async () => {
+			settingsButton.props.onClick({ stopPropagation: () => {} });
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		return root!;
+	}
+
+	it('does not render either dev-only checkbox when isDev() resolves false (packaged build)', async () => {
+		electronApi.isDev = () => Promise.resolve(false);
+		const menu = await renderMenuWithSettingsOpen();
+
+		expect(menu.root.findAllByProps({ 'data-testid': 'dev-echo-broadcasts-checkbox' }).length).toBe(0);
+		expect(menu.root.findAllByProps({ 'data-testid': 'allow-in-screenshots-checkbox' }).length).toBe(0);
+	});
+
+	it('does not call getAllowInScreenshots/getDevEchoBroadcasts at all when isDev() resolves false', async () => {
+		electronApi.isDev = () => Promise.resolve(false);
+		const allowSpy = spyOn(electronApi, 'getAllowInScreenshots');
+		const echoSpy = spyOn(electronApi, 'getDevEchoBroadcasts');
+		await renderMenuWithSettingsOpen();
+
+		expect(allowSpy).not.toHaveBeenCalled();
+		expect(echoSpy).not.toHaveBeenCalled();
+	});
+
+	it('renders both dev-only checkboxes, reflecting their persisted values, when isDev() resolves true', async () => {
+		electronApi.isDev = () => Promise.resolve(true);
+		electronApi.getAllowInScreenshots = () => Promise.resolve(true);
+		electronApi.getDevEchoBroadcasts = () => Promise.resolve(false);
+		const menu = await renderMenuWithSettingsOpen();
+
+		const echoCheckbox = menu.root.findByProps({ 'data-testid': 'dev-echo-broadcasts-checkbox' });
+		const screenshotsCheckbox = menu.root.findByProps({ 'data-testid': 'allow-in-screenshots-checkbox' });
+		expect(echoCheckbox.props.checked).toBe(false);
+		expect(screenshotsCheckbox.props.checked).toBe(true);
+	});
+
+	it('toggling "Allow in screenshots" calls setAllowInScreenshots(true) and reflects the new checked state', async () => {
+		electronApi.isDev = () => Promise.resolve(true);
+		const setSpy = spyOn(electronApi, 'setAllowInScreenshots');
+		const menu = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			menu.root.findByProps({ 'data-testid': 'allow-in-screenshots-checkbox' }).props.onChange();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledTimes(1);
+		expect(setSpy).toHaveBeenCalledWith(true);
+		expect(menu.root.findByProps({ 'data-testid': 'allow-in-screenshots-checkbox' }).props.checked).toBe(true);
+	});
+
+	it('snaps "Allow in screenshots" back to its previous state when setAllowInScreenshots fails', async () => {
+		electronApi.isDev = () => Promise.resolve(true);
+		electronApi.setAllowInScreenshots = (_enabled: boolean) => Promise.resolve(false);
+		const menu = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			menu.root.findByProps({ 'data-testid': 'allow-in-screenshots-checkbox' }).props.onChange();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(menu.root.findByProps({ 'data-testid': 'allow-in-screenshots-checkbox' }).props.checked).toBe(false);
+	});
+
+	it('toggling "Echo my broadcasts to me" off calls setDevEchoBroadcasts(false) and reflects the new checked state', async () => {
+		electronApi.isDev = () => Promise.resolve(true);
+		electronApi.getDevEchoBroadcasts = () => Promise.resolve(true);
+		const setSpy = spyOn(electronApi, 'setDevEchoBroadcasts');
+		const menu = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			menu.root.findByProps({ 'data-testid': 'dev-echo-broadcasts-checkbox' }).props.onChange();
+			await Promise.resolve();
+		});
+
+		expect(setSpy).toHaveBeenCalledTimes(1);
+		expect(setSpy).toHaveBeenCalledWith(false);
+		expect(menu.root.findByProps({ 'data-testid': 'dev-echo-broadcasts-checkbox' }).props.checked).toBe(false);
+	});
+
+	it('snaps "Echo my broadcasts to me" back to its previous state when setDevEchoBroadcasts fails', async () => {
+		electronApi.isDev = () => Promise.resolve(true);
+		electronApi.getDevEchoBroadcasts = () => Promise.resolve(true);
+		electronApi.setDevEchoBroadcasts = (_enabled: boolean) => Promise.resolve(false);
+		const menu = await renderMenuWithSettingsOpen();
+
+		await act(async () => {
+			menu.root.findByProps({ 'data-testid': 'dev-echo-broadcasts-checkbox' }).props.onChange();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(menu.root.findByProps({ 'data-testid': 'dev-echo-broadcasts-checkbox' }).props.checked).toBe(true);
+	});
+
+	it('ignores a second toggle of "Allow in screenshots" while the first call is still in flight', async () => {
+		electronApi.isDev = () => Promise.resolve(true);
+		let resolveFirst: ((ok: boolean) => void) | undefined;
+		const calls: boolean[] = [];
+		electronApi.setAllowInScreenshots = (enabled: boolean) => {
+			calls.push(enabled);
+			return new Promise<boolean>((resolve) => {
+				resolveFirst = resolve;
+			});
+		};
+		const menu = await renderMenuWithSettingsOpen();
+		const checkbox = () => menu.root.findByProps({ 'data-testid': 'allow-in-screenshots-checkbox' });
+
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+
+		expect(calls).toEqual([true]);
+
+		await act(async () => {
+			resolveFirst?.(true);
+			await Promise.resolve();
+		});
+		await act(async () => {
+			checkbox().props.onChange();
+		});
+
+		expect(calls).toEqual([true, false]);
 	});
 });

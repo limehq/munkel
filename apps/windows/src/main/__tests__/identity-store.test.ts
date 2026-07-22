@@ -1,58 +1,361 @@
-import { describe, it, expect, beforeEach, afterEach } from 'bun:test';
-import { mkdtemp, rm, readFile, stat } from 'node:fs/promises';
-import { join } from 'node:path';
-import { tmpdir } from 'node:os';
-import { IdentityStore, type PersistedState } from '../identity-store';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { IdentityStore } from '../identity-store';
 
-describe('identity-store', () => {
-	let tempDir: string;
-	let store: IdentityStore;
+describe('IdentityStore save/load (permissions + round-trip)', () => {
+	let dir: string;
 
-	beforeEach(async () => {
-		tempDir = await mkdtemp(join(tmpdir(), 'munkel-identity-store-'));
-		store = new IdentityStore(tempDir);
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'munkel-identity-store-'));
 	});
 
-	afterEach(async () => {
-		await rm(tempDir, { recursive: true, force: true });
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
 	});
 
-	it('saves state.json with restricted permissions on POSIX', async () => {
-		const state: PersistedState = {
-			version: 1,
-			memberId: 'member-123',
-			displayName: 'Test User',
-			circles: [],
-		};
+	it('saves state.json with restricted permissions on POSIX', () => {
+		const store = new IdentityStore(dir);
+		// Materialize a state file via load() (creates default).
+		store.load();
 
-		store.save(state);
-
-		const filePath = join(tempDir, 'state.json');
-		const raw = await readFile(filePath, 'utf8');
-		expect(JSON.parse(raw)).toEqual(state);
-
+		const filePath = path.join(dir, 'state.json');
 		if (process.platform !== 'win32') {
-			const info = await stat(filePath);
+			const info = fs.statSync(filePath);
 			expect(info.mode & 0o777).toBe(0o600);
 		}
 	});
 
-	it('round-trips persisted state', () => {
-		const state: PersistedState = {
-			version: 1,
-			memberId: 'member-456',
-			displayName: 'Round Trip',
-			githubLogin: 'roundtrip',
-			circles: [
-				{
-					code: 'blue-table-42',
-					relayUrl: 'wss://relay.example',
-					joinedAt: '2026-01-01T00:00:00.000Z',
-				},
-			],
-		};
+	it('round-trips persisted state via load() after patch mutations', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ displayName: 'Round Trip', githubLogin: 'roundtrip' });
+		store.addCircle('blue-table-42', 'wss://relay.example');
 
-		store.save(state);
-		expect(store.load()).toEqual(state);
+		const reloaded = new IdentityStore(dir).load();
+		expect(reloaded.displayName).toBe('Round Trip');
+		expect(reloaded.githubLogin).toBe('roundtrip');
+		expect(reloaded.circles).toHaveLength(1);
+		expect(reloaded.circles[0]?.code).toBe('blue-table-42');
+		expect(reloaded.circles[0]?.relayUrl).toBe('wss://relay.example');
+	});
+});
+
+describe('IdentityStore launchAtLogin (Plan 12 P2.1)', () => {
+	let dir: string;
+
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'munkel-identity-store-'));
+	});
+
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('defaults launchAtLogin to false for a freshly created store', () => {
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.launchAtLogin).toBe(false);
+	});
+
+	it('persists launchAtLogin=true via patch and reflects it on the next load', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ launchAtLogin: true });
+
+		const reloaded = store.load();
+		expect(reloaded.launchAtLogin).toBe(true);
+	});
+
+	it('persists launchAtLogin=false via patch after previously being true', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ launchAtLogin: true });
+		store.patch({ launchAtLogin: false });
+
+		expect(store.load().launchAtLogin).toBe(false);
+	});
+
+	it('does not disturb other identity fields when patching launchAtLogin', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ displayName: 'Ada' });
+		store.patch({ launchAtLogin: true });
+
+		const state = store.load();
+		expect(state.displayName).toBe('Ada');
+		expect(state.launchAtLogin).toBe(true);
+	});
+
+	it('migrates a legacy state.json (no launchAtLogin field) to default false', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 1,
+				memberId: 'legacy-member',
+				displayName: 'Legacy',
+				circles: [],
+			}),
+		);
+
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.launchAtLogin).toBe(false);
+		expect(state.memberId).toBe('legacy-member');
+	});
+});
+
+describe('IdentityStore autoUpdateCheck (Plan 12 P3.7)', () => {
+	let dir: string;
+
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'munkel-identity-store-'));
+	});
+
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('defaults autoUpdateCheck to true for a freshly created store', () => {
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.autoUpdateCheck).toBe(true);
+	});
+
+	it('persists autoUpdateCheck=false via patch and reflects it on the next load', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ autoUpdateCheck: false });
+
+		const reloaded = store.load();
+		expect(reloaded.autoUpdateCheck).toBe(false);
+	});
+
+	it('persists autoUpdateCheck=true via patch after previously being false', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ autoUpdateCheck: false });
+		store.patch({ autoUpdateCheck: true });
+
+		expect(store.load().autoUpdateCheck).toBe(true);
+	});
+
+	it('does not disturb other identity fields when patching autoUpdateCheck', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ displayName: 'Ada' });
+		store.patch({ autoUpdateCheck: false });
+
+		const state = store.load();
+		expect(state.displayName).toBe('Ada');
+		expect(state.autoUpdateCheck).toBe(false);
+	});
+
+	it('migrates a legacy state.json (no autoUpdateCheck field) to default true', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 1,
+				memberId: 'legacy-member',
+				displayName: 'Legacy',
+				circles: [],
+				launchAtLogin: true,
+			}),
+		);
+
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.autoUpdateCheck).toBe(true);
+		expect(state.launchAtLogin).toBe(true);
+		expect(state.memberId).toBe('legacy-member');
+	});
+});
+
+describe('IdentityStore paletteHotkey (Plan 12 P3.1)', () => {
+	let dir: string;
+
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'munkel-identity-store-'));
+	});
+
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('defaults paletteHotkey to Ctrl+Shift+M for a freshly created store', () => {
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.paletteHotkey).toBe('Ctrl+Shift+M');
+	});
+
+	it('persists a rebound paletteHotkey via patch and reflects it on the next load', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ paletteHotkey: 'Ctrl+Alt+P' });
+
+		const reloaded = store.load();
+		expect(reloaded.paletteHotkey).toBe('Ctrl+Alt+P');
+	});
+
+	it('does not disturb other identity fields when patching paletteHotkey', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ displayName: 'Ada' });
+		store.patch({ paletteHotkey: 'Ctrl+Alt+P' });
+
+		const state = store.load();
+		expect(state.displayName).toBe('Ada');
+		expect(state.paletteHotkey).toBe('Ctrl+Alt+P');
+	});
+
+	it('migrates a legacy state.json (no paletteHotkey field) to the default', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 1,
+				memberId: 'legacy-member',
+				displayName: 'Legacy',
+				circles: [],
+			}),
+		);
+
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.paletteHotkey).toBe('Ctrl+Shift+M');
+		expect(state.memberId).toBe('legacy-member');
+	});
+
+	it('resets an invalid/corrupted paletteHotkey value on load to the default', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 1,
+				memberId: 'legacy-member',
+				displayName: 'Legacy',
+				circles: [],
+				paletteHotkey: 'not a real accelerator',
+			}),
+		);
+
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.paletteHotkey).toBe('Ctrl+Shift+M');
+	});
+});
+
+describe('IdentityStore allowInScreenshots (Plan 13 item 5)', () => {
+	let dir: string;
+
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'munkel-identity-store-'));
+	});
+
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('defaults allowInScreenshots to false for a freshly created store', () => {
+		const store = new IdentityStore(dir);
+		expect(store.load().allowInScreenshots).toBe(false);
+	});
+
+	it('persists allowInScreenshots=true via patch and reflects it on the next load', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ allowInScreenshots: true });
+
+		expect(store.load().allowInScreenshots).toBe(true);
+	});
+
+	it('persists allowInScreenshots=false via patch after previously being true', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ allowInScreenshots: true });
+		store.patch({ allowInScreenshots: false });
+
+		expect(store.load().allowInScreenshots).toBe(false);
+	});
+
+	it('migrates a legacy state.json (no allowInScreenshots field) to default false', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 1,
+				memberId: 'legacy-member',
+				displayName: 'Legacy',
+				circles: [],
+			}),
+		);
+
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.allowInScreenshots).toBe(false);
+		expect(state.memberId).toBe('legacy-member');
+	});
+});
+
+describe('IdentityStore devEchoBroadcasts (Plan 13 item 6)', () => {
+	let dir: string;
+
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'munkel-identity-store-'));
+	});
+
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('defaults devEchoBroadcasts to false for a freshly created store (opt-in)', () => {
+		const store = new IdentityStore(dir);
+		expect(store.load().devEchoBroadcasts).toBe(false);
+		expect(store.load().version).toBe(2);
+	});
+
+	it('persists devEchoBroadcasts=false via patch and reflects it on the next load', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ devEchoBroadcasts: false });
+
+		expect(store.load().devEchoBroadcasts).toBe(false);
+	});
+
+	it('persists devEchoBroadcasts=true via patch after previously being false', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ devEchoBroadcasts: false });
+		store.patch({ devEchoBroadcasts: true });
+
+		expect(store.load().devEchoBroadcasts).toBe(true);
+	});
+
+	it('migrates a legacy state.json (no devEchoBroadcasts field) to default false', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 1,
+				memberId: 'legacy-member',
+				displayName: 'Legacy',
+				circles: [],
+			}),
+		);
+
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.devEchoBroadcasts).toBe(false);
+		expect(state.version).toBe(2);
+		expect(state.memberId).toBe('legacy-member');
+	});
+
+	it('v1→v2 migration resets a persisted echo-true (old default) to false once', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 1,
+				memberId: 'legacy-member',
+				displayName: 'Legacy',
+				circles: [],
+				devEchoBroadcasts: true,
+			}),
+		);
+
+		const store = new IdentityStore(dir);
+		const state = store.load();
+		expect(state.devEchoBroadcasts).toBe(false);
+		expect(state.version).toBe(2);
 	});
 });

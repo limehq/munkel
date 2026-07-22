@@ -13,10 +13,12 @@
     "./crypto": "./src/crypto.ts",
     "./payload": "./src/payload.ts",
     "./normalize": "./src/normalize.ts",
-    "./base64": "./src/base64.ts"
+    "./base64": "./src/base64.ts",
+    "./message-limits": "./src/message-limits.ts"
   },
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "bun test"
   },
   "dependencies": {
     "zod": "^4.1.0"

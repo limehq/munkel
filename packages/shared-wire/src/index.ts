@@ -6,3 +6,4 @@ export * from './crypto.js';
 export * from './payload.js';
 export * from './normalize.js';
 export * from './base64.js';
+export * from './message-limits.js';

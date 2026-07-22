@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { NOTCH_FULL_MS, NOTCH_HISTORY_MS, NOTCH_RETRACT_AT_MS, type NotchPhase } from './notch-phase';
 import { pruneNotchHistory } from './prune-notch-history';
+import { copyAvifBase64ToClipboardAsPng } from './copy-image-to-clipboard';
 import type { NotchMessage } from '../../shared/types';
 
 export interface NotchHistoryEntry extends NotchMessage {
@@ -30,10 +31,14 @@ export interface UseNotchLifecycleReturn {
 	replyOpen: boolean;
 	replyingTo: string | null;
 	copiedId: string | null;
+	/** Unread indicator dot (Plan 12 P3.3): true once the current message has
+	 * retracted without the user ever hovering or opening a reply for it. */
+	unread: boolean;
+	setHovering: (value: boolean) => void;
 	openReply: (entry: NotchHistoryEntry) => void;
 	closeReply: () => void;
 	onNotchMessage: (message: NotchMessage) => void;
-	copyText: (entry: NotchHistoryEntry) => void;
+	copyText: (entry: NotchHistoryEntry, fullImageBase64?: string) => void;
 	scheduleHoverLeave: () => void;
 	cancelHoverLeave: () => void;
 	reopenFromHoverTarget: () => void;
@@ -44,8 +49,20 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 	const [history, setHistory] = useState<NotchHistoryEntry[]>([]);
 	const [phase, setPhase] = useState<NotchPhase>('retracted');
 	const [ui, setUi] = useState<NotchUiState>('collapsed');
+	const [hovering, setHovering] = useState(false);
 	const [replyingTo, setReplyingTo] = useState<string | null>(null);
 	const [copiedId, setCopiedId] = useState<string | null>(null);
+	// Unread indicator dot (Plan 12 P3.3): whether the user has interacted
+	// with the *current* newest message. Reset to false in `onNotchMessage`
+	// whenever a new message arrives. Exactly two paths flip it true:
+	// `reopenFromHoverTarget` (hovering the sliver's hover-target to reopen)
+	// and `openReply` (the reply button or a message-body click; sending a
+	// reply necessarily passes through `openReply` first, so "send" is
+	// covered transitively). Note that a bare `setHovering(true)` — e.g. the
+	// currently-idle `notch-reopen` push fallback — does NOT count as an
+	// interaction. The exposed `unread` flag is derived (see below), not
+	// stored, so it cannot go stale relative to `phase`/`newest`.
+	const [interacted, setInteracted] = useState(false);
 
 	const phaseTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
 	const leaveHoverTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -57,6 +74,10 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 	const reopening = ui === 'open';
 	const previewing = ui === 'preview';
 	const replyOpen = replyingTo !== null;
+	// A dot only makes sense once the notch has actually retracted with an
+	// unread message sitting behind it — not while it's still visible
+	// (full/peek) or reopened for viewing.
+	const unread = phase === 'retracted' && !!newest && !interacted;
 
 	const cancelHoverLeave = useCallback(() => {
 		if (leaveHoverTimer.current) {
@@ -77,6 +98,8 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 	const openFromPreview = useCallback(() => {
 		cancelHoverLeave();
 		setUi('open');
+		setHovering(true);
+		setInteracted(true);
 	}, [cancelHoverLeave]);
 
 	const reopenFromHoverTarget = useCallback(() => {
@@ -87,14 +110,30 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 
 	const openReply = useCallback((entry: NotchHistoryEntry) => {
 		setReplyingTo(entry.id);
+		setInteracted(true);
 	}, []);
 
 	const closeReply = useCallback(() => {
 		setReplyingTo(null);
 	}, []);
 
-	const copyText = useCallback((entry: NotchHistoryEntry) => {
-		void navigator.clipboard.writeText(entry.text);
+	/**
+	 * Copy an entry's content (Plan 14 task 7: prefer full-res image). When
+	 * the caller has a loaded full-resolution image for this entry's first
+	 * picture, try to copy THAT to the clipboard (mirroring macOS's
+	 * image-copy path); any failure — unsupported clipboard API, decode
+	 * error — falls back to the existing text-only copy rather than doing
+	 * nothing. Entries without a loaded image (no `fullImageBase64`) copy
+	 * text exactly as before.
+	 */
+	const copyText = useCallback((entry: NotchHistoryEntry, fullImageBase64?: string) => {
+		if (fullImageBase64) {
+			void copyAvifBase64ToClipboardAsPng(fullImageBase64).catch(() => {
+				void navigator.clipboard.writeText(entry.text);
+			});
+		} else {
+			void navigator.clipboard.writeText(entry.text);
+		}
 		setCopiedId(entry.id);
 	}, []);
 
@@ -108,6 +147,8 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		setUi('collapsed');
 		cancelHoverLeave();
 		closeReply();
+		// A new message is unread until the user interacts with it again.
+		setInteracted(false);
 	}, [cancelHoverLeave, closeReply]);
 
 	// Phase lifecycle: FULL → PEEK → RETRACTED for each new newest message.
@@ -237,6 +278,8 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		replyOpen,
 		replyingTo,
 		copiedId,
+		unread,
+		setHovering,
 		openReply,
 		closeReply,
 		onNotchMessage,

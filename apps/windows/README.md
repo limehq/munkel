@@ -40,7 +40,10 @@ Munkel for Windows — Electron + Vite + React + TypeScript client.
 The Windows app uses `electron-updater` with a GitHub Releases feed
 (`rodgi040/munkel`).
 
-- Packaged builds automatically check for updates on launch and every 24 hours.
+- Packaged builds automatically check for updates on launch and every 24 hours
+  by default. A "Check Automatically" checkbox in the settings popover lets
+  the user disable this; manual **Check for Updates…** always works
+  regardless of the toggle.
 - When an update finishes downloading, the menu shows an **Install** button.
 - The app never installs an update without user consent.
 - Dev mode (`bun run dev`) skips auto-checks to avoid updater noise.
@@ -70,6 +73,20 @@ Phase 1 is feature-complete for day-to-day messaging:
 - `munkel` CLI integration over a Windows named pipe.
 - Cross-platform crypto interop with the macOS app and server reference.
 - Menu: leaving a circle now shows a confirmation dialog to prevent accidental exits.
+- Menu: recipient picker uses avatar chips (globe = everyone, one chip per member), matching the macOS `TargetChip` design.
+- Menu: opt-in "Launch at login" toggle in Settings (default off; never auto-registers, unlike the macOS release).
+- Menu: "Check Automatically" toggle in Settings for auto-update checks (default on).
+- Notch: hover-"C" keyboard shortcut copies the hovered history row (or the newest message) while the notch is hovered.
+- Notch: a blue unread-indicator dot appears in the retracted sliver for a message the user hasn't hovered or replied to.
+- Palette and menu: `Ctrl+V` attaches a clipboard image (PNG/JPEG/Bitmap) when present, falling through to normal text paste otherwise.
+- Avatars slide/fade in on mount, with a one-time pulse-ring for the notch's newest message on arrival.
+- Notch: history rows (once reopened via hover) default to a single ellipsized line with a per-row chevron to expand/collapse and a per-row copy button; click-to-reply is unaffected.
+- Menu: the quick-send hotkey is rebindable in Settings via a key-combo recorder (default `Ctrl+Shift+M`), with a reset-to-default button and rollback if the new combo can't be registered.
+- Menu: each circle card has a "Copy code" button that copies the circle's code to the clipboard, with a brief checkmark confirmation.
+- Menu and notch: messages are capped at 2048 characters (matching the macOS app and the CLI), enforced on typed/pasted text and applied to incoming text as well.
+- Notch: sending an inline reply shows a brief "Sent to …" confirmation chip before the reply field closes.
+- Notch: long message text scrolls once as a single-line ticker (stands still, scrolls, stops) instead of wrapping; short text stays static.
+- Dev builds only: Settings gains "Echo my broadcasts to me" (see your own broadcast sends in the notch, default on) and "Allow in screenshots" (default off) toggles — never shown or persisted in a packaged build.
 
 GitHub login is optional. The app still works with a manual display name and
 joined circles even when no GitHub account is connected. A real
@@ -135,7 +152,7 @@ use 5173.
 
 ## Keyboard shortcuts
 
-- `Ctrl + Shift + M` — toggle the quick-send palette
+- `Ctrl + Shift + M` — toggle the quick-send palette (default; rebindable in the menu's Settings popover)
 
 ## CLI integration
 

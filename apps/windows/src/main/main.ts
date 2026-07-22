@@ -1,4 +1,4 @@
-import { app, ipcMain, BrowserWindow, IpcMainInvokeEvent, Tray } from 'electron';
+import { app, ipcMain, BrowserWindow, IpcMainInvokeEvent, Tray, globalShortcut } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createMenuWindow, showMenuWindow, toggleMenuWindow } from './menu-window';
@@ -7,16 +7,28 @@ import {
 	showNotch,
 	requestNotchHide,
 	updateNotch,
+	resizeNotchToContent,
 	enterPreviewMode,
 	exitPreviewMode,
 	isPreviewMode,
+	setNotchPreviewActive,
 } from './notch-window';
 import { focusNotchForReply, unfocusNotchAfterReply } from './notch-focus';
 import { createPaletteWindow, showPalette, hidePalette } from './palette-window';
 import { createTray } from './tray';
 import { createFakeNotchInjector } from './fake-notch-injector';
-import { registerTogglePalette, unregisterShortcuts } from './shortcuts';
+import { unregisterShortcuts } from './shortcuts';
+import {
+	createHoverCopyController,
+	handleNotchSetInteractive,
+	wireHoverCopyDisarm,
+	type HoverCopyWindowLike,
+} from './hover-copy-shortcut';
+import { registerPaletteHotkey, rebindPaletteHotkey } from './palette-hotkey';
+import { DEFAULT_PALETTE_HOTKEY } from '../shared/accelerator';
 import { IdentityStore } from './identity-store';
+import { applyLaunchAtLogin, setLaunchAtLoginPreference } from './login-item';
+import { applyContentProtection } from './content-protection';
 import { deriveGroupKeys } from '@munkel/shared-wire/crypto';
 import { AppState } from './session-store';
 import { registerSessionHandlers } from './session-handlers';
@@ -55,15 +67,76 @@ let tray: Tray | null = null;
 let controlServer: { close(): Promise<void> } | null = null;
 let updateService: ReturnType<typeof initUpdateService> | null = null;
 let fakeNotchInjector: ReturnType<typeof createFakeNotchInjector> | null = null;
+let hoverCopyController: ReturnType<typeof createHoverCopyController> | null = null;
+let disposeHoverCopyDisarm: (() => void) | null = null;
+// Tracks the `interactive` flag from the notch-set-interactive IPC channel
+// (true only while the notch is `full`/reopening/reply-open — see
+// useNotchLifecycle). Combined with `notchWindow?.isVisible()` this is the
+// "visible + interactive" gate the hover-copy controller's `canArm` checks
+// before accepting a fresh arm — see hover-copy-shortcut.ts's "Late-Ping-Race
+// fix" for why a late renderer ping must not re-arm a disarmed shortcut.
+let notchInteractive = false;
+// Rebindable palette-toggle hotkey (Plan 12 P3.1): the accelerator string
+// whose `globalShortcut` registration is CONFIRMED right now, or `null`
+// while the hotkey is unbound (startup registration failed, or the rare
+// rebind double-failure — see palette-hotkey.ts's confirmed-binding
+// invariant, Kimi-Review of 24d6340). Kept in sync by the
+// `set-palette-hotkey` handler, which always mirrors `rebindPaletteHotkey`'s
+// actual outcome (rollback or heal-to-default on a failed rebind) rather
+// than whatever the renderer requested. Never set to a value that isn't
+// actually registered — the renderer displays this and must not claim a
+// binding that doesn't exist.
+let currentPaletteHotkey: string | null = null;
 // Menu click-away-to-dismiss suppression state (Plan 06).
 let pickerOpen = false;
 let githubLoginActive = false;
-const isDev = process.env.NODE_ENV === 'development';
+// Dev-feature gate (Plan 13 items 5–6). MUST be `!app.isPackaged`, NOT an
+// env var: `process.env.NODE_ENV` can be set by any launcher/shortcut/wrapper
+// (the ELECTRON_RUN_AS_NODE-class leak), which would expose the dev toggles —
+// and let a user turn OFF capture protection — in a shipped release build.
+// `app.isPackaged` reflects the actual build shape and cannot be spoofed via
+// the environment. Every dev-gated consumer (`get-is-dev`, the AppState echo
+// fold, the startup + recreate content-protection apply) reads this one const.
+const isDev = !app.isPackaged;
+// Dev-only fake-notch injector is gated by the same `!app.isPackaged` posture
+// (never active in a packaged/release build) plus the NODE_ENV=development
+// signal that the launcher scripts set for actual bun-dev sessions.
 const allowFakeInjector = process.env.NODE_ENV === 'development' && !app.isPackaged;
+
+// Re-applies the persisted "Allow in screenshots" preference (Plan 13 item 5)
+// to the current window set. Assigned inside `app.whenReady()` once the
+// identity store and windows exist; a no-op before then. Kept as a
+// module-level handle so the `second-instance` recreate path (below) can
+// re-apply it to a freshly recreated menu window. In a packaged build `isDev`
+// is false, so this always resolves to "protected" regardless of the
+// persisted value.
+let reapplyPersistedContentProtection: () => void = () => {};
+
+/**
+ * Creates the menu window with the Plan-06 click-away-dismiss suppression
+ * callback wired in. Extracted so BOTH the initial `app.whenReady()` create
+ * and the `second-instance` recreate below produce an identically-configured
+ * window — the recreate previously called `createMenuWindow()` with no
+ * options, silently dropping the dismiss guard.
+ */
+function makeMenuWindow(): BrowserWindow {
+	return createMenuWindow({
+		isDismissSuppressed: () =>
+			isDismissSuppressed({
+				pickerOpen,
+				githubLoginActive,
+				devToolsOpen: menuWindow?.webContents.isDevToolsOpened() ?? false,
+				isDev,
+			}),
+	});
+}
 
 app.on('second-instance', () => {
 	if (!menuWindow || menuWindow.isDestroyed()) {
-		menuWindow = createMenuWindow();
+		menuWindow = makeMenuWindow();
+		// Restore the persisted capture-protection state on the new window
+		// (default-protected regardless, but keep dev flips consistent).
+		reapplyPersistedContentProtection();
 	}
 	showMenuWindow(menuWindow);
 });
@@ -115,15 +188,7 @@ function pushUpdateState(state: UpdateState): void {
 }
 
 app.whenReady().then(async () => {
-	menuWindow = createMenuWindow({
-		isDismissSuppressed: () =>
-			isDismissSuppressed({
-				pickerOpen,
-				githubLoginActive,
-				devToolsOpen: menuWindow?.webContents.isDevToolsOpened() ?? false,
-				isDev,
-			}),
-	});
+	menuWindow = makeMenuWindow();
 	notchWindow = createNotchWindow();
 	paletteWindow = createPaletteWindow();
 
@@ -152,7 +217,29 @@ app.whenReady().then(async () => {
 		console.error('[munkel] failed to create tray icon:', err);
 	}
 
-	registerTogglePalette(togglePalette);
+	// Palette-toggle hotkey registration (Plan 12 P3.1) happens below, once
+	// the persisted accelerator is known — see `currentPaletteHotkey`.
+	// Hover-"C" copy (Plan 12 P3.2): the notch renderer arms this (and keeps
+	// it alive via mousemove activity pings) over NOTCH_SET_HOVER_COPY, but
+	// the MAIN process owns the disarm lifecycle — controller-internal idle
+	// timeout plus the hide / renderer-gone / destroyed / non-interactive
+	// paths wired here. See hover-copy-shortcut.ts for the full rationale.
+	hoverCopyController = createHoverCopyController(
+		() => notchWindow?.webContents.send(PUSH_CHANNELS.NOTCH_COPY_HOVERED),
+		globalShortcut,
+		{
+			// Late-Ping-Race gate (Iteration-5 re-review follow-up): only accept
+			// a fresh arm while the notch window is actually visible AND the
+			// renderer-reported `interactive` flag is current — rejects a late
+			// activity ping that arrives after the notch already hid or went
+			// non-interactive.
+			canArm: () => !!notchWindow?.isVisible() && notchInteractive,
+		},
+	);
+	// BrowserWindow's overloaded `on` signatures don't structurally satisfy
+	// the minimal HoverCopyWindowLike slice, hence the cast; the helper only
+	// uses on('hide') and webContents.on('render-process-gone'|'destroyed').
+	disposeHoverCopyDisarm = wireHoverCopyDisarm(hoverCopyController, notchWindow as unknown as HoverCopyWindowLike);
 
 	// Phase-0 diagnostics (presence bug, H-D): the actual userData dir the app
 	// reads state.json from. A mismatch vs the inspected file would mean persisted
@@ -165,6 +252,7 @@ app.whenReady().then(async () => {
 		broadcastState,
 		(message) => showNotchMessage(message, { silent: presenceMonitor?.effectiveStatus !== 'online' }),
 		relayError,
+		{ isDev },
 	);
 	const githubLoginService = new GitHubLoginService(appState, pushGitHubLoginState);
 	const idleSource = new ElectronIdleTimeSource();
@@ -177,10 +265,54 @@ app.whenReady().then(async () => {
 			appState.broadcastPresenceStatus(status);
 		},
 	});
-	registerSessionHandlers(appState, githubLoginService, presenceMonitor);
+	const persisted = identityStore.load();
 
-	// Auto-update service. Packaged builds check on launch and every 24h; dev skips.
-	updateService = initUpdateService(pushUpdateState, { isDev });
+	// Apply the persisted opt-in autostart choice (Plan 12 P2.1). Unlike the
+	// macOS release, which auto-registers once on first launch, Windows never
+	// auto-registers — this only ever re-applies what the user chose last.
+	applyLaunchAtLogin(app, persisted.launchAtLogin);
+
+	// Dev-only "Allow in screenshots" (Plan 13 item 5): only ever apply the
+	// persisted opt-in outside protection when this IS a dev build (`isDev` =
+	// `!app.isPackaged`) — a packaged release launched against a dev-populated
+	// userData folder must still start fully capture-protected, matching macOS
+	// having no such code path at all in release builds. Defined here (once the
+	// store + windows exist) so the `second-instance` recreate path can reuse
+	// it; reads the persisted value live so a runtime toggle flip is reflected
+	// on a later recreate.
+	reapplyPersistedContentProtection = () => {
+		applyContentProtection(
+			[menuWindow, notchWindow, paletteWindow],
+			isDev && identityStore.load().allowInScreenshots,
+		);
+	};
+	reapplyPersistedContentProtection();
+
+	// Rebindable palette-toggle hotkey (Plan 12 P3.1): register the persisted
+	// accelerator (default Ctrl+Shift+M). A startup registration failure
+	// (e.g. another app already owns the combo) is logged but never fatal —
+	// and `currentPaletteHotkey` then stays `null` (unbound) rather than
+	// pretending the intended accelerator is bound (confirmed-binding
+	// invariant): the settings recorder shows "Not bound" and a later
+	// successful rebind heals the state without a restart.
+	currentPaletteHotkey = registerPaletteHotkey(globalShortcut, persisted.paletteHotkey, togglePalette)
+		? persisted.paletteHotkey
+		: null;
+
+	registerSessionHandlers(appState, githubLoginService, presenceMonitor, {
+		// Only the two windows with a paste UI may pull images off the user's
+		// clipboard via save-clipboard-image (Plan 12 P3.4 hardening); the
+		// notch renders remote message content and must never read it.
+		isImagePasteSender: (sender) => {
+			const win = BrowserWindow.fromWebContents(sender);
+			return win !== null && (win === paletteWindow || win === menuWindow);
+		},
+	});
+
+	// Auto-update service. Packaged builds check on launch and every 24h when
+	// the persisted "Check Automatically" preference (Plan 12 P3.7) allows
+	// it; dev always skips. Manual "Check for Updates…" always works.
+	updateService = initUpdateService(pushUpdateState, { isDev, autoCheckEnabled: persisted.autoUpdateCheck });
 
 	// Named-pipe control server for the `munkel` CLI. Mirrors the macOS app's
 	// Unix-domain-socket `ControlServer` — one request/response per connection,
@@ -223,7 +355,19 @@ app.whenReady().then(async () => {
 	});
 	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_INTERACTIVE, (event, interactive: boolean) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
-		notchWindow?.setIgnoreMouseEvents(!interactive, { forward: true });
+		// Track the flag FIRST, and shield the Electron call: if
+		// setIgnoreMouseEvents threw (e.g. window mid-destroy), the
+		// hover-copy `canArm` gate and the disarm below must still see a
+		// consistent `notchInteractive` value.
+		notchInteractive = !!interactive;
+		try {
+			notchWindow?.setIgnoreMouseEvents(!interactive, { forward: true });
+		} catch (err) {
+			console.error('[munkel] setIgnoreMouseEvents failed:', err);
+		}
+		// Going click-through means the renderer may never get a mouseleave
+		// for the pointer that armed the hover-copy shortcut — force-disarm.
+		handleNotchSetInteractive(hoverCopyController, !!interactive);
 	});
 	ipcMain.handle(IPC_CHANNELS.NOTCH_EMPTY, (event) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
@@ -236,6 +380,35 @@ app.whenReady().then(async () => {
 		} else {
 			exitPreviewMode(notchWindow);
 		}
+	});
+	ipcMain.handle(IPC_CHANNELS.NOTCH_RESIZE, (event, contentHeight: number) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
+		resizeNotchToContent(notchWindow, contentHeight);
+	});
+	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_HOVER_COPY, (event, active: boolean) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) {
+			console.warn('[munkel] rejected notch-set-hover-copy from non-notch sender');
+			return false;
+		}
+		// Returns false when arming failed (OS shortcut registration), so the
+		// renderer can turn the feature off instead of assuming it is armed.
+		return hoverCopyController?.setActive(!!active) ?? false;
+	});
+	// Image Quick-Look overlay (Plan 14). Main-owned download+decrypt so the
+	// renderer never sees `messageKey` — same sender-guard posture as the
+	// other notch-only channels above.
+	ipcMain.handle(IPC_CHANNELS.NOTCH_LOAD_FULL_IMAGE, async (event, group: string, r2Key: string) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) {
+			console.warn('[munkel] rejected notch-load-full-image from non-notch sender');
+			return { ok: false };
+		}
+		const bytes = await appState.loadFullImage(group, r2Key);
+		if (!bytes) return { ok: false };
+		return { ok: true, data: Buffer.from(bytes).toString('base64') };
+	});
+	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_PREVIEW_ACTIVE, (event, active: boolean) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
+		setNotchPreviewActive(notchWindow, !!active);
 	});
 	ipcMain.handle(IPC_CHANNELS.START_GITHUB_LOGIN, async () => {
 		githubLoginService.startGitHubLogin();
@@ -259,11 +432,110 @@ app.whenReady().then(async () => {
 		if (!menuWindow || BrowserWindow.fromWebContents(event.sender) !== menuWindow) return { ok: false };
 		return updateService?.cancelInstall() ?? { ok: false };
 	});
+	// Autostart is a menu-only setting: the notch and palette renderers show
+	// remote/message-derived content and must not be able to change it.
+	// Same sender-guard pattern as the notch-* channels above.
+	ipcMain.handle(IPC_CHANNELS.GET_LAUNCH_AT_LOGIN, (event) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return false;
+		return identityStore.load().launchAtLogin;
+	});
+	ipcMain.handle(IPC_CHANNELS.SET_LAUNCH_AT_LOGIN, (event, enabled: boolean) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return false;
+		// Handler logic lives in login-item.ts so it is unit-testable
+		// (main.ts wiring has no test harness; see docs/ipc-contract.md).
+		return setLaunchAtLoginPreference(app, identityStore, enabled);
+	});
+	// Auto-update "Check Automatically" toggle (Plan 12 P3.7). Same
+	// menu-only sender guard as the launch-at-login channels above.
+	ipcMain.handle(IPC_CHANNELS.GET_AUTO_UPDATE_CHECK, (event) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return true;
+		return identityStore.load().autoUpdateCheck;
+	});
+	ipcMain.handle(IPC_CHANNELS.SET_AUTO_UPDATE_CHECK, (event, enabled: boolean) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return false;
+		const value = !!enabled;
+		identityStore.patch({ autoUpdateCheck: value });
+		updateService?.setAutoCheckEnabled(value);
+		return true;
+	});
+	// Rebindable palette hotkey (Plan 12 P3.1). Same menu-only sender guard
+	// as the launch-at-login / auto-update-check channels above — the
+	// settings-popover recorder is the only UI that changes this.
+	ipcMain.handle(IPC_CHANNELS.GET_PALETTE_HOTKEY, (event) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return DEFAULT_PALETTE_HOTKEY;
+		return currentPaletteHotkey;
+	});
+	ipcMain.handle(IPC_CHANNELS.SET_PALETTE_HOTKEY, (event, accelerator: unknown) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) {
+			console.warn('[munkel] rejected set-palette-hotkey from non-menu sender');
+			return { ok: false, accelerator: currentPaletteHotkey, error: 'registration-failed' };
+		}
+		// rebindPaletteHotkey handler logic lives in palette-hotkey.ts so it is
+		// unit-testable (main.ts wiring has no test harness; see
+		// docs/ipc-contract.md — same pattern as login-item.ts).
+		const result = rebindPaletteHotkey(globalShortcut, currentPaletteHotkey, accelerator, togglePalette);
+		// Mirror the CONFIRMED binding exactly — including `null` (unbound)
+		// after a rollback-failed double failure. Persist whatever is actually
+		// bound (covers both a successful rebind and the heal-to-default
+		// fallback, so a restart re-registers what the user really has); on
+		// `null` the persisted value is left alone — the next startup retries
+		// it, and a later successful rebind overwrites it.
+		currentPaletteHotkey = result.accelerator;
+		if (result.accelerator !== null) identityStore.patch({ paletteHotkey: result.accelerator });
+		return result;
+	});
+
+	// Dev-only flag (Plan 13 items 5–6): lets the renderer gate the two
+	// dev-only settings-popover toggles below without relying on a
+	// nonexistent `window.electronAPI.isPackaged`. No sender guard needed —
+	// it's read-only and identical for every window.
+	ipcMain.handle(IPC_CHANNELS.GET_IS_DEV, () => isDev);
+
+	// Dev-only "Allow in screenshots" (Plan 13 item 5). Same menu-only
+	// sender guard as launch-at-login/auto-update-check/palette-hotkey
+	// above, PLUS an `isDev` gate so a packaged build's own (nonexistent,
+	// but defense-in-depth) UI could never flip this even if it tried.
+	ipcMain.handle(IPC_CHANNELS.GET_ALLOW_IN_SCREENSHOTS, (event) => {
+		if (!isDev) return false;
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return false;
+		return identityStore.load().allowInScreenshots;
+	});
+	ipcMain.handle(IPC_CHANNELS.SET_ALLOW_IN_SCREENSHOTS, (event, enabled: boolean) => {
+		if (!isDev) return false;
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) {
+			console.warn('[munkel] rejected set-allow-in-screenshots from non-menu sender');
+			return false;
+		}
+		const value = !!enabled;
+		identityStore.patch({ allowInScreenshots: value });
+		applyContentProtection([menuWindow, notchWindow, paletteWindow], value);
+		return true;
+	});
+
+	// Dev-only "Echo my broadcasts" (Plan 13 item 6). Same gating posture as
+	// the screenshot toggle above.
+	ipcMain.handle(IPC_CHANNELS.GET_DEV_ECHO_BROADCASTS, (event) => {
+		if (!isDev) return false;
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) return false;
+		return appState.getDevEchoBroadcasts();
+	});
+	ipcMain.handle(IPC_CHANNELS.SET_DEV_ECHO_BROADCASTS, (event, enabled: boolean) => {
+		if (!isDev) return false;
+		if (BrowserWindow.fromWebContents(event.sender) !== menuWindow) {
+			console.warn('[munkel] rejected set-dev-echo-broadcasts from non-menu sender');
+			return false;
+		}
+		appState.setDevEchoBroadcasts(!!enabled);
+		return true;
+	});
 
 	await appState.restoreCircles();
 	appState.broadcast();
 
-	if (process.env.NODE_ENV === 'development') {
+	// Dev diagnostic only — gate on the same unspoofable `isDev`
+	// (`!app.isPackaged`) as everything else, so a release never prints the
+	// smoke log even if launched with NODE_ENV=development.
+	if (isDev) {
 		const { groupId } = await deriveGroupKeys('blue-table-42');
 		console.log('[munkel-smoke] deriveGroupKeys(blue-table-42) =', groupId);
 		if (groupId !== 'aaf5dc7308fe4bede46cdebc9390813d') {
@@ -279,6 +551,12 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
 	fakeNotchInjector?.dispose();
 	fakeNotchInjector = null;
+	// Disarm before the blanket unregisterAll so the controller's internal
+	// state (and pending idle timer) is cleaned up, not just the OS binding.
+	hoverCopyController?.dispose();
+	hoverCopyController = null;
+	disposeHoverCopyDisarm?.();
+	disposeHoverCopyDisarm = null;
 	unregisterShortcuts();
 	void controlServer?.close();
 	controlServer = null;
