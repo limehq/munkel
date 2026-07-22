@@ -93,6 +93,43 @@ function startOrRestartElectron() {
 	// docs/bugs/windows-ui-invisible-2026-07-10.md.
 	const childEnv = { ...process.env, NODE_ENV: 'development' };
 	delete childEnv.ELECTRON_RUN_AS_NODE;
+	// Cloud/Linux XFCE: Electron Tray uses StatusNotifierItem over the session
+	// bus. Without a concrete unix:path address Chromium logs
+	// "Unknown address type" and the icon never appears in the panel.
+	if (!childEnv.DBUS_SESSION_BUS_ADDRESS || childEnv.DBUS_SESSION_BUS_ADDRESS === 'autolaunch:') {
+		const sessionBusDir = path.join(process.env.HOME ?? '', '.dbus/session-bus');
+		try {
+			for (const name of fs.readdirSync(sessionBusDir)) {
+				const text = fs.readFileSync(path.join(sessionBusDir, name), 'utf8');
+				const match = text.match(/^DBUS_SESSION_BUS_ADDRESS='([^']+)'/m);
+				if (match) {
+					childEnv.DBUS_SESSION_BUS_ADDRESS = match[1];
+					break;
+				}
+			}
+		} catch {
+			/* no session-bus file */
+		}
+		if (!childEnv.DBUS_SESSION_BUS_ADDRESS || childEnv.DBUS_SESSION_BUS_ADDRESS === 'autolaunch:') {
+			try {
+				for (const name of fs.readdirSync('/tmp')) {
+					if (name.startsWith('dbus-') && !name.includes('.')) {
+						const sock = path.join('/tmp', name);
+						try {
+							if (fs.statSync(sock).isSocket()) {
+								childEnv.DBUS_SESSION_BUS_ADDRESS = `unix:path=${sock}`;
+								break;
+							}
+						} catch {
+							/* skip */
+						}
+					}
+				}
+			} catch {
+				/* ignore */
+			}
+		}
+	}
 	electronProcess = spawn(getElectronPath(), [path.join(root, 'dist', 'main.cjs')], {
 		stdio: 'inherit',
 		env: childEnv,
