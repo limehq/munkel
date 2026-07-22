@@ -1,12 +1,17 @@
 import { createServer, build } from 'vite';
 import { spawn } from 'node:child_process';
-import net from 'node:net';
 import fs from 'node:fs';
+import net from 'node:net';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, '..');
+const t0 = Date.now();
+
+function mark(label) {
+	process.stdout.write(`[startup] ${label} +${Date.now() - t0}ms\n`);
+}
 
 const PREFERRED_PORT = Number(process.env.VITE_DEV_PORT ?? 5174);
 const MAX_PORT_TRIES = 50;
@@ -73,6 +78,7 @@ function areOutputsReady() {
 
 function startOrRestartElectron() {
 	if (!areOutputsReady()) return;
+	mark('electron.spawn');
 	if (electronProcess) {
 		electronProcess.kill();
 		electronProcess = null;
@@ -94,6 +100,7 @@ function startOrRestartElectron() {
 }
 
 async function main() {
+	mark('dev.t0');
 	const port = await findAvailablePort(PREFERRED_PORT);
 	if (port !== PREFERRED_PORT) {
 		process.stdout.write(
@@ -105,6 +112,7 @@ async function main() {
 		configFile: path.join(root, 'vite.renderer.config.ts'),
 	});
 	await rendererServer.listen({ port, host: HOST, strictPort: true });
+	mark('renderer.listen');
 
 	const url = `http://${HOST}:${port}`;
 	process.stdout.write(`[dev] renderer at ${url}\n`);
@@ -117,11 +125,14 @@ async function main() {
 	// `emptyOutDir: false` (each only ever writes its own file into dist/), so
 	// we clear dist/ once here ourselves before starting either watcher —
 	// otherwise the two watchers would never wipe stale output on a cold start.
+	const mainCjs = path.join(root, 'dist', 'main.cjs');
+	const hadMainBundle = fs.existsSync(mainCjs);
 	fs.rmSync(path.join(root, 'dist'), { recursive: true, force: true });
 
 	const electronStarterPlugin = {
 		name: 'electron-starter',
 		closeBundle() {
+			mark('bundle.closeBundle');
 			scheduleElectronRestart();
 		},
 	};
@@ -137,6 +148,12 @@ async function main() {
 		build: { watch: {} },
 		plugins: [electronStarterPlugin],
 	});
+
+	// If a prior dist/main.cjs already existed before we wiped dist/, log so
+	// startup baselines can tell cold vs. warm launches apart.
+	if (hadMainBundle) {
+		mark('main.bundle.preexisting');
+	}
 
 	const shutdown = () => {
 		if (restartTimer) clearTimeout(restartTimer);

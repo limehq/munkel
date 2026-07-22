@@ -118,6 +118,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 			.getState()
 			.then((update) => {
 				if (mounted) applyUpdate(update);
+				console.info('[startup] getState.done');
 			})
 			.catch((err) => console.error('[app-store] failed to load state', err));
 

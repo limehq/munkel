@@ -22,6 +22,7 @@ sub-branch off `platform/windows/v2-clean` (see repo-root `AGENTS.md`).
 | 12 | [macOS feature parity (matrix + P1–P3)](./12-macos-feature-parity.md) | `platform/windows/macos-parity-p1` | #11 branch stack | 🔄 Matrix **38 DONE / 1 PARTIAL / 0 MISSING / 1 BLOCKED** (2026-07-18) — P2.3/OQ4 DONE via Plan 14; only P2.2/OQ5 (CLI installer) still blocked; echo toggle default tightened to opt-in `false` |
 | 13 | [Remaining parity: dev toggles, ticker, hardening](./13-remaining-parity.md) | `platform/windows/macos-parity-p1` | Plan 12 | ✅ Autonomous items done (2026-07-10) — ticker, screenshots toggle, echo toggle (default later flipped to opt-in `false` on 2026-07-18); P2.2 remains BLOCKED on OQ5; P2.3 moved to Plan 14 |
 | 14 | [Image Quick-Look overlay (OQ4 / P2.3)](./14-image-preview-overlay.md) | `platform/windows/macos-parity-p1` | Plan 12–13 + upstream `ImagePreviewOverlay` | ✅ Implemented (2026-07-17) — hover Quick-Look, wide notch, blob-download; uncommitted; manual QA checklist partially open |
+| 15 | [Startup performance](./12-startup-performance.md) | `platform/windows/startup-perf` | `v2-clean` | ✅ Merged |
 
 > **Plans 01–11 are merged into `platform/windows/v2-clean`.**
 > Phase 2 + Plans 01–05 shipped via PR #12–#16 and PR #22; Plan 06 merged via

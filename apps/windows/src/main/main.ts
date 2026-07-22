@@ -41,8 +41,17 @@ import { buildPipeName, generatePipeName, getControlPipePath, writeControlPipeNa
 import { broadcastStateUpdate } from './broadcast-state';
 import { isDismissSuppressed, isGitHubLoginActive } from './menu-dismiss';
 import { initUpdateService } from './update-service';
-import type { UpdateState, WindowType } from '../shared/types';
+import type { NotchMessage, UpdateState, WindowType } from '../shared/types';
 import { IPC_CHANNELS, PUSH_CHANNELS } from '../shared/ipc-channels';
+
+// Plan 15 (Startup performance) — startup marks (stderr so they show next to
+// Electron logs). Suppress with MUNKEL_STARTUP_MARKS=0.
+const startupT0 = Date.now();
+function startupMark(label: string): void {
+	if (process.env.MUNKEL_STARTUP_MARKS === '0') return;
+	console.error(`[startup] ${label} +${Date.now() - startupT0}ms`);
+}
+startupMark('requires.done');
 
 // Pin the app name BEFORE anything reads userData. Without this, `electron`
 // launched directly in dev falls back to the generic "Electron" name, so dev
@@ -131,14 +140,49 @@ function makeMenuWindow(): BrowserWindow {
 	});
 }
 
-app.on('second-instance', () => {
+function ensureMenuWindow(): BrowserWindow {
 	if (!menuWindow || menuWindow.isDestroyed()) {
 		menuWindow = makeMenuWindow();
+		startupMark('window.menu.created');
 		// Restore the persisted capture-protection state on the new window
 		// (default-protected regardless, but keep dev flips consistent).
 		reapplyPersistedContentProtection();
 	}
-	showMenuWindow(menuWindow);
+	return menuWindow;
+}
+
+function ensureNotchWindow(): BrowserWindow {
+	if (!notchWindow || notchWindow.isDestroyed()) {
+		notchWindow = createNotchWindow();
+		startupMark('window.notch.created');
+	}
+	return notchWindow;
+}
+
+function ensurePaletteWindow(): BrowserWindow {
+	if (!paletteWindow || paletteWindow.isDestroyed()) {
+		paletteWindow = createPaletteWindow();
+		startupMark('window.palette.created');
+	}
+	return paletteWindow;
+}
+
+/**
+ * Runs `run` when the window's initial load has completed. When lazily
+ * created (Plan 15), a window's first `showX(...)` call can land before the
+ * renderer has attached its IPC listeners — deferring the show/update/send
+ * to `did-finish-load` avoids a dropped first message.
+ */
+function whenWindowReady(win: BrowserWindow, run: () => void): void {
+	if (win.webContents.isLoading()) {
+		win.webContents.once('did-finish-load', run);
+		return;
+	}
+	run();
+}
+
+app.on('second-instance', () => {
+	showMenuWindow(ensureMenuWindow());
 });
 
 function getWindowType(sender: Electron.WebContents): WindowType {
@@ -150,10 +194,11 @@ function getWindowType(sender: Electron.WebContents): WindowType {
 }
 
 function togglePalette() {
-	if (paletteWindow?.isVisible()) {
-		hidePalette(paletteWindow);
+	const win = ensurePaletteWindow();
+	if (win.isVisible()) {
+		hidePalette(win);
 	} else {
-		showPalette(paletteWindow);
+		whenWindowReady(win, () => showPalette(win));
 	}
 }
 
@@ -165,10 +210,13 @@ function broadcastState(update: ReturnType<AppState['getState']>): void {
 	});
 }
 
-function showNotchMessage(message: import('../shared/types').NotchMessage, opts?: { silent?: boolean }): void {
-	updateNotch(notchWindow, message);
-	showNotch(notchWindow);
-	notchWindow?.webContents.send(PUSH_CHANNELS.NOTCH_MESSAGE, { ...message, silent: opts?.silent ?? false });
+function showNotchMessage(message: NotchMessage, opts?: { silent?: boolean }): void {
+	const win = ensureNotchWindow();
+	whenWindowReady(win, () => {
+		updateNotch(win, message);
+		showNotch(win);
+		win.webContents.send(PUSH_CHANNELS.NOTCH_MESSAGE, { ...message, silent: opts?.silent ?? false });
+	});
 }
 
 function relayError(message: string): void {
@@ -188,18 +236,26 @@ function pushUpdateState(state: UpdateState): void {
 }
 
 app.whenReady().then(async () => {
-	menuWindow = makeMenuWindow();
-	notchWindow = createNotchWindow();
-	paletteWindow = createPaletteWindow();
+	startupMark('whenReady');
 
+	// Plan 15 Phase 1 — fake-notch injector uses `showNotchMessage` (which
+	// lazily ensures the notch window), so it can be constructed before any
+	// BrowserWindow exists. Create it BEFORE the tray so the tray's dev
+	// callbacks can bind to a real injector handle from the start.
 	if (allowFakeInjector) {
 		fakeNotchInjector = createFakeNotchInjector({ inject: showNotchMessage });
 	}
 
+	// Plan 15 Phase 1 — tray first so the app signals life in the shell
+	// before any Chromium window is spun up. Tray callbacks use `ensure*`
+	// so lazy windows still work when opened via the tray.
 	try {
 		tray = createTray({
-			toggleMenu: () => toggleMenuWindow(menuWindow),
-			showPalette: () => showPalette(paletteWindow),
+			toggleMenu: () => toggleMenuWindow(ensureMenuWindow()),
+			showPalette: () => {
+				const win = ensurePaletteWindow();
+				whenWindowReady(win, () => showPalette(win));
+			},
 			checkForUpdates: () => updateService?.check(),
 			quit: () => app.quit(),
 			...(fakeNotchInjector
@@ -213,9 +269,16 @@ app.whenReady().then(async () => {
 					}
 				: {}),
 		});
+		startupMark('tray');
 	} catch (err) {
 		console.error('[munkel] failed to create tray icon:', err);
 	}
+
+	// Menu window is needed for many IPC handlers below (sender guards) and
+	// for the `second-instance` recreate path, so create it eagerly right
+	// after the tray. Notch and palette stay lazy via `ensure*`.
+	menuWindow = makeMenuWindow();
+	startupMark('window.menu');
 
 	// Palette-toggle hotkey registration (Plan 12 P3.1) happens below, once
 	// the persisted accelerator is known — see `currentPaletteHotkey`.
@@ -236,10 +299,19 @@ app.whenReady().then(async () => {
 			canArm: () => !!notchWindow?.isVisible() && notchInteractive,
 		},
 	);
+	// The hover-copy disarm wiring needs a real BrowserWindow (it listens for
+	// hide/render-process-gone/destroyed on the notch). Ensure the notch
+	// window is created now — after the tray+menu are already up — so it
+	// stays out of the tray-appear critical path but before any user action
+	// could arm the hover-copy shortcut.
+	//
 	// BrowserWindow's overloaded `on` signatures don't structurally satisfy
 	// the minimal HoverCopyWindowLike slice, hence the cast; the helper only
 	// uses on('hide') and webContents.on('render-process-gone'|'destroyed').
-	disposeHoverCopyDisarm = wireHoverCopyDisarm(hoverCopyController, notchWindow as unknown as HoverCopyWindowLike);
+	disposeHoverCopyDisarm = wireHoverCopyDisarm(
+		hoverCopyController,
+		ensureNotchWindow() as unknown as HoverCopyWindowLike,
+	);
 
 	// Phase-0 diagnostics (presence bug, H-D): the actual userData dir the app
 	// reads state.json from. A mismatch vs the inspected file would mean persisted
@@ -325,6 +397,7 @@ app.whenReady().then(async () => {
 			buildControlHandler(appState),
 		);
 		writeControlPipeName(controlPipeName);
+		startupMark('control');
 		console.log(`[munkel] control pipe: ${controlPipeName}`);
 	} catch (err) {
 		// Don't abort startup: another instance may already own the pipe and
@@ -337,8 +410,11 @@ app.whenReady().then(async () => {
 	ipcMain.handle(IPC_CHANNELS.HIDE_WINDOW, (event: IpcMainInvokeEvent) => {
 		BrowserWindow.fromWebContents(event.sender)?.hide();
 	});
-	ipcMain.handle(IPC_CHANNELS.SHOW_PALETTE, () => showPalette(paletteWindow));
-	ipcMain.handle(IPC_CHANNELS.TOGGLE_MENU, () => toggleMenuWindow(menuWindow));
+	ipcMain.handle(IPC_CHANNELS.SHOW_PALETTE, () => {
+		const win = ensurePaletteWindow();
+		whenWindowReady(win, () => showPalette(win));
+	});
+	ipcMain.handle(IPC_CHANNELS.TOGGLE_MENU, () => toggleMenuWindow(ensureMenuWindow()));
 	ipcMain.handle(IPC_CHANNELS.MENU_PICKER_STATE, (_event, open: boolean) => {
 		// Renderer signals when a native picker (recipient <select>) is open so its
 		// focus-stealing popup doesn't blur-dismiss the menu mid-selection.
@@ -530,6 +606,7 @@ app.whenReady().then(async () => {
 	});
 
 	await appState.restoreCircles();
+	startupMark('restoreCircles');
 	appState.broadcast();
 
 	// Dev diagnostic only — gate on the same unspoofable `isDev`
@@ -542,6 +619,7 @@ app.whenReady().then(async () => {
 			console.error('[munkel-smoke] GOLDEN VECTOR MISMATCH');
 		}
 	}
+	startupMark('whenReady.done');
 });
 
 app.on('window-all-closed', () => {
