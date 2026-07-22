@@ -3,9 +3,6 @@ import Combine
 import QuartzCore
 import SwiftUI
 
-/// Open/closed state of the notch. Top-level (not nested in the generic
-/// ``NotchPanel``) so ``NotchHostingContent`` can read it without naming the
-/// panel's `Content` type.
 enum NotchPanelState: Equatable {
     case expanded
     case hidden
@@ -27,16 +24,11 @@ enum NotchPanelState: Equatable {
 ///   rebuilt, so it stays non-capturable and keeps a stable window identity.
 @MainActor
 final class NotchPanel<Content: View>: ObservableObject {
-    /// Hover behaviour at the call site. Only `.all` is used by the app.
     enum HoverBehavior: Sendable {
-        /// Publish ``isHovering`` for the whole shape, cutout strip included.
         case all
-        /// Never publish hover.
         case none
     }
 
-    /// Transition configuration: the opening animation and whether to skip the
-    /// intermediate hide step. Defaults are the notch opening spring.
     struct TransitionConfiguration: Sendable {
         var openingAnimation: Animation
         var skipIntermediateHides: Bool
@@ -50,34 +42,32 @@ final class NotchPanel<Content: View>: ObservableObject {
         }
     }
 
-    // MARK: - Published state (read by NotchHostingContent)
-
     @Published private(set) var isHovering = false
     @Published private(set) var state: NotchPanelState = .hidden
     @Published private(set) var notchSize: CGSize = .zero
-    /// Whether the resolved target screen has a notch (notch vs floating chrome).
     @Published private(set) var hasNotch = false
-
-    // MARK: - Configuration
 
     var transitionConfiguration = TransitionConfiguration()
     let content: Content
 
+    /// @Published so swapping it on a morph (a new image message reusing the
+    /// same panel) re-renders the Quick-Look preview for the new album.
+    @Published var floatingOverlay: AnyView?
+
+    /// Drop the chrome's bottom inset so the shape stays at menu-bar height in
+    /// indicator mode. @Published so flipping it (inside withAnimation) animates
+    /// the bottom strip in lockstep with the message<->dot morph.
+    @Published var suppressBottomInset = false
+
     private let hoverBehavior: HoverBehavior
     private let targetScreen: @MainActor () -> NSScreen?
 
-    /// Fixed default — only the opening animation is configurable.
     private let closingAnimation: Animation = .smooth(duration: 0.4)
-
-    // MARK: - Window
 
     private var panelWindow: NotchPanelWindow?
     private var closePanelTask: Task<Void, Never>?
     private var screenChangeObservation: AnyCancellable?
 
-    /// The live panel, or `nil` before the first ``expand()``. Exposed so the app
-    /// can set `sharingType`, hit-test clicks (`event.window === panel`) and
-    /// `makeKeyAndOrderFront` the reply field — replaces `windowController?.window`.
     var panel: NSPanel? { panelWindow }
 
     init(
@@ -89,9 +79,6 @@ final class NotchPanel<Content: View>: ObservableObject {
         self.targetScreen = targetScreen
         self.content = content()
 
-        // Reposition (never rebuild capturable) on display plug/unplug, resolution
-        // or AirPlay change. The AnyCancellable cancels on dealloc — no manual
-        // cleanup, and the sink only holds a weak self.
         screenChangeObservation = NotificationCenter.default
             .publisher(for: NSApplication.didChangeScreenParametersNotification)
             .sink { [weak self] _ in
@@ -101,17 +88,11 @@ final class NotchPanel<Content: View>: ObservableObject {
             }
     }
 
-    // MARK: - Hover
-
-    /// Called by ``NotchHostingContent``'s `.onHover`. The app consumes the
-    /// published value and decides what it means (expand / schedule hide).
     func updateHoverState(_ hovering: Bool) {
         guard hoverBehavior == .all else { return }
         guard state != .hidden, hovering != isHovering else { return }
         isHovering = hovering
     }
-
-    // MARK: - Lifecycle
 
     func expand() async {
         guard state != .expanded else { return }
@@ -128,15 +109,11 @@ final class NotchPanel<Content: View>: ObservableObject {
             reposition(on: screen)
         }
 
-        // Start the animation before ordering the window front — eliminates the
-        // open stutter.
         withAnimation(transitionConfiguration.openingAnimation) {
             state = .expanded
         }
         showWindow()
 
-        // Time for the opening animation to settle. The app's serialization
-        // cadence depends on this ~0.4s — keep it.
         try? await Task.sleep(for: .seconds(0.4))
     }
 
@@ -146,9 +123,6 @@ final class NotchPanel<Content: View>: ObservableObject {
         }
     }
 
-    /// Collapses immediately when called — no keepVisible-defer. Fades the panel
-    /// out, then tears the window down (which breaks the hosting-view retain
-    /// cycle so this `NotchPanel` can deallocate).
     private func _hide(completion: @escaping () -> Void) {
         guard state != .hidden else {
             completion()
@@ -160,7 +134,7 @@ final class NotchPanel<Content: View>: ObservableObject {
         }
         closePanelTask?.cancel()
         closePanelTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(0.25)) // most of the closing animation
+            try? await Task.sleep(for: .seconds(0.25))
             guard !Task.isCancelled else { return }
             await self?.fadeOutWindow()
             guard !Task.isCancelled else { return }
@@ -169,12 +143,10 @@ final class NotchPanel<Content: View>: ObservableObject {
         }
     }
 
-    // MARK: - Window management
-
     private func buildPanel(on screen: NSScreen) {
         let window = NotchPanelWindow()
         window.contentView = NSHostingView(rootView: NotchHostingContent(owner: self))
-        window.setFrame(NotchScreenMetrics.panelFrame(for: screen), display: false)
+        window.setFrame(panelFrame(on: screen), display: false)
         window.layoutIfNeeded()
         window.applyCaptureExclusion()
         panelWindow = window
@@ -182,16 +154,20 @@ final class NotchPanel<Content: View>: ObservableObject {
 
     private func reposition(on screen: NSScreen) {
         guard let window = panelWindow else { return }
-        window.setFrame(NotchScreenMetrics.panelFrame(for: screen), display: true)
-        // Re-assert the panel properties that a window reconfigure can drop.
+        window.setFrame(panelFrame(on: screen), display: true)
         window.applyCaptureExclusion()
         window.level = .screenSaver
         window.collectionBehavior = [.canJoinAllSpaces, .stationary]
     }
 
+    /// Panels carrying a `floatingOverlay` (the image preview) get the full-width
+    /// canvas so it can grow to near-fullscreen; others keep the half-width frame.
+    private func panelFrame(on screen: NSScreen) -> NSRect {
+        NotchScreenMetrics.panelFrame(for: screen, wide: floatingOverlay != nil)
+    }
+
     private func showWindow() {
         guard let window = panelWindow else { return }
-        // Start invisible to hide any initial frame glitch, then fade in.
         window.alphaValue = 0
         window.orderFrontRegardless()
         NSAnimationContext.runAnimationGroup { context in

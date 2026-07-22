@@ -1,22 +1,13 @@
 import { Rocket } from 'lucide-react'
 
-// Platforms Munkel is on. Until a platform's official badge image is added, it
-// renders in-house (the "Featured on" pill). To swap in a real listing, set
-// `live: true`, point `href` at our listing, and drop the platform's official
-// badge into `img` — self-hosted under /badges so we never hot-link a third
-// party (no layout shift, no tracking, no availability risk). See issue #8.
 type LaunchPlatform = {
   name: string
   href: string
   live?: boolean
-  /** Self-hosted official badge, e.g. '/badges/product-hunt.svg'. */
   img?: string
   alt?: string
 }
 
-// Source of truth + status tracking: docs/launch-platforms.md. This array
-// mirrors the "live" rows from there; hrefs are platform homepages until we
-// have our own listing URL for each.
 const LAUNCH_PLATFORMS: LaunchPlatform[] = [
   { name: 'Product Hunt', href: 'https://www.producthunt.com' },
   { name: 'Peerlist', href: 'https://peerlist.io' },
@@ -30,26 +21,32 @@ const LAUNCH_PLATFORMS: LaunchPlatform[] = [
   { name: 'Dang.ai', href: 'https://dang.ai' },
 ]
 
-function LaunchBadge({ platform }: { platform: LaunchPlatform }) {
+function LaunchBadge({
+  platform,
+  duplicate = false,
+}: {
+  platform: LaunchPlatform
+  duplicate?: boolean
+}) {
   const { name, href, img, alt } = platform
   return (
     <a
-      className="launch-badge"
+      className="inline-flex items-center gap-2.5 flex-none h-[54px] px-4 border border-border rounded-[var(--radius-lg)] bg-card hover:border-ring hover:-translate-y-0.5 hover:shadow-[var(--shadow-md)] transition-[border-color,transform,box-shadow] duration-150"
       href={href}
       target="_blank"
       rel="noopener"
-      aria-label={`Featured on ${name}`}
+      tabIndex={duplicate ? -1 : undefined}
     >
       {img ? (
         <img src={img} alt={alt ?? `Featured on ${name}`} loading="lazy" decoding="async" />
       ) : (
         <>
-          <span className="lb-glyph">
-            <Rocket aria-hidden />
+          <span className="inline-flex items-center justify-center flex-none w-[30px] h-[30px] rounded-[var(--radius-md)] bg-[var(--brand-soft)] text-brand shadow-[0_0_calc(var(--glow)*16px)_color-mix(in_oklab,var(--brand)_18%,transparent)]">
+            <Rocket className="w-[15px]! h-[15px]!" aria-hidden />
           </span>
-          <span className="lb-text">
-            <span className="lb-kicker">Featured on</span>
-            <span className="lb-name">{name}</span>
+          <span className="flex flex-col text-left leading-[1.2] gap-px">
+            <span className="font-mono text-[9px] tracking-[0.08em] uppercase text-brand">Featured on</span>
+            <span className="text-[length:var(--text-sm)] font-semibold text-foreground whitespace-nowrap">{name}</span>
           </span>
         </>
       )}
@@ -57,32 +54,26 @@ function LaunchBadge({ platform }: { platform: LaunchPlatform }) {
   )
 }
 
-// A seamless marquee: the badge list is rendered twice (the duplicate is
-// display:contents, so its badges join the same flex row with even spacing) and
-// the row is translated by exactly -50%, looping without a seam. Under reduced
-// motion the duplicate is hidden and the badges wrap statically. Pass liveOnly
-// once we have real launches to shrink the strip to earned badges.
 export function LaunchBadgeTrack({ liveOnly = false }: { liveOnly?: boolean }) {
   const platforms = liveOnly ? LAUNCH_PLATFORMS.filter((p) => p.live) : LAUNCH_PLATFORMS
   if (platforms.length === 0) return null
   return (
-    <section className="badge-track">
-      <div className="container">
-        <div className="section-kicker">Launch</div>
-        <h2>Out in the wild.</h2>
-        <p>
-          Munkel is out across the platforms where people hunt for new tools. Find us there — and
-          an upvote is always welcome.
+    <section className="text-center overflow-hidden">
+      <div className="mx-auto max-w-[1400px] px-8">
+        <div className="font-mono text-[length:var(--text-xs)] text-brand tracking-[0.06em] uppercase">Launch</div>
+        <h2 className="text-[length:var(--text-4xl)] font-semibold tracking-tight mt-4">Out in the wild.</h2>
+        <p className="max-w-[52ch] mt-3 mx-auto text-muted-foreground leading-relaxed text-pretty">
+          Spotted us on a launch board? An upvote is always welcome.
         </p>
       </div>
-      <div className="badge-marquee">
-        <div className="badge-marquee-row">
+      <div className="group mt-12 py-3 [mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)] [-webkit-mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)] motion-reduce:[mask-image:none] motion-reduce:[-webkit-mask-image:none]">
+        <div className="flex items-center gap-4 w-max animate-[badge-scroll_38s_linear_infinite] group-hover:[animation-play-state:paused] motion-reduce:animate-none motion-reduce:flex-wrap motion-reduce:justify-center motion-reduce:w-auto">
           {platforms.map((p) => (
             <LaunchBadge key={p.name} platform={p} />
           ))}
-          <span className="badge-dup" aria-hidden>
+          <span className="[display:contents] motion-reduce:hidden" aria-hidden>
             {platforms.map((p) => (
-              <LaunchBadge key={`${p.name}-dup`} platform={p} />
+              <LaunchBadge key={`${p.name}-dup`} platform={p} duplicate />
             ))}
           </span>
         </div>

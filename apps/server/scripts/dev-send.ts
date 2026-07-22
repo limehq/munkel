@@ -9,9 +9,12 @@
 //
 // Set TO=<memberId> to direct the chat at a single member (a "whisper")
 // instead of broadcasting to the whole group; unset means broadcast.
+// Set PRESENCE=<online|dnd|away> to send a presence-only status delta
+// (the `presence` payload kind) in place of the chat, then exit.
+// Set AVATAR_URL=<url> to include a GitHub avatar URL in the profile.
 
 import { deriveGroupKeys, seal, open as openPayload } from '@munkel/shared-wire/crypto';
-import { encodeChat, encodeProfile } from '@munkel/shared-wire/payload';
+import { encodeChat, encodePresence, encodeProfile, type PresenceStatus } from '@munkel/shared-wire/payload';
 
 const listenMode = process.argv[2] === '--listen';
 const positional = process.argv.slice(listenMode ? 3 : 2);
@@ -65,21 +68,32 @@ ws.onmessage = async (event) => {
 };
 
 ws.onopen = async () => {
-  const profile = await seal(JSON.stringify(encodeProfile(sender)), messageKey);
-  ws.send(JSON.stringify({ type: 'send', payload: profile }));
+  const presenceEnv = process.env.PRESENCE as PresenceStatus | undefined;
+  const profile = encodeProfile(sender, {
+    ...(process.env.AVATAR_URL ? { avatarURL: process.env.AVATAR_URL } : {}),
+    status: presenceEnv ?? 'online',
+  });
+  ws.send(JSON.stringify({ type: 'send', payload: await seal(JSON.stringify(profile), messageKey) }));
   if (listenMode) {
     process.stdout.write(`listening as "${sender}" (${memberId})…\n`);
     setInterval(() => ws.send(JSON.stringify({ type: 'ping' })), 30_000);
     return;
   }
-  const to = process.env.TO;
-  const chat = encodeChat(text);
-  ws.send(JSON.stringify({
-    type: 'send',
-    ...(to ? { to } : {}),
-    payload: await seal(JSON.stringify(chat), messageKey),
-  }));
-  process.stdout.write(`sent profile + chat as "${sender}"${to ? ` → ${to}` : ''}\n`);
+  const presence = process.env.PRESENCE as PresenceStatus | undefined;
+  if (presence) {
+    const delta = encodePresence(presence);
+    ws.send(JSON.stringify({ type: 'send', payload: await seal(JSON.stringify(delta), messageKey) }));
+    process.stdout.write(`sent presence status=${presence} as "${sender}"\n`);
+  } else {
+    const to = process.env.TO;
+    const chat = encodeChat(text);
+    ws.send(JSON.stringify({
+      type: 'send',
+      ...(to ? { to } : {}),
+      payload: await seal(JSON.stringify(chat), messageKey),
+    }));
+    process.stdout.write(`sent profile + chat as "${sender}"${to ? ` → ${to}` : ''}\n`);
+  }
   setTimeout(() => {
     ws.close();
     process.exit(0);

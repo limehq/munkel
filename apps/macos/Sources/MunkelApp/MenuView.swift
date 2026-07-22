@@ -8,21 +8,26 @@ struct MenuView: View {
     @State private var joinCode = ""
     @State private var userCodeCopied = false
     @State private var groupListHeight: CGFloat = 0
+    @State private var statusHovering = false
+    @StateObject private var displayList = DisplayList()
+    /// "Launch at Login" state that reflects intent immediately and reconciles
+    /// with the real SMAppService status on foreground.
+    @StateObject private var loginItem = LoginItemModel()
+    /// Empty = automatic (active display); otherwise a display's stable UUID.
+    @AppStorage(DisplayPreference.key) private var preferredDisplayID = ""
+    #if !DEBUG
+    @State private var cliInstalled = CLIInstaller.isInstalled
+    #endif
     #if DEBUG
-    @AppStorage("devEchoBroadcasts") private var devEchoBroadcasts = true
     @AppStorage(CaptureScreenshotPreference.defaultsKey) private var allowInScreenshots = false
     #endif
 
-    /// Cap before the group list starts scrolling.
-    // A fourth circle card peeks in cut off, hinting the list scrolls.
     private let maxGroupListHeight: CGFloat = 400
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             header
 
-            // GitHub login is mandatory: until it happens, the menu offers
-            // nothing but the login flow.
             if model.githubUserLogin == nil {
                 Text("Sign in with GitHub to use Munkel.")
                     .font(.callout)
@@ -34,7 +39,7 @@ struct MenuView: View {
                 githubArea
             } else {
                 if model.groupCodes.isEmpty {
-                    Text("No circles yet. Create one or join with a code.")
+                    Text("No channels yet. Create one or join with a code.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                         // Without this the popup truncates to one ellipsized
@@ -86,10 +91,13 @@ struct MenuView: View {
         .onTapGesture {
             NSApp.keyWindow?.makeFirstResponder(nil)
         }
-        // The popover shows every circle code (the sole credential — whoever
+        // The popover shows every channel code (the sole credential — whoever
         // reads one can join), the outgoing draft and the GitHub device
         // code, so it stays out of screen shares like the notch does.
         .excludedFromScreenCapture()
+        #if !DEBUG
+        .onAppear { cliInstalled = CLIInstaller.isInstalled }
+        #endif
         #if DEBUG
         // Re-apply the sharing type to every on-screen surface the moment the
         // "Allow in screenshots" toggle flips, so it takes effect without a
@@ -100,17 +108,26 @@ struct MenuView: View {
 
     private var header: some View {
         HStack {
-            Image(systemName: "bubble.left.and.bubble.right.fill")
+            BrandGlyph.image
+                .renderingMode(.template)
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
                 .foregroundStyle(.primary)
-            Text("Munkel")
+            Text(appTitle)
                 .font(.headline)
             Spacer()
             settingsMenu
         }
     }
 
-    /// Apple convention for menu-bar apps: a gear "action menu" on the
-    /// right edge — About, update check, then quit with the standard ⌘Q.
+    private var appTitle: String {
+        if let branch = Bundle.main.infoDictionary?["MunkelGitBranch"] as? String, !branch.isEmpty {
+            return "Munkel (\(branch))"
+        }
+        return "Munkel"
+    }
+
     private var settingsMenu: some View {
         Menu {
             Button {
@@ -129,10 +146,13 @@ struct MenuView: View {
             // Release only: the dev build doesn't embed the CLI (run it from
             // source with `MUNKEL_DEV=1 bun apps/cli/src/munkel.ts`).
             #if !DEBUG
-            Button {
-                CLIInstaller.installFromMenu()
-            } label: {
-                Label("Install Command Line Tool…", systemImage: "terminal")
+            if !cliInstalled {
+                Button {
+                    CLIInstaller.installFromMenu()
+                    cliInstalled = CLIInstaller.isInstalled
+                } label: {
+                    Label("Install Command Line Tool…", systemImage: "terminal")
+                }
             }
             #endif
             Divider()
@@ -141,15 +161,40 @@ struct MenuView: View {
             // Items) and never crashes — `try?` snaps the toggle back to its
             // true state if a register/unregister fails.
             Toggle("Launch at Login", isOn: Binding(
-                get: { LoginItem.isEnabled },
-                set: { try? LoginItem.setEnabled($0) }
+                get: { loginItem.isEnabled },
+                set: { loginItem.setEnabled($0) }
             ))
+            Divider()
+            // Which display the notch appears on. "Automatic" follows the active
+            // screen; a specific pick is remembered by the display's stable UUID
+            // and applies to the next notch (panels are rebuilt per message).
+            Picker(selection: $preferredDisplayID) {
+                Text("Automatic").tag("")
+                ForEach(displayList.displays) { option in
+                    Text(option.name).tag(option.id)
+                }
+            } label: {
+                Label("Preferred Display", systemImage: "display")
+            }
             #if DEBUG
             Divider()
-            Toggle("Echo my broadcasts to me", isOn: $devEchoBroadcasts)
             Toggle("Allow in screenshots", isOn: $allowInScreenshots)
+            // Seed a demo backlog (text + image messages) into the notch so the
+            // expanded-history hover preview can be tested without real traffic.
+            Button {
+                model.debugShowDemoHistory()
+            } label: {
+                Label("Demo image history", systemImage: "photo.stack")
+            }
             #endif
             Divider()
+            if model.githubUserLogin != nil {
+                Button {
+                    model.logoutGitHub()
+                } label: {
+                    Label("Sign out", systemImage: "rectangle.portrait.and.arrow.right")
+                }
+            }
             Button {
                 NSApp.terminate(nil)
             } label: {
@@ -166,10 +211,39 @@ struct MenuView: View {
         .help("Settings")
     }
 
-    /// The standard about panel; it reads name and versions from the
-    /// bundle's Info.plist, so future info lands there (or in a Credits
-    /// file) rather than in code.
+    private var statusPicker: some View {
+        Picker(selection: Binding(get: { model.localStatus }, set: { model.chooseStatus($0) })) {
+            ForEach(PresenceStatus.allCases, id: \.self) { status in
+                Label {
+                    Text(status.menuLabel)
+                } icon: {
+                    Image(systemName: status.symbolName)
+                        .symbolRenderingMode(.palette)
+                        .foregroundStyle(status.dotColor)
+                        .imageScale(status == .online ? .small : .medium)
+                }
+                .tag(status)
+            }
+        } label: {
+            Text("Presence")
+        }
+        .pickerStyle(.menu)
+        .labelsHidden()
+        .buttonStyle(.borderless)
+        .controlSize(.small)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(.primary.opacity(statusHovering ? 0.1 : 0))
+        )
+        .onHover { statusHovering = $0 }
+        .animation(.easeOut(duration: 0.12), value: statusHovering)
+        .help("Set your presence")
+    }
+
     private func showAbout() {
+        model.closePopover?()
         NSApp.activate(ignoringOtherApps: true)
         NSApp.orderFrontStandardAboutPanel(nil)
     }
@@ -181,7 +255,7 @@ struct MenuView: View {
     private var joinArea: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                TextField("Your circle", text: $joinCode)
+                TextField("Your channel", text: $joinCode)
                     .frostedField()
                     .onSubmit(joinTapped)
                 Button {
@@ -193,14 +267,13 @@ struct MenuView: View {
                 Button("Join", action: joinTapped)
                     .disabled(joinCode.trimmingCharacters(in: .whitespaces).isEmpty)
             }
-            Text("If the circle doesn't exist yet, it's created.")
+            Text("If the channel doesn't exist yet, it's created.")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }
 
-    /// Global hotkey that opens the quick-send palette from anywhere.
     private var paletteHotkeyRow: some View {
         HStack {
             Image(systemName: "paperplane")
@@ -216,15 +289,14 @@ struct MenuView: View {
     private var githubArea: some View {
         switch model.githubLoginState {
         case .idle:
-            if let login = model.githubUserLogin {
+            if model.githubUserLogin != nil {
                 HStack(spacing: 8) {
-                    AvatarView(name: model.displayName, imageData: Identity.avatarData, size: 20)
-                    Text("Signed in as \(model.displayName) (@\(login))")
+                    AvatarView(name: model.displayName, imageData: Identity.avatarData, size: 20, status: model.effectiveStatus)
+                    Text(model.displayName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     Spacer()
-                    Button("Sign out") { model.logoutGitHub() }
-                        .controlSize(.small)
+                    statusPicker
                 }
             } else {
                 Button {
@@ -412,9 +484,16 @@ private struct FrostedField: ViewModifier {
     func body(content: Content) -> some View {
         content
             .textFieldStyle(.plain)
+            // Single line that scrolls internally — without this a long draft
+            // grows the field editor and spills the text past the box.
+            .lineLimit(1)
             .focused($focused)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
+            // Clip the (already single-line) field to its box so a long draft
+            // that overruns the field editor can't spill past the rounded edge.
+            .clipShape(RoundedRectangle(cornerRadius: 7))
             // White tint over the material lightens it while keeping the
             // translucency — gently in dark mode, where 35% white would
             // turn the fields into gray slabs.
@@ -465,7 +544,7 @@ struct GroupSectionView: View {
     @FocusState private var fieldFocused: Bool
 
     private let targetSize: CGFloat = 26
-    private let cardSpace = "circleCard"
+    private let cardSpace = "channelCard"
 
     /// A target chip's tooltip text plus where to float it (card coordinates).
     struct HoverTip: Equatable {
@@ -475,7 +554,6 @@ struct GroupSectionView: View {
     }
 
     var body: some View {
-        // Re-renders on presenceVersion bumps via the EnvironmentObject.
         let session = model.session(for: code)
         let members = session?.members ?? []
 
@@ -552,8 +630,6 @@ struct GroupSectionView: View {
         pasteMonitor = nil
     }
 
-    // MARK: - Header
-
     private func header(connected: Bool) -> some View {
         HStack {
             Circle()
@@ -579,11 +655,9 @@ struct GroupSectionView: View {
             }
             .buttonStyle(.plain)
             .foregroundStyle(.secondary)
-            .help("Leave circle")
+            .help("Leave channel")
         }
     }
-
-    // MARK: - Recipient picker (globe = everyone, then one avatar per member)
 
     private func recipientRow(members: [GroupSession.Member]) -> some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -612,7 +686,7 @@ struct GroupSectionView: View {
                         recipient = member.id
                         fieldFocused = true
                     } label: {
-                        AvatarView(name: member.label, imageData: member.avatar, size: targetSize)
+                        AvatarView(name: member.label, imageData: member.avatar, size: targetSize, status: member.status)
                     }
                 }
 
@@ -627,11 +701,8 @@ struct GroupSectionView: View {
         }
     }
 
-    // MARK: - Message field + send
-
     private func messageRow(members: [GroupSession.Member]) -> some View {
         VStack(alignment: .leading, spacing: 6) {
-            // Staged images (⌘V) — click a thumbnail to remove it.
             if !attachedImages.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {

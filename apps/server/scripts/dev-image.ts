@@ -1,12 +1,4 @@
-// Dev helper: the image counterpart to dev-send.ts. Acts as a second member
-// that can SEND an image album (seal each → PUT to the R2 blob API → relay one
-// pointer) or LISTEN for one (receive pointer → GET each blob → decrypt → write
-// to disk). It reimplements the protocol in TypeScript, independently of
-// MunkelKit, so a successful round trip against the Swift app proves crypto +
-// blob + album-schema interop. NOTE: this harness uploads the RAW source bytes;
-// it is NOT an AVIF-fidelity tool. The real AVIF transcode lives in the Swift
-// app (ImageCodec); to test AVIF on the wire, send from the app/CLI and let
-// this client receive (the listener content-sniffs, so the mime is advisory).
+// Dev helper for sending/listening to image albums via the relay.
 //
 // Usage:
 //   bun scripts/dev-image.ts <group-code> <sender> <path…> [--caption <text>] [--to <memberId>]
@@ -23,8 +15,6 @@ import { encodeProfile, encodeImage, decodePayload } from '@munkel/shared-wire/p
 const MAX_IMAGES = 8; // mirrors AppPayload.maxImagesPerMessage
 // Mirrors AppPayload.albumThumbBudget / perThumbBudget (TS can't import Swift).
 const ALBUM_THUMB_BUDGET = 16_384;
-// 1×1 transparent PNG — a valid placeholder thumb when the real image is too
-// big to ride the relay frame inline (the app fetches the full one from R2).
 const TINY_PNG_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMCAQDcdwk0AAAAAElFTkSuQmCC';
 
@@ -32,7 +22,6 @@ const listenMode = process.argv[2] === '--listen';
 const positional = process.argv.slice(listenMode ? 3 : 2);
 const [code, name = 'Alex'] = positional;
 
-// Everything after <sender> is paths, until --caption / --to flags.
 const paths: string[] = [];
 let caption = '';
 let directTo: string | undefined;
@@ -81,7 +70,6 @@ function relayEndpoint(): string {
   return endpoint.toString();
 }
 
-/** Detect the real format of received bytes — proves AVIF is on the wire. */
 function sniff(bytes: Uint8Array): string {
   if (bytes.length >= 12) {
     const ascii = (i: number, j: number) => Buffer.from(bytes.subarray(i, j)).toString('latin1');
@@ -161,8 +149,6 @@ if (listenMode) {
         process.stderr.write(`blob PUT failed for ${basename(path)}: ${put.status}\n`);
         process.exit(1);
       }
-      // Reuse the file bytes as the inline thumb only when small enough to fit
-      // the shared budget; otherwise a 1×1 placeholder (full loads from R2).
       const thumb = full.byteLength <= perThumb ? Buffer.from(full).toString('base64') : TINY_PNG_BASE64;
       items.push({ r2Key, mime: mimeFor(path), width: 1, height: 1, byteLen: sealed.byteLength, thumb });
       process.stdout.write(`uploaded ${sealed.byteLength} sealed bytes (${basename(path)}) → ${r2Key}\n`);

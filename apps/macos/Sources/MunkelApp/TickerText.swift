@@ -1,20 +1,12 @@
 import SwiftUI
 
-/// Single-line message teaser below the notch: starts at the beginning of
-/// the text, stands still long enough to catch the first words, scrolls
-/// through exactly once, then stops at the end and reports completion.
-/// Texts that fit are shown statically.
 struct TickerText: View {
     let text: String
     var windowWidth: CGFloat = 190
     var onFinished: () -> Void = {}
 
     private let pointsPerSecond: CGFloat = 24
-    /// Standstill before scrolling starts, so the beginning is readable
-    /// after the notch has finished expanding.
     private let startDelay: TimeInterval = 1.6
-    /// The scroll overshoots by this much so the text's end comes to rest
-    /// clear of the trailing edge fade (which covers the last ~10pt).
     private let endPadding: CGFloat = 14
 
     @State private var textWidth: CGFloat = .zero
@@ -24,9 +16,6 @@ struct TickerText: View {
     var body: some View {
         Group {
             if textWidth == .zero {
-                // First frame, width not measured yet: render already
-                // clipped to the final window so the notch shape opens at
-                // its real size instead of flashing text-wide first.
                 displayedText
                     .fixedSize()
                     .frame(width: windowWidth, alignment: .leading)
@@ -47,10 +36,8 @@ struct TickerText: View {
                                 finished = true
                                 onFinished()
                             }
-                        }
+                    }
                 }
-                // The scroll clock starts only once the ticker is actually
-                // on screen — not when the view tree is built.
                 .onAppear { appearedAt = Date() }
             } else {
                 displayedText
@@ -58,7 +45,6 @@ struct TickerText: View {
             }
         }
         .background {
-            // Invisible twin, just to measure the text's natural width.
             displayedText
                 .fixedSize()
                 .hidden()
@@ -77,8 +63,6 @@ struct TickerText: View {
             .lineLimit(1)
     }
 
-    /// The leading fade only appears once the text actually moves — the
-    /// first characters must be fully readable at the start.
     private func edgeFade(fadeLeading: Bool) -> LinearGradient {
         LinearGradient(
             stops: [

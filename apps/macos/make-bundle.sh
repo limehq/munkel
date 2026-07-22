@@ -83,6 +83,11 @@ if [[ "$CONFIG" == "debug" ]]; then
     || /usr/libexec/PlistBuddy -c "Add :CFBundleName string Munkel Dev" "$plist"
   /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Munkel Dev" "$plist" 2>/dev/null \
     || /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string Munkel Dev" "$plist"
+  # Stamp the source branch into the dev bundle so the menu header can show which
+  # branch a side-by-side dev build came from. Release builds skip this block, so
+  # the key is absent there and the header stays a plain "Munkel".
+  BRANCH="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+  /usr/libexec/PlistBuddy -c "Add :MunkelGitBranch string $BRANCH" "$plist"
 fi
 
 # Swift Bundler ad-hoc signs; re-sign with our identity (hardened runtime +

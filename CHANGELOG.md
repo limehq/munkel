@@ -11,6 +11,149 @@
 
 * **windows:** resolve WIN-NOTCH-001/002/003 notch UX cluster on Windows
 
+## [0.17.0](https://github.com/limehq/munkel/compare/v0.16.0...v0.17.0) (2026-06-26)
+
+
+### Features
+
+* **landing:** add minimal pricing section (free forever) with Ko-fi tip CTA ([#192](https://github.com/limehq/munkel/issues/192)) ([bb1a6af](https://github.com/limehq/munkel/commit/bb1a6af851998ce5318ee7fd0a800f3761726aee))
+
+
+### Bug Fixes
+
+* **macos:** order notch history by message sentAt, not arrival ([#197](https://github.com/limehq/munkel/issues/197)) ([40b6bde](https://github.com/limehq/munkel/commit/40b6bde3dd514e48da68baa9648b51129c5cb8a0))
+
+## [0.16.0](https://github.com/limehq/munkel/compare/v0.15.0...v0.16.0) (2026-06-25)
+
+
+### Features
+
+* **landing:** privacy-first PostHog analytics (EU, cookieless, reverse-proxied) ([#173](https://github.com/limehq/munkel/issues/173)) ([b71e03c](https://github.com/limehq/munkel/commit/b71e03c3773fee3f8f584b4cead5797d039cb342))
+* **macos:** show your own messages in the notch ([#178](https://github.com/limehq/munkel/issues/178)) ([8cfa045](https://github.com/limehq/munkel/commit/8cfa04506a207374ac1a052dbffe8ee220cafb48))
+
+
+### Bug Fixes
+
+* **landing:** stop remounting the page on hydration (stable PostHogProvider) ([#180](https://github.com/limehq/munkel/issues/180)) ([5635889](https://github.com/limehq/munkel/commit/563588955e24f359c9e8e565a6ed1ac7a361ecb6))
+* **macos:** align expanded notch corners with hardware (top 15→10, continuous corners) ([#164](https://github.com/limehq/munkel/issues/164)) ([f5ab2e4](https://github.com/limehq/munkel/commit/f5ab2e49f9c425ceb6b08bb5d3c7b7d66dab317a))
+
+## [0.15.0](https://github.com/limehq/munkel/compare/v0.14.0...v0.15.0) (2026-06-24)
+
+
+### Features
+
+* **landing:** rework hero scroll, float mockup, fix clip hairline ([#170](https://github.com/limehq/munkel/issues/170)) ([94da614](https://github.com/limehq/munkel/commit/94da61405d355f178c70a093e1d7fac2933f02a0))
+
+## [0.14.0](https://github.com/limehq/munkel/compare/v0.13.0...v0.14.0) (2026-06-23)
+
+
+### Features
+
+* dim backdrop behind the image preview ([#160](https://github.com/limehq/munkel/issues/160)) ([4dc10d7](https://github.com/limehq/munkel/commit/4dc10d78844396eb5e053073b2d60dc3628437cc))
+* **landing:** /download/latest direct DMG download ([#167](https://github.com/limehq/munkel/issues/167)) ([c70c27f](https://github.com/limehq/munkel/commit/c70c27f6a93ca48f88f8201b4b49dad7b3622ee1))
+* **landing:** loading spinner on the download buttons ([#169](https://github.com/limehq/munkel/issues/169)) ([2ddeab7](https://github.com/limehq/munkel/commit/2ddeab7259de6b13aaa686919bf5dc05832cc312))
+* **landing:** notch image showcase and screen-share privacy scene ([#151](https://github.com/limehq/munkel/issues/151)) ([19563e8](https://github.com/limehq/munkel/commit/19563e8b5212a2ad0159d3eba0c4612289df7b7b))
+* **macos:** link preview cards under messages and in history ([#155](https://github.com/limehq/munkel/issues/155)) ([d18dd41](https://github.com/limehq/munkel/commit/d18dd418868a8839d22175a1dbf6633cc92da522))
+
+
+### Bug Fixes
+
+* **macos:** free ←/→ for text editing in the Quick-Send palette ([#154](https://github.com/limehq/munkel/issues/154)) ([4f36dc4](https://github.com/limehq/munkel/commit/4f36dc4610331f8fb2f250950fef010abfcc4057))
+* **macos:** keep the teaser ticker's trailing fade inside the notch ([#165](https://github.com/limehq/munkel/issues/165)) ([6fc0772](https://github.com/limehq/munkel/commit/6fc0772660f9bf61f8d571ff18e58760f54ff711))
+* **skills:** hide internal github-issue-workflow skill from `skills add` ([#157](https://github.com/limehq/munkel/issues/157)) ([d584a44](https://github.com/limehq/munkel/commit/d584a44a133175a1f9a4099eaacfb78d064e8cc8))
+
+## [0.13.0](https://github.com/limehq/munkel/compare/v0.12.1...v0.13.0) (2026-06-22)
+
+
+### Features
+
+* **macos:** show git branch in dev menu header ([#147](https://github.com/limehq/munkel/issues/147)) ([5e44f12](https://github.com/limehq/munkel/commit/5e44f126802a0281617f043d7f5ab07f4aac2616))
+
+
+### Bug Fixes
+
+* **ci:** keep releases as prerelease until their assets are uploaded ([#146](https://github.com/limehq/munkel/issues/146)) ([6df453d](https://github.com/limehq/munkel/commit/6df453d9abce5f2e0d1812ab51e28945dde6e076))
+* **macos:** close the menu popover when opening About ([#150](https://github.com/limehq/munkel/issues/150)) ([16e2c3b](https://github.com/limehq/munkel/commit/16e2c3bbcf1b30f8dbd0f224330f46bfe9817547))
+* **macos:** only show "Install Command Line Tool" when the CLI is not installed ([#149](https://github.com/limehq/munkel/issues/149)) ([3aa75f8](https://github.com/limehq/munkel/commit/3aa75f8e548ccc3103b699be2cdea2d91ead338b))
+
+## [0.12.1](https://github.com/limehq/munkel/compare/v0.12.0...v0.12.1) (2026-06-22)
+
+
+### Bug Fixes
+
+* **macos:** make automatic update checks actually surface ([#144](https://github.com/limehq/munkel/issues/144)) ([52606ac](https://github.com/limehq/munkel/commit/52606ac9c7d96e745253a1dfa219e2fef7736bce)), closes [#143](https://github.com/limehq/munkel/issues/143)
+* **macos:** stop the expanded history leaving a gap above it ([#136](https://github.com/limehq/munkel/issues/136)) ([56c7db6](https://github.com/limehq/munkel/commit/56c7db619c2bd3ccf403314c29edd972354c50c7)), closes [#135](https://github.com/limehq/munkel/issues/135)
+
+## [0.12.0](https://github.com/limehq/munkel/compare/v0.11.0...v0.12.0) (2026-06-22)
+
+
+### Features
+
+* **landing:** leaner, calmer copy rewrite ([#113](https://github.com/limehq/munkel/issues/113)) ([3e8eef8](https://github.com/limehq/munkel/commit/3e8eef86c8ca83ef949eeb2ec22651ce3ae8fec8))
+* **macos:** english words for circle codes ([#119](https://github.com/limehq/munkel/issues/119)) ([56f9fab](https://github.com/limehq/munkel/commit/56f9fabc5458047aa6d7f93bc91ceeb4a3296b92))
+* **macos:** full-screen centered image hover preview (current + history) ([#102](https://github.com/limehq/munkel/issues/102)) ([3108e13](https://github.com/limehq/munkel/commit/3108e1348b97e4d4c8a4278aa2b712db7511af6b))
+* **macos:** keep animated gifs animated ([#124](https://github.com/limehq/munkel/issues/124)) ([4ecd6ad](https://github.com/limehq/munkel/commit/4ecd6ad8a88263ffeb51b6fab7d063c50eb9002a))
+* **macos:** make urls in messages clickable ([#121](https://github.com/limehq/munkel/issues/121)) ([6826412](https://github.com/limehq/munkel/commit/6826412c920702f12ac9a4a46fe0cd04f6b698f1))
+* **macos:** member presence modes — Online / Do Not Disturb / Away ([#111](https://github.com/limehq/munkel/issues/111)) ([4611af6](https://github.com/limehq/munkel/commit/4611af63421b47bc0d431e899905ac3bb11123a0))
+* **macos:** morph notch into unread anchor ([#114](https://github.com/limehq/munkel/issues/114)) ([5183ffb](https://github.com/limehq/munkel/commit/5183ffb90a654f82c49d2d4ad766541b7ff4adcd))
+* **macos:** rename circles to channels ([#125](https://github.com/limehq/munkel/issues/125)) ([2877173](https://github.com/limehq/munkel/commit/28771732099c8cbf4f98f2a793aef1c0711517df))
+* **macos:** send image url as a real image ([#120](https://github.com/limehq/munkel/issues/120)) ([dd80d04](https://github.com/limehq/munkel/commit/dd80d047120259f17a786a97572805d081bc4f71))
+* **macos:** show link previews in messages ([#123](https://github.com/limehq/munkel/issues/123)) ([f1d23a0](https://github.com/limehq/munkel/commit/f1d23a02db408d8949fae18fb2a2614e3f811346))
+
+
+### Bug Fixes
+
+* **landing:** wrap footer links on mobile to prevent overflow ([#110](https://github.com/limehq/munkel/issues/110)) ([7575574](https://github.com/limehq/munkel/commit/75755745edf87bb4a89272db68db07ea20cdb1a3))
+* **macos:** bound notch history image cache to the 60s ephemerality window ([#118](https://github.com/limehq/munkel/issues/118)) ([1487e80](https://github.com/limehq/munkel/commit/1487e8076b3adf94fda88b75b7adf7e0d78e57af)), closes [#94](https://github.com/limehq/munkel/issues/94)
+* **macos:** clear reply draft after sending ([#132](https://github.com/limehq/munkel/issues/132)) ([719ac52](https://github.com/limehq/munkel/commit/719ac528f3df809577122ea03de944fe19bfb446))
+* **macos:** expand main message to full height ([#133](https://github.com/limehq/munkel/issues/133)) ([e88460d](https://github.com/limehq/munkel/commit/e88460d8a00a06a277cc9e5b4a50c6f7adcd5f66))
+* **macos:** keep the full-screen image preview clear of the notch ([#126](https://github.com/limehq/munkel/issues/126)) ([368e6e1](https://github.com/limehq/munkel/commit/368e6e1422ceffd6df7ae46d7b73d20f622f2a74))
+* **macos:** paste and edit keys in all inputs ([#131](https://github.com/limehq/munkel/issues/131)) ([5349349](https://github.com/limehq/munkel/commit/5349349d86d65dadeb75ddb87b40826b292d6a80))
+* **macos:** paste, select all, emoji in inputs ([#122](https://github.com/limehq/munkel/issues/122)) ([791a2be](https://github.com/limehq/munkel/commit/791a2be37594fc7d91516a9fe7ca8e20d20a4778))
+* **macos:** stop caching fetched image-url bytes to disk ([#128](https://github.com/limehq/munkel/issues/128)) ([74839f5](https://github.com/limehq/munkel/commit/74839f53ffd965577a7301947a7b4ee38c37a499))
+* **server:** drive dev-send profile status from PRESENCE, not STATUS ([#127](https://github.com/limehq/munkel/issues/127)) ([ac0c335](https://github.com/limehq/munkel/commit/ac0c335d09ee1d63d38cae20ba86625aa11b06df))
+
+## [0.11.0](https://github.com/limehq/munkel/compare/v0.10.0...v0.11.0) (2026-06-20)
+
+
+### Features
+
+* **landing:** warm meerkat theme + app icon throughout ([#90](https://github.com/limehq/munkel/issues/90)) ([8787edd](https://github.com/limehq/munkel/commit/8787edd7ad4f92cae44a99afc07df04a873f9c43))
+* **macos:** app icon + Munkel glyph in menu bar/popover ([#76](https://github.com/limehq/munkel/issues/76)) ([556c766](https://github.com/limehq/munkel/commit/556c7661999ffcb8f019dd6fc06d131c6ab4746f))
+* **macos:** attach images to inline notch reply ([#88](https://github.com/limehq/munkel/issues/88)) ([787b402](https://github.com/limehq/munkel/commit/787b4022464b1632c3a1ea7da465898fea558d2b)), closes [#68](https://github.com/limehq/munkel/issues/68)
+* **macos:** free-floating Quick Look hover preview for album images ([#84](https://github.com/limehq/munkel/issues/84)) ([c7f5410](https://github.com/limehq/munkel/commit/c7f5410a328f8c66262b6e571081c818c42d38e0)), closes [#69](https://github.com/limehq/munkel/issues/69)
+* **macos:** notch display picker, ⌥M quick-send default, Launch-at-Login fix ([#95](https://github.com/limehq/munkel/issues/95)) ([5eb723e](https://github.com/limehq/munkel/commit/5eb723e16a3266c2f4ac3105e874985b7e4efd4e))
+* **macos:** per-image and per-message copy controls in the notch ([#86](https://github.com/limehq/munkel/issues/86)) ([ab53a05](https://github.com/limehq/munkel/commit/ab53a0543c058bd41dc00bf3a9b6ba1daa68f997)), closes [#71](https://github.com/limehq/munkel/issues/71)
+* **macos:** render past image messages in the expanded notch history ([#93](https://github.com/limehq/munkel/issues/93)) ([ea39d17](https://github.com/limehq/munkel/commit/ea39d17cd611f7dc1a928cc4dcec5228c98b8c58))
+
+
+### Bug Fixes
+
+* **macos:** harden auth-code notch (review follow-ups) ([#87](https://github.com/limehq/munkel/issues/87)) ([6e50de5](https://github.com/limehq/munkel/commit/6e50de5e3663fa67ab76dd0cf64941b400ee06bc))
+* **macos:** keep GitHub sign-in code visible in the notch ([#85](https://github.com/limehq/munkel/issues/85)) ([63b49ae](https://github.com/limehq/munkel/commit/63b49ae80f1ad49115ae864b16ef9c7818a2a3be))
+* **macos:** keep the notch reply alive while the image picker is open ([#91](https://github.com/limehq/munkel/issues/91)) ([8773570](https://github.com/limehq/munkel/commit/87735702888222940e728721bf0f42eaf3fe3834))
+* **macos:** notch image thumbnails — per-image copy, layout & hover fixes ([#92](https://github.com/limehq/munkel/issues/92)) ([4bea7b9](https://github.com/limehq/munkel/commit/4bea7b9afebcdbb6a6281620f69e50720ddaf658))
+* **macos:** pack ~4 album thumbnails per row in the notch ([#82](https://github.com/limehq/munkel/issues/82)) ([ade1300](https://github.com/limehq/munkel/commit/ade13005ec846ddcb9700f892b8f9e42c786f3c9)), closes [#67](https://github.com/limehq/munkel/issues/67)
+
+## [0.10.0](https://github.com/limehq/munkel/compare/v0.9.0...v0.10.0) (2026-06-19)
+
+
+### Features
+
+* add Tab navigation to cycle through recipients in command palette ([#64](https://github.com/limehq/munkel/issues/64)) ([67b5aa0](https://github.com/limehq/munkel/commit/67b5aa026c20e5a785c3dbe9bc95a70466db389c))
+* image sharing with inline AVIF preview and lazy R2 full-res ([#74](https://github.com/limehq/munkel/issues/74)) ([6639ac0](https://github.com/limehq/munkel/commit/6639ac0dcaad7b7f9aaa2821fafad9985b33cd22))
+* **landing:** add Imprint, Privacy & Contact legal pages ([#78](https://github.com/limehq/munkel/issues/78)) ([2a17690](https://github.com/limehq/munkel/commit/2a1769078ab6c3b18c90f21668c691a6d7d82050)), closes [#73](https://github.com/limehq/munkel/issues/73)
+* **landing:** notch hover cue + macOS menu bar, fix top hairline ([#79](https://github.com/limehq/munkel/issues/79)) ([e965ea4](https://github.com/limehq/munkel/commit/e965ea48fe82d5d64c6ad93907191df0e381a6b5))
+* **macos:** add unread message indicator in notch ([#77](https://github.com/limehq/munkel/issues/77)) ([db72608](https://github.com/limehq/munkel/commit/db726087fd3c88c44fd53c842367ba3cd06751a3))
+* **macos:** copy history messages via hover button and "C" shortcut ([623584b](https://github.com/limehq/munkel/commit/623584b53362db1bbba47ce5c019fae294a81fac))
+* **macos:** copy history messages via hover button and "C" shortcut ([ed6df91](https://github.com/limehq/munkel/commit/ed6df91345dd6d6c6439d9fdeddb50e3cbc198a5))
+* show lock/globe icon in collapsed message teaser ([#63](https://github.com/limehq/munkel/issues/63)) ([4fb00fd](https://github.com/limehq/munkel/commit/4fb00fd1619506470a97405935ceace4c200ca09))
+
+
+### Bug Fixes
+
+* **macos:** let hover-"C" copy the current message too ([0ebe322](https://github.com/limehq/munkel/commit/0ebe322f8c4f62ecaaaebab9529347658c5fd2c7))
+
 ## [0.9.0](https://github.com/limehq/munkel/compare/v0.8.4...v0.9.0) (2026-06-17)
 
 

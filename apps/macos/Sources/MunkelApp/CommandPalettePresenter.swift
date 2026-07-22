@@ -52,7 +52,7 @@ final class CommandPalettePresenter {
         )
         // Hosting controller with preferredContentSize so the panel resizes
         // to the (fixed-width, content-height) SwiftUI layout — compact for
-        // a couple of circles, capped by the view's own maxHeight.
+        // a couple of channels, capped by the view's own maxHeight.
         let controller = NSHostingController(rootView: root)
         controller.sizingOptions = [.preferredContentSize]
         panel.contentViewController = controller
@@ -73,9 +73,6 @@ final class CommandPalettePresenter {
         state.reset()
     }
 
-    /// Opens a file picker to attach an image from disk (the paperclip, à la
-    /// Slack). Runs modally while suppressing the palette's resign-key dismiss,
-    /// then restores key focus so the palette stays put with the attachment.
     private func pickImageFile() {
         guard let panel else { return }
         suppressResignHide = true
@@ -99,8 +96,6 @@ final class CommandPalettePresenter {
         }
     }
 
-    /// Centered horizontally on the screen under the pointer, upper third —
-    /// the Spotlight position.
     private func position(_ panel: CommandPalettePanel) {
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { $0.frame.contains(mouse) } ?? NSScreen.main
@@ -111,11 +106,10 @@ final class CommandPalettePresenter {
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 
-    /// Arrow keys are a full D-pad over the target chips while the message
-    /// field keeps focus: left/right within a circle, up/down between
-    /// circles. All four are consumed (return nil) so they don't move the
-    /// text cursor. Tab/Shift+Tab cycle through all recipients. Return (onSubmit)
-    /// sends and Esc (onExitCommand) closes.
+    /// ↑/↓ pick the target chip while the message field keeps focus. Bare ←/→
+    /// and any modifier+arrow fall through to the field editor for normal text
+    /// editing. Tab/Shift+Tab also cycle through all recipients. Return
+    /// (onSubmit) sends and Esc (onExitCommand) closes.
     private func installKeyMonitor() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self else { return event }
@@ -133,18 +127,19 @@ final class CommandPalettePresenter {
                     return
                 }
 
+                let editingModifiers: NSEvent.ModifierFlags = [.command, .option, .control, .shift]
+                let hasEditingModifier = !event.modifierFlags.intersection(editingModifiers).isEmpty
+
                 let dir: CommandPaletteState.Direction?
                 switch event.keyCode {
-                case 123: dir = .left
-                case 124: dir = .right
                 case 125: dir = .down
                 case 126: dir = .up
                 default: dir = nil
                 }
-                if let dir {
+                if let dir, !hasEditingModifier {
                     self.state.move(dir)
                     consumed = true
-                } else if event.keyCode == 48 { // Tab key
+                } else if event.keyCode == 48 {
                     let backward = event.modifierFlags.contains(.shift)
                     self.state.moveTab(backward: backward)
                     consumed = true

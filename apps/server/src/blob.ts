@@ -41,7 +41,6 @@ export interface BlobEnv {
 
 const log = createLogger('blob');
 
-/** R2 object key: group-namespaced so one prefix holds a circle's blobs. */
 function objectKey(group: string, key: string): string {
   return `${group}/${key}`;
 }
@@ -101,8 +100,6 @@ export function registerBlobRoutes<E extends BlobEnv>(app: Hono<{ Bindings: E }>
       return c.text('Invalid key', 400);
     }
 
-    // Reject early on the declared length, then defensively on the real size
-    // (a client can lie about or omit Content-Length).
     const declared = Number(c.req.header('Content-Length'));
     if (Number.isFinite(declared) && declared > MAX_BLOB_BYTES) {
       return c.text('Payload too large', 413);
@@ -126,8 +123,6 @@ export function registerBlobRoutes<E extends BlobEnv>(app: Hono<{ Bindings: E }>
   app.get('/blob/:group/:key', async (c) => {
     const group = c.req.param('group');
     const key = c.req.param('key');
-    // Malformed ids can't address a real object — answer 404, not 400, so the
-    // route leaks nothing about what exists.
     if (!GROUP_ID_REGEX.test(group) || !BLOB_KEY_REGEX.test(key)) {
       return c.text('Not found', 404);
     }
@@ -150,20 +145,11 @@ export function registerBlobRoutes<E extends BlobEnv>(app: Hono<{ Bindings: E }>
   });
 }
 
-/**
- * Physically deletes blobs past {@link BLOB_TTL_MS}. The GET path already
- * 404s + deletes expired blobs on access; this sweep covers blobs that were
- * never fetched (e.g. all recipients were offline), so nothing outlives the
- * window. Driven by a per-minute cron (see index.ts / wrangler.toml). Returns
- * the number deleted.
- */
 export async function sweepExpiredBlobs(bucket: R2Bucket): Promise<number> {
   const now = Date.now();
   let deleted = 0;
   let cursor: string | undefined;
   do {
-    // `include` is honored by the runtime; the bundled (non-experimental) R2
-    // types omit it, so assert past the excess-property check.
     const listing = await bucket.list({ include: ['customMetadata'], cursor } as R2ListOptions);
     const expiredKeys = listing.objects
       .filter((object) => {
