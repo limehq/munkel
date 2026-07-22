@@ -15,17 +15,27 @@ struct NotchHostingContent<Content: View>: View {
     @State private var floatingHeight: CGFloat = 0
 
     private let safeAreaInset: CGFloat = 15
-    private let expandedTopCornerRadius: CGFloat = 15
+    private let expandedTopCornerRadius: CGFloat = 10
     private let expandedBottomCornerRadius: CGFloat = 20
     private let floatingCornerRadius: CGFloat = 20
 
     var body: some View {
-        ZStack {
+        ZStack(alignment: .top) {
             if owner.hasNotch {
                 notchBody
                     .foregroundStyle(.white)
             } else {
                 floatingBody
+            }
+            // The app's free-floating overlay (Quick-Look image preview): a
+            // sibling of the masked notch, so it escapes the NotchShape clip yet
+            // stays inside this capture-excluded panel window. Fills the whole
+            // panel and centers the picture itself (see ImagePreviewOverlay), so a
+            // hovered image — current message OR history — blows up to a preview
+            // centered on the screen. Never intercepts clicks.
+            if let overlay = owner.floatingOverlay, owner.state == .expanded {
+                overlay
+                    .allowsHitTesting(false)
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
@@ -34,8 +44,6 @@ struct NotchHostingContent<Content: View>: View {
             radius: owner.state == .hidden ? 0 : 10
         )
     }
-
-    // MARK: - Notch
 
     private var minWidth: CGFloat { owner.notchSize.width + expandedTopCornerRadius * 2 }
 
@@ -64,7 +72,7 @@ struct NotchHostingContent<Content: View>: View {
     /// `Content` pinned below the cutout via a top safe-area inset equal to the
     /// notch height — so the app can lift the avatar into the black strip with a
     /// negative overlay offset. `.onHover` covers the whole shape, cutout
-    /// included, so hovering the physical notch registers (decision 2).
+    /// included, so hovering the physical notch registers.
     private var notchContent: some View {
         HStack(spacing: 0) {
             if owner.state == .expanded {
@@ -77,7 +85,7 @@ struct NotchHostingContent<Content: View>: View {
             }
         }
         .safeAreaInset(edge: .top, spacing: 0) { Color.clear.frame(height: owner.notchSize.height) }
-        .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: safeAreaInset) }
+        .safeAreaInset(edge: .bottom, spacing: 0) { Color.clear.frame(height: owner.suppressBottomInset ? 0 : safeAreaInset) }
         .safeAreaInset(edge: .leading, spacing: 0) { Color.clear.frame(width: safeAreaInset) }
         .safeAreaInset(edge: .trailing, spacing: 0) { Color.clear.frame(width: safeAreaInset) }
         .frame(minWidth: owner.notchSize.width)
@@ -86,8 +94,6 @@ struct NotchHostingContent<Content: View>: View {
         .frame(minWidth: minWidth, minHeight: owner.notchSize.height)
         .onHover(perform: owner.updateHoverState)
     }
-
-    // MARK: - Floating (no-notch screens)
 
     private var floatingBody: some View {
         floatingContent

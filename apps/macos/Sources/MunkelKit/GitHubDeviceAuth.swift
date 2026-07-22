@@ -171,8 +171,6 @@ public struct GitHubDeviceAuth: Sendable {
         return data
     }
 
-    // MARK: - Internals
-
     private func postForm(to url: URL, fields: [String: String]) async throws -> [String: Any] {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"

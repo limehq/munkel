@@ -19,12 +19,27 @@ Fork beta builds are currently unsigned. Windows SmartScreen or Defender may sho
 Ephemeral messages between friends at the same café table, or across the
 world, that slide out of the MacBook notch.
 
-No accounts, no history, no message storage: a circle is born from a shared
+No accounts, no history, no message storage: a channel is born from a shared
 human-readable code (`blue-table-42`). The app derives the relay group ID and
 message key on-device; the relay routes encrypted payloads and does not receive
 the plaintext code.
 
 Website: **[munkel.app](https://munkel.app)**
+
+## Quick start
+
+1. Install the app and CLI: `brew install limehq/tap/munkel`, then `open -a Munkel`.
+2. Sign in with GitHub (or just pick a display name) from the menu-bar icon.
+3. Create or join a channel with a shared, spoken code like `blue-table-42`.
+4. Send a message — to the whole channel or one member:
+   - From the app: type in the menu-bar popover.
+   - From the terminal: `munkel blue-table-42 all "coffee?"`
+5. Incoming messages slide out of each recipient's MacBook notch (a floating
+   panel on Macs without a notch).
+
+Full install options (direct download, from source) are in
+[Install](#install); how it all works is in
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Install
 
@@ -42,7 +57,8 @@ The cask installs `Munkel.app` and symlinks the bundled `munkel` CLI onto your
 [latest release](https://github.com/limehq/munkel/releases/latest) and drag
 `Munkel.app` into Applications. The `munkel` CLI ships inside the app. To put it
 on your `PATH`, open Munkel and choose **Install Command Line Tool…** from the
-menu-bar gear menu: it links into the first writable directory on your `PATH`
+menu-bar gear menu — an item that shows only while the CLI isn't already on your
+`PATH`. It links into the first writable directory on your `PATH`
 (e.g. Homebrew's `bin`) with no admin password, or falls back to `~/.local/bin`
 and adds it to `~/.zshrc` when Homebrew is absent (reopen your terminal
 afterward). Either way the CLI needs the running app, which it talks to over a
@@ -92,13 +108,13 @@ sharing.
 
 - The relay stores no messages and only sees derived group IDs, member IDs,
   message sizes, and timing.
-- Message payloads are AES-256-GCM encrypted with a key derived from the circle
+- Message payloads are AES-256-GCM encrypted with a key derived from the channel
   code on-device.
-- Generated circle codes are optimized for being spoken at a table. Treat them
+- Generated channel codes are optimized for being spoken at a table. Treat them
   as convenience-grade secrets until the invite format is hardened; for more
   sensitive use, join with a longer custom code instead of a generated one.
 - Direct messages are relay-targeted in v1, not pairwise encrypted. Any current
-  circle member with the circle code shares the same message key.
+  channel member with the channel code shares the same message key.
 - GitHub login is display identity only. It imports a name/avatar but does not
   prove to peers that a member controls a GitHub account.
 
@@ -138,7 +154,7 @@ To drive the Munkel Dev app from the CLI, run it from source with `MUNKEL_DEV=1`
 which points it at the dev app's socket and bundle id:
 
 ```sh
-MUNKEL_DEV=1 bun apps/cli/src/munkel.ts circles
+MUNKEL_DEV=1 bun apps/cli/src/munkel.ts channels
 ```
 
 The dev build deliberately does **not** embed the CLI (so it stays lean), so the
@@ -158,8 +174,8 @@ Finder, where env vars don't propagate, set it persistently instead with
 delete dev.uq.munkel relayURL` to restore the default.)
 
 Watching the notch react without a second machine: with the relay and app
-running and the app joined to a circle, `scripts/simulate-whispers.sh` joins
-that circle as a second member and whispers you a message every 30 s. Handy
+running and the app joined to a channel, `scripts/simulate-whispers.sh` joins
+that channel as a second member and whispers you a message every 30 s. Handy
 for demoing or iterating on the notch UI.
 
 ```sh
@@ -168,8 +184,8 @@ INTERVAL=10 scripts/simulate-whispers.sh kaffee-12 Mara
 ```
 
 It sends a direct whisper to your installation `memberId` (read from the app's
-UserDefaults), falling back to a circle broadcast. Override via
-`RELAY_URL` / `CIRCLE` / `SENDER` / `INTERVAL` / `TO`. Under the hood it loops
+UserDefaults), falling back to a channel broadcast. Override via
+`RELAY_URL` / `CHANNEL` / `SENDER` / `INTERVAL` / `TO`. Under the hood it loops
 `apps/server/scripts/dev-send.ts`, the protocol reference sender.
 
 Deploys run automatically: CI ships the relay (`deploy-server.yml`) and the
@@ -203,12 +219,12 @@ with a ~66 s logical TTL; the per-minute cron sweeps expired ones (`src/blob.ts`
 
 - **Server-first transport**: one WebSocket relay path for both café and
   remote, with no flaky local P2P to break.
-- **One Durable Object per circle** (`idFromName(groupId)`), WebSocket
+- **One Durable Object per channel** (`idFromName(groupId)`), WebSocket
   Hibernation API, no DO storage → ephemerality is enforced by design.
 - **Notch-first interaction**: incoming messages appear in the notch, can be
   expanded, copied, and answered inline without opening a chat window.
 - **UI/UX first**: the notch presentation is the product. PoC before plumbing.
-- **Capture-proof surfaces**: every window showing message content or circle
+- **Capture-proof surfaces**: every window showing message content or channel
   codes (notch panel, menu popover) is excluded from screen capture
   (`NSWindow.sharingType = .none`, applied frame-exactly by the
   `CaptureExclusion` view): invisible in Teams/Zoom shares and screenshots,
@@ -217,7 +233,7 @@ with a ~66 s logical TTL; the per-minute cron sweeps expired ones (`src/blob.ts`
 
 ## Relay server
 
-Cloudflare Worker (Hono router) + one Durable Object per circle
+Cloudflare Worker (Hono router) + one Durable Object per channel
 ([partyserver](https://github.com/cloudflare/partyserver) with WebSocket
 hibernation). Modeled after the conventions in `wokkytokky/apps/server`.
 
@@ -242,11 +258,11 @@ automatically on every deploy, with no manual DNS steps.
 
 ## macOS app
 
-Menu bar icon → sign in with GitHub, create or join a circle, send to the
-circle or a single member. Incoming messages appear in the notch via the app's
+Menu bar icon → sign in with GitHub, create or join a channel, send to the
+channel or a single member. Incoming messages appear in the notch via the app's
 own `NotchPanel` component: hovering keeps the message open, the copy button
 puts the text on the clipboard, inline reply can answer the sender or the
-circle, and on Macs without a notch a floating panel is used automatically.
+channel, and on Macs without a notch a floating panel is used automatically.
 Settings live under the `dev.uq.munkel` defaults domain; the relay URL
 defaults to the deployed Worker (override with `ws://127.0.0.1:8787` for
 local development against `wrangler dev`).
@@ -277,16 +293,16 @@ app: create one, tick **Enable Device Flow**, then either edit
 ## munkel CLI
 
 ```sh
-munkel dm sebil "deploy is green"   # notify one person — resolves the name across circles
-munkel circles                      # ● blue-table-42  —  Alex, Sam
-munkel blue-table-42 Alex hey       # circle-scoped direct delivery (disambiguates a name)
-munkel blue-table-42 all "coffee?"  # circle broadcast
+munkel dm sebil "deploy is green"   # notify one person — resolves the name across channels
+munkel channels                     # ● blue-table-42  —  Alex, Sam
+munkel blue-table-42 Alex hey       # channel-scoped direct delivery (disambiguates a name)
+munkel blue-table-42 all "coffee?"  # channel broadcast
 munkel blue-table-42 image ./pic.png ./pic2.png --caption "weekend"  # image album (macOS + Windows)
 ```
 
 `munkel dm <name> …` is the one-call path: the app resolves `<name>` (display
-name or key-id prefix) across every circle, so no `munkel circles` lookup is
-needed first. If the name is unknown or matches more than one circle the send
+name or key-id prefix) across every channel, so no `munkel channels` lookup is
+needed first. If the name is unknown or matches more than one channel the send
 fails with a message naming the candidates, so a single call self-corrects.
 
 The CLI is a thin client: on macOS it talks to the running app over
@@ -303,7 +319,7 @@ On Windows the CLI talks to the running app over a named pipe at
 app is not running, the CLI launches it and waits for the pipe, matching the
 macOS auto-launch behavior.
 
-The app resolves circle-code prefixes and recipient display names, and owns all
+The app resolves channel-code prefixes and recipient display names, and owns all
 crypto and relay connections, an ideal substrate for scripting and agent
 skills.
 
@@ -320,9 +336,13 @@ npx skills add limehq/munkel
 The skill is send-only by design, like the CLI. (Installing requires the
 repo to be public.)
 
+Only `skills/` is published this way. Contributor-only skills live under
+`.claude/skills/` — which the `skills` CLI also scans — and set
+`metadata.internal: true` in their frontmatter so `npx skills add` skips them.
+
 ## Testing without a second Mac
 
-`apps/server/scripts/dev-send.ts` acts as a second circle member: it
+`apps/server/scripts/dev-send.ts` acts as a second channel member: it
 implements the full protocol derivation + AES-GCM encryption in TypeScript
 independently of MunkelKit, so a message it sends arriving in the notch also
 proves Swift↔TS crypto interop (the derivation is additionally pinned in
@@ -336,13 +356,19 @@ bun scripts/dev-send.ts blue-table-42 Alex "coffee?"
 
 ## Project health
 
+- [Architecture](docs/ARCHITECTURE.md)
+- [Roadmap](ROADMAP.md)
+- [Governance](GOVERNANCE.md)
+- [Maintainers](MAINTAINERS.md)
 - [Changelog](CHANGELOG.md)
 - [Security policy](SECURITY.md)
 - [Privacy notes](PRIVACY.md)
 - [Contributing guide](CONTRIBUTING.md)
 - [Code of conduct](CODE_OF_CONDUCT.md)
+- [Accessibility](docs/ACCESSIBILITY.md)
+- [Internationalization](docs/INTERNATIONALIZATION.md)
 - [Release process](RELEASING.md)
-- [OpenSSF Scorecard report](https://scorecard.dev/viewer/?uri=github.com/limehq/munkel)
+- [OpenSSF Best Practices](https://www.bestpractices.dev/projects/13278) · [OpenSSF Scorecard report](https://scorecard.dev/viewer/?uri=github.com/limehq/munkel)
 
 ## Star history
 

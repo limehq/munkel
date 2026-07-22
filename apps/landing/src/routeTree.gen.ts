@@ -9,9 +9,29 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as ImprintRouteImport } from './routes/imprint'
+import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AppcastDotxmlRouteImport } from './routes/appcast[.]xml'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as RelayHk2pSplatRouteImport } from './routes/relay-Hk2p.$'
+import { Route as DownloadLatestRouteImport } from './routes/download.latest'
 
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ImprintRoute = ImprintRouteImport.update({
+  id: '/imprint',
+  path: '/imprint',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContactRoute = ContactRouteImport.update({
+  id: '/contact',
+  path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppcastDotxmlRoute = AppcastDotxmlRouteImport.update({
   id: '/appcast.xml',
   path: '/appcast.xml',
@@ -22,35 +42,108 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const RelayHk2pSplatRoute = RelayHk2pSplatRouteImport.update({
+  id: '/relay-Hk2p/$',
+  path: '/relay-Hk2p/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DownloadLatestRoute = DownloadLatestRouteImport.update({
+  id: '/download/latest',
+  path: '/download/latest',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/appcast.xml': typeof AppcastDotxmlRoute
+  '/contact': typeof ContactRoute
+  '/imprint': typeof ImprintRoute
+  '/privacy': typeof PrivacyRoute
+  '/download/latest': typeof DownloadLatestRoute
+  '/relay-Hk2p/$': typeof RelayHk2pSplatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/appcast.xml': typeof AppcastDotxmlRoute
+  '/contact': typeof ContactRoute
+  '/imprint': typeof ImprintRoute
+  '/privacy': typeof PrivacyRoute
+  '/download/latest': typeof DownloadLatestRoute
+  '/relay-Hk2p/$': typeof RelayHk2pSplatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/appcast.xml': typeof AppcastDotxmlRoute
+  '/contact': typeof ContactRoute
+  '/imprint': typeof ImprintRoute
+  '/privacy': typeof PrivacyRoute
+  '/download/latest': typeof DownloadLatestRoute
+  '/relay-Hk2p/$': typeof RelayHk2pSplatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/appcast.xml'
+  fullPaths:
+    | '/'
+    | '/appcast.xml'
+    | '/contact'
+    | '/imprint'
+    | '/privacy'
+    | '/download/latest'
+    | '/relay-Hk2p/$'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/appcast.xml'
-  id: '__root__' | '/' | '/appcast.xml'
+  to:
+    | '/'
+    | '/appcast.xml'
+    | '/contact'
+    | '/imprint'
+    | '/privacy'
+    | '/download/latest'
+    | '/relay-Hk2p/$'
+  id:
+    | '__root__'
+    | '/'
+    | '/appcast.xml'
+    | '/contact'
+    | '/imprint'
+    | '/privacy'
+    | '/download/latest'
+    | '/relay-Hk2p/$'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppcastDotxmlRoute: typeof AppcastDotxmlRoute
+  ContactRoute: typeof ContactRoute
+  ImprintRoute: typeof ImprintRoute
+  PrivacyRoute: typeof PrivacyRoute
+  DownloadLatestRoute: typeof DownloadLatestRoute
+  RelayHk2pSplatRoute: typeof RelayHk2pSplatRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/imprint': {
+      id: '/imprint'
+      path: '/imprint'
+      fullPath: '/imprint'
+      preLoaderRoute: typeof ImprintRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/contact': {
+      id: '/contact'
+      path: '/contact'
+      fullPath: '/contact'
+      preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/appcast.xml': {
       id: '/appcast.xml'
       path: '/appcast.xml'
@@ -65,12 +158,31 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/relay-Hk2p/$': {
+      id: '/relay-Hk2p/$'
+      path: '/relay-Hk2p/$'
+      fullPath: '/relay-Hk2p/$'
+      preLoaderRoute: typeof RelayHk2pSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/download/latest': {
+      id: '/download/latest'
+      path: '/download/latest'
+      fullPath: '/download/latest'
+      preLoaderRoute: typeof DownloadLatestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppcastDotxmlRoute: AppcastDotxmlRoute,
+  ContactRoute: ContactRoute,
+  ImprintRoute: ImprintRoute,
+  PrivacyRoute: PrivacyRoute,
+  DownloadLatestRoute: DownloadLatestRoute,
+  RelayHk2pSplatRoute: RelayHk2pSplatRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

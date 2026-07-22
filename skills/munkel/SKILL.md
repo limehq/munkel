@@ -2,15 +2,15 @@
 name: munkel
 description: Send ephemeral end-to-end-encrypted messages that appear in
   friends' MacBook notches, via the munkel CLI (macOS). Use when the user
-  wants to message, ping, or notify someone in a Munkel circle, broadcast
-  to a circle, or list Munkel circles and members.
+  wants to message, ping, or notify someone in a Munkel channel, broadcast
+  to a channel, or list Munkel channels and members.
 ---
 
 # munkel — munkel into your friends' notches
 
 Ephemeral, E2E-encrypted messages that slide out of the recipient's MacBook
 notch. The CLI is **send-only** — a thin client for the running Munkel.app,
-which owns circles, crypto, and the relay. It auto-launches the app if it
+which owns channels, crypto, and the relay. It auto-launches the app if it
 isn't running, so no `open -a Munkel` first.
 
 ## Notify one person — the common case
@@ -19,30 +19,30 @@ isn't running, so no `open -a Munkel` first.
 munkel dm <name> <message…>      # e.g. munkel dm sebil deploy is green
 ```
 
-`dm` resolves `<name>` across every circle, so this is a **single call** — do
-NOT run `munkel circles` first. `<name>` matches a member's display name
+`dm` resolves `<name>` across every channel, so this is a **single call** — do
+NOT run `munkel channels` first. `<name>` matches a member's display name
 (case-insensitive) or a prefix of their key id (both shown by `munkel
-circles`). Success prints `munkeled ✓` and exits 0.
+channels`). Success prints `munkeled ✓` and exits 0.
 
 If the send fails, the error says which case it is: an unknown name prints
-`No online member matches …`; a name in more than one circle prints the
-candidate circles. Either way, retry with the circle-scoped form:
+`No online member matches …`; a name in more than one channel prints the
+candidate channels. Either way, retry with the channel-scoped form:
 
 ```sh
-munkel <circle> <name> <message…>    # munkel blue-table-42 sebil hi
-munkel <circle> all <message…>       # broadcast to the whole circle
+munkel <channel> <name> <message…>    # munkel blue-table-42 sebil hi
+munkel <channel> all <message…>       # broadcast to the whole channel
 ```
 
-`<circle>` is a code like `blue-table-42`; any unambiguous prefix works.
-Broadcast (`all`) always needs an explicit circle. If you can't tell which
-circle is the right one, ask — don't send to every candidate, or you'll notify
+`<channel>` is a code like `blue-table-42`; any unambiguous prefix works.
+Broadcast (`all`) always needs an explicit channel. If you can't tell which
+channel is the right one, ask — don't send to every candidate, or you'll notify
 the wrong people too.
 
-## List circles (only when a send fails)
+## List channels (only when a send fails)
 
 ```sh
-munkel circles            # ● online / ○ offline, with online members
-munkel circles --json     # machine-readable [{code,connected,members}]
+munkel channels            # ● online / ○ offline, with online members
+munkel channels --json     # machine-readable [{code,connected,members}]
 ```
 
 ## Limits

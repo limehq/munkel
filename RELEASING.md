@@ -38,9 +38,13 @@ the app's control socket), so they never get separate numbers. The
 Conventional Commits on `main` (`feat:` → minor, `fix:` → patch, `feat!:`
 → breaking) feed a rolling release PR that maintains `CHANGELOG.md` and
 computes the next version. **Merging that PR is the release**: it creates
-tag + GitHub release and dispatches the desktop build. Note the scope:
-release-please watches the whole repo, so server/landing commits also land
-in the product changelog, which is intentional (one product, one version).
+tag + GitHub release and dispatches the desktop build. Scope: the version is
+the **desktop app's** version, so release-please's root package excludes the
+independently-deployed surfaces via `exclude-paths` in `release-please-config.json`
+(`apps/landing`, `apps/server`, and the generated `graphify-out/`). A commit that
+only touches those is deployed by its own path-triggered workflow and never cuts
+an app release. Protocol/crypto changes in `apps/server` always co-change the
+Swift mirror in `apps/macos`, so they still land in the release.
 
 Escape hatch: a manually pushed `v*` tag still triggers `release.yml`
 directly, bypassing release-please.
@@ -81,7 +85,12 @@ Pushing a tag `v<version>` runs `.github/workflows/release.yml`:
 4. `scripts/build-appcast.sh` EdDSA-signs the notarized DMG and renders the
    Sparkle auto-update feed `appcast.xml` (see **Auto-updates** below).
 5. GitHub release with `Munkel-<version>.dmg` (+ `.sha256` + Sigstore bundle
-   + `appcast.xml`).
+   + `appcast.xml`). release-please creates the release as a **prerelease**
+   (`prerelease: true` in `release-please-config.json`); `release.yml` clears
+   that flag and marks it `latest` only **after** the assets are attached
+   (`gh release edit … --prerelease=false --latest`). Until then GitHub's
+   `releases/latest` skips it, so the Sparkle feed never resolves to a release
+   whose `appcast.xml` isn't uploaded yet (see **Auto-updates**).
 6. `scripts/build-brew-cask.sh` renders `Casks/munkel.rb` (with `auto_updates
    true`) with the new version + DMG sha256 and pushes it to
    `limehq/homebrew-tap`.
@@ -155,6 +164,20 @@ in-place update.
   EdDSA-signs the notarized DMG, and renders a single-entry `appcast.xml` that
   the release workflow uploads as a release asset. Keep its `SPARKLE_VERSION` in
   sync with the Sparkle SPM version in `apps/macos/Package.swift`.
+
+- **Surfacing & scheduling**: `UpdaterController` forces one background check on
+  launch (gated on the user's *Check Automatically* preference) on top of
+  Sparkle's interval timer — without it, every manual *Check for Updates*
+  rewrites `SULastCheckTime` and pushes the next scheduled check a full
+  `SUScheduledCheckInterval` (1 day) out, so the automatic path effectively never
+  surfaces. A scheduled find is a Sparkle "gentle reminder": Munkel has no Dock
+  icon, so it shows as an accent dot on the menu-bar item (`AppDelegate`) plus the
+  *Update to <version>…* menu entry, never an unprompted window.
+- **Testing the automatic path** (release build only — the dev build never
+  creates `UpdaterController`): point the app at an appcast advertising a version
+  newer than the local `CFBundleShortVersionString`, then
+  `defaults delete dev.uq.munkel SULastCheckTime` and relaunch. The menu-bar dot
+  should appear within a couple of seconds, with no manual click.
 
 First-release note: the release that introduces Sparkle produces the first
 appcast, but existing users run a build without an updater: they update once

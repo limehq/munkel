@@ -108,7 +108,7 @@ test("send delivers request and confirms", async () => {
   ])
 })
 
-test("circles lists members with connection status", async () => {
+test("channels lists members with connection status", async () => {
   const app = fakeApp(() => ({
     ok: true,
     groups: [
@@ -116,7 +116,7 @@ test("circles lists members with connection status", async () => {
       { code: "green-room-17", connected: false, members: [] },
     ],
   }))
-  const result = await runMunkel(["circles"], app.socketPath)
+  const result = await runMunkel(["channels"], app.socketPath)
 
   expect(result.exitCode).toBe(0)
   expect(result.stdout).toContain("● blue-table-42  —  Alex, Sam")
@@ -124,32 +124,36 @@ test("circles lists members with connection status", async () => {
   expect(app.requests).toEqual([{ action: "groups" }])
 })
 
-test("circles with no circles prints hint", async () => {
+test("channels with no channels prints hint", async () => {
   const app = fakeApp(() => ({ ok: true, groups: [] }))
-  const result = await runMunkel(["circles"], app.socketPath)
+  const result = await runMunkel(["channels"], app.socketPath)
 
   expect(result.exitCode).toBe(0)
-  expect(result.stdout).toContain("No circles yet")
+  expect(result.stdout).toContain("No channels yet")
 })
 
-test("groups stays a back-compat alias for circles", async () => {
-  const app = fakeApp(() => ({ ok: true, groups: [] }))
-  const result = await runMunkel(["groups"], app.socketPath)
+test("circles and groups stay back-compat aliases for channels", async () => {
+  for (const alias of ["circles", "groups"]) {
+    const app = fakeApp(() => ({ ok: true, groups: [] }))
+    const result = await runMunkel([alias], app.socketPath)
 
-  expect(result.exitCode).toBe(0)
-  expect(app.requests).toEqual([{ action: "groups" }])
+    expect(result.exitCode).toBe(0)
+    expect(app.requests).toEqual([{ action: "groups" }])
+    stopFakeApp?.()
+    stopFakeApp = undefined
+  }
 })
 
 test("app error is reported on stderr", async () => {
-  const app = fakeApp(() => ({ ok: false, error: "Unknown circle: nope" }))
+  const app = fakeApp(() => ({ ok: false, error: "Unknown channel: nope" }))
   const result = await runMunkel(["nope", "all", "hi"], app.socketPath)
 
   expect(result.exitCode).toBe(1)
-  expect(result.stderr).toContain("Unknown circle: nope")
+  expect(result.stderr).toContain("Unknown channel: nope")
 })
 
 test("invalid response is rejected", async () => {
-  const app = fakeApp(() => undefined) // serializes to "undefined\n" — not JSON
+  const app = fakeApp(() => undefined)
   const result = await runMunkel(["blue-table-42", "all", "hi"], app.socketPath)
 
   expect(result.exitCode).toBe(1)
@@ -234,7 +238,7 @@ test("auto-launches the app when its socket is down", async () => {
     ].join("\n"),
   )
 
-  const proc = Bun.spawn(["bun", cliPath, "circles"], {
+  const proc = Bun.spawn(["bun", cliPath, "channels"], {
     env: {
       ...process.env,
       MUNKEL_SOCKET: socketPath,
@@ -251,14 +255,14 @@ test("auto-launches the app when its socket is down", async () => {
 
   expect(exitCode).toBe(0)
   expect(stderr).toContain("starting the Munkel app")
-  expect(stdout).toContain("No circles yet")
+  expect(stdout).toContain("No channels yet")
 })
 
 test("no arguments prints usage with exit 64", async () => {
   const result = await runMunkel([])
 
   expect(result.exitCode).toBe(64)
-  expect(result.stdout).toContain("munkel <circle> <recipient|all>")
+  expect(result.stdout).toContain("munkel <channel> <recipient|all>")
 })
 
 test("--help prints usage with exit 0", async () => {
@@ -275,7 +279,7 @@ test("too few send arguments prints usage error", async () => {
   expect(result.stderr).toContain("usage: munkel")
 })
 
-test("dm sends a recipient-only request with no circle", async () => {
+test("dm sends a recipient-only request with no channel", async () => {
   const app = fakeApp(() => ({ ok: true }))
   const result = await runMunkel(["dm", "sebil", "deploy", "is", "green"], app.socketPath)
 
@@ -294,7 +298,7 @@ test("dm with no message is a usage error", async () => {
 test("image sends a recipient-only request carrying the resolved file path", async () => {
   const app = fakeApp(() => ({ ok: true }))
   const imageFile = join(tmpdir(), `munkel-img-${process.pid}-${Math.random().toString(36).slice(2)}.png`)
-  await Bun.write(imageFile, new Uint8Array([0x89, 0x50, 0x4e, 0x47])) // bytes irrelevant to the CLI
+  await Bun.write(imageFile, new Uint8Array([0x89, 0x50, 0x4e, 0x47]))
   const result = await runMunkel(["image", "sebil", imageFile], app.socketPath)
 
   expect(result.exitCode).toBe(0)
@@ -339,12 +343,12 @@ test("image with a missing file exits 66 before touching the socket", async () =
   expect(result.stderr).toContain("no such image file")
 })
 
-test("an error's candidate circles are printed to stderr", async () => {
-  // An ambiguous `dm` recipient comes back with the candidate circles so the
-  // single failed call is self-correcting — no follow-up `circles` needed.
+test("an error's candidate channels are printed to stderr", async () => {
+  // An ambiguous `dm` recipient comes back with the candidate channels so the
+  // single failed call is self-correcting — no follow-up `channels` needed.
   const app = fakeApp(() => ({
     ok: false,
-    error: '"sebil" is in blue-table-42, green-room-17 — say `munkel <circle> sebil …`',
+    error: '"sebil" is in blue-table-42, green-room-17 — say `munkel <channel> sebil …`',
     groups: [
       { code: "blue-table-42", connected: true, members: ["Sebastian", "Sam"] },
       { code: "green-room-17", connected: true, members: ["Sebil"] },
@@ -358,13 +362,13 @@ test("an error's candidate circles are printed to stderr", async () => {
   expect(result.stderr).toContain("● green-room-17")
 })
 
-test("circles --json emits machine-readable output", async () => {
+test("channels --json emits machine-readable output", async () => {
   const groups = [
     { code: "blue-table-42", connected: true, members: ["Alex", "Sam"] },
     { code: "green-room-17", connected: false, members: [] },
   ]
   const app = fakeApp(() => ({ ok: true, groups }))
-  const result = await runMunkel(["circles", "--json"], app.socketPath)
+  const result = await runMunkel(["channels", "--json"], app.socketPath)
 
   expect(result.exitCode).toBe(0)
   expect(JSON.parse(result.stdout)).toEqual(groups)
@@ -383,7 +387,7 @@ test("a silent app triggers a bounded response timeout", async () => {
     socket: { data() { /* swallow the request, never respond */ } },
   })
   try {
-    const proc = Bun.spawn(["bun", cliPath, "circles"], {
+    const proc = Bun.spawn(["bun", cliPath, "channels"], {
       env: { ...process.env, MUNKEL_SOCKET: socketPath, MUNKEL_RESPONSE_TIMEOUT_MS: "200" },
       stdout: "pipe",
       stderr: "pipe",

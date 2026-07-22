@@ -9,6 +9,8 @@ final class GroupSession {
         let id: String
         var displayName: String? = nil
         var avatar: Data? = nil
+        var avatarURL: String? = nil
+        var status: PresenceStatus = .online
 
         var label: String {
             displayName ?? String(id.prefix(8))
@@ -25,9 +27,17 @@ final class GroupSession {
     /// the server's per-blob cap (apps/server/src/blob.ts) plus envelope.
     private static let maxIncomingImageBytes = 3 * 1024 * 1024 + 4_096
 
+    private static let imageURLSession: URLSession = {
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 10
+        config.timeoutIntervalForResource = 30
+        return URLSession(configuration: config)
+    }()
+
     let code: String
     private(set) var members: [Member] = []
     private(set) var isConnected = false
+    var localStatus: PresenceStatus = .online
 
     private let key: GroupKey
     private let client: RelayClient
@@ -41,12 +51,12 @@ final class GroupSession {
     var onStateChange: (() -> Void)?
     /// Called when a chat message arrives; `isDirect` distinguishes a
     /// private message (relay `to` set) from a group broadcast.
-    var onChat: ((_ sender: Member, _ text: String, _ isDirect: Bool) -> Void)?
+    var onChat: ((_ sender: Member, _ text: String, _ sentAt: Date, _ isDirect: Bool) -> Void)?
     /// Called when an image album arrives (1–10 images). `caption` is the
     /// optional shared message (empty if none). `loadFull` fetches + decrypts
     /// one image's full resolution from R2 on demand, keyed by its r2Key
     /// (nil on failure/expiry).
-    var onImages: ((_ sender: Member, _ items: [ImageItem], _ caption: String, _ isDirect: Bool, _ loadFull: @escaping @Sendable (String) async -> Data?) -> Void)?
+    var onImages: ((_ sender: Member, _ items: [ImageItem], _ caption: String, _ sentAt: Date, _ isDirect: Bool, _ loadFull: @escaping @Sendable (String) async -> Data?) -> Void)?
 
     init(code: String, relayURL: URL) {
         self.code = code
@@ -73,17 +83,62 @@ final class GroupSession {
 
     @discardableResult
     func sendChat(_ text: String, to memberId: String? = nil) async -> Bool {
+        // A message that is just an image URL should arrive as a real image,
+        // not a link. Fetch it and ride the normal image path; on any failure
+        // fall through and send the text as typed.
+        if let url = Self.loneImageURL(in: text),
+           let data = await Self.fetchImage(from: url),
+           await sendImages([data], to: memberId) {
+            return true
+        }
         let payload = AppPayload.chat(text: MessageLimits.clamp(text), sentAt: Date())
         return await send(payload, to: memberId)
+    }
+
+    /// Returns the URL when `text` is nothing but a single http(s) link that
+    /// looks like an image (by extension), else nil.
+    private static func loneImageURL(in text: String) -> URL? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.contains(where: \.isWhitespace),
+              let url = URL(string: trimmed),
+              let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https"
+        else {
+            return nil
+        }
+        let exts = ["jpg", "jpeg", "png", "gif", "webp", "avif", "heic", "tiff", "bmp"]
+        return exts.contains(url.pathExtension.lowercased()) ? url : nil
+    }
+
+    /// Downloads the image bytes, capped at the same size as an inbound blob.
+    /// Returns nil on any error or non-image content type.
+    private static func fetchImage(from url: URL) async -> Data? {
+        var request = URLRequest(url: url)
+        request.setValue("image/*", forHTTPHeaderField: "Accept")
+        guard let (data, response) = try? await imageURLSession.data(for: request),
+              let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode),
+              data.count <= maxIncomingImageBytes
+        else {
+            return nil
+        }
+        let contentType = http.value(forHTTPHeaderField: "Content-Type")?.lowercased() ?? ""
+        guard contentType.hasPrefix("image/") else { return nil }
+        return data
     }
 
     @discardableResult
     func sendProfile(to memberId: String? = nil) async -> Bool {
         let payload = AppPayload.profile(
             displayName: Identity.displayName,
-            avatar: Identity.avatarData
+            avatar: nil,
+            avatarURL: Identity.avatarURL,
+            status: localStatus
         )
         return await send(payload, to: memberId)
+    }
+
+    @discardableResult
+    func sendPresence(to memberId: String? = nil) async -> Bool {
+        await send(.presence(status: localStatus), to: memberId)
     }
 
     /// Transcodes each image to AVIF, ALWAYS uploads the sealed ciphertext to R2
@@ -174,6 +229,15 @@ final class GroupSession {
         }
     }
 
+    private func fetchMemberAvatar(_ memberId: String, from urlString: String) async {
+        guard let bytes = await AvatarStore.shared.image(for: urlString) else { return }
+        guard let index = members.firstIndex(where: { $0.id == memberId }),
+              members[index].avatarURL == urlString
+        else { return }
+        members[index].avatar = bytes
+        onStateChange?()
+    }
+
     private func handle(_ event: RelayClient.Event) async {
         switch event {
         case .disconnected:
@@ -238,27 +302,43 @@ final class GroupSession {
         }
 
         switch decoded {
-        case let .profile(displayName, avatar):
-            // nil clears the avatar (peer logged out of GitHub).
+        case let .profile(displayName, avatar, avatarURL, status):
             let sanitizedAvatar = avatar.flatMap {
                 $0.count <= Self.maxIncomingAvatarBytes ? $0 : nil
             }
             if let index = members.firstIndex(where: { $0.id == memberId }) {
                 members[index].displayName = displayName
-                members[index].avatar = sanitizedAvatar
+                members[index].status = status
+                members[index].avatarURL = avatarURL
+                if avatarURL == nil { members[index].avatar = sanitizedAvatar }
             } else {
                 members.append(
-                    Member(id: memberId, displayName: displayName, avatar: sanitizedAvatar)
+                    Member(
+                        id: memberId,
+                        displayName: displayName,
+                        avatar: avatarURL == nil ? sanitizedAvatar : nil,
+                        avatarURL: avatarURL,
+                        status: status
+                    )
                 )
             }
             onStateChange?()
+            if let avatarURL {
+                Task { await self.fetchMemberAvatar(memberId, from: avatarURL) }
+            }
 
-        case let .chat(text, _):
+        case let .presence(status):
+            if let index = members.firstIndex(where: { $0.id == memberId }) {
+                members[index].status = status
+                onStateChange?()
+            }
+
+        case let .chat(text, sentAt):
             let sender = members.first { $0.id == memberId }
                 ?? Member(id: memberId)
-            onChat?(sender, MessageLimits.clamp(text), to != nil)
+            onChat?(sender, MessageLimits.clamp(text), sentAt, to != nil)
 
-        case let .image(items, caption, _):
+        case let .image(items, caption, sentAt):
             // Drop items with an implausibly large inline thumb; the relay
             // frame cap already bounds the total, this guards each one.
             let safeItems = items.filter { $0.thumb.count <= Self.maxIncomingThumbBytes }
@@ -286,7 +366,7 @@ final class GroupSession {
                     }
                 }.value
             }
-            onImages?(sender, safeItems, MessageLimits.clamp(caption), to != nil, loadFull)
+            onImages?(sender, safeItems, MessageLimits.clamp(caption), sentAt, to != nil, loadFull)
         }
     }
 }

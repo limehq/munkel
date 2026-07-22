@@ -11,13 +11,15 @@
 		"deploy": "turbo deploy",
 		"build:release": "scripts/build-release.sh",
 		"test:interop": "bun scripts/interop.ts",
-		"test:interop:vectors": "bun scripts/generate-interop-vectors.ts && bun test apps/windows/src/core/__tests__/swift-interop.test.ts"
+		"test:interop:vectors": "bun scripts/generate-interop-vectors.ts && bun test apps/windows/src/core/__tests__/swift-interop.test.ts",
+		"prepare": "husky"
 	},
 	"overrides": {
 		"esbuild": "0.28.1"
 	},
 	"devDependencies": {
 		"@munkel/shared-wire": "workspace:*",
-		"turbo": "^2.5.0"
+		"husky": "^9.1.7",
+		"turbo": "^2.10.0"
 	}
 }

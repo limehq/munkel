@@ -6,9 +6,12 @@ import { Nav } from '@/components/sections/nav'
 import { Hero } from '@/components/sections/hero'
 import { HowItWorks } from '@/components/sections/how-it-works'
 import { Features } from '@/components/sections/features'
+import { Screenshots } from '@/components/sections/screenshots'
+import { Ultra } from '@/components/sections/ultra'
 import { Cli } from '@/components/sections/cli'
 import { Agents } from '@/components/sections/agents'
 import { Privacy } from '@/components/sections/privacy'
+import { Pricing } from '@/components/sections/pricing'
 import { Faq } from '@/components/sections/faq'
 import { Cta } from '@/components/sections/cta'
 import { LaunchBadgeTrack } from '@/components/sections/launch-badges'
@@ -21,15 +24,20 @@ function LandingPage() {
     <MotionConfig reducedMotion="user">
       <AnnounceBar />
       <Nav />
-      <Hero />
-      <HowItWorks />
-      <Features />
-      <Cli />
-      <Agents />
-      <Privacy />
-      <Faq />
-      <Cta />
-      <LaunchBadgeTrack />
+      <main>
+        <Hero />
+        <HowItWorks />
+        <Features />
+        <Screenshots />
+        <Ultra />
+        <Cli />
+        <Agents />
+        <Privacy />
+        <Pricing />
+        <Faq />
+        <LaunchBadgeTrack />
+        <Cta />
+      </main>
       <SiteFooter />
     </MotionConfig>
   )

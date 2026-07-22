@@ -6,9 +6,10 @@ import UniformTypeIdentifiers
 /// Prepares images for sending and decodes incoming ones. Two outputs per send:
 ///
 /// - `prepareFull` — the full-resolution image that gets sealed and uploaded to
-///   R2. The source (JPEG, PNG, anything decodable) is ALWAYS transcoded to
-///   AVIF and hard-capped at 2 MiB — AVIF is smaller at equal quality, which is
-///   the whole point: minimize bytes on the wire.
+///   R2. A still source (JPEG, PNG, anything decodable) is transcoded to AVIF —
+///   smaller at equal quality, which is the whole point: minimize bytes on the
+///   wire. An animated GIF stays a GIF so it keeps playing. Either way it's
+///   hard-capped at 2 MiB.
 /// - `makeThumbnail` — a tiny AVIF that rides inside the relay pointer for an
 ///   instant notch preview (same format as the full image — no second codec).
 ///
@@ -43,17 +44,21 @@ public enum ImageCodec {
         }
     }
 
-    /// Full-resolution image ready to seal + upload. The source — JPEG, PNG or
-    /// anything else decodable — is ALWAYS transcoded to AVIF (smaller at equal
-    /// quality, one format on the wire) and hard-capped at `maxBytes` (2 MiB).
-    /// Steps quality down, then pixel size, until it fits. Returns nil when the
-    /// input is undecodable, AVIF encoding is unavailable, or it can't be
-    /// compressed within budget.
+    /// Full-resolution image ready to seal + upload. A single-frame source —
+    /// JPEG, PNG or anything else decodable — is transcoded to AVIF (smaller at
+    /// equal quality, one format on the wire). An animated source (a multi-frame
+    /// GIF) keeps its animation: it stays a GIF on the wire so the recipient can
+    /// play it. Either way it's hard-capped at `maxBytes` (2 MiB) by stepping
+    /// quality, then pixel size, until it fits. Returns nil when the input is
+    /// undecodable or can't be compressed within budget.
     public static func prepareFull(
         from data: Data,
         maxBytes: Int = maxFullBytes,
         maxPixels: Int = maxFullPixels
     ) -> Prepared? {
+        if isAnimated(data) {
+            return prepareAnimated(from: data, maxBytes: maxBytes, maxPixels: maxPixels)
+        }
         let sizes = [maxPixels, maxPixels * 3 / 4, maxPixels / 2].filter { $0 > 0 }
         for pixels in sizes {
             guard let image = downsample(data, maxPixels: pixels) else { return nil }
@@ -62,6 +67,28 @@ public enum ImageCodec {
                     return Prepared(data: avif, mime: "image/avif", width: image.width, height: image.height)
                 }
             }
+        }
+        return nil
+    }
+
+    /// Animated GIF kept animated. The original already fits when small enough;
+    /// otherwise it's re-encoded at smaller pixel sizes (frame timing preserved)
+    /// until it lands under budget. Returns nil if even the smallest re-encode
+    /// can't fit — the caller falls back to dropping the image.
+    private static func prepareAnimated(
+        from data: Data,
+        maxBytes: Int,
+        maxPixels: Int
+    ) -> Prepared? {
+        if data.count <= maxBytes, let info = properties(of: data) {
+            return Prepared(data: data, mime: "image/gif", width: info.width, height: info.height)
+        }
+        let sizes = [maxPixels, maxPixels * 3 / 4, maxPixels / 2, maxPixels / 3].filter { $0 > 0 }
+        for pixels in sizes {
+            guard let gif = encodeAnimatedGIF(data, maxPixels: pixels), gif.data.count <= maxBytes else {
+                continue
+            }
+            return Prepared(data: gif.data, mime: "image/gif", width: gif.width, height: gif.height)
         }
         return nil
     }
@@ -108,6 +135,72 @@ public enum ImageCodec {
         let mime = (CGImageSourceGetType(source).flatMap { UTType($0 as String) })
             .flatMap { $0.preferredMIMEType } ?? "application/octet-stream"
         return ImageInfo(width: width, height: height, mime: mime)
+    }
+
+    /// True for a multi-frame image (an animated GIF). Single-frame sources —
+    /// even GIFs — take the still AVIF path; only these keep their animation.
+    public static func isAnimated(_ data: Data) -> Bool {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil) else { return false }
+        return CGImageSourceGetCount(source) > 1
+    }
+
+    /// Re-encode an animated GIF at a smaller longest side, preserving every
+    /// frame and its delay so it still plays. Frames are downsampled through the
+    /// bomb-safe thumbnailer; loop count is carried over (default infinite). nil
+    /// if the source isn't a readable multi-frame GIF.
+    private static func encodeAnimatedGIF(_ data: Data, maxPixels: Int) -> (data: Data, width: Int, height: Int)? {
+        let sourceOptions = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let source = CGImageSourceCreateWithData(data as CFData, sourceOptions) else { return nil }
+        let frameCount = CGImageSourceGetCount(source)
+        guard frameCount > 1 else { return nil }
+
+        let thumbnailOptions = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceShouldCacheImmediately: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixels,
+        ] as [CFString: Any] as CFDictionary
+
+        let output = NSMutableData()
+        guard let destination = CGImageDestinationCreateWithData(
+            output, UTType.gif.identifier as CFString, frameCount, nil
+        ) else {
+            return nil
+        }
+
+        let loopCount = (CGImageSourceCopyProperties(source, nil) as? [CFString: Any])
+            .flatMap { $0[kCGImagePropertyGIFDictionary] as? [CFString: Any] }
+            .flatMap { $0[kCGImagePropertyGIFLoopCount] as? Int } ?? 0
+        CGImageDestinationSetProperties(destination, [
+            kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: loopCount],
+        ] as CFDictionary)
+
+        var width = 0
+        var height = 0
+        for index in 0..<frameCount {
+            guard let frame = CGImageSourceCreateThumbnailAtIndex(source, index, thumbnailOptions) else {
+                return nil
+            }
+            width = max(width, frame.width)
+            height = max(height, frame.height)
+            CGImageDestinationAddImage(destination, frame, [
+                kCGImagePropertyGIFDictionary: [
+                    kCGImagePropertyGIFUnclampedDelayTime: frameDelay(of: source, at: index),
+                ],
+            ] as CFDictionary)
+        }
+        guard CGImageDestinationFinalize(destination) else { return nil }
+        return (output as Data, width, height)
+    }
+
+    /// Per-frame delay in seconds, falling back to a sensible default so a GIF
+    /// with missing timing still animates instead of freezing.
+    private static func frameDelay(of source: CGImageSource, at index: Int) -> Double {
+        let gif = (CGImageSourceCopyPropertiesAtIndex(source, index, nil) as? [CFString: Any])
+            .flatMap { $0[kCGImagePropertyGIFDictionary] as? [CFString: Any] }
+        let unclamped = gif?[kCGImagePropertyGIFUnclampedDelayTime] as? Double
+        let clamped = gif?[kCGImagePropertyGIFDelayTime] as? Double
+        let delay = unclamped ?? clamped ?? 0.1
+        return delay > 0 ? delay : 0.1
     }
 
     /// Thumbnail-decode with a hard longest-side cap — the bomb-safe path for
