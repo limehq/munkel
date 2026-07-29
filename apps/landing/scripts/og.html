@@ -1,0 +1,231 @@
+<!doctype html>
+<meta charset="utf-8" />
+<style>
+  @font-face {
+    font-family: 'Geist';
+    src: url('../node_modules/@fontsource-variable/geist/files/geist-latin-wght-normal.woff2') format('woff2');
+    font-weight: 100 900;
+  }
+  @font-face {
+    font-family: 'Geist Mono';
+    src: url('../node_modules/@fontsource-variable/geist-mono/files/geist-mono-latin-wght-normal.woff2') format('woff2');
+    font-weight: 100 900;
+  }
+
+  :root {
+    --background: oklch(0.175 0.024 54);
+    --foreground: oklch(0.955 0.012 86);
+    --muted-foreground: oklch(0.74 0.03 76);
+    --brand: oklch(0.8 0.12 78);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    width: 1200px;
+    height: 630px;
+    overflow: hidden;
+    position: relative;
+    background: var(--background);
+    font-family: 'Geist', system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    color: var(--foreground);
+    text-align: center;
+  }
+
+  body::before {
+    content: '';
+    position: absolute;
+    inset: -240px -20% auto -20%;
+    height: 700px;
+    background: radial-gradient(ellipse 50% 60% at 50% 0%, oklch(0.8 0.12 78 / 0.16), transparent 70%);
+  }
+
+  .mac {
+    position: relative;
+    width: 1000px;
+    height: 330px;
+    margin: 40px auto 0;
+    background: #000;
+    border-radius: 22px 22px 0 0;
+    border: 1px solid oklch(1 0 0 / 0.16);
+    border-bottom: 0;
+    box-shadow: 0 40px 80px -32px oklch(0 0 0 / 0.5);
+    -webkit-mask-image:
+      radial-gradient(52% 62% at 0% 100%, transparent 30%, #000 78%),
+      radial-gradient(52% 62% at 100% 100%, transparent 30%, #000 78%),
+      linear-gradient(to bottom, #000 46%, transparent 96%);
+    -webkit-mask-composite: source-in;
+  }
+
+  .screen {
+    position: absolute;
+    inset: 8px 8px 0;
+    border-radius: 14px 14px 0 0;
+    overflow: hidden;
+    background:
+      radial-gradient(64% 72% at 50% 0%, color-mix(in oklab, var(--brand) 46%, oklch(0.2 0.02 250)), transparent 78%),
+      radial-gradient(46% 56% at 14% 84%, color-mix(in oklab, var(--brand) 20%, oklch(0.16 0.01 250)), transparent 72%),
+      linear-gradient(180deg, oklch(0.18 0.012 250), oklch(0.11 0.006 260));
+  }
+
+  .menubar {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 14px;
+    font-family: -apple-system, system-ui, sans-serif;
+    font-size: 13px;
+    color: oklch(0.97 0 0 / 0.85);
+    background: oklch(0 0 0 / 0.5);
+  }
+
+  .menubar .right {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    font-variant-numeric: tabular-nums;
+    font-weight: 500;
+  }
+
+  .apple { font-size: 15px; line-height: 0; opacity: 0.92; }
+
+  .notch {
+    position: absolute;
+    top: 7px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 310px;
+    height: 58px;
+    background: #000;
+    clip-path: path('M0 0 Q15 0 15 15 L15 38 Q15 58 35 58 L275 58 Q295 58 295 38 L295 15 Q295 0 310 0 Z');
+    filter: drop-shadow(0 10px 16px oklch(0 0 0 / 0.5));
+  }
+
+  .cam {
+    position: absolute;
+    top: 11px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, oklch(0.38 0.05 250), oklch(0.17 0.03 255) 55%, oklch(0.05 0 0) 100%);
+    box-shadow: 0 0 0 1.5px oklch(0.09 0 0), inset 0 0 2px oklch(0.6 0.08 250 / 0.5);
+  }
+
+  .avatar {
+    position: absolute;
+    top: 6px;
+    left: 30px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-image: linear-gradient(to bottom right, #5ca6fa, #3857eb);
+    font-family: ui-rounded, system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 7.6px;
+    line-height: 1;
+    color: #fff;
+  }
+
+  .msg {
+    position: absolute;
+    top: 34px;
+    left: 30px;
+    right: 30px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: ui-rounded, system-ui, sans-serif;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: oklch(1 0 0 / 0.85);
+  }
+
+  .msg svg { flex: none; color: oklch(1 0 0 / 0.55); }
+
+  .brand {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 58px;
+  }
+
+  .icon {
+    width: 84px;
+    height: 84px;
+    filter: drop-shadow(0 14px 28px oklch(0 0 0 / 0.5));
+  }
+
+  .wordmark {
+    margin-top: 10px;
+    font-size: 62px;
+    font-weight: 700;
+    letter-spacing: -0.035em;
+    line-height: 1;
+  }
+
+  .tagline {
+    margin-top: 16px;
+    font-size: 26px;
+    line-height: 1.35;
+    color: var(--muted-foreground);
+  }
+
+  .chips {
+    margin-top: 18px;
+    font-family: 'Geist Mono', ui-monospace, monospace;
+    font-size: 16px;
+    letter-spacing: 0.02em;
+    color: color-mix(in oklab, var(--muted-foreground) 72%, transparent);
+  }
+</style>
+
+<div class="mac">
+  <div class="screen">
+    <div class="menubar">
+      <span class="apple">&#xF8FF;</span>
+      <span class="right">
+        <svg width="24" height="12" viewBox="0 0 24 12" fill="none">
+          <rect x="0.6" y="0.6" width="19" height="10.8" rx="3.2" stroke="currentColor" stroke-opacity="0.5" stroke-width="1.1" />
+          <rect x="2.2" y="2.2" width="14" height="7.6" rx="1.9" fill="currentColor" />
+          <path d="M21.4 4.2v3.6a2.6 2.6 0 0 0 0-3.6Z" fill="currentColor" fill-opacity="0.5" />
+        </svg>
+        <svg width="15" height="12" viewBox="0 0 15 12" fill="none">
+          <path d="M1 4.2A9.6 9.6 0 0 1 14 4.2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          <path d="M3.6 6.9a6 6 0 0 1 7.8 0" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+          <circle cx="7.5" cy="10" r="1.3" fill="currentColor" />
+        </svg>
+        <span>Thu 9:41</span>
+      </span>
+    </div>
+  </div>
+  <div class="notch">
+    <span class="cam"></span>
+    <span class="avatar">A</span>
+    <div class="msg">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none">
+        <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+        <rect x="5" y="10.5" width="14" height="10" rx="2.6" fill="currentColor" />
+      </svg>
+      <span>coffee?</span>
+    </div>
+  </div>
+</div>
+
+<div class="brand">
+  <img class="icon" src="../public/app-icon.webp" />
+  <div class="wordmark">munkel</div>
+  <div class="tagline">Quiet little messages, straight out of your MacBook notch.</div>
+  <div class="chips">free &amp; open source · end-to-end encrypted · signed &amp; notarized · macOS 14+</div>
+</div>
