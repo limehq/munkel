@@ -11,18 +11,18 @@
 		"typecheck": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@cloudflare/workers-types": "^4.20260629.1",
-		"@types/node": "^26.0.1",
+		"@cloudflare/workers-types": "^5.20260731.1",
+		"@types/node": "^26.1.2",
 		"@types/ws": "^8.18.1",
-		"fast-check": "^4.8.0",
-		"typescript": "^6.0.3",
-		"vitest": "^4.1.9",
+		"fast-check": "^4.9.0",
+		"typescript": "^7.0.2",
+		"vitest": "^4.1.10",
 		"wrangler": "^4.0.0",
-		"ws": "^8.19.0"
+		"ws": "^8.21.1"
 	},
 	"dependencies": {
-		"hono": "^4.12.27",
-		"partyserver": "^0.5.8",
+		"hono": "^4.12.32",
+		"partyserver": "^0.5.9",
 		"zod": "^4.1.0"
 	}
 }
