@@ -1,0 +1,545 @@
+import {
+	deriveGroupKeys,
+	seal,
+	open,
+	sealRaw,
+	openRaw,
+	encodeChat,
+	encodeProfile,
+	encodePresence,
+	encodeImage,
+	decodePayload,
+	assertPayloadFits,
+	PayloadError,
+	normalizeCircleCode,
+	imageCodec,
+	perThumbBudget,
+	MAX_IMAGES_PER_MESSAGE,
+	uploadBlob,
+	downloadBlob,
+	generateBlobKey,
+} from '../core';
+import type { ImageItem } from '../core';
+import { readFile } from 'node:fs/promises';
+import { RelayClient } from './relay-client';
+import { getCircleColor } from '../shared/group-color';
+import { clampMessageText } from '@munkel/shared-wire/message-limits';
+import type { CircleState, IncomingImage, Member, NotchMessage, PresenceStatus } from '../shared/types';
+import type { ChatPayload, ClientMessage, PresencePayload, ProfilePayload, ServerMessage } from '../core';
+
+/**
+ * Result of a GroupSession send. Surfaced all the way to the renderer
+ * so the inline-error UI can distinguish "too long" from "offline".
+ */
+export type SendResult = { ok: true } | { ok: false; error: string };
+
+export interface GroupSessionCallbacks {
+	onStateChange(state: CircleState): void;
+	onChat?(payload: { sender: string; text: string; isDirect: boolean; sentAt: string }): void;
+	onNotch(message: NotchMessage): void;
+	onError?(message: string): void;
+	/**
+	 * Current joined-list index for this circle. Read at every call site
+	 * (not stored on the session) so the color follows the live joined
+	 * order after `leaveCircle` / `setRelayUrl`.
+	 */
+	getColorIndex(): number;
+	/**
+	 * Dev-only "echo my own broadcasts" (Plan 13 item 6), mirroring macOS
+	 * `AppModel.devEchoBroadcasts`. When this returns `true`, a successful
+	 * *broadcast* (`to === undefined`) send is also dispatched locally via
+	 * `onNotch`, since the relay only delivers a broadcast to the *other*
+	 * members — without this a solo developer never sees their own send.
+	 * Read at send time (not cached), so a toggle flip mid-session applies
+	 * to the very next send. Omitted entirely by callers that never echo
+	 * (e.g. tests that don't care about the feature).
+	 */
+	shouldEchoBroadcasts?(): boolean;
+}
+
+/**
+ * Maps the `ImageItem[]` already built for the wire send into the
+ * `IncomingImage[]` shape `onNotch` expects, for the dev-broadcast-echo path
+ * (Plan 13 item 6). Deliberately reuses the same thumbnails already
+ * generated for peers — no second `imageCodec` pass, no R2 round-trip —
+ * matching macOS's echo, which also reuses locally-available image data
+ * rather than re-fetching from the relay. Exported as a pure function so the
+ * mapping is unit-testable without exercising the (WASM/OffscreenCanvas
+ * -dependent) image codec pipeline that produces `items` in the first place.
+ */
+export function buildEchoImages(items: ImageItem[]): IncomingImage[] {
+	return items.map((it) => ({ id: it.r2Key, thumb: it.thumb, width: it.width, height: it.height }));
+}
+
+export class GroupSession {
+	readonly code: string;
+	readonly groupId: string;
+	readonly relayClient: RelayClient;
+	members: Member[] = [];
+	isConnected = false;
+
+	private readonly messageKey: CryptoKey;
+	private identity: { displayName: string; avatar?: string; presenceStatus: PresenceStatus };
+	private readonly callbacks: GroupSessionCallbacks;
+	private readonly relayUrl: string;
+	private readonly memberId: string;
+	private frameQueue: ServerMessage[] = [];
+	private frameProcessing = false;
+	private readonly receivedImages = new Map<string, ImageItem>();
+
+	static async create(
+		code: string,
+		relayUrl: string,
+		memberId: string,
+		identity: { displayName: string; avatar?: string; presenceStatus: PresenceStatus },
+		callbacks: GroupSessionCallbacks,
+	): Promise<GroupSession> {
+		const normalized = normalizeCircleCode(code);
+		const { groupId, messageKey } = await deriveGroupKeys(normalized);
+		return new GroupSession(normalized, groupId, relayUrl, memberId, messageKey, identity, callbacks);
+	}
+
+	private constructor(
+		code: string,
+		groupId: string,
+		relayUrl: string,
+		memberId: string,
+		messageKey: CryptoKey,
+		identity: { displayName: string; avatar?: string; presenceStatus: PresenceStatus },
+		callbacks: GroupSessionCallbacks,
+	) {
+		this.code = code;
+		this.groupId = groupId;
+		this.relayUrl = relayUrl;
+		this.memberId = memberId;
+		this.messageKey = messageKey;
+		this.identity = identity;
+		this.callbacks = callbacks;
+		this.relayClient = new RelayClient(relayUrl, groupId, memberId);
+		this.attachListeners();
+	}
+
+	connect(): void {
+		this.relayClient.connect();
+	}
+
+	disconnect(): void {
+		this.relayClient.disconnect();
+	}
+
+	updateIdentity(identity: { displayName: string; avatar?: string; presenceStatus: PresenceStatus }): void {
+		this.identity = identity;
+	}
+
+	/**
+	 * Download a sealed blob from R2 and decrypt it with this circle's
+	 * `messageKey`. The caller only sees plaintext bytes; the key stays private.
+	 */
+	async fetchFullImage(r2Key: string): Promise<Uint8Array> {
+		const result = await downloadBlob(this.relayUrl, this.groupId, r2Key);
+		if (!result.ok || !result.body) {
+			throw new Error(result.error ?? 'Download failed');
+		}
+		return openRaw(result.body, this.messageKey);
+	}
+
+	findImageMime(r2Key: string): string | undefined {
+		return this.receivedImages.get(r2Key)?.mime;
+	}
+
+	/**
+	 * Seal `text` and dispatch it. Returns the wire-send result as a
+	 * discriminated union so callers can show a user-facing error for
+	 * "too long" / sealing failures vs. an opaque relay-disconnect.
+	 */
+	async sendChat(text: string, to?: string): Promise<SendResult> {
+		const result = await this.sendPayload(encodeChat(text), to);
+		if (result.ok && to === undefined && this.callbacks.shouldEchoBroadcasts?.()) {
+			this.callbacks.onNotch(this.buildOwnNotchMessage(text));
+		}
+		return result;
+	}
+
+	async sendProfile(to?: string): Promise<SendResult> {
+		return this.sendPayload(encodeProfile(this.identity.displayName, { avatar: this.identity.avatar, status: this.identity.presenceStatus }), to);
+	}
+
+	async broadcastPresence(status: PresenceStatus): Promise<SendResult> {
+		return this.sendPayload(encodePresence(status));
+	}
+
+	/**
+	 * Send an image album (1–MAX_IMAGES_PER_MESSAGE images). Mirrors
+	 * `MunkelKit/GroupSession.swift:sendImages(_:caption:to:)`:
+	 *
+	 * For each path:
+	 *   1. Read + AVIF-transcode the source via `imageCodec.prepareFull`
+	 *      (downsample to MAX_FULL_PIXELS, encode to fit MAX_FULL_BYTES).
+	 *   2. Seal the AVIF bytes with `messageKey`.
+	 *   3. PUT sealed bytes to `<relay>/blob/<groupId>/<r2Key>`.
+	 *   4. Make an inline thumbnail via `imageCodec.makeThumbnail`
+	 *      (fits `perThumbBudget(imageCount)` bytes).
+	 *   5. Assemble the `ImageItem` (r2Key, mime, dims, byteLen, thumb).
+	 *
+	 * Then seal the `ImagePayload` JSON with `messageKey`, clamp, and
+	 * relay. Returns the standard `SendResult`.
+	 */
+	async sendImages(imagePaths: string[], caption: string = '', to?: string): Promise<SendResult> {
+		if (imagePaths.length === 0) {
+			return { ok: false, error: 'No images provided' };
+		}
+		if (imagePaths.length > MAX_IMAGES_PER_MESSAGE) {
+			imagePaths = imagePaths.slice(0, MAX_IMAGES_PER_MESSAGE);
+		}
+
+		// Pre-clamp so per-thumb budget accounts for the final album size.
+		const perThumb = perThumbBudget(imagePaths.length);
+
+		try {
+			const results = await Promise.all(
+				imagePaths.map(async (path, index) => {
+					let source: Uint8Array;
+					try {
+						source = await readFile(path);
+					} catch (err) {
+						throw new Error(`Could not read ${path}: ${err instanceof Error ? err.message : String(err)}`);
+					}
+
+					const full = await imageCodec.prepareFull(source);
+					if (!full) {
+						throw new Error(`Could not encode ${path}`);
+					}
+
+					const sealedFull = await sealRaw(full.data, this.messageKey);
+					const r2Key = generateBlobKey();
+					const upload = await uploadBlob(this.relayUrl, this.groupId, r2Key, sealedFull);
+					if (!upload.ok) {
+						throw new Error(upload.error ?? 'Blob upload failed');
+					}
+
+					const thumb = await imageCodec.makeThumbnail(source, perThumb);
+					if (!thumb) {
+						throw new Error(`Could not thumbnail ${path}`);
+					}
+
+					return {
+						index,
+						item: {
+							r2Key,
+							mime: 'image/avif',
+							width: full.width,
+							height: full.height,
+							byteLen: sealedFull.byteLength,
+							thumb: Buffer.from(thumb.data).toString('base64'),
+						} satisfies ImageItem,
+					};
+				}),
+			);
+
+			const items = results
+				.sort((a, b) => a.index - b.index)
+				.map((r) => r.item);
+			const result = await this.sendPayload(encodeImage(items, caption), to);
+			if (result.ok && to === undefined && this.callbacks.shouldEchoBroadcasts?.()) {
+				const images = buildEchoImages(items);
+				// Same fallback caption text as the incoming-image onNotch branch in
+				// handleFrame below, so the echoed album reads identically to how a
+				// peer would see it.
+				const text = caption || `Sent ${images.length} image${images.length === 1 ? '' : 's'}`;
+				this.callbacks.onNotch(this.buildOwnNotchMessage(text, images));
+			}
+			return result;
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'Could not send images';
+			return { ok: false, error: message };
+		}
+	}
+
+	/**
+	 * Fetch and decrypt an incoming album image's full resolution (Plan 14 /
+	 * OQ4 Quick-Look overlay), mirroring macOS `GroupSession.swift`'s
+	 * `loadFull(r2Key)`: `downloadBlob` the sealed bytes from R2, then
+	 * `openRaw` with this session's `messageKey`. Never throws to the
+	 * renderer — any failure (network, 404/expired blob, decrypt mismatch)
+	 * resolves `null` so the notch UI can fall back to its warning glyph
+	 * instead of the app crashing on a stale/foreign r2Key.
+	 */
+	async loadFullImage(r2Key: string): Promise<Uint8Array | null> {
+		try {
+			const result = await downloadBlob(this.relayUrl, this.groupId, r2Key);
+			if (!result.ok || !result.body) return null;
+			return await openRaw(result.body, this.messageKey);
+		} catch (err) {
+			console.error('[group-session] loadFullImage failed:', err);
+			return null;
+		}
+	}
+
+	/** Builds a `NotchMessage` for our own successful broadcast send, dev-echo only (Plan 13 item 6). */
+	private buildOwnNotchMessage(text: string, images?: IncomingImage[]): NotchMessage {
+		return {
+			sender: this.identity.displayName || 'You',
+			senderMemberId: this.memberId,
+			text,
+			isDirect: false,
+			group: this.code,
+			groupColor: getCircleColor(this.callbacks.getColorIndex()),
+			receivedAt: new Date().toISOString(),
+			...(images ? { images } : {}),
+		};
+	}
+
+	private async sendPayload(payload: ChatPayload | ProfilePayload | PresencePayload | { kind: 'image'; items: ImageItem[]; caption: string; sentAt: string }, to?: string): Promise<SendResult> {
+		let sealed: string;
+		try {
+			const json = JSON.stringify(payload);
+			// Wire-size check on the sealed payload: AES-GCM overhead is fixed
+			// (12-byte nonce + 16-byte tag → 28 bytes ≈ 38 base64 chars), so the
+			// sealed length tracks the plaintext length closely. `assertPayloadFits`
+			// *rejects* (throws) an over-cap payload rather than truncating it — the
+			// caller then surfaces a "too long" SendResult. This byte-based ~48 KiB
+			// wire cap is separate from, and stricter-failing than, the UI-side
+			// 2048-character clamp (MAX_MESSAGE_CHARS); it is the backstop for any
+			// caller that bypasses the UI clamp.
+			sealed = await seal(json, this.messageKey);
+			assertPayloadFits(sealed);
+		} catch (err) {
+			const message = err instanceof PayloadError ? err.message : 'Could not seal message';
+			return { ok: false, error: message };
+		}
+		const wireOk = this.send({ type: 'send', payload: sealed, to }, to);
+		return wireOk
+			? { ok: true }
+			: { ok: false, error: 'Circle offline — message not sent.' };
+	}
+
+	toState(): CircleState {
+		return {
+			code: this.code,
+			groupId: this.groupId,
+			isConnected: this.isConnected,
+			members: this.members,
+			relayUrl: this.relayUrl,
+		};
+	}
+
+	private send(message: ClientMessage, _to?: string): boolean {
+		return this.relayClient.send(message);
+	}
+
+	private attachListeners(): void {
+		this.relayClient.on('frame', (frame: ServerMessage) => {
+			this.enqueueFrame(frame);
+		});
+
+		this.relayClient.on('disconnected', () => {
+			this.isConnected = false;
+			this.callbacks.onStateChange(this.toState());
+		});
+
+		this.relayClient.on('error', (err: Error) => {
+			this.callbacks.onError?.(err.message);
+		});
+	}
+
+	/**
+	 * Queue incoming frames and process them one at a time. This prevents
+	 * race conditions where parallel `handleFrame` calls mutate `members`
+	 * while `sendProfile`, `toState`, or callbacks are running.
+	 */
+	private enqueueFrame(frame: ServerMessage): void {
+		this.frameQueue.push(frame);
+		if (this.frameProcessing) return;
+		this.frameProcessing = true;
+		void this.processFrames();
+	}
+
+	private async processFrames(): Promise<void> {
+		while (this.frameQueue.length > 0) {
+			const frame = this.frameQueue.shift()!;
+			try {
+				await this.handleFrame(frame);
+			} catch (err) {
+				console.error('[group-session] frame handler failed:', err);
+			}
+		}
+		this.frameProcessing = false;
+	}
+
+	private async handleFrame(frame: ServerMessage): Promise<void> {
+		switch (frame.type) {
+			case 'welcome': {
+				this.isConnected = true;
+				const known = new Map(this.members.map((m) => [m.memberId, m]));
+				const seen = new Set<string>();
+				this.members = frame.members
+					.filter((memberId) => {
+						if (seen.has(memberId)) return false;
+						seen.add(memberId);
+						return true;
+					})
+					.map((memberId) => {
+						return (
+							known.get(memberId) ?? {
+								memberId,
+								joinedAt: new Date().toISOString(),
+							}
+						);
+					});
+				this.callbacks.onStateChange(this.toState());
+				void this.sendProfile();
+				break;
+			}
+
+			case 'peer-joined': {
+				if (!this.members.some((m) => m.memberId === frame.memberId)) {
+					this.members.push({
+						memberId: frame.memberId,
+						joinedAt: new Date().toISOString(),
+					});
+				}
+				this.callbacks.onStateChange(this.toState());
+				void this.sendProfile(frame.memberId);
+				break;
+			}
+
+			case 'peer-left': {
+				this.members = this.members.filter((m) => m.memberId !== frame.memberId);
+				this.callbacks.onStateChange(this.toState());
+				break;
+			}
+
+			case 'message': {
+				try {
+					const plaintext = await open(frame.payload, this.messageKey);
+					const decoded = decodePayload(plaintext);
+
+					// Resolve the sender label + direct/broadcast flag once —
+					// shared by the chat, profile, and image branches below.
+					const senderRecord = this.members.find((m) => m.memberId === frame.from);
+					const senderLabel = senderRecord?.displayName ?? frame.from;
+					const isDirect = frame.to !== undefined;
+					const colorIndex = this.callbacks.getColorIndex();
+
+					if (decoded.kind === 'chat') {
+						// Display-side 2048-char clamp (Plan 12 "Menu: message
+						// character limit"), mirroring macOS `GroupSession.swift`'s
+						// symmetric `MessageLimits.clamp(text)` on the incoming chat
+						// branch — a peer (malicious or buggy) can't blow up the
+						// menu/notch UI with an oversized message even though the
+						// composer already caps what this app's own UI can send.
+						const text = clampMessageText(decoded.text);
+						this.callbacks.onChat?.({
+							sender: senderLabel,
+							text,
+							isDirect,
+							sentAt: decoded.sentAt,
+						});
+						this.callbacks.onNotch({
+							sender: senderLabel,
+							senderMemberId: frame.from,
+							text,
+							isDirect,
+							group: this.code,
+							groupColor: getCircleColor(colorIndex),
+							receivedAt: new Date().toISOString(),
+						});
+					} else if (decoded.kind === 'profile') {
+						const index = this.members.findIndex((m) => m.memberId === frame.from);
+						if (index >= 0) {
+							this.members[index].displayName = decoded.displayName;
+							if (decoded.avatarURL !== undefined) {
+								this.members[index].avatarURL = decoded.avatarURL;
+								delete this.members[index].avatar;
+							} else if (decoded.avatar !== undefined) {
+								this.members[index].avatar = decoded.avatar;
+								delete this.members[index].avatarURL;
+							} else {
+								// Sender explicitly cleared their avatar (relay
+								// sends `{kind:'profile', displayName}` with no
+								// `avatar` key). macOS already honors this; the
+								// Windows side used to keep the stale avatar.
+								delete this.members[index].avatar;
+								delete this.members[index].avatarURL;
+							}
+							if (decoded.status !== undefined) {
+								this.members[index].status = decoded.status;
+							}
+						} else {
+							const member: Member = {
+								memberId: frame.from,
+								displayName: decoded.displayName,
+								joinedAt: new Date().toISOString(),
+							};
+							if (decoded.status !== undefined) {
+								member.status = decoded.status;
+							}
+
+							if (decoded.avatarURL !== undefined) {
+								member.avatarURL = decoded.avatarURL;
+							} else if (decoded.avatar !== undefined) {
+								member.avatar = decoded.avatar;
+							}
+							this.members.push(member);
+						}
+						this.callbacks.onStateChange(this.toState());
+					} else if (decoded.kind === 'presence') {
+						const index = this.members.findIndex((m) => m.memberId === frame.from);
+						if (index >= 0) {
+							this.members[index].status = decoded.status;
+						} else {
+							this.members.push({
+								memberId: frame.from,
+								status: decoded.status,
+								joinedAt: new Date().toISOString(),
+							});
+						}
+						this.callbacks.onStateChange(this.toState());
+					} else if (decoded.kind === 'image') {
+						for (const it of decoded.items) {
+							this.receivedImages.set(it.r2Key, it);
+						}
+						const images: IncomingImage[] = decoded.items.map((it) => ({
+							id: it.r2Key,
+							thumb: it.thumb,
+							width: it.width,
+							height: it.height,
+							mime: it.mime,
+						}));
+						// Same incoming clamp as the chat branch above, applied to
+						// the caption (mirrors macOS's `MessageLimits.clamp(caption)`
+						// in `GroupSession.swift`'s image branch).
+						const caption = clampMessageText(decoded.caption || '');
+						this.callbacks.onNotch({
+							sender: senderLabel,
+							senderMemberId: frame.from,
+							text: caption || `Sent ${images.length} image${images.length === 1 ? '' : 's'}`,
+							isDirect,
+							group: this.code,
+							groupColor: getCircleColor(colorIndex),
+							receivedAt: new Date().toISOString(),
+							images,
+						});
+					}
+				} catch (err) {
+					console.error('[group-session] dropping undecryptable payload:', err);
+				}
+				break;
+			}
+
+			case 'pong': {
+				break;
+			}
+
+			case 'error': {
+				console.error('[group-session] relay error:', frame.code, frame.message);
+				break;
+			}
+
+			default: {
+				// Unknown frame type; ignore.
+				break;
+			}
+		}
+	}
+}

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { BLOB_TTL_MS, MAX_BLOB_BYTES, registerBlobRoutes, sweepExpiredBlobs } from '../src/blob';
+import { MAX_BLOB_BYTES } from '@munkel/shared-wire/wire-constants';
+import { BLOB_TTL_MS, registerBlobRoutes, sweepExpiredBlobs } from '../src/blob';
 import type { BlobEnv } from '../src/blob';
 
 /**
@@ -11,8 +12,14 @@ import type { BlobEnv } from '../src/blob';
 class FakeBucket {
   readonly store = new Map<string, { bytes: Uint8Array; customMetadata?: Record<string, string> }>();
 
-  async put(key: string, value: ArrayBuffer, opts?: { customMetadata?: Record<string, string> }) {
-    this.store.set(key, { bytes: new Uint8Array(value), customMetadata: opts?.customMetadata });
+  async put(key: string, value: ArrayBuffer | ArrayBufferView, opts?: { customMetadata?: Record<string, string> }) {
+    const bytes =
+      value instanceof Uint8Array
+        ? value
+        : ArrayBuffer.isView(value)
+          ? new Uint8Array(value.buffer, value.byteOffset, value.byteLength)
+          : new Uint8Array(value);
+    this.store.set(key, { bytes, customMetadata: opts?.customMetadata });
   }
 
   async get(key: string) {
@@ -98,6 +105,38 @@ describe('blob routes', () => {
     const big = new Uint8Array(MAX_BLOB_BYTES + 1);
     const put = await app.request(PATH, { method: 'PUT', body: big }, env);
     expect(put.status).toBe(413);
+  });
+
+  it('accepts a streamed body exactly at the byte cap', async () => {
+    const chunkSize = 1024 * 1024; // 1 MiB
+    const chunks = [new Uint8Array(chunkSize), new Uint8Array(chunkSize), new Uint8Array(chunkSize)];
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        for (const chunk of chunks) controller.enqueue(chunk);
+        controller.close();
+      },
+    });
+    expect(MAX_BLOB_BYTES).toBe(3 * chunkSize);
+
+    const put = await app.request(PATH, { method: 'PUT', body: stream }, env);
+    expect(put.status).toBe(204);
+
+    const get = await app.request(PATH, {}, env);
+    expect(get.status).toBe(200);
+    expect((await get.arrayBuffer()).byteLength).toBe(MAX_BLOB_BYTES);
+  });
+
+  it('rejects a streamed body over the byte cap without buffering it whole', async () => {
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.enqueue(new Uint8Array(MAX_BLOB_BYTES + 1));
+        controller.close();
+      },
+    });
+
+    const put = await app.request(PATH, { method: 'PUT', body: stream }, env);
+    expect(put.status).toBe(413);
+    expect(bucket.store.has(`${GROUP}/${KEY}`)).toBe(false);
   });
 
   it('expires and deletes a blob past the TTL on GET', async () => {

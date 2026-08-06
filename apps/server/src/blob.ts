@@ -1,11 +1,39 @@
 import { Hono } from 'hono';
-import { GROUP_ID_REGEX } from './protocol';
+import { GROUP_ID_REGEX } from '@munkel/shared-wire/protocol';
+import { BLOB_KEY_REGEX, MAX_BLOB_BYTES } from '@munkel/shared-wire/wire-constants';
 import { createLogger } from './lib/logger';
 
-export const BLOB_KEY_REGEX = /^[A-Za-z0-9_-]{16,128}$/;
-export const MAX_BLOB_BYTES = 3 * 1024 * 1024;
-export const NOTCH_SURVIVAL_MS = 60 * 1000;
-export const BLOB_TTL_MS = Math.round(NOTCH_SURVIVAL_MS * 1.1);
+/**
+ * R2-backed image blobs — the second persistence surface in an otherwise
+ * "stores nothing" system, added so full-resolution images (which never fit
+ * the 48 KiB relay frame) can travel out-of-band while the relay still only
+ * sees a tiny encrypted pointer (see ../../macos/.../AppPayload image kind).
+ *
+ * The Worker is deliberately blind: clients seal the image with the group
+ * `messageKey` (which never leaves a client) BEFORE upload, so R2 only ever
+ * holds opaque ciphertext. The object is namespaced by `groupId` and keyed by
+ * a client-generated random id; knowing both is the only access control —
+ * the same unguessable-id model the WebSocket relay uses.
+ *
+ * Ephemerality is preserved by a short logical TTL tied to how long a message
+ * stays alive in the recipient's notch: a blob older than {@link BLOB_TTL_MS}
+ * is treated as gone (404) and deleted on the next GET. A per-minute cron runs
+ * {@link sweepExpiredBlobs} to physically delete blobs that were never fetched,
+ * so nothing outlives the window (see index.ts / wrangler.toml).
+ */
+
+/**
+ * How long a message stays alive in the recipient's notch — the basis for the
+ * blob's lifetime (the blob need not outlive the message it points to). Mirrors
+ * NotchPresenter.historyWindow (60 s) on the macOS client.
+ */
+export const NOTCH_SURVIVAL_MS = 60 * 1000; // 60 s
+
+/**
+ * A blob older than this is expired (404 + delete). The notch-survival window
+ * plus a 10% grace, so an in-flight fetch right at the edge still succeeds.
+ */
+export const BLOB_TTL_MS = Math.round(NOTCH_SURVIVAL_MS * 1.1); // 66 s
 
 export interface BlobEnv {
   BLOBS: R2Bucket;
@@ -17,6 +45,50 @@ function objectKey(group: string, key: string): string {
   return `${group}/${key}`;
 }
 
+/**
+ * Reads a Web ReadableStream up to `maxBytes`. Returns the collected bytes or
+ * signals that the cap was exceeded, without buffering more than `maxBytes + 1`
+ * bytes in memory.
+ */
+async function readStreamWithCap(
+  stream: ReadableStream<Uint8Array> | null,
+  maxBytes: number,
+): Promise<{ ok: true; bytes: Uint8Array } | { ok: false }> {
+  if (!stream) {
+    return { ok: true, bytes: new Uint8Array(0) };
+  }
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        total += value.byteLength;
+        if (total > maxBytes) {
+          await reader.cancel();
+          return { ok: false };
+        }
+        chunks.push(value);
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { ok: true, bytes };
+}
+
+/**
+ * Mounts `PUT /blob/:group/:key` and `GET /blob/:group/:key` on `app`. The
+ * routes store and serve opaque bytes; all crypto happens on the clients.
+ */
 export function registerBlobRoutes<E extends BlobEnv>(app: Hono<{ Bindings: E }>): void {
   app.put('/blob/:group/:key', async (c) => {
     const group = c.req.param('group');
@@ -33,18 +105,18 @@ export function registerBlobRoutes<E extends BlobEnv>(app: Hono<{ Bindings: E }>
       return c.text('Payload too large', 413);
     }
 
-    const body = await c.req.arrayBuffer();
-    if (body.byteLength === 0) {
-      return c.text('Empty body', 400);
-    }
-    if (body.byteLength > MAX_BLOB_BYTES) {
+    const read = await readStreamWithCap(c.req.raw.body, MAX_BLOB_BYTES);
+    if (!read.ok) {
       return c.text('Payload too large', 413);
     }
+    if (read.bytes.byteLength === 0) {
+      return c.text('Empty body', 400);
+    }
 
-    await c.env.BLOBS.put(objectKey(group, key), body, {
+    await c.env.BLOBS.put(objectKey(group, key), read.bytes, {
       customMetadata: { uploadedAt: String(Date.now()) },
     });
-    log.info('blob_put', { group, bytes: body.byteLength });
+    log.info('blob_put', { group, bytes: read.bytes.byteLength });
     return c.body(null, 204);
   });
 

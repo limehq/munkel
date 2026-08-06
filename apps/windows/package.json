@@ -1,0 +1,43 @@
+{
+	"name": "@munkel/windows",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"main": "dist/main.cjs",
+	"scripts": {
+		"dev": "node scripts/dev.mjs",
+		"build": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit && node scripts/clean-dist.mjs && vite build --config vite.main.config.ts && vite build --config vite.preload.config.ts && vite build --config vite.renderer.config.ts && node scripts/check-preload-selfcontained.mjs",
+		"typecheck": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit",
+		"test": "bun test",
+		"check:preload": "node scripts/check-preload-selfcontained.mjs",
+		"render-tray-icon": "bun scripts/render-tray-icon.mjs",
+		"pack": "bun run build && electron-builder --win --config electron-builder.yml",
+		"pack:dir": "bun run build && electron-builder --win dir --config electron-builder.yml",
+		"pack:installer": "bun run build && electron-builder --win nsis --config electron-builder.yml",
+		"pack:release": "bun run build && electron-builder --win nsis --publish never --config electron-builder.yml",
+		"render-ico": "bun scripts/render-ico.mjs"
+	},
+	"dependencies": {
+		"@jsquash/avif": "^2.1.1",
+		"@munkel/shared-wire": "workspace:*",
+		"image-size": "^2.0.2",
+		"react": "^18.3.1",
+		"react-dom": "^18.3.1",
+		"electron-updater": "^6.3.9",
+		"sharp": "^0.35.1",
+		"ws": "^8.21.0"
+	},
+	"devDependencies": {
+		"@types/node": "^25.9.3",
+		"@types/react": "^18.3.3",
+		"@types/react-dom": "^18.3.0",
+		"@types/react-test-renderer": "18.3.0",
+		"@types/ws": "^8.18.1",
+		"@vitejs/plugin-react": "^4.3.1",
+		"electron": "^31.0.2",
+		"electron-builder": "26.15.4",
+		"react-test-renderer": "18.3.1",
+		"typescript": "^5.4.5",
+		"vite": "^5.3.1"
+	}
+}

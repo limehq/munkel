@@ -1,0 +1,1568 @@
+:root {
+	/*
+	 * The recipient <select>'s native popup on Windows is a system-drawn
+	 * control that Chromium themes according to `color-scheme` rather than
+	 * page CSS. This app is always dark, so force Chromium to draw native
+	 * popups (and other UA form-control chrome) in the dark variant instead
+	 * of falling back to the OS light theme, which produced white text on a
+	 * white popup background. The `.frosted-field option` rule below remains
+	 * as a fallback for engines/paths that do honor per-option styling.
+	 */
+	color-scheme: dark;
+	--munkel-bg: #0b0b0d;
+	--munkel-surface: rgba(18, 18, 20, 0.98);
+	--munkel-border: rgba(255, 255, 255, 0.10);
+	--munkel-accent: #0a84ff;
+	--munkel-accent-soft: rgba(10, 132, 255, 0.25);
+	--munkel-text: #ffffff;
+	--munkel-text-primary: rgba(255, 255, 255, 0.96);
+	--munkel-text-secondary: rgba(255, 255, 255, 0.65);
+	--munkel-text-tertiary: rgba(255, 255, 255, 0.45);
+	--munkel-radius-sm: 7px;
+	--munkel-radius-md: 12px;
+	--munkel-radius-lg: 16px;
+	--munkel-radius-xl: 20px;
+	--notch-gutter: 80px;
+}
+
+* {
+	box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+	margin: 0;
+	padding: 0;
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+body {
+	font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+	font-size: 13px;
+	color: var(--munkel-text);
+	background: transparent;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+button,
+input,
+select {
+	font: inherit;
+}
+
+.glass {
+	background: var(--munkel-surface);
+	backdrop-filter: blur(20px) saturate(180%);
+	-webkit-backdrop-filter: blur(20px) saturate(180%);
+	border: 1px solid var(--munkel-border);
+}
+
+.frosted-field {
+	background: rgba(255, 255, 255, 0.08);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: var(--munkel-radius-sm);
+	color: var(--munkel-text);
+	padding: 6px 10px;
+	outline: none;
+	transition: box-shadow 0.15s ease-out, background 0.15s ease-out;
+	min-width: 0;
+}
+
+.frosted-field::placeholder {
+	color: rgba(255, 255, 255, 0.45);
+}
+
+.frosted-field:focus {
+	background: rgba(255, 255, 255, 0.12);
+	box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.5);
+}
+
+.icon-button {
+	appearance: none;
+	background: transparent;
+	border: none;
+	color: var(--munkel-text-secondary);
+	cursor: pointer;
+	padding: 4px;
+	border-radius: 6px;
+	line-height: 1;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	transition: background 0.15s ease-out, color 0.15s ease-out;
+}
+
+.icon-button:hover:not(:disabled) {
+	background: rgba(255, 255, 255, 0.1);
+	color: var(--munkel-text);
+}
+
+.icon-button:disabled {
+	opacity: 0.35;
+	cursor: not-allowed;
+}
+
+.button-primary {
+	appearance: none;
+	background: var(--munkel-accent);
+	border: none;
+	border-radius: var(--munkel-radius-sm);
+	color: white;
+	padding: 6px 12px;
+	font-weight: 500;
+	cursor: pointer;
+	transition: opacity 0.15s ease-out, transform 0.1s ease-out;
+}
+
+.button-primary:hover:not(:disabled) {
+	opacity: 0.9;
+}
+
+.button-primary:active:not(:disabled) {
+	transform: scale(0.97);
+}
+
+.button-primary:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+
+.button-small {
+	appearance: none;
+	background: rgba(255, 255, 255, 0.1);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: var(--munkel-radius-sm);
+	color: var(--munkel-text-secondary);
+	padding: 4px 8px;
+	font-size: 11px;
+	cursor: pointer;
+}
+
+.button-small:hover {
+	background: rgba(255, 255, 255, 0.15);
+	color: var(--munkel-text);
+}
+
+.avatar {
+	border-radius: 50%;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-weight: 700;
+	color: white;
+	flex-shrink: 0;
+	user-select: none;
+	overflow: hidden;
+	position: relative;
+	/* Plan 12 P3.5: every newly-mounted Avatar slides/fades in — matches
+	 * macOS's `AvatarView` entry transition. `overflow: hidden` above only
+	 * clips the avatar's own circular content (initials/image), not this
+	 * pseudo-element sibling markup, so it doesn't clip the pulse ring
+	 * below (which deliberately overshoots the circle via `inset: -4px`). */
+	animation: avatar-slide-in 0.28s ease-out;
+}
+
+.avatar-image {
+	width: 100%;
+	height: 100%;
+	border-radius: 50%;
+	object-fit: cover;
+	display: block;
+}
+
+@keyframes avatar-slide-in {
+	from {
+		opacity: 0;
+		transform: translateY(6px) scale(0.85);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0) scale(1);
+	}
+}
+
+/* One-time pulse ring (Plan 12 P3.5) — an Avatar plays this once when its
+ * `pulse` prop is true at mount (e.g. a newly-arrived message), matching
+ * macOS's `AvatarView` unread-message pulse. Implemented as a ::after ring
+ * so it overshoots the avatar's own circular bounds without needing a
+ * wrapper element; `pointer-events: none` keeps it from intercepting clicks
+ * meant for the avatar/message row underneath. Avatar.tsx removes the
+ * `avatar-pulse` class after `AVATAR_PULSE_DURATION_MS`, so this only ever
+ * plays once per mount, not on every re-render. */
+.avatar-pulse::after {
+	content: '';
+	position: absolute;
+	inset: -4px;
+	border-radius: 50%;
+	border: 2px solid rgba(255, 255, 255, 0.75);
+	animation: avatar-pulse-ring 0.9s ease-out;
+	pointer-events: none;
+}
+
+@keyframes avatar-pulse-ring {
+	from {
+		opacity: 0.9;
+		transform: scale(0.82);
+	}
+	to {
+		opacity: 0;
+		transform: scale(1.35);
+	}
+}
+
+.hint,
+.caption {
+	margin: 0;
+	color: var(--munkel-text-secondary);
+}
+
+.caption {
+	font-size: 11px;
+}
+
+.hint {
+	font-size: 12px;
+	line-height: 1.4;
+}
+
+.divider {
+	height: 1px;
+	background: rgba(255, 255, 255, 0.08);
+	margin: 8px 0;
+}
+
+.popover-divider {
+	height: 1px;
+	background: rgba(255, 255, 255, 0.08);
+	margin: 4px 0;
+}
+
+.spinner {
+	display: inline-block;
+	width: 12px;
+	height: 12px;
+	border: 2px solid rgba(255, 255, 255, 0.2);
+	border-top-color: var(--munkel-text-secondary);
+	border-radius: 50%;
+	animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+
+/* Menu window */
+.menu-window {
+	position: relative;
+	width: 320px;
+	height: 100%;
+	border-radius: var(--munkel-radius-md);
+	padding: 14px;
+	display: flex;
+	flex-direction: column;
+	overflow-y: auto;
+	box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45);
+}
+
+/* Direct children must not shrink, or the flex column would compress
+   content to fit the fixed window height instead of overflowing/scrolling. */
+.menu-window > * {
+	flex-shrink: 0;
+}
+
+.menu-header {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	margin-bottom: 12px;
+}
+
+.menu-title {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.menu-title svg {
+	color: var(--munkel-accent);
+}
+
+.settings-wrapper {
+	position: relative;
+}
+
+.settings-popover {
+	position: absolute;
+	top: calc(100% + 6px);
+	right: 0;
+	min-width: 160px;
+	border-radius: var(--munkel-radius-md);
+	padding: 4px;
+	display: flex;
+	flex-direction: column;
+	z-index: 100;
+}
+
+.settings-popover button {
+	appearance: none;
+	background: transparent;
+	border: none;
+	color: var(--munkel-text-primary);
+	padding: 7px 10px;
+	border-radius: 6px;
+	text-align: left;
+	cursor: pointer;
+	font-size: 13px;
+}
+
+.settings-popover button:hover {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.launch-at-login-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 10px;
+	color: var(--munkel-text-primary);
+	font-size: 13px;
+	cursor: pointer;
+	border-radius: 6px;
+}
+
+.launch-at-login-row:hover {
+	background: rgba(255, 255, 255, 0.1);
+}
+
+.launch-at-login-row input[type='checkbox'] {
+	accent-color: var(--munkel-accent);
+}
+
+.name-save-error {
+	margin: 4px 2px 0;
+	font-size: 11px;
+	color: #ff6b6b;
+}
+
+/* Rebindable palette hotkey recorder (Plan 12 P3.1). */
+.hotkey-recorder-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.hotkey-recorder {
+	flex: 1;
+	text-align: left;
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 12px;
+	cursor: pointer;
+}
+
+.hotkey-recorder:focus {
+	background: rgba(255, 255, 255, 0.12);
+	box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.5);
+	outline: none;
+}
+
+.circle-list {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.circle-section {
+	padding: 10px;
+	background: rgba(255, 255, 255, 0.05);
+	border-radius: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.circle-header {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.status-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.circle-code {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 13px;
+	font-weight: 600;
+	flex: 1;
+}
+
+/* Copy circle code button (Plan 12 "Menu: copy circle code button"),
+   mirroring macOS's header copy button next to the code. */
+.copy-code-button {
+	flex-shrink: 0;
+	font-size: 12px;
+}
+
+.send-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.send-row input {
+	flex: 1;
+}
+
+/*
+ * Avatar-chip recipient picker (Plan 12 P2.4), mirroring macOS `TargetChip`:
+ * a horizontally-scrollable row of round chips, one per member plus a globe
+ * chip for "everyone". Replaces the native <select>.
+ */
+.recipient-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	overflow-x: auto;
+	padding-bottom: 2px;
+}
+
+.recipient-chip {
+	appearance: none;
+	background: transparent;
+	border: none;
+	padding: 0;
+	margin: 0;
+	flex-shrink: 0;
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	cursor: pointer;
+}
+
+.recipient-chip.selected {
+	box-shadow: 0 0 0 2px var(--munkel-accent);
+}
+
+.recipient-chip-globe {
+	width: 22px;
+	height: 22px;
+	border-radius: 50%;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 12px;
+	background: rgba(255, 255, 255, 0.12);
+}
+
+.recipient-empty {
+	white-space: nowrap;
+}
+
+/*
+ * Windows renders any remaining native <select> popup list (e.g. future
+ * pickers) as a native OS control, which ignores the translucent
+ * `.frosted-field` background. Chromium on Windows does honor
+ * `background-color`/`color` set directly on <option>, so pin an opaque
+ * dark background there to avoid white-text-on-white-popup.
+ */
+.frosted-field option {
+	background-color: #1c1c1e;
+	color: var(--munkel-text);
+}
+
+.join-area {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.join-row {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.join-row input {
+	flex: 1;
+}
+
+.hotkey-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	font-size: 13px;
+	color: var(--munkel-text-secondary);
+}
+
+.hotkey-icon {
+	font-size: 12px;
+}
+
+.hotkey {
+	margin-left: auto;
+	font-size: 11px;
+	color: var(--munkel-text-tertiary);
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.github-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	min-height: 28px;
+}
+
+.github-column {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.update-status {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 8px 10px;
+	margin-bottom: 10px;
+	background: rgba(10, 132, 255, 0.12);
+	border: 1px solid rgba(10, 132, 255, 0.25);
+	border-radius: var(--munkel-radius-sm);
+	font-size: 12px;
+	color: var(--munkel-text-primary);
+}
+
+.update-status.update-error {
+	background: rgba(255, 69, 58, 0.12);
+	border-color: rgba(255, 69, 58, 0.35);
+}
+
+.update-status-text {
+	flex: 1;
+	min-width: 0;
+	line-height: 1.35;
+}
+
+.update-status .button-small {
+	flex-shrink: 0;
+}
+
+.github-panel {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 10px;
+	background: rgba(255, 255, 255, 0.05);
+	border-radius: 8px;
+}
+
+.github-copy {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	gap: 2px;
+	min-width: 0;
+}
+
+.github-actions {
+	display: flex;
+	justify-content: flex-start;
+}
+
+.code-row {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+}
+
+.user-code {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 17px;
+	font-weight: 700;
+	letter-spacing: 0.05em;
+}
+
+/* Leave confirmation dialog */
+.leave-dialog-overlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.35);
+	border-radius: var(--munkel-radius-md);
+	z-index: 200;
+}
+
+.leave-dialog {
+	min-width: 220px;
+	max-width: 280px;
+	padding: 16px;
+	border-radius: var(--munkel-radius-md);
+	display: flex;
+	flex-direction: column;
+	gap: 14px;
+	box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+}
+
+.leave-dialog-title {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 600;
+	color: var(--munkel-text-primary);
+	line-height: 1.3;
+}
+
+.leave-dialog-actions {
+	display: flex;
+	justify-content: flex-end;
+	gap: 8px;
+}
+
+/*
+ * Outer window root (Plan 14 / OQ4 Quick-Look overlay). Always centers
+ * `.notch-widget` at the top — a no-op visually while the window stays
+ * compact (280px, exactly `.notch-widget`'s width), but load-bearing once
+ * `notch-window.ts` widens the window to the display's work area for the
+ * preview: `.notch-widget` must stay pinned top-center instead of stretching
+ * or drifting to the wide window's left edge. `.image-preview-overlay`
+ * (added below) is a sibling so it can paint over the FULL window, escaping
+ * `.notch-widget`'s own clipping/backdrop-filter — the same "sibling of the
+ * masked notch content" structure macOS uses (see
+ * `fp-notes/macos-image-preview-upstream/ImagePreviewOverlay.swift`).
+ */
+.notch-root {
+	position: relative;
+	width: 100%;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+}
+
+/* Notch widget */
+/*
+ * Width tracks the macOS reference (`MessageNotchContainer.swift`
+ * tickerWindow = 250 pt content) instead of the old oversized 360 px.
+ * Height is content-driven: the widget's layout height is reported to the
+ * main process (notch-resize IPC), which resizes the window to match —
+ * so no min-height pinning to the window here.
+ */
+.notch-widget {
+	width: 280px;
+	padding: 26px 14px 14px;
+	background: rgba(8, 8, 10, 0.99);
+	backdrop-filter: blur(20px) saturate(180%);
+	-webkit-backdrop-filter: blur(20px) saturate(180%);
+	border-radius: 0 0 var(--munkel-radius-xl) var(--munkel-radius-xl);
+	border: 1px solid rgba(255, 255, 255, 0.08);
+	border-top: none;
+	position: relative;
+	color: white;
+	opacity: 1;
+	transform-origin: top center;
+	transform: translateY(calc(-100% + 10px));
+	transition: transform 0.3s ease, opacity 0.25s ease-out;
+	pointer-events: auto;
+	display: flex;
+	flex-direction: column;
+}
+
+.notch-inner {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.notch-widget::before {
+	content: '';
+	position: absolute;
+	z-index: -1;
+	inset: 0;
+	border-radius: inherit;
+	background: rgba(0, 0, 0, 0.5);
+	filter: blur(12px);
+	transform: translateY(10px) scale(0.96);
+	opacity: 0.8;
+	pointer-events: none;
+}
+
+.notch-widget.notch-full,
+.notch-widget.notch-reopened {
+	transform: translateY(0) scaleY(1);
+	animation: notch-enter 0.45s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+
+.notch-widget.notch-peek {
+	transform: translateY(calc(-100% + 20px));
+}
+
+.notch-widget.notch-retracted {
+	transform: translateY(calc(-100% + 12px));
+}
+
+.notch-widget.notch-preview {
+	transform: translateY(calc(-100% + 110px));
+}
+
+.notch-preview .notch-sliver {
+	opacity: 1;
+	transform: translate(-50%, 0);
+}
+
+.notch-preview-content {
+	display: flex;
+	flex-direction: column;
+	padding: 10px 2px 18px;
+	cursor: pointer;
+}
+
+.preview-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+}
+
+.preview-body {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.preview-text {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 1.35;
+	color: var(--munkel-text);
+	max-height: 2.7em;
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	-webkit-box-orient: vertical;
+}
+
+@keyframes notch-enter {
+	from {
+		transform: translateY(-18px) scaleY(0.92);
+	}
+	to {
+		transform: translateY(0) scaleY(1);
+	}
+}
+
+.notch-hover-target {
+	position: absolute;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 24px;
+	z-index: 4;
+	cursor: default;
+}
+
+.notch-full .notch-hover-target,
+.notch-reopened .notch-hover-target,
+.notch-preview .notch-hover-target {
+	pointer-events: none;
+}
+
+.notch-sliver {
+	position: absolute;
+	bottom: 0;
+	left: 50%;
+	transform: translateX(-50%);
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: 8px;
+	min-width: 52px;
+	height: 20px;
+	z-index: 3;
+	opacity: 1;
+	transition: opacity 0.2s ease-out, transform 0.3s ease;
+}
+
+.notch-full .notch-sliver,
+.notch-reopened .notch-sliver {
+	opacity: 0;
+	transform: translate(-50%, -8px);
+}
+
+.notch-grabber {
+	width: 36px;
+	height: 4px;
+	border-radius: 999px;
+	background: rgba(255, 255, 255, 0.42);
+	box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.notch-retracted .notch-grabber {
+	width: 28px;
+	opacity: 0.9;
+}
+
+/*
+ * Unread indicator dot (Plan 12 P3.3), matching macOS `UnreadIndicatorView`:
+ * a blue dot with a black backing shown in the retracted notch when a
+ * message arrived and the user hasn't interacted with it yet. Unlike macOS
+ * (which swaps in a separate small indicator panel once the message notch
+ * fully hides), Windows renders the dot directly inside the existing
+ * retracted sliver, since the sliver already IS this app's replacement for
+ * the hardware-notch tab.
+ */
+.notch-unread-dot {
+	width: 10px;
+	height: 10px;
+	border-radius: 50%;
+	background: #0a84ff;
+	box-shadow: 0 0 0 2px rgba(0, 0, 0, 0.85);
+	flex-shrink: 0;
+}
+
+.notch-ring {
+	display: block;
+	transform: rotate(-90deg) scaleX(-1);
+	transform-origin: center;
+}
+
+.notch-ring circle {
+	fill: none;
+}
+
+.notch-ring circle.track {
+	stroke: rgba(255, 255, 255, 0.18);
+	stroke-width: 2;
+}
+
+.notch-ring circle.progress {
+	stroke: #fff;
+	stroke-width: 2;
+	stroke-linecap: round;
+	stroke-dasharray: var(--ring-circumference);
+	animation: notch-ring-drain 30s linear forwards;
+}
+
+@keyframes notch-ring-drain {
+	from {
+		stroke-dashoffset: 0;
+	}
+	to {
+		stroke-dashoffset: var(--ring-circumference);
+	}
+}
+
+/*
+ * Content-driven resize (WIN-NOTCH-004, notch-window.ts `resizeNotchToContent`)
+ * grows the window with this element's rendered height up to
+ * NOTCH_MAX_HEIGHT (480px, `clampNotchHeight`). Past that clamp the window
+ * itself can't grow any further, so this element — not `.notch-history-list`
+ * — is the single scroll boundary for BOTH the single "current message" view
+ * and the reopened history list: once content would exceed the clamp, it
+ * scrolls internally here instead of silently clipping against the window's
+ * fixed bounds. Iteration-8 review follow-up: previously `.notch-history-list`
+ * alone capped at a hardcoded 220px (well below the 480px window clamp, so
+ * the history list scrolled internally long before the window ever grew to
+ * its actual max) and the single-message view had no cap at all (so a very
+ * long message above the clamp would clip instead of scroll). Budget below =
+ * NOTCH_MAX_HEIGHT (480) − `.notch-widget`'s 26px padding-top − 14px
+ * padding-bottom − 1px border-bottom.
+ */
+.notch-content {
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+	max-height: 439px;
+	overflow-y: auto;
+	padding-right: 4px;
+}
+
+.notch-history-list {
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
+}
+
+.history-entry {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+}
+
+.message-row {
+	display: flex;
+	align-items: flex-start;
+	gap: 12px;
+	padding: 4px 2px;
+	cursor: default;
+	border-radius: 8px;
+	transition: background 0.15s ease-out;
+}
+
+.message-row:hover {
+	background: rgba(255, 255, 255, 0.05);
+}
+
+.message-body {
+	flex: 1;
+	min-width: 0;
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+	/* Clicking the message body opens the reply field (in addition to the ↩
+	   button), so signal it as interactive. */
+	cursor: pointer;
+}
+
+.message-meta {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	font-size: 11px;
+	color: var(--munkel-text-secondary);
+}
+
+.sender {
+	font-weight: 600;
+}
+
+.circle-dot {
+	width: 6px;
+	height: 6px;
+	border-radius: 50%;
+}
+
+.circle-name {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 10px;
+	max-width: 80px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.message-text {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 1.35;
+	color: var(--munkel-text);
+	max-height: 5.4em; /* 4 lines × 1.35 line-height */
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 4;
+	-webkit-box-orient: vertical;
+}
+
+/* History expand/collapse (Plan 12 P3.6): default one-line ellipsis for
+   reopened history rows until their chevron toggles them expanded. Only
+   applied to `.history-entry` rows rendered with `collapsible: true` — the
+   single "current message" view is never truncated. */
+.message-text-collapsed {
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+/*
+ * Message text ticker (Plan 13 item 7, `TickerText.tsx`), used ONLY in the
+ * single "current message" view — never on `.history-entry` rows rendered
+ * with `collapsible: true` (those keep `.message-text-collapsed` above; the
+ * two features are mutually exclusive per row, matching the component's own
+ * one-render-branch-or-the-other wiring in NotchWidget.tsx). Same
+ * typography as `.message-text` so swapping between the two view states
+ * doesn't visibly reflow.
+ */
+.ticker {
+	overflow: hidden;
+	white-space: nowrap;
+	width: 100%;
+	font-size: 14px;
+	font-weight: 500;
+	line-height: 1.35;
+	color: var(--munkel-text);
+}
+
+.ticker-text {
+	display: inline-block;
+	white-space: nowrap;
+	will-change: transform;
+}
+
+/* Duration comes from the inline `transitionDuration` style (depends on the
+   measured scroll distance); this only sets which property animates and how. */
+.ticker.ticker-scrolling .ticker-text {
+	transition-property: transform;
+	transition-timing-function: linear;
+}
+
+/* Trailing fade appears as soon as a ticker is scroll-eligible, even before
+   the standstill delay elapses. */
+.ticker.ticker-scrolling {
+	-webkit-mask-image: linear-gradient(to right, black 0%, black 96%, transparent 100%);
+	mask-image: linear-gradient(to right, black 0%, black 96%, transparent 100%);
+}
+
+/* Leading fade only once the text has actually started moving (macOS:
+   `offset > 0.5`) — the first characters must be fully readable at rest. */
+.ticker.ticker-scrolling.ticker-moving {
+	-webkit-mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
+	mask-image: linear-gradient(to right, transparent 0%, black 4%, black 96%, transparent 100%);
+}
+
+/* `prefers-reduced-motion` (or an environment without `matchMedia`) skips
+   the scroll animation entirely (see TickerText's `reduced` state) and
+   truncates with an ellipsis instead — no fade masks on a static line.
+   The ellipsis must live on the element that directly contains the text:
+   `text-overflow` has no effect across an `inline-block` child, so the
+   truncation is applied to `.ticker-text` (switched to `display: block` so
+   it fills the container's width and clips there), not the `.ticker`
+   wrapper. */
+.ticker.ticker-static-truncated .ticker-text {
+	display: block;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.history-expand-button {
+	margin-top: 2px;
+	font-size: 11px;
+}
+
+.copy-button {
+	margin-top: 2px;
+}
+
+.reply-button {
+	margin-top: 2px;
+}
+
+.reply-field {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 0 2px;
+}
+
+.channel-toggle {
+	appearance: none;
+	width: 26px;
+	height: 26px;
+	border-radius: 50%;
+	border: none;
+	background: rgba(255, 255, 255, 0.12);
+	color: var(--munkel-text);
+	cursor: pointer;
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 11px;
+	flex-shrink: 0;
+}
+
+.channel-toggle:hover {
+	background: rgba(255, 255, 255, 0.18);
+}
+
+.reply-field input {
+	flex: 1;
+}
+
+.reply-error {
+	margin: 0;
+	padding: 0 4px;
+	font-size: 11px;
+	color: #ff6b6b;
+}
+
+/* "Sent to …" reply confirmation chip (mirrors macOS
+   MessageNotchContainer.swift's `sentConfirmation`): replaces the reply
+   field briefly after a successful send, before the field closes. */
+.sent-confirmation {
+	display: flex;
+	align-items: center;
+	gap: 5px;
+	padding: 0 4px;
+	font-size: 12px;
+	font-weight: 500;
+	color: rgba(255, 255, 255, 0.7);
+	animation: sent-confirmation-in 0.2s ease-out both;
+}
+
+.sent-confirmation-check {
+	font-size: 12px;
+}
+
+@keyframes sent-confirmation-in {
+	from {
+		opacity: 0;
+		transform: translateY(-2px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.notch-widget,
+	.notch-widget.notch-full,
+	.notch-widget.notch-reopened,
+	.notch-sliver {
+		animation: none;
+		transition: none;
+	}
+
+	.notch-ring circle.progress {
+		animation: none;
+		stroke-dashoffset: calc(var(--ring-circumference) / 2);
+	}
+
+	.sent-confirmation {
+		animation: none;
+	}
+
+	/* Plan 14 / OQ4: the backdrop/card fade+scale and loading spinner are
+	 * purely decorative — skip all three under prefers-reduced-motion. The
+	 * overlay still shows/hides instantly (no animation != no display). */
+	.image-preview-backdrop,
+	.image-preview-card {
+		animation: none;
+	}
+
+	.image-preview-spinner {
+		animation: none;
+	}
+
+	/* Plan 12 P3.5: the slide-in and pulse-ring are purely decorative —
+	 * skip both under prefers-reduced-motion. The `avatar-pulse` class is
+	 * still applied/removed on the same schedule (Avatar.tsx doesn't read
+	 * this media query), just with nothing visible playing. */
+	.avatar {
+		animation: none;
+	}
+
+	.avatar-pulse::after {
+		animation: none;
+		display: none;
+	}
+
+	/* Defense in depth on top of TickerText's own `matchMedia` check (Plan 13
+	 * item 7): if JS ever renders the scrolling variant anyway (e.g. an
+	 * embedding without `window.matchMedia`), CSS still freezes it in place.
+	 * `!important` is required to beat the inline `transform`/`transitionDuration`
+	 * TickerText sets when it believes reduced-motion is off. */
+	.ticker-text {
+		transform: none !important;
+		transition: none !important;
+	}
+}
+
+/* Palette window */
+.palette {
+	width: 640px;
+	height: 440px;
+	border-radius: var(--munkel-radius-lg);
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	animation: palette-enter 0.2s ease-out both;
+	box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+}
+
+@keyframes palette-enter {
+	from {
+		opacity: 0;
+		transform: scale(0.96);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+.palette-search {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	padding: 0 20px;
+	height: 60px;
+}
+
+.search-icon {
+	font-size: 18px;
+	color: var(--munkel-text-secondary);
+}
+
+.palette-search input {
+	flex: 1;
+	background: transparent;
+	border: none;
+	box-shadow: none;
+	font-size: 22px;
+	padding: 0;
+}
+
+.palette-search input:focus {
+	background: transparent;
+	box-shadow: none;
+}
+
+.palette-divider {
+	height: 1px;
+	background: rgba(255, 255, 255, 0.08);
+	flex-shrink: 0;
+}
+
+.palette-header {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 0 16px;
+	height: 52px;
+	flex-shrink: 0;
+}
+
+.target-name {
+	font-size: 15px;
+	font-weight: 600;
+}
+
+.compose-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 0 20px;
+	height: 60px;
+}
+
+.compose-row input {
+	flex: 1;
+	font-size: 20px;
+}
+
+.compose-error {
+	margin: 0;
+	padding: 0 20px 12px;
+	font-size: 12px;
+	color: #ff6b6b;
+}
+
+.recipient-list {
+	flex: 1;
+	overflow-y: auto;
+	padding: 8px;
+}
+
+.empty-state {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	height: 100%;
+}
+
+.recipient-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	padding: 8px 12px;
+	border-radius: 8px;
+	cursor: pointer;
+	transition: background 0.12s ease-out;
+}
+
+.recipient-row:hover,
+.recipient-row.selected {
+	background: var(--munkel-accent-soft);
+}
+
+.recipient-label {
+	font-size: 14px;
+	flex: 1;
+}
+
+.recipient-circle {
+	font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	font-size: 12px;
+	color: var(--munkel-text-secondary);
+}
+
+/* Image attachments in palette */
+.image-attachments {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+	padding: 0 20px 12px;
+}
+
+.image-attachment-chip {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	background: rgba(255, 255, 255, 0.08);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	border-radius: 999px;
+	padding: 3px 3px 3px 10px;
+	font-size: 11px;
+	color: var(--munkel-text-secondary);
+	max-width: 180px;
+}
+
+.image-attachment-chip > span {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.image-attachment-chip .icon-button {
+	width: 18px;
+	height: 18px;
+	font-size: 14px;
+}
+
+/* Inline image previews in notch */
+.image-preview-row {
+	display: flex;
+	flex-wrap: nowrap;
+	gap: 6px;
+	margin-top: 6px;
+	overflow-x: auto;
+	/* Thumbnails don't open reply (they stopPropagation), so don't inherit the
+	   message-body pointer affordance. */
+	cursor: default;
+}
+
+.image-preview-thumb {
+	width: 72px;
+	height: 72px;
+	object-fit: cover;
+	border-radius: var(--munkel-radius-sm);
+	border: 1px solid rgba(255, 255, 255, 0.1);
+	background: rgba(255, 255, 255, 0.05);
+	cursor: zoom-in;
+}
+
+.image-preview-overlay {
+	position: fixed;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	z-index: 100;
+}
+
+.image-preview-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+}
+
+.image-preview-card {
+	position: relative;
+	max-width: calc(100vw - 2 * var(--notch-gutter, 80px));
+	max-height: calc(100vh - 2 * var(--notch-gutter, 80px));
+	border-radius: var(--munkel-radius-lg);
+	overflow: hidden;
+	box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
+	border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.image-preview-card img {
+	display: block;
+	max-width: 100%;
+	max-height: 100%;
+	object-fit: contain;
+}
+
+.image-preview-spinner {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	background: rgba(0, 0, 0, 0.35);
+}
+
+.image-preview-error {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	padding: 20px;
+	text-align: center;
+	color: rgba(255, 255, 255, 0.85);
+	background: rgba(0, 0, 0, 0.35);
+	font-size: 13px;
+	line-height: 1.4;
+}
+
+/* Status section in settings popover */
+.status-section {
+	display: flex;
+	flex-direction: column;
+	gap: 8px;
+	padding: 6px;
+}
+
+.status-row {
+	display: flex;
+	align-items: center;
+	gap: 10px;
+}
+
+.status-copy {
+	display: flex;
+	flex-direction: column;
+	gap: 1px;
+	min-width: 0;
+}
+
+.status-auto {
+	color: var(--munkel-text-tertiary);
+}
+
+.status-picker {
+	display: flex;
+	flex-direction: column;
+	gap: 2px;
+}
+
+.status-option {
+	appearance: none;
+	background: transparent;
+	border: none;
+	color: var(--munkel-text-secondary);
+	padding: 6px 8px;
+	border-radius: 6px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	cursor: pointer;
+	font-size: 12px;
+}
+
+.status-option:hover {
+	background: rgba(255, 255, 255, 0.08);
+}
+
+.status-option-active {
+	background: rgba(255, 255, 255, 0.12);
+	color: var(--munkel-text-primary);
+}
+
+.status-option .status-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+/*
+ * Image Quick-Look overlay (Plan 14 / OQ4 macOS-parity hover preview),
+ * mirroring `ImagePreviewOverlay.swift`'s backdrop + `PreviewCard`. Fills
+ * the ENTIRE window (a sibling of `.notch-widget` inside `.notch-root`) —
+ * only reachable while `notch-window.ts` has widened the window to the
+ * display's work area, so this never clips against the compact 280px shape.
+ * `pointer-events: none` throughout: the overlay must never steal hover
+ * from the thumbs underneath it (see `.notch-hover-target`'s analogous
+ * click-through posture), matching macOS's `allowsHitTesting(false)`.
+ */
+.image-preview-overlay {
+	position: absolute;
+	inset: 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	pointer-events: none;
+	z-index: 50;
+}
+
+.image-preview-backdrop {
+	position: absolute;
+	inset: 0;
+	background: rgba(0, 0, 0, 0.6);
+	animation: image-preview-fade-in 0.24s ease-out both;
+}
+
+.image-preview-card {
+	position: relative;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	border-radius: 16px;
+	border: 1px solid rgba(255, 255, 255, 0.12);
+	box-shadow: 0 12px 28px rgba(0, 0, 0, 0.55);
+	background: rgba(0, 0, 0, 0.55);
+	overflow: hidden;
+	animation: image-preview-card-in 0.24s ease-out both;
+}
+
+.image-preview-card-img {
+	width: 100%;
+	height: 100%;
+	object-fit: contain;
+}
+
+.image-preview-spinner {
+	position: absolute;
+	width: 28px;
+	height: 28px;
+	border-radius: 50%;
+	border: 3px solid rgba(255, 255, 255, 0.25);
+	border-top-color: rgba(255, 255, 255, 0.85);
+	animation: image-preview-spin 0.9s linear infinite;
+}
+
+.image-preview-fail {
+	position: absolute;
+	font-size: 22px;
+	color: rgba(255, 255, 255, 0.6);
+}
+
+@keyframes image-preview-fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
+}
+
+@keyframes image-preview-card-in {
+	from {
+		opacity: 0;
+		transform: scale(0.92);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+@keyframes image-preview-spin {
+	from {
+		transform: rotate(0deg);
+	}
+	to {
+		transform: rotate(360deg);
+	}
+}

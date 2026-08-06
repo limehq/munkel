@@ -11,7 +11,13 @@ public enum CryptoError: Error {
 /// `payload = base64( nonce[12] ‖ ciphertext ‖ tag[16] )`, empty AAD.
 public enum MessageCrypto {
     public static func seal(_ plaintext: Data, using key: SymmetricKey) throws -> String {
-        try sealRaw(plaintext, using: key).base64EncodedString()
+        try seal(plaintext, using: key, nonce: AES.GCM.Nonce())
+    }
+
+    /// Deterministic seal for cross-platform interop tests (Swift ↔ Windows).
+    /// Production code should use `seal(_:using:)` with a random nonce.
+    public static func seal(_ plaintext: Data, using key: SymmetricKey, nonce: AES.GCM.Nonce) throws -> String {
+        try sealRaw(plaintext, using: key, nonce: nonce).base64EncodedString()
     }
 
     public static func open(_ payload: String, using key: SymmetricKey) throws -> Data {
@@ -25,7 +31,12 @@ public enum MessageCrypto {
     /// (nonce ‖ ciphertext ‖ tag) instead of base64. Used for image blobs
     /// stored in R2, where base64 would waste ~33% of storage and egress.
     public static func sealRaw(_ plaintext: Data, using key: SymmetricKey) throws -> Data {
-        let sealedBox = try AES.GCM.seal(plaintext, using: key)
+        try sealRaw(plaintext, using: key, nonce: AES.GCM.Nonce())
+    }
+
+    /// Deterministic raw seal for cross-platform interop tests.
+    public static func sealRaw(_ plaintext: Data, using key: SymmetricKey, nonce: AES.GCM.Nonce) throws -> Data {
+        let sealedBox = try AES.GCM.seal(plaintext, using: key, nonce: nonce)
         guard let combined = sealedBox.combined else {
             throw CryptoError.sealFailed
         }

@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Features
+
+* **windows:** notch peek + 60s message history, lifecycle retract, and hover-stuck deadlock fix (Plans 05–07)
+* **windows:** menu window click-away dismiss with suppression gates (Plan 06)
+
+### Bug Fixes
+
+* **windows:** resolve WIN-NOTCH-001/002/003 notch UX cluster on Windows
+
 ## [0.17.0](https://github.com/limehq/munkel/compare/v0.16.0...v0.17.0) (2026-06-26)
 
 

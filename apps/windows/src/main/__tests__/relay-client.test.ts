@@ -1,0 +1,265 @@
+import { expect, test, describe, beforeEach, afterEach } from 'bun:test';
+import { EventEmitter } from 'node:events';
+import { RelayClient } from '../relay-client';
+import type { ServerMessage } from '../../core';
+import type WebSocket from 'ws';
+
+class MockSocket extends EventEmitter {
+	static CONNECTING = 0;
+	static OPEN = 1;
+	static CLOSING = 2;
+	static CLOSED = 3;
+
+	readyState = MockSocket.CONNECTING;
+	sent: string[] = [];
+	closed = false;
+
+	constructor(public readonly url: string) {
+		super();
+	}
+
+	open(): void {
+		this.readyState = MockSocket.OPEN;
+		this.emit('open');
+	}
+
+	receive(message: ServerMessage): void {
+		this.emit('message', JSON.stringify(message));
+	}
+
+	send(data: string): void {
+		this.sent.push(data);
+	}
+
+	close(): void {
+		if (this.closed) return;
+		this.closed = true;
+		this.readyState = MockSocket.CLOSED;
+		this.emit('close');
+	}
+
+	/**
+	 * Real `ws` sockets expose `terminate()`; RelayClient calls it during
+	 * connection-lost teardown. Modelled as a silent state change (no 'close'
+	 * emit) so tests can exercise the "error without close" path precisely.
+	 */
+	terminate(): void {
+		this.closed = true;
+		this.readyState = MockSocket.CLOSED;
+	}
+}
+
+function waitFor(condition: () => boolean, timeout = 1000): Promise<void> {
+	return new Promise((resolve, reject) => {
+		const start = Date.now();
+		const check = () => {
+			if (condition()) {
+				resolve();
+				return;
+			}
+			if (Date.now() - start > timeout) {
+				reject(new Error('Timeout waiting for condition'));
+				return;
+			}
+			setTimeout(check, 10);
+		};
+		check();
+	});
+}
+
+describe('RelayClient', () => {
+	let sockets: MockSocket[] = [];
+	let client: RelayClient | null = null;
+
+	beforeEach(() => {
+		sockets = [];
+	});
+
+	afterEach(() => {
+		client?.disconnect();
+		client = null;
+		for (const socket of sockets) {
+			socket.removeAllListeners();
+		}
+	});
+
+	function createFactory() {
+		return (url: string): WebSocket => {
+			const socket = new MockSocket(url);
+			sockets.push(socket);
+			return socket as unknown as WebSocket;
+		};
+	}
+
+	test('connects to the relay URL with group and member query params', async () => {
+		const factory = createFactory();
+		client = new RelayClient('wss://relay.example.com/', 'abc123', 'member-1', {
+			createWebSocket: factory,
+		});
+		client.connect();
+
+		await waitFor(() => sockets.length === 1);
+		expect(sockets[0].url).toBe('wss://relay.example.com/ws?group=abc123&member=member-1');
+	});
+
+	test('emits frame events for incoming server messages', async () => {
+		const factory = createFactory();
+		client = new RelayClient('wss://relay.example.com', 'group', 'member', {
+			createWebSocket: factory,
+		});
+
+		const frames: ServerMessage[] = [];
+		client.on('frame', (frame: ServerMessage) => frames.push(frame));
+
+		client.connect();
+		await waitFor(() => sockets.length === 1);
+		sockets[0].open();
+		sockets[0].receive({ type: 'pong' });
+
+		await waitFor(() => frames.length === 1);
+		expect(frames[0]).toEqual({ type: 'pong' });
+	});
+
+	test('send returns false when not connected and true when open', async () => {
+		const factory = createFactory();
+		client = new RelayClient('wss://relay.example.com', 'group', 'member', {
+			createWebSocket: factory,
+		});
+
+		client.connect();
+		await waitFor(() => sockets.length === 1);
+
+		expect(client.send({ type: 'ping' })).toBe(false);
+
+		sockets[0].open();
+		expect(client.send({ type: 'ping' })).toBe(true);
+		expect(sockets[0].sent).toEqual(['{"type":"ping"}']);
+	});
+
+	test('reconnects with exponential backoff after an unexpected close', async () => {
+		const factory = createFactory();
+		client = new RelayClient('wss://relay.example.com', 'group', 'member', {
+			createWebSocket: factory,
+		});
+
+		const disconnectedEvents: unknown[] = [];
+		client.on('disconnected', () => disconnectedEvents.push(true));
+
+		client.connect();
+		await waitFor(() => sockets.length === 1);
+		sockets[0].open();
+		sockets[0].close();
+
+		await waitFor(() => disconnectedEvents.length === 1);
+		await waitFor(() => sockets.length === 2, 1500);
+	});
+
+	test('reconnects after a socket error that is not followed by close (H-C)', async () => {
+		const factory = createFactory();
+		client = new RelayClient('wss://relay.example.com', 'group', 'member', {
+			createWebSocket: factory,
+		});
+
+		const errors: unknown[] = [];
+		const disconnectedEvents: unknown[] = [];
+		client.on('error', () => errors.push(true));
+		client.on('disconnected', () => disconnectedEvents.push(true));
+
+		client.connect();
+		await waitFor(() => sockets.length === 1);
+		sockets[0].open();
+
+		// Emit ONLY 'error' (no subsequent 'close'). The old code would stall
+		// here with a dead socket and never retry.
+		sockets[0].emit('error', new Error('ECONNRESET'));
+
+		await waitFor(() => errors.length === 1);
+		await waitFor(() => disconnectedEvents.length === 1);
+		await waitFor(() => sockets.length === 2, 1500);
+	});
+
+	test('a following close after an error does not double-schedule a reconnect', async () => {
+		const factory = createFactory();
+		client = new RelayClient('wss://relay.example.com', 'group', 'member', {
+			createWebSocket: factory,
+		});
+
+		const disconnectedEvents: unknown[] = [];
+		// An 'error' listener is required or EventEmitter rethrows the emit.
+		client.on('error', () => {});
+		client.on('disconnected', () => disconnectedEvents.push(true));
+
+		client.connect();
+		await waitFor(() => sockets.length === 1);
+		sockets[0].open();
+
+		// Both events fire for the same socket; teardown must run once.
+		sockets[0].emit('error', new Error('boom'));
+		sockets[0].close();
+
+		await waitFor(() => sockets.length === 2, 1500);
+		// Exactly one reconnect socket, one disconnect event — no double retry.
+		expect(sockets.length).toBe(2);
+		expect(disconnectedEvents.length).toBe(1);
+	});
+
+	test('disconnect prevents reconnection', async () => {
+		const factory = createFactory();
+		client = new RelayClient('wss://relay.example.com', 'group', 'member', {
+			createWebSocket: factory,
+		});
+
+		client.connect();
+		await waitFor(() => sockets.length === 1);
+		sockets[0].open();
+		client.disconnect();
+
+		await new Promise((resolve) => setTimeout(resolve, 1100));
+		expect(sockets.length).toBe(1);
+	});
+
+	test('disconnect while connecting ignores later open and close events', async () => {
+		const factory = createFactory();
+		client = new RelayClient('wss://relay.example.com', 'group', 'member', {
+			createWebSocket: factory,
+		});
+
+		const disconnectedEvents: unknown[] = [];
+		client.on('disconnected', () => disconnectedEvents.push(true));
+
+		client.connect();
+		await waitFor(() => sockets.length === 1);
+		client.disconnect();
+
+		// The socket later reports open and then close — both must be ignored.
+		sockets[0].open();
+		sockets[0].close();
+
+		await new Promise((resolve) => setTimeout(resolve, 1100));
+		expect(disconnectedEvents.length).toBe(0);
+		expect(sockets.length).toBe(1);
+	});
+
+	test('disconnect ignores a later socket error', async () => {
+		const factory = createFactory();
+		client = new RelayClient('wss://relay.example.com', 'group', 'member', {
+			createWebSocket: factory,
+		});
+
+		const errors: unknown[] = [];
+		const disconnectedEvents: unknown[] = [];
+		client.on('error', () => errors.push(true));
+		client.on('disconnected', () => disconnectedEvents.push(true));
+
+		client.connect();
+		await waitFor(() => sockets.length === 1);
+		client.disconnect();
+
+		sockets[0].emit('error', new Error('after disconnect'));
+
+		await new Promise((resolve) => setTimeout(resolve, 1100));
+		expect(errors.length).toBe(1); // error event is still forwarded
+		expect(disconnectedEvents.length).toBe(0);
+		expect(sockets.length).toBe(1);
+	});
+});

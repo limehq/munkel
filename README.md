@@ -1,5 +1,13 @@
 # Munkel
 
+## Windows installation
+
+**Recommended:** download `Munkel-Setup-<version>.exe` from CI artifacts or releases, run the installer, and open **Munkel** from the Start Menu or Windows Search. The installer creates Start Menu and Desktop shortcuts automatically — no manual configuration.
+
+**Alternative (portable):** download the Windows zip artifact, extract it, and run `Munkel.exe` directly.
+
+Fork beta builds are currently unsigned. Windows SmartScreen or Defender may show an "Unknown publisher" warning. If that happens, click `More info` and then `Run anyway`.
+
 [![CI](https://github.com/limehq/munkel/actions/workflows/ci.yml/badge.svg)](https://github.com/limehq/munkel/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/limehq/munkel/actions/workflows/codeql.yml/badge.svg)](https://github.com/limehq/munkel/actions/workflows/codeql.yml)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/limehq/munkel/badge)](https://scorecard.dev/viewer/?uri=github.com/limehq/munkel)
@@ -70,6 +78,11 @@ bun run build
 open apps/macos/.build/Munkel.app
 ```
 
+The Windows client can be built from the integration branch with
+`bunx turbo build --filter=@munkel/windows`; see `apps/windows/README.md` for
+dev mode. It currently supports text chat, image albums, and the `munkel` CLI
+over a named pipe.
+
 ## Components
 
 Bun workspaces + [Turborepo](https://turborepo.dev):
@@ -77,13 +90,14 @@ Bun workspaces + [Turborepo](https://turborepo.dev):
 | Path | Tech |
 |---|---|
 | `apps/macos/` | Swift menu-bar app: `MunkelKit` (crypto, protocol, relay client, GitHub login) + MenuBarExtra UI + notch display |
-| `apps/cli/` | `munkel` CLI (Bun/TypeScript, talks to the app via Unix domain socket) |
+| `apps/windows/` | Electron Windows client: TypeScript core + React UI shell (text chat, image albums, named-pipe CLI) |
+| `apps/cli/` | `munkel` CLI (Bun/TypeScript; Unix domain socket on macOS, named pipe on Windows) |
 | `apps/server/` | Relay: Cloudflare Workers + **Durable Objects** (Hono + partyserver, TypeScript) |
 | `apps/landing/` | Landing page: TanStack Start (React) on Cloudflare Workers, [munkel.app](https://munkel.app) |
 | `skills/` | Agent skills (`SKILL.md`), installable via the [skills CLI](https://skills.sh) |
 
-The wire protocol v1 (WebSocket + JSON, E2E AES-256-GCM) is specified where
-it is enforced: `apps/server/src/protocol.ts`.
+The wire protocol v1 (WebSocket + JSON, E2E AES-256-GCM) is specified in
+`packages/shared-wire/PROTOCOL.md` and enforced by `@munkel/shared-wire`.
 
 Production relay: **wss://relay.munkel.app** (the app's default).
 
@@ -124,6 +138,7 @@ Starting the individual apps:
 | Relay | `bunx turbo dev --filter=@munkel/server` → `ws://127.0.0.1:8787` |
 | Landing | `bunx turbo dev --filter=@munkel/landing` → `http://localhost:3000` |
 | macOS app | `cd apps/macos && bun run dev` (builds & runs **Munkel Dev**, see below) |
+| Windows app | `bunx turbo dev --filter=@munkel/windows` |
 | CLI | `bunx turbo build --filter=@munkel/cli`, then `apps/cli/dist/munkel` |
 
 `bun run dev` builds and runs the **Munkel Dev** variant: a separate identity
@@ -228,7 +243,7 @@ The Worker is named `munkel-relay` and is reachable both as
 `routes` entry in `wrangler.toml`).
 
 Connect with `GET /ws?group=<32-hex>&member=<uuid>`; see
-`apps/server/src/protocol.ts`.
+`packages/shared-wire/src/protocol.ts`.
 
 ## Landing page
 
@@ -279,9 +294,10 @@ app: create one, tick **Enable Device Flow**, then either edit
 
 ```sh
 munkel dm sebil "deploy is green"   # notify one person — resolves the name across channels
-munkel channels                      # ● blue-table-42  —  Alex, Sam
+munkel channels                     # ● blue-table-42  —  Alex, Sam
 munkel blue-table-42 Alex hey       # channel-scoped direct delivery (disambiguates a name)
 munkel blue-table-42 all "coffee?"  # channel broadcast
+munkel blue-table-42 image ./pic.png ./pic2.png --caption "weekend"  # image album (macOS + Windows)
 ```
 
 `munkel dm <name> …` is the one-call path: the app resolves `<name>` (display
@@ -289,15 +305,21 @@ name or key-id prefix) across every channel, so no `munkel channels` lookup is
 needed first. If the name is unknown or matches more than one channel the send
 fails with a message naming the candidates, so a single call self-corrects.
 
-The CLI is a thin client: it talks to the running app over
+The CLI is a thin client: on macOS it talks to the running app over
 `~/Library/Application Support/Munkel/control.sock` (newline-delimited
 JSON; see `ControlProtocol.swift`, mirrored in `apps/cli/src/munkel.ts`). If
 the app isn't running, the CLI launches it in the background (`open -g -b
 dev.uq.munkel`) and waits for the socket before sending. The release app also
 registers itself as a login item on first launch (toggle under the menu's
 gear) so it stays resident and the first send skips cold-start. The
-socket path can be overridden via `MUNKEL_SOCKET` (used by the tests). The
-app resolves channel-code prefixes and recipient display names, and owns all
+socket path can be overridden via `MUNKEL_SOCKET` (used by the tests).
+
+On Windows the CLI talks to the running app over a named pipe at
+`\\.\pipe\Munkel-<user>-Control` (`packages/shared-wire/src/transport.ts`). If the
+app is not running, the CLI launches it and waits for the pipe, matching the
+macOS auto-launch behavior.
+
+The app resolves channel-code prefixes and recipient display names, and owns all
 crypto and relay connections, an ideal substrate for scripting and agent
 skills.
 

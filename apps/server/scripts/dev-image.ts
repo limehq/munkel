@@ -9,7 +9,11 @@
 import { basename, extname, join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-const MAX_IMAGES = 8;
+import { deriveGroupKeys, seal, sealRaw, open as openPayload, openRaw } from '@munkel/shared-wire/crypto';
+import { encodeProfile, encodeImage, decodePayload } from '@munkel/shared-wire/payload';
+
+const MAX_IMAGES = 8; // mirrors AppPayload.maxImagesPerMessage
+// Mirrors AppPayload.albumThumbBudget / perThumbBudget (TS can't import Swift).
 const ALBUM_THUMB_BUDGET = 16_384;
 const TINY_PNG_BASE64 =
   'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMCAQDcdwk0AAAAAElFTkSuQmCC';
@@ -45,54 +49,7 @@ if (!code || (!listenMode && paths.length === 0)) {
   process.exit(1);
 }
 
-const encoder = new TextEncoder();
-const normalized = code.normalize('NFC').trim().toLowerCase();
-const salt = encoder.encode('munkel-v1');
-const ikm = await crypto.subtle.importKey('raw', encoder.encode(normalized), 'HKDF', false, ['deriveBits']);
-
-async function derive(info: string, bits: number): Promise<Uint8Array> {
-  const derived = await crypto.subtle.deriveBits(
-    { name: 'HKDF', hash: 'SHA-256', salt, info: encoder.encode(info) },
-    ikm,
-    bits,
-  );
-  return new Uint8Array(derived);
-}
-
-const groupId = [...(await derive('group-id', 128))].map((b) => b.toString(16).padStart(2, '0')).join('');
-const key = await crypto.subtle.importKey(
-  'raw',
-  (await derive('message-key', 256)).buffer as ArrayBuffer,
-  'AES-GCM',
-  false,
-  ['encrypt', 'decrypt'],
-);
-
-async function sealRaw(bytes: Uint8Array): Promise<Uint8Array> {
-  const nonce = crypto.getRandomValues(new Uint8Array(12));
-  const ciphertext = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv: nonce }, key, bytes));
-  const combined = new Uint8Array(nonce.length + ciphertext.length);
-  combined.set(nonce);
-  combined.set(ciphertext, nonce.length);
-  return combined;
-}
-
-async function openRaw(combined: Uint8Array): Promise<Uint8Array> {
-  const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: combined.subarray(0, 12) },
-    key,
-    combined.subarray(12),
-  );
-  return new Uint8Array(plaintext);
-}
-
-async function sealJSON(payload: Record<string, unknown>): Promise<string> {
-  return Buffer.from(await sealRaw(encoder.encode(JSON.stringify(payload)))).toString('base64');
-}
-
-async function unsealJSON(payload: string): Promise<Record<string, unknown>> {
-  return JSON.parse(new TextDecoder().decode(await openRaw(new Uint8Array(Buffer.from(payload, 'base64')))));
-}
+const { groupId, messageKey } = await deriveGroupKeys(code);
 
 const relayURL = process.env.RELAY_URL ?? 'ws://127.0.0.1:8787';
 const memberId = process.env.MEMBER_ID ?? (listenMode ? 'dev-image-listener' : 'dev-image-sender');
@@ -139,9 +96,9 @@ if (listenMode) {
   ws.onmessage = async (event) => {
     const frame = JSON.parse(String(event.data));
     if (frame.type !== 'message') return;
-    let payload: Record<string, unknown>;
+    let payload;
     try {
-      payload = await unsealJSON(frame.payload);
+      payload = decodePayload(await openPayload(frame.payload, messageKey));
     } catch {
       return;
     }
@@ -149,7 +106,7 @@ if (listenMode) {
       process.stdout.write(`<< ${payload.kind} from ${frame.from}\n`);
       return;
     }
-    const items = (payload.items as Array<{ r2Key: string; mime: string; byteLen: number; thumb: string }>) ?? [];
+    const items = payload.items;
     const cap = payload.caption ? ` caption="${payload.caption}"` : '';
     process.stdout.write(`image album from ${frame.from}: ${items.length} image(s)${cap}\n`);
     for (const item of items) {
@@ -158,7 +115,7 @@ if (listenMode) {
         process.stderr.write(`  blob GET failed for ${item.r2Key}: ${res.status}\n`);
         continue;
       }
-      const full = await openRaw(new Uint8Array(await res.arrayBuffer()));
+      const full = await openRaw(new Uint8Array(await res.arrayBuffer()), messageKey);
       const fmt = sniff(full);
       const out = join(tmpdir(), `munkel-recv-${item.r2Key}.${fmt === 'AVIF' ? 'avif' : (item.mime.split('/')[1] ?? 'bin').replace('jpeg', 'jpg')}`);
       await Bun.write(out, full);
@@ -166,20 +123,22 @@ if (listenMode) {
     }
   };
   ws.onopen = async () => {
-    ws.send(JSON.stringify({ type: 'send', payload: await sealJSON({ kind: 'profile', displayName: name, status: 'online' }) }));
+    const profile = await seal(JSON.stringify(encodeProfile(name)), messageKey);
+    ws.send(JSON.stringify({ type: 'send', payload: profile }));
     process.stdout.write(`listening as "${name}" (${memberId})… send an image to me from the app or another client\n`);
     setInterval(() => ws.send(JSON.stringify({ type: 'ping' })), 30_000);
   };
 } else {
   ws.onopen = async () => {
-    ws.send(JSON.stringify({ type: 'send', payload: await sealJSON({ kind: 'profile', displayName: name, status: 'online' }) }));
+    const profile = await seal(JSON.stringify(encodeProfile(name)), messageKey);
+    ws.send(JSON.stringify({ type: 'send', payload: profile }));
 
     const selected = paths.slice(0, MAX_IMAGES);
     const perThumb = Math.max(1_200, Math.floor(ALBUM_THUMB_BUDGET / selected.length));
-    const items: Array<Record<string, unknown>> = [];
+    const items = [];
     for (const path of selected) {
       const full = new Uint8Array(await Bun.file(path).arrayBuffer());
-      const sealed = await sealRaw(full);
+      const sealed = await sealRaw(full, messageKey);
       const r2Key = crypto.randomUUID().replace(/-/g, '');
       const put = await fetch(`${blobBase}/blob/${groupId}/${r2Key}`, {
         method: 'PUT',
@@ -191,15 +150,16 @@ if (listenMode) {
         process.exit(1);
       }
       const thumb = full.byteLength <= perThumb ? Buffer.from(full).toString('base64') : TINY_PNG_BASE64;
-      items.push({ r2Key, mime: mimeFor(path), width: 0, height: 0, byteLen: sealed.byteLength, thumb });
+      items.push({ r2Key, mime: mimeFor(path), width: 1, height: 1, byteLen: sealed.byteLength, thumb });
       process.stdout.write(`uploaded ${sealed.byteLength} sealed bytes (${basename(path)}) → ${r2Key}\n`);
     }
 
+    const album = encodeImage(items, caption);
     ws.send(
       JSON.stringify({
         type: 'send',
         ...(directTo ? { to: directTo } : {}),
-        payload: await sealJSON({ kind: 'image', items, caption, sentAt: new Date().toISOString() }),
+        payload: await seal(JSON.stringify(album), messageKey),
       }),
     );
     process.stdout.write(

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <!-- dark rounded background for visibility on light and dark taskbars -->
+  <rect x="1" y="1" width="22" height="22" rx="5" ry="5" fill="#1a1a2e"/>
+  <!-- white chat bubble icon -->
+  <path d="M20 4H4c-1.1 0-2 .9-2 2v12l4-4h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2z" fill="white"/>
+</svg>

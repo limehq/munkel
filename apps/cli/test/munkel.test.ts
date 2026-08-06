@@ -1,8 +1,18 @@
 import { afterEach, expect, test } from "bun:test"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
+import { fileURLToPath } from "node:url"
+import { createControlServer } from "@munkel/shared-wire/transport"
+import type { ControlResponse } from "@munkel/shared-wire/control"
 
-const cliPath = new URL("../src/munkel.ts", import.meta.url).pathname
+// Runs the CLI as a subprocess against a fake app listening on a temporary
+// Unix socket (MUNKEL_SOCKET overrides the default path).
+
+// On Windows, `new URL(..., import.meta.url).pathname` returns
+// "/C:/Users/.../src/munkel.ts" — a leading slash that Bun's subprocess
+// resolver rejects with "Module not found". Strip it so the same test
+// works on macOS, Linux and Windows.
+const cliPath = fileURLToPath(new URL("../src/munkel.ts", import.meta.url))
 
 let stopFakeApp: (() => void) | undefined
 afterEach(() => {
@@ -28,9 +38,54 @@ function fakeApp(respond: (request: unknown) => unknown) {
   return { socketPath, requests }
 }
 
+function fakePipeApp(respond: (request: unknown) => ControlResponse) {
+  // node:net's createServer({ path }) takes a Unix-domain-socket path on
+  // macOS/Linux and a `\\.\pipe\<name>` path on Windows — the same
+  // `createControlServer` from @munkel/shared-wire handles both. The fake
+  // app thus exercises the CLI's named-pipe code path on every platform
+  // (Bun listens on the same kind of path it then connects to).
+  const pipePath = join(
+    tmpdir(),
+    `munkel-pipe-${process.pid}-${Math.random().toString(36).slice(2)}.sock`,
+  )
+  const requests: unknown[] = []
+  let server: { close(): Promise<void> } | undefined
+  let stopped = false
+  // createControlServer is async; the caller awaits the returned promise via
+  // runMunkelPipe below. We track the requests in a closure and resolve
+  // when the test ends.
+  const pending = createControlServer(pipePath, async (request) => {
+    requests.push(request)
+    return respond(request)
+  }).then((s) => {
+    server = s
+    return { pipePath, requests }
+  })
+  stopFakeApp = () => {
+    if (stopped) return
+    stopped = true
+    void server?.close()
+  }
+  return { pending, pipePath, requests }
+}
+
 async function runMunkel(args: string[], socketPath = "/nonexistent/control.sock") {
   const proc = Bun.spawn(["bun", cliPath, ...args], {
     env: { ...process.env, MUNKEL_SOCKET: socketPath },
+    stdout: "pipe",
+    stderr: "pipe",
+  })
+  const [stdout, stderr, exitCode] = await Promise.all([
+    new Response(proc.stdout).text(),
+    new Response(proc.stderr).text(),
+    proc.exited,
+  ])
+  return { stdout, stderr, exitCode }
+}
+
+async function runMunkelPipe(args: string[], pipePath: string) {
+  const proc = Bun.spawn(["bun", cliPath, ...args], {
+    env: { ...process.env, MUNKEL_PIPE: pipePath },
     stdout: "pipe",
     stderr: "pipe",
   })
@@ -119,14 +174,43 @@ test("auto-launches the app when its socket is down", async () => {
     tmpdir(),
     `munkel-launch-${process.pid}-${Math.random().toString(36).slice(2)}.sock`,
   )
-  // Stands in for `open -b dev.uq.munkel`: backgrounds a fake app that binds
-  // the socket a moment later, so the CLI exercises its launch + wait + retry.
+  // Stands in for `open -b dev.uq.munkel` / `munkel.exe`: backgrounds a fake
+  // app that binds the socket a moment later, so the CLI exercises its launch
+  // + wait + retry. The launcher detaches itself via Bun.spawn({detached:true})
+  // so MUNKEL_LAUNCH_CMD returns immediately on every platform — POSIX `&` is
+  // not portable to `cmd /c` on Windows.
   const launcher = join(
     tmpdir(),
     `munkel-launcher-${process.pid}-${Math.random().toString(36).slice(2)}.ts`,
   )
   await Bun.write(
     launcher,
+    [
+      "const child = Bun.spawn({",
+      "  cmd: ['bun', process.argv[2], process.argv[3]],",
+      "  stdout: 'ignore',",
+      "  stderr: 'ignore',",
+      "  detached: true,",
+      "})",
+      "child.unref()",
+      // The fake-app body is the original launcher script; the child runs it
+      // detached so the parent can return and the CLI's launch command exits.
+      "const path = require('node:path')",
+      "const fs = require('node:fs')",
+      "const realLauncher = path.join(path.dirname(process.argv[2]), 'fake-app.ts')",
+      // The first argv after this script is the launcher marker; replace it
+      // with a fixed fake-app body the child runs directly. Simpler: write the
+      // fake-app body into a sibling file and point the child at it.",
+      "",
+    ].join("\n"),
+  )
+
+  const fakeAppPath = join(
+    tmpdir(),
+    `munkel-fake-app-${process.pid}-${Math.random().toString(36).slice(2)}.ts`,
+  )
+  await Bun.write(
+    fakeAppPath,
     [
       "const server = Bun.listen({",
       "  unix: process.argv[2],",
@@ -140,12 +224,25 @@ test("auto-launches the app when its socket is down", async () => {
       "setTimeout(() => server.stop(true), 5000)",
     ].join("\n"),
   )
+  // Replace the body we wrote above with one that spawns fakeAppPath detached.
+  await Bun.write(
+    launcher,
+    [
+      "const child = Bun.spawn({",
+      "  cmd: ['bun', process.argv[2], process.argv[3]],",
+      "  stdout: 'ignore',",
+      "  stderr: 'ignore',",
+      "  detached: true,",
+      "})",
+      "child.unref()",
+    ].join("\n"),
+  )
 
   const proc = Bun.spawn(["bun", cliPath, "channels"], {
     env: {
       ...process.env,
       MUNKEL_SOCKET: socketPath,
-      MUNKEL_LAUNCH_CMD: `bun ${launcher} ${socketPath} &`,
+      MUNKEL_LAUNCH_CMD: `bun ${launcher} ${fakeAppPath} ${socketPath}`,
     },
     stdout: "pipe",
     stderr: "pipe",
@@ -305,4 +402,124 @@ test("a silent app triggers a bounded response timeout", async () => {
   } finally {
     server.stop(true)
   }
+})
+
+// MUNKEL_PIPE exercises the Windows named-pipe code path. The fake app
+// uses `createControlServer` (node:net), which on macOS/Linux binds a
+// Unix-domain-socket path and on Windows binds a named pipe. The CLI's
+// control client uses `createControlClient` from the same module, so the
+// round-trip is the production code path on every platform.
+test("circles over MUNKEL_PIPE works the same as the Unix socket", async () => {
+  const app = await fakePipeApp(() => ({
+    ok: true,
+    groups: [
+      { code: "blue-table-42", connected: true, members: ["Alex", "Sam"] },
+      { code: "kaffee", connected: false, members: [] },
+    ],
+  })).pending
+
+  const result = await runMunkelPipe(["circles"], app.pipePath)
+  expect(result.exitCode).toBe(0)
+  expect(result.stdout).toContain("● blue-table-42  —  Alex, Sam")
+  expect(result.stdout).toContain("○ kaffee  —  no one else online")
+  expect(app.requests).toEqual([{ action: "groups" }])
+})
+
+test("send over MUNKEL_PIPE delivers the request as JSON", async () => {
+  const app = await fakePipeApp(() => ({ ok: true })).pending
+
+  const result = await runMunkelPipe(
+    ["blue-table-42", "Alex", "deploy", "is", "green"],
+    app.pipePath,
+  )
+  expect(result.exitCode).toBe(0)
+  expect(result.stdout).toContain("munkeled ✓")
+  expect(app.requests).toEqual([
+    { action: "send", group: "blue-table-42", to: "Alex", text: "deploy is green" },
+  ])
+})
+
+test("dm over MUNKEL_PIPE resolves across circles (recipient-only)", async () => {
+  const app = await fakePipeApp(() => ({ ok: true })).pending
+
+  const result = await runMunkelPipe(["dm", "sebil", "hi"], app.pipePath)
+  expect(result.exitCode).toBe(0)
+  expect(app.requests).toEqual([{ action: "send", to: "sebil", text: "hi" }])
+})
+
+test("image over MUNKEL_PIPE carries the resolved path", async () => {
+  const app = await fakePipeApp(() => ({ ok: true })).pending
+
+  const imageFile = join(
+    tmpdir(),
+    `munkel-pipe-img-${process.pid}-${Math.random().toString(36).slice(2)}.png`,
+  )
+  await Bun.write(imageFile, new Uint8Array([0x89, 0x50, 0x4e, 0x47]))
+
+  const result = await runMunkelPipe(["image", "sebil", imageFile], app.pipePath)
+  expect(result.exitCode).toBe(0)
+  expect(app.requests).toEqual([{ action: "send", to: "sebil", imagePaths: [imageFile] }])
+})
+
+test("MUNKEL_PIPE with no app yields the same no-launch error as MUNKEL_SOCKET", async () => {
+  // Explicit MUNKEL_PIPE must NOT auto-launch: the user pointed at a
+  // specific pipe and there is no app there. The CLI must surface a
+  // clear error and exit 1 — never spawn a new app.
+  const result = await runMunkelPipe(["circles"], "/nonexistent/control.pipe")
+
+  expect(result.exitCode).toBe(1)
+  expect(result.stderr).toContain("Munkel app isn't running")
+})
+
+test("image over MUNKEL_PIPE rejects unsupported file formats", async () => {
+  const app = await fakePipeApp(() => ({ ok: true })).pending
+
+  const textFile = join(tmpdir(), `munkel-pipe-txt-${process.pid}-${Math.random().toString(36).slice(2)}.txt`)
+  await Bun.write(textFile, "not an image")
+
+  const result = await runMunkelPipe(["image", "sebil", textFile], app.pipePath)
+
+  expect(result.exitCode).toBe(64)
+  expect(result.stderr).toContain("unsupported image format")
+  expect(result.stderr).toContain(".txt")
+  expect(app.requests).toEqual([])
+})
+
+test("image over MUNKEL_PIPE rejects more than 8 images", async () => {
+  const app = await fakePipeApp(() => ({ ok: true })).pending
+
+  const paths: string[] = []
+  for (let i = 0; i < 9; i++) {
+    const p = join(
+      tmpdir(),
+      `munkel-pipe-img-${process.pid}-${i}-${Math.random().toString(36).slice(2)}.png`,
+    )
+    await Bun.write(p, new Uint8Array([i]))
+    paths.push(p)
+  }
+
+  const result = await runMunkelPipe(["image", "sebil", ...paths], app.pipePath)
+
+  expect(result.exitCode).toBe(64)
+  expect(result.stderr).toContain("too many images")
+  expect(result.stderr).toContain("9 > 8")
+  expect(app.requests).toEqual([])
+})
+
+test("image over MUNKEL_PIPE accepts -c as caption shorthand", async () => {
+  const app = await fakePipeApp(() => ({ ok: true })).pending
+
+  const imageFile = join(
+    tmpdir(),
+    `munkel-pipe-img-${process.pid}-${Math.random().toString(36).slice(2)}.png`,
+  )
+  await Bun.write(imageFile, new Uint8Array([0x89, 0x50, 0x4e, 0x47]))
+
+  const result = await runMunkelPipe(["image", "sebil", imageFile, "-c", "hello world"], app.pipePath)
+
+  expect(result.exitCode).toBe(0)
+  expect(result.stdout).toContain("munkeled ✓")
+  expect(app.requests).toEqual([
+    { action: "send", to: "sebil", imagePaths: [imageFile], text: "hello world" },
+  ])
 })
