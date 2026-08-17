@@ -6,6 +6,7 @@ import { useAppStore } from '../store/app-store';
 import { resolveReplyRecipient } from '../lib/resolve-reply-recipient';
 import { shouldOpenReplyOnMessageClick } from '../lib/should-open-reply-on-message-click';
 import { useNotchLifecycle, type NotchHistoryEntry } from '../lib/useNotchLifecycle';
+import { resolveNotchResizeHeight } from '../lib/notch-resize-height';
 import type { IncomingImage } from '../../shared/types';
 import { useImagePreview } from '../lib/useImagePreview';
 import { MAX_MESSAGE_CHARS, clampMessageText } from '@munkel/shared-wire/message-limits';
@@ -123,31 +124,7 @@ export default function NotchWidget() {
 	// idle-disarm timer alive (see hover-copy-shortcut.ts HOVER_COPY_IDLE_MS).
 	const lastHoverCopyPingRef = useRef(0);
 
-	// Report the widget's layout height to the main process so the notch
-	// window shrinks/grows to its content instead of staying a fixed-size
-	// box (WIN-NOTCH-004). offsetHeight is used because it ignores the
-	// slide-up transforms of the peek/retracted states.
-	useEffect(() => {
-		const el = widgetRef.current;
-		if (!el || typeof ResizeObserver === 'undefined') return;
-		let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-		const report = () => void window.electronAPI.notchResize(el.offsetHeight);
-		const debouncedReport = () => {
-			if (debounceTimer) clearTimeout(debounceTimer);
-			debounceTimer = setTimeout(report, RESIZE_REPORT_DEBOUNCE_MS);
-		};
-		const observer = new ResizeObserver(debouncedReport);
-		observer.observe(el);
-		// Report the initial size immediately so the window is sized correctly
-		// before the first observer callback would otherwise fire.
-		report();
-		return () => {
-			observer.disconnect();
-			if (debounceTimer) clearTimeout(debounceTimer);
-		};
-	}, []);
-
-	// History expand/collapse (Plan 12 P3.6). History-list rows (rendered
+	// History expand/collapse (Plan 12 P3.6). History-list rows (rendered)
 	// while reopened via hover — see the `reopening` branch below) default to
 	// a single ellipsized line; a per-row chevron toggles that row's id into
 	// this set to show the full text. Deliberately a *separate* affordance
@@ -226,6 +203,45 @@ export default function NotchWidget() {
 		reopenFromHoverTarget,
 		openFromPreview,
 	} = lifecycle;
+
+	// Report layout height so the BrowserWindow shrinks/grows to content
+	// (WIN-NOTCH-004). Collapsed peek/retract uses a fixed footprint so hover-leave
+	// cannot leave a tall transparent window masking retract. `reopening` is
+	// `ui === 'open'` from useNotchLifecycle.
+	useEffect(() => {
+		const el = widgetRef.current;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+		let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+		const collapsed =
+			history.length > 0 &&
+			!reopening &&
+			!replyOpen &&
+			(phase === 'peek' || phase === 'retracted');
+		const report = (immediate = false) => {
+			const height = resolveNotchResizeHeight({
+				offsetHeight: el.offsetHeight,
+				historyLength: history.length,
+				phase,
+				reopening,
+				replyOpen,
+			});
+			const send = () => void window.electronAPI.notchResize(height);
+			if (immediate || collapsed) {
+				if (debounceTimer) clearTimeout(debounceTimer);
+				send();
+				return;
+			}
+			if (debounceTimer) clearTimeout(debounceTimer);
+			debounceTimer = setTimeout(send, RESIZE_REPORT_DEBOUNCE_MS);
+		};
+		const observer = new ResizeObserver(() => report(false));
+		observer.observe(el);
+		report(true);
+		return () => {
+			observer.disconnect();
+			if (debounceTimer) clearTimeout(debounceTimer);
+		};
+	}, [history.length, phase, reopening, replyOpen]);
 
 	const expanded = ui === 'open' || replyOpen || phase === 'full';
 	const widgetClass = newest
@@ -813,6 +829,8 @@ export default function NotchWidget() {
 
 	return (
 		<div
+			ref={widgetRef}
+			data-testid="notch-widget"
 			className={`notch-widget ${widgetClass}`}
 			onMouseEnter={cancelHoverLeave}
 			onMouseLeave={scheduleHoverLeave}
