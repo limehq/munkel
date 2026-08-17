@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.0](https://github.com/limehq/munkel/compare/v0.17.0...v0.18.0) (2026-08-17)
+
+
+### Features
+
+* **macos:** remember the last palette target ([#231](https://github.com/limehq/munkel/issues/231)) ([f39cf00](https://github.com/limehq/munkel/commit/f39cf00dd379753114e9981ebd80958b72898f16))
+
 ## [0.17.0](https://github.com/limehq/munkel/compare/v0.16.0...v0.17.0) (2026-06-26)
 
 
