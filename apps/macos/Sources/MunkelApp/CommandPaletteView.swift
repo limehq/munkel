@@ -90,6 +90,12 @@ struct CommandPaletteView: View {
                         proxy.scrollTo(state.selectedIndex, anchor: .center)
                     }
                 }
+                .onAppear {
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(80))
+                        proxy.scrollTo(state.selectedIndex, anchor: .center)
+                    }
+                }
             }
         }
     }
@@ -119,7 +125,7 @@ struct CommandPaletteView: View {
     private func chip(_ recipient: Recipient, index: Int) -> some View {
         let selected = index == state.selectedIndex
         return Button {
-            state.selectedIndex = index
+            state.select(index)
             focused = true
         } label: {
             HStack(spacing: 5) {
