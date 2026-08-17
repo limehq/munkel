@@ -255,8 +255,8 @@ struct CommandPaletteView: View {
     }
 
     private var emptyMessage: String {
-        if model.githubUserLogin == nil {
-            return "Sign in with GitHub to use Munkel."
+        if !model.isSignedIn {
+            return "Sign in to use Munkel."
         }
         return "Join a channel to send."
     }

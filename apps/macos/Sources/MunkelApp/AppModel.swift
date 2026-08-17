@@ -5,11 +5,13 @@ import Foundation
 import IOKit.pwr_mgt
 import MunkelKit
 
-enum GitHubLoginState: Equatable {
+enum AuthFlowState: Equatable {
     case idle
-    case requestingCode
+    /// Starting the flow: GitHub requests a device code, Apple presents its sheet.
+    case connecting(AuthProviderKind)
+    /// GitHub device flow only — Apple never enters this.
     case awaitingUser(userCode: String, verificationURI: URL, expiresAt: Date)
-    case fetchingProfile
+    case fetchingProfile(AuthProviderKind)
     case failed(String)
 }
 
@@ -26,13 +28,16 @@ final class AppModel: ObservableObject {
             scheduleProfileBroadcast()
         }
     }
-    @Published private(set) var githubLoginState: GitHubLoginState = .idle {
+    @Published private(set) var authFlow: AuthFlowState = .idle {
         didSet {
-            guard githubLoginState != oldValue else { return }
+            guard authFlow != oldValue else { return }
             syncAuthCodeNotch()
         }
     }
-    @Published private(set) var githubUserLogin: String? = Identity.githubLogin
+    /// The provider the user is signed in with, or nil when signed out. This is
+    /// the app-wide "signed in?" signal.
+    @Published private(set) var signedInProvider: AuthProviderKind? = Identity.authProvider
+    var isSignedIn: Bool { signedInProvider != nil }
     @Published var relayURLString: String {
         didSet {
             UserDefaults.standard.set(relayURLString, forKey: Self.relayURLKey)
@@ -90,8 +95,11 @@ final class AppModel: ObservableObject {
     private let notch = NotchPresenter()
     private var controlServer: ControlServer?
     private var palette: CommandPalettePresenter?
-    private var githubLoginTask: Task<Void, Never>?
-    private var githubLoginGeneration = 0
+    private var loginTask: Task<Void, Never>?
+    private var loginGeneration = 0
+    private var appleSignIn: AppleSignIn?
+    /// The provider of the most recent attempt, so Retry re-runs the right one.
+    private var lastLoginProvider: AuthProviderKind = .github
     private var profileBroadcastTask: Task<Void, Never>?
     private var idleTimer: Timer?
     private var presenceObservers: Set<AnyCancellable> = []
@@ -102,9 +110,9 @@ final class AppModel: ObservableObject {
         self.displayName = Identity.displayName
         self.relayURLString = UserDefaults.standard.string(forKey: Self.relayURLKey) ?? Self.defaultRelayURL
         self.groupCodes = UserDefaults.standard.stringArray(forKey: Self.groupsKey) ?? []
-        // GitHub login is mandatory: without it no session connects — the
+        // Signing in is mandatory: without it no session connects — the
         // persisted groups come back online with the next login.
-        if Identity.githubLogin != nil {
+        if Identity.isSignedIn {
             for code in groupCodes {
                 openSession(code: code)
             }
@@ -123,7 +131,7 @@ final class AppModel: ObservableObject {
     }
 
     func join(code rawCode: String) {
-        guard githubUserLogin != nil else { return }
+        guard isSignedIn else { return }
         let code = GroupKey.normalize(rawCode)
         guard !code.isEmpty, sessions[code] == nil else { return }
         groupCodes.append(code)
@@ -254,7 +262,7 @@ final class AppModel: ObservableObject {
     /// is focus-independent and keeps the code (already on the clipboard)
     /// visible until the flow leaves `.awaitingUser`.
     private func syncAuthCodeNotch() {
-        if case let .awaitingUser(userCode, _, _) = githubLoginState {
+        if case let .awaitingUser(userCode, _, _) = authFlow {
             notch.showAuthCode(userCode)
         } else {
             notch.hideAuthCode()
@@ -262,27 +270,48 @@ final class AppModel: ObservableObject {
     }
 
     func startGitHubLogin() {
-        githubLoginTask?.cancel()
-        githubLoginGeneration += 1
-        let generation = githubLoginGeneration
-        githubLoginState = .requestingCode
-        githubLoginTask = Task { await runGitHubLogin(generation: generation) }
+        let generation = beginLogin(.github)
+        authFlow = .connecting(.github)
+        loginTask = Task { await runGitHubLogin(generation: generation) }
     }
 
-    func cancelGitHubLogin() {
-        githubLoginTask?.cancel()
-        githubLoginTask = nil
-        githubLoginGeneration += 1
-        githubLoginState = .idle
+    func startAppleLogin() {
+        let generation = beginLogin(.apple)
+        authFlow = .connecting(.apple)
+        loginTask = Task { await runAppleLogin(generation: generation) }
     }
 
-    /// Logout makes the app unusable until the next login: all sessions
+    /// Retry re-runs whichever provider was last attempted.
+    func retryLogin() {
+        switch lastLoginProvider {
+        case .github: startGitHubLogin()
+        case .apple: startAppleLogin()
+        }
+    }
+
+    private func beginLogin(_ provider: AuthProviderKind) -> Int {
+        loginTask?.cancel()
+        loginGeneration += 1
+        lastLoginProvider = provider
+        return loginGeneration
+    }
+
+    func cancelLogin() {
+        loginTask?.cancel()
+        loginTask = nil
+        loginGeneration += 1
+        authFlow = .idle
+    }
+
+    /// Signing out makes the app unusable until the next login: all sessions
     /// stop (the group codes stay persisted and reconnect after re-login).
-    func logoutGitHub() {
+    func signOut() {
         Identity.avatarData = nil
         Identity.avatarURL = nil
         Identity.githubLogin = nil
-        githubUserLogin = nil
+        Identity.authProvider = nil
+        Identity.providerUserID = nil
+        signedInProvider = nil
         for session in sessions.values {
             session.stop()
         }
@@ -302,10 +331,10 @@ final class AppModel: ObservableObject {
         let auth = GitHubDeviceAuth(clientID: GitHubConfig.clientID)
         do {
             let grant = try await auth.requestDeviceCode()
-            guard generation == githubLoginGeneration else { return }
+            guard generation == loginGeneration else { return }
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(grant.userCode, forType: .string)
-            githubLoginState = .awaitingUser(
+            authFlow = .awaitingUser(
                 userCode: grant.userCode,
                 verificationURI: grant.verificationURI,
                 expiresAt: grant.expiresAt
@@ -314,8 +343,8 @@ final class AppModel: ObservableObject {
 
             // Token stays a local — used for one profile fetch, never stored.
             let token = try await auth.pollForAccessToken(grant)
-            guard generation == githubLoginGeneration else { return }
-            githubLoginState = .fetchingProfile
+            guard generation == loginGeneration else { return }
+            authFlow = .fetchingProfile(.github)
             let user = try await auth.fetchUser(token: token)
 
             // Avatar is best-effort: login succeeds without one, the
@@ -328,33 +357,70 @@ final class AppModel: ObservableObject {
                 avatar = AvatarCodec.makeAvatar(from: raw)
             }
 
-            guard generation == githubLoginGeneration else { return }
-            applyProfile(name: Self.firstName(of: user), avatar: avatar, avatarURL: user.avatarURL?.absoluteString, githubLogin: user.login)
-            githubLoginState = .idle
-            // Login gates everything: the persisted groups connect only now.
-            for code in groupCodes where sessions[code] == nil {
-                openSession(code: code)
-            }
+            guard generation == loginGeneration else { return }
+            completeLogin(AuthProfile(
+                provider: .github,
+                providerUserID: user.login,
+                displayName: Self.firstName(of: user),
+                avatarURL: user.avatarURL,
+                avatarData: avatar
+            ), generation: generation)
         } catch is CancellationError {
-            // Cancelled flows say nothing — cancelGitHubLogin already reset.
+            // Cancelled flows say nothing — cancelLogin already reset.
         } catch let error as URLError where error.code == .cancelled {
         } catch let error as GitHubAuthError {
-            guard generation == githubLoginGeneration else { return }
-            githubLoginState = .failed(Self.message(for: error))
+            guard generation == loginGeneration else { return }
+            authFlow = .failed(Self.message(for: error))
         } catch {
-            guard generation == githubLoginGeneration else { return }
-            githubLoginState = .failed("No connection to GitHub.")
+            guard generation == loginGeneration else { return }
+            authFlow = .failed("No connection to GitHub.")
         }
     }
 
-    /// Writes both identity halves before the single broadcast — a didSet
+    private func runAppleLogin(generation: Int) async {
+        let provider = AppleSignIn()
+        appleSignIn = provider
+        defer { appleSignIn = nil }
+        do {
+            let profile = try await provider.signIn()
+            guard generation == loginGeneration else { return }
+            completeLogin(profile, generation: generation)
+        } catch is CancellationError {
+            // Cancelled sheet is silent.
+        } catch let error as AppleAuthError {
+            guard generation == loginGeneration else { return }
+            if case let .failed(message) = error {
+                authFlow = .failed(message)
+            } else {
+                authFlow = .failed("Couldn't sign in with Apple — please try again.")
+            }
+        } catch {
+            guard generation == loginGeneration else { return }
+            authFlow = .failed("Couldn't sign in with Apple — please try again.")
+        }
+    }
+
+    /// Shared success tail for every provider: store the profile, then open the
+    /// persisted groups (login gates everything — they connect only now).
+    private func completeLogin(_ profile: AuthProfile, generation: Int) {
+        applyProfile(profile)
+        authFlow = .idle
+        for code in groupCodes where sessions[code] == nil {
+            openSession(code: code)
+        }
+    }
+
+    /// Writes the identity fields before the single broadcast — a didSet
     /// broadcast would race the avatar write and send a stale profile.
-    private func applyProfile(name: String, avatar: Data?, avatarURL: String?, githubLogin login: String?) {
-        Identity.avatarData = avatar
-        Identity.avatarURL = avatarURL
-        Identity.githubLogin = login
-        githubUserLogin = login
-        displayName = name
+    private func applyProfile(_ profile: AuthProfile) {
+        Identity.avatarData = profile.avatarData
+        Identity.avatarURL = profile.avatarURL?.absoluteString
+        Identity.authProvider = profile.provider
+        Identity.providerUserID = profile.providerUserID
+        // Keep the legacy field in sync so older reads still work.
+        Identity.githubLogin = profile.provider == .github ? profile.providerUserID : nil
+        signedInProvider = profile.provider
+        displayName = profile.displayName
         profileBroadcastTask?.cancel()
         broadcastProfile()
     }
