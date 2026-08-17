@@ -13,6 +13,12 @@ import {
 	isPreviewMode,
 	setNotchPreviewActive,
 } from './notch-window';
+import {
+	setNotchInteractive,
+	getNotchInteractive,
+	setPreviewActive,
+	syncNotchMouseInteractiveState,
+} from './notch-interactive-state';
 import { focusNotchForReply, unfocusNotchAfterReply } from './notch-focus';
 import { createPaletteWindow, showPalette, hidePalette } from './palette-window';
 import { createTray } from './tray';
@@ -93,13 +99,10 @@ let updateService: ReturnType<typeof initUpdateService> | null = null;
 let fakeNotchInjector: ReturnType<typeof createFakeNotchInjector> | null = null;
 let hoverCopyController: ReturnType<typeof createHoverCopyController> | null = null;
 let disposeHoverCopyDisarm: (() => void) | null = null;
-// Tracks the `interactive` flag from the notch-set-interactive IPC channel
-// (true only while the notch is `full`/reopening/reply-open — see
-// useNotchLifecycle). Combined with `notchWindow?.isVisible()` this is the
-// "visible + interactive" gate the hover-copy controller's `canArm` checks
-// before accepting a fresh arm — see hover-copy-shortcut.ts's "Late-Ping-Race
-// fix" for why a late renderer ping must not re-arm a disarmed shortcut.
-let notchInteractive = false;
+// Interactive flag lives in notch-interactive-state.ts so click-through can
+// be shared with the preview overlay (see syncNotchMouseInteractiveState).
+// Combined with `notchWindow?.isVisible()` this is the "visible + interactive"
+// gate the hover-copy controller's `canArm` checks.
 // Rebindable palette-toggle hotkey (Plan 12 P3.1): the accelerator string
 // whose `globalShortcut` registration is CONFIRMED right now, or `null`
 // while the hotkey is unbound (startup registration failed, or the rare
@@ -311,7 +314,7 @@ app.whenReady().then(async () => {
 			// renderer-reported `interactive` flag is current — rejects a late
 			// activity ping that arrives after the notch already hid or went
 			// non-interactive.
-			canArm: () => !!notchWindow?.isVisible() && notchInteractive,
+			canArm: () => !!notchWindow?.isVisible() && getNotchInteractive(),
 		},
 	);
 	// The hover-copy disarm wiring needs a real BrowserWindow (it listens for
@@ -430,16 +433,8 @@ app.whenReady().then(async () => {
 	});
 	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_INTERACTIVE, (event, interactive: boolean) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
-		// Track the flag FIRST, and shield the Electron call: if
-		// setIgnoreMouseEvents threw (e.g. window mid-destroy), the
-		// hover-copy `canArm` gate and the disarm below must still see a
-		// consistent `notchInteractive` value.
-		notchInteractive = !!interactive;
-		try {
-			notchWindow?.setIgnoreMouseEvents(!interactive, { forward: true });
-		} catch (err) {
-			console.error('[munkel] setIgnoreMouseEvents failed:', err);
-		}
+		setNotchInteractive(!!interactive);
+		syncNotchMouseInteractiveState(notchWindow);
 		// Going click-through means the renderer may never get a mouseleave
 		// for the pointer that armed the hover-copy shortcut — force-disarm.
 		handleNotchSetInteractive(hoverCopyController, !!interactive);
@@ -483,7 +478,9 @@ app.whenReady().then(async () => {
 	});
 	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_PREVIEW_ACTIVE, (event, active: boolean) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
+		setPreviewActive(!!active);
 		setNotchPreviewActive(notchWindow, !!active);
+		syncNotchMouseInteractiveState(notchWindow);
 	});
 	ipcMain.handle(IPC_CHANNELS.START_GITHUB_LOGIN, async () => {
 		githubLoginService.startGitHubLogin();

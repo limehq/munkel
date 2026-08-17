@@ -101,12 +101,21 @@ export function setNotchPreviewActive(win: BrowserWindow | null, active: boolean
 		const bounds = compactBounds;
 		const display = screen.getDisplayNearestPoint({ x: bounds.x, y: bounds.y }) ?? screen.getPrimaryDisplay();
 		win.setBounds(display.workArea);
+		// The overlay must receive pointer and keyboard events (Escape/click-out)
+		// while active. Stealing focus is intentional here: without it, a
+		// click-through window cannot see the Escape key or dismiss clicks.
+		win.setIgnoreMouseEvents(false, { forward: true });
+		win.setFocusable(true);
+		win.focus();
 	} else {
 		previewActive = false;
 		if (compactBounds) {
 			win.setBounds(compactBounds);
 			compactBounds = null;
 		}
+		win.setFocusable(false);
+		// Click-through state is re-synced by main.ts via
+		// syncNotchMouseInteractiveState(); do not toggle it here.
 	}
 	if (!wasResizable) win.setResizable(false);
 }
