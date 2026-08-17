@@ -35,4 +35,23 @@ describe('resolveNotchSender', () => {
 		const entry = makeEntry({ sender: '602a0e2c' });
 		expect(resolveNotchSender(entry, [])).toBe('602a0e2c');
 	});
+
+	it('uses memberLabel for own identity (empty displayName → first 8 of memberId, never You)', () => {
+		const entry = makeEntry({
+			senderMemberId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+			sender: 'stale',
+		});
+		expect(
+			resolveNotchSender(entry, [], {
+				memberId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+				displayName: '   ',
+			}),
+		).toBe('aaaaaaaa');
+		expect(
+			resolveNotchSender(entry, [], {
+				memberId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+				displayName: 'Rodgi',
+			}),
+		).toBe('Rodgi');
+	});
 });

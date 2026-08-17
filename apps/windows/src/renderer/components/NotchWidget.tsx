@@ -8,6 +8,7 @@ import { resolveNotchSender } from '../lib/resolve-notch-sender';
 import { shouldOpenReplyOnMessageClick } from '../lib/should-open-reply-on-message-click';
 import { useNotchLifecycle, type NotchHistoryEntry } from '../lib/useNotchLifecycle';
 import { resolveNotchResizeHeight } from '../lib/notch-resize-height';
+import { memberLabel } from '../../shared/member-label';
 import type { IncomingImage } from '../../shared/types';
 import { useImagePreview } from '../lib/useImagePreview';
 import { MAX_MESSAGE_CHARS, clampMessageText } from '@munkel/shared-wire/message-limits';
@@ -198,6 +199,7 @@ export default function NotchWidget() {
 		openReply: openReplyLifecycle,
 		closeReply,
 		onNotchMessage,
+		appendOwnMessage,
 		copyText,
 		scheduleHoverLeave,
 		cancelHoverLeave,
@@ -611,6 +613,21 @@ export default function NotchWidget() {
 				return; // keep text, leave field open
 			}
 			setReplyText('');
+			appendOwnMessage({
+				sender: state.identity
+					? memberLabel({
+							memberId: state.identity.memberId,
+							displayName: state.identity.displayName,
+						})
+					: '',
+				senderMemberId: state.identity?.memberId,
+				text,
+				isDirect: replyPrivate,
+				group: entry.group,
+				groupColor: entry.groupColor,
+				receivedAt: new Date().toISOString(),
+				silent: true,
+			});
 			// Show the "Sent to …" chip in place of the reply field, then close
 			// the reply field once it's had time to be read (macOS parity — see
 			// SENT_CONFIRMATION_MS above). `recipient.to !== undefined` is the
@@ -674,7 +691,7 @@ export default function NotchWidget() {
 	 * and the single-message view never gets the chevron-driven ellipsis.
 	 */
 	function senderFor(entry: NotchHistoryEntry): string {
-		return resolveNotchSender(entry, state.circles);
+		return resolveNotchSender(entry, state.circles, state.identity);
 	}
 
 	function renderMessageRow(entry: NotchHistoryEntry, options?: { pulse?: boolean; collapsible?: boolean }) {
@@ -856,11 +873,17 @@ export default function NotchWidget() {
 			</div>
 
 			<div className="notch-inner">
-				{expanded && history.length > 0 ? (
+				{ui === 'open' && history.length > 0 ? (
 					<div className="notch-content">
 						<div className="notch-history-list">
-							{history.map((entry) => renderMessageRow(entry))}
+							{history.map((entry) => renderMessageRow(entry, { collapsible: true }))}
 						</div>
+					</div>
+				) : (phase === 'full' || replyOpen) && newest ? (
+					<div className="notch-content">
+						{renderMessageRow(history.find((e) => e.id === replyingTo) ?? newest, {
+							pulse: !replyingTo,
+						})}
 					</div>
 				) : ui === 'preview' && newest ? (
 					<div className="notch-preview-content" onClick={openFromPreview}>

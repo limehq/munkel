@@ -862,4 +862,36 @@ describe('useNotchLifecycle', () => {
 			expect(result.current.unread).toBe(true);
 		});
 	});
+
+	it('appendOwnMessage prepends history without resetting phase or reply', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'incoming', senderMemberId: 'them' }));
+		});
+		expect(result.current.phase).toBe('full');
+		const incomingId = result.current.newest?.id;
+		expect(incomingId).toBeTruthy();
+
+		await act(async () => {
+			result.current.openReply(result.current.newest!);
+			result.current.appendOwnMessage({
+				sender: 'Me',
+				senderMemberId: 'me',
+				text: 'my reply',
+				isDirect: false,
+				group: 'test-circle',
+				groupColor: '#3b82f6',
+				receivedAt: new Date().toISOString(),
+				silent: true,
+			});
+		});
+
+		expect(result.current.history[0]?.text).toBe('my reply');
+		expect(result.current.history[0]?.isOwn).toBe(true);
+		expect(result.current.newest?.id).toBe(incomingId);
+		expect(result.current.newest?.text).toBe('incoming');
+		expect(result.current.replyOpen).toBe(true);
+		expect(result.current.phase).toBe('full');
+	});
 });
