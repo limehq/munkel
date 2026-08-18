@@ -124,23 +124,38 @@ final class NotchPresenter {
         pruneHistory()
         history.append(entry)
 
-        // A living expanded instance absorbs new messages directly into
-        // its history rows — no teardown, no replay after un-hovering.
-        if notchVisible, let model = currentModel, model.fullyExpanded, !model.replySent,
-           let displayedID = currentEntryID {
-            withAnimation(.spring(duration: 0.3)) {
-                model.history = visibleHistory(excluding: displayedID)
+        if notchVisible, let notch = currentNotch, let model = currentModel,
+           model.fullyExpanded, !model.replySent {
+            guard !model.replying, supersedesPodium(entry) else {
+                withAnimation(.spring(duration: 0.3)) { refreshHistoryRows(of: model) }
+                return
+            }
+            showGeneration += 1
+            let historyWasExpanded = model.historyExpanded
+            withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
+                adoptOnPodium(message, entryID: entry.id, model: model, notch: notch, loadFull: loadFull, onReply: onReply)
+                model.historyExpanded = historyWasExpanded
+                model.mode = .message
+                model.fullyExpanded = true
+                notch.suppressBottomInset = false
+            }
+            if notch.isHovering {
+                hideTask?.cancel()
+            } else {
+                scheduleHide(of: notch, after: displayDuration(for: message))
             }
             return
         }
 
-        if silent, currentNotch != nil {
-            if currentModel?.mode == .indicator {
+        if silent, let notch = currentNotch, let model = currentModel {
+            if model.mode == .indicator {
                 withAnimation(.spring(duration: 0.3)) {
-                    if let id = currentEntryID {
-                        currentModel?.history = visibleHistory(excluding: id)
+                    if supersedesPodium(entry) {
+                        adoptOnPodium(message, entryID: entry.id, model: model, notch: notch, loadFull: loadFull, onReply: onReply)
+                    } else {
+                        refreshHistoryRows(of: model)
                     }
-                    currentModel?.anchorProgress = anchorFraction()
+                    model.anchorProgress = anchorFraction()
                 }
             }
             return
@@ -184,12 +199,8 @@ final class NotchPresenter {
         // reads as a deliberate new message rather than a silent swap.
         if let notch = currentNotch, let model = currentModel {
             hideTask?.cancel()
-            currentEntryID = entryID
             withAnimation(.spring(response: 0.42, dampingFraction: 0.82)) {
-                configure(model, for: message, notchSize: model.notchSize, entryID: entryID, loadFull: loadFull, onReply: onReply)
-                notch.floatingOverlay = AnyView(
-                    ImagePreviewOverlay(model: model, images: message.images)
-                )
+                adoptOnPodium(message, entryID: entryID, model: model, notch: notch, loadFull: loadFull, onReply: onReply)
                 model.mode = .message
                 model.fullyExpanded = false
                 notch.suppressBottomInset = false
@@ -348,6 +359,33 @@ final class NotchPresenter {
             guard let self, let model else { return }
             self.pickImageFile(model: model)
         }
+    }
+
+    private func adoptOnPodium(
+        _ message: IncomingMessage,
+        entryID: UUID,
+        model: MessageDisplayModel,
+        notch: MessageNotch,
+        loadFull: (@Sendable (String) async -> Data?)?,
+        onReply: @escaping (_ text: String, _ images: [Data], _ privately: Bool) -> Void
+    ) {
+        currentEntryID = entryID
+        configure(model, for: message, notchSize: model.notchSize, entryID: entryID, loadFull: loadFull, onReply: onReply)
+        notch.floatingOverlay = AnyView(
+            ImagePreviewOverlay(model: model, images: message.images)
+        )
+    }
+
+    private func supersedesPodium(_ entry: HistoryEntry) -> Bool {
+        guard let id = currentEntryID,
+              let podium = history.first(where: { $0.id == id })
+        else { return true }
+        return (entry.sentAt, entry.receivedAt) >= (podium.sentAt, podium.receivedAt)
+    }
+
+    private func refreshHistoryRows(of model: MessageDisplayModel) {
+        guard let id = currentEntryID else { return }
+        model.history = visibleHistory(excluding: id)
     }
 
     /// One prune loop for the whole panel lifetime (message AND anchor-dot
