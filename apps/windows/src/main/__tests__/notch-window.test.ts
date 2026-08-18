@@ -300,6 +300,7 @@ describe('setNotchPreviewActive (Plan 14 task 6 — wide notch bounds)', () => {
 			focus: () => {
 				calls.push(['focus']);
 			},
+			isDestroyed: () => false,
 		};
 	}
 
@@ -369,6 +370,13 @@ describe('setNotchPreviewActive (Plan 14 task 6 — wide notch bounds)', () => {
 		setNotchPreviewActive(win as unknown as BrowserWindow, true);
 
 		expect(win.calls.length).toBe(callsAfterFirst);
+	});
+
+	it('is a no-op for a destroyed window', () => {
+		const win = mockPreviewWindow({ x: 0, y: 0, width: NOTCH_WIDTH, height: NOTCH_DEFAULT_HEIGHT });
+		(win as { isDestroyed?: () => boolean }).isDestroyed = () => true;
+		expect(() => setNotchPreviewActive(win as unknown as BrowserWindow, true)).not.toThrow();
+		expect(isNotchPreviewActive()).toBe(false);
 	});
 
 	it('is a no-op for a null window', () => {

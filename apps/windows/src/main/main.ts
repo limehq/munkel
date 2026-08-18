@@ -479,8 +479,11 @@ app.whenReady().then(async () => {
 	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_PREVIEW_ACTIVE, (event, active: boolean) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
 		setPreviewActive(!!active);
-		setNotchPreviewActive(notchWindow, !!active);
-		syncNotchMouseInteractiveState(notchWindow);
+		try {
+			setNotchPreviewActive(notchWindow, !!active);
+		} finally {
+			syncNotchMouseInteractiveState(notchWindow);
+		}
 	});
 	ipcMain.handle(IPC_CHANNELS.START_GITHUB_LOGIN, async () => {
 		githubLoginService.startGitHubLogin();

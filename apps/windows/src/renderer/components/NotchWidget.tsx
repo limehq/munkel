@@ -181,7 +181,10 @@ export default function NotchWidget() {
 		// NotchPresenter's hide handler calling `clearPreview()`).
 		clearPreview();
 	}, [clearSentConfirmation, clearPreview]);
-	const lifecycle = useNotchLifecycle({ onNotchHide: handleNotchHide });
+	const lifecycle = useNotchLifecycle({
+		onNotchHide: handleNotchHide,
+		ownMemberId: state.identity?.memberId,
+	});
 	// Pointer-down position on the message body, so a click that was really a
 	// drag-to-select gesture does not open the reply field (see openReply).
 	const messagePointerDown = useRef<{ id: string; x: number; y: number } | null>(null);
@@ -245,6 +248,13 @@ export default function NotchWidget() {
 			if (debounceTimer) clearTimeout(debounceTimer);
 		};
 	}, [history.length, phase, reopening, replyOpen]);
+
+	// Any transition into replyOpen closes a running image preview so
+	// `setNotchPreviewActive(win, true)` cannot focus the notch and steal the
+	// reply input's focus.
+	useEffect(() => {
+		if (replyOpen) clearPreview();
+	}, [replyOpen, clearPreview]);
 
 	const expanded = ui === 'open' || replyOpen || phase === 'full';
 	const widgetClass = newest
@@ -739,6 +749,10 @@ export default function NotchWidget() {
 										src={`data:${img.mime ?? 'image/avif'};base64,${img.thumb}`}
 										alt={`${img.width}×${img.height}`}
 										title={`${img.width}×${img.height}`}
+										onMouseEnter={() => {
+											if (!replyOpen) requestImagePreview(img.id);
+										}}
+										onMouseLeave={() => endImagePreview(img.id)}
 										onClick={(e) => openPreview(entry.group, img, e)}
 									/>
 								))}

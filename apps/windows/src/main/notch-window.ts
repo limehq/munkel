@@ -46,6 +46,12 @@ const NOTCH_RESIZE_TOLERANCE_PX = 1;
  * Compact bounds saved by `setNotchPreviewActive(win, true)` so it can be
  * restored exactly on `setNotchPreviewActive(win, false)`. Module-level
  * (like `pendingHide` below) since there is exactly one notch window.
+ *
+ * NOTE: this module-level `previewActive` tracks the *window-bounds* side of
+ * the preview. It must stay in sync with the separate `previewActive` flag in
+ * `notch-interactive-state.ts`, which drives the click-through decision. The
+ * `notch-set-preview-active` handler in `main.ts` updates both before calling
+ * `syncNotchMouseInteractiveState`.
  */
 let compactBounds: Electron.Rectangle | null = null;
 let previewActive = false;
@@ -92,6 +98,7 @@ export function resizeNotchToContent(win: BrowserWindow | null, contentHeight: n
  */
 export function setNotchPreviewActive(win: BrowserWindow | null, active: boolean): void {
 	if (!win) return;
+	if (win.isDestroyed()) return;
 	if (active === previewActive) return;
 	const wasResizable = win.isResizable();
 	if (!wasResizable) win.setResizable(true);

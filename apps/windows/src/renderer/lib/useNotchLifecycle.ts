@@ -55,7 +55,7 @@ export interface UseNotchLifecycleReturn {
 	openFromPreview: () => void;
 }
 
-export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNotchLifecycleReturn {
+export function useNotchLifecycle(options?: { onNotchHide?: () => void; ownMemberId?: string }): UseNotchLifecycleReturn {
 	const [history, setHistory] = useState<NotchHistoryEntry[]>([]);
 	const [phase, setPhase] = useState<NotchPhase>('retracted');
 	const [ui, setUi] = useState<NotchUiState>('collapsed');
@@ -186,6 +186,16 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 	}, []);
 
 	const onNotchMessage = useCallback((message: NotchMessage) => {
+		const ownMemberId = options?.ownMemberId;
+		const isOwnEcho =
+			(!!ownMemberId && message.senderMemberId === ownMemberId) ||
+			historyRef.current.some(
+				(entry) =>
+					entry.isOwn &&
+					entry.senderMemberId === message.senderMemberId &&
+					entry.text === message.text,
+			);
+		if (isOwnEcho) return;
 		appendHistory(makeHistoryEntry(message));
 		if (leaveHoverTimer.current) {
 			clearTimeout(leaveHoverTimer.current);
@@ -198,7 +208,7 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		closeReply();
 		// A new message is unread until the user interacts with it again.
 		setInteracted(false);
-	}, [appendHistory, makeHistoryEntry, closeReply]);
+	}, [appendHistory, makeHistoryEntry, closeReply, options?.ownMemberId]);
 
 	const appendOwnMessage = useCallback((message: NotchMessage) => {
 		appendHistory({ ...makeHistoryEntry(message), isOwn: true });

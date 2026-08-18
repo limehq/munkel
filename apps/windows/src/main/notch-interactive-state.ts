@@ -9,6 +9,13 @@ import type { BrowserWindow } from 'electron';
  */
 const state = {
 	notchInteractive: false,
+	/**
+	 * Tracks the *click-through* side of the image preview overlay. This flag
+	 * must stay in sync with the separate `previewActive` module state in
+	 * `notch-window.ts`, which tracks the *window-bounds* side. The
+	 * `notch-set-preview-active` handler in `main.ts` updates both before
+	 * calling `syncNotchMouseInteractiveState`.
+	 */
 	previewActive: false,
 };
 
