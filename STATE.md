@@ -2,6 +2,16 @@
 
 ## Now
 
+**2026-08-17 — Git-Divergenz-Reconciliation abgeschlossen.** Lokalen divergierten `v2-clean`
+(9 ahead / 111 behind origin) sauber auf frischen `origin/platform/windows/v2-clean` (`1109002`)
+überführt, **nichts verloren**. Feature-Branch `platform/windows/notch-history-and-preview-fix`
+(off `1109002`, 5 Commits, nicht gepusht): collapsed-Resize-Footprint (← `cc5ba84`), Sender-Display-Namen
+(← `b5bacc8`), Own-Reply (← `a3f3966`), Quick-Look-hittable (← `bffcbee`), Preview-Dismiss+Echo-Skip
+(← `9e4165c`). Verifikation: 0 neue Fehler, 7 pre-existing behoben, +20 Tests. **Befund (Follow-up):**
+origin-Basis selbst ist rot — 22 pre-existing Testfehler + 2 typecheck-Fehler (`identity-store.ts`
+`version`-Typ-Drift) aus `upstream/main`-Sync (`94bc0b8`)/Integration-Merge (`8abd1b4`). Details:
+`scratchpad/reconcile-manifest.md` + NOTE.md.
+
 **2026-07-18 — Echo-Opt-in-Fix + Doku-Sync.** User meldete: eigene Broadcasts erscheinen in der eigenen Notch. Debug-Lauf: Hypothese A+D bestätigt (`willEcho:true` / `effectiveEcho:true` beim Boot); Relay-Loopback verworfen (kein Incoming-Self-Frame). Ursache: Plan-13-Dev-Toggle `devEchoBroadcasts` Default `true`. Fix: Default + Migration `state.json` **v2 → `false` (opt-in)**; Toggle bleibt in Dev-Settings. User-verifiziert; Debug-Instrumentierung entfernt. Uncommitted auf `platform/windows/macos-parity-p1`.
 
 **2026-07-17 — Plan 14 (OQ4) umgesetzt: Image Quick-Look Overlay, macOS-Hover-Parity.** Tasks 1–8: `blob-download`, `loadFullImage`, IPC, `useImagePreview` (180ms Debounce), `ImagePreviewOverlay`, `setNotchPreviewActive` (ein Fenster → Display-`workArea`), Full-Res-Copy. **Teststand: 588 pass / 2 skip / 0 fail**. Matrix: **38 DONE / 1 PARTIAL (About) / 0 MISSING / 1 BLOCKED (P2.2/OQ5)**. OQ4 geschlossen.
@@ -41,10 +51,12 @@ Davor: **Iteration 8 abgeschlossen — P3 KOMPLETT: pulse-Verdrahtung, P3.6 Hist
 
 ## Last
 
-2026-07-18 — Echo-Opt-in-Fix user-verifiziert; Projektdoku (HANDOFF/STATE/Plans) synchronisiert. Davor 2026-07-17 Plan 14 umgesetzt. Branch weiterhin uncommitted gegenüber Tip `9de332f`.
+2026-08-17 — Git-Divergenz-Reconciliation auf `platform/windows/notch-history-and-preview-fix`
+(5 Commits off origin-Tip `1109002`); Backup-Refs `backup/pre-reconcile-*` auf `78feefd`. Verifikation:
+0 neue Fehler, 7 pre-existing behoben. origin-Basis rot (22 Tests + typecheck) als Follow-up erfasst.
 
 ## Next
 
-1. Restliche visuelle QA Plan 14 (falls noch Punkte offen).
-2. **OQ5** (CLI-Distribution) mit User.
-3. Commit + PR `macos-parity-p1` → `v2-clean` (kein Self-Merge; erst nach User-OK).
+1. **Follow-up:** origin-Drift fixen (22 pre-existing Testfehler + `identity-store.ts`-typecheck) — eigener Auftrag.
+2. **Push/PR-Entscheid:** `platform/windows/notch-history-and-preview-fix` → `v2-clean` (Fork `rodgi040/munkel`, kein Self-Merge).
+3. **OQ5** (CLI-Distribution) mit User.
