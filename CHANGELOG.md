@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.1](https://github.com/limehq/munkel/compare/v0.18.0...v0.18.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* **macos:** newest message always takes the top ([#233](https://github.com/limehq/munkel/issues/233)) ([4477ce2](https://github.com/limehq/munkel/commit/4477ce2b12d77f60ae40adbdf5aaca633e1d7cae))
+
 ## [0.18.0](https://github.com/limehq/munkel/compare/v0.17.0...v0.18.0) (2026-08-17)
 
 
