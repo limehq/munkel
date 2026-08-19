@@ -1,3 +1,4 @@
+#if !MAS
 import Combine
 import Sparkle
 import SwiftUI
@@ -85,3 +86,4 @@ extension UpdaterController: SPUStandardUserDriverDelegate {
         Task { @MainActor in self.availableUpdateVersion = version }
     }
 }
+#endif
