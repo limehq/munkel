@@ -41,7 +41,6 @@ const api: IpcApi = {
 	beginNotchReply: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_BEGIN_REPLY),
 	endNotchReply: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_END_REPLY),
 	notchSetInteractive: (interactive) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_SET_INTERACTIVE, interactive),
-	notchSetPreviewMode: (preview) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_SET_PREVIEW_MODE, preview),
 	notchEmpty: () => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_EMPTY),
 	notchResize: (contentHeight) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_RESIZE, contentHeight),
 	notchSetHoverCopyActive: (active) => ipcRenderer.invoke(IPC_CHANNELS.NOTCH_SET_HOVER_COPY, active),

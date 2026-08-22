@@ -60,6 +60,20 @@ describe('notch-interactive-state', () => {
 		expect(win.isIgnoreMouseEvents()).toBe(true);
 	});
 
+	it('keeps the window hittable when a preview ends while the user is still interacting', () => {
+		const win = mockNotchWindow();
+		setNotchInteractive(true);
+		setPreviewActive(true);
+		syncNotchMouseInteractiveState(win as unknown as Electron.BrowserWindow);
+		expect(win.isIgnoreMouseEvents()).toBe(false);
+
+		setPreviewActive(false);
+		syncNotchMouseInteractiveState(win as unknown as Electron.BrowserWindow);
+
+		expect(win.isIgnoreMouseEvents()).toBe(false);
+		expect(win.calls.at(-1)).toEqual(['setIgnoreMouseEvents', false, { forward: true }]);
+	});
+
 	it('is a no-op when the window is null', () => {
 		expect(() => syncNotchMouseInteractiveState(null)).not.toThrow();
 	});

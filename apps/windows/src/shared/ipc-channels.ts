@@ -39,7 +39,6 @@ export const IPC_CHANNELS = {
   NOTCH_BEGIN_REPLY: 'notch-begin-reply',
   NOTCH_END_REPLY: 'notch-end-reply',
   NOTCH_SET_INTERACTIVE: 'notch-set-interactive',
-  NOTCH_SET_PREVIEW_MODE: 'notch-set-preview-mode',
   NOTCH_EMPTY: 'notch-empty',
   NOTCH_RESIZE: 'notch-resize',
   NOTCH_SET_HOVER_COPY: 'notch-set-hover-copy',

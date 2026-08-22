@@ -8,9 +8,6 @@ import {
 	requestNotchHide,
 	updateNotch,
 	resizeNotchToContent,
-	enterPreviewMode,
-	exitPreviewMode,
-	isPreviewMode,
 	setNotchPreviewActive,
 } from './notch-window';
 import {
@@ -442,14 +439,6 @@ app.whenReady().then(async () => {
 	ipcMain.handle(IPC_CHANNELS.NOTCH_EMPTY, (event) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
 		requestNotchHide(notchWindow);
-	});
-	ipcMain.handle(IPC_CHANNELS.NOTCH_SET_PREVIEW_MODE, (event, preview: boolean) => {
-		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
-		if (preview) {
-			enterPreviewMode(notchWindow);
-		} else {
-			exitPreviewMode(notchWindow);
-		}
 	});
 	ipcMain.handle(IPC_CHANNELS.NOTCH_RESIZE, (event, contentHeight: number) => {
 		if (BrowserWindow.fromWebContents(event.sender) !== notchWindow) return;
