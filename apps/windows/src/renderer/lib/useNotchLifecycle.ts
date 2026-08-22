@@ -123,11 +123,12 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 	}, [cancelHoverLeave]);
 
 	const reopenFromHoverTarget = useCallback(() => {
-		if (history.length === 0 || phase === 'full') return;
+		if (history.length === 0) return;
 		cancelHoverLeave();
-		setUi('preview');
+		setUi('open');
+		setHovering(true);
 		setInteracted(true);
-	}, [history.length, phase, cancelHoverLeave]);
+	}, [history.length, cancelHoverLeave]);
 
 	const openReply = useCallback((entry: NotchHistoryEntry) => {
 		setReplyingTo(entry.id);

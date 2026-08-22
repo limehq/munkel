@@ -4,7 +4,7 @@ import type { PresenceStatus } from '../shared/types';
 import { DEFAULT_PALETTE_HOTKEY, isValidAccelerator } from '../shared/accelerator';
 
 export interface PersistedState {
-	version: 1;
+	version: 1 | 2;
 	memberId: string;
 	displayName: string;
 	avatar?: string;
