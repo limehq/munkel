@@ -120,7 +120,6 @@ export interface IpcApi {
 	beginNotchReply: () => Promise<void>;
 	endNotchReply: () => Promise<void>;
 	notchSetInteractive: (interactive: boolean) => Promise<void>;
-	notchSetPreviewMode: (preview: boolean) => Promise<void>;
 	notchEmpty: () => Promise<void>;
 	notchResize: (contentHeight: number) => Promise<void>;
 	// Hover-"C" copy (Plan 12 P3.2). The notch window is non-focusable outside

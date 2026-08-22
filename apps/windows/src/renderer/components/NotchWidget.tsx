@@ -160,6 +160,7 @@ export default function NotchWidget() {
 	const [fullImage, setFullImage] = useState<{ data: string; mime: string } | null>(null);
 	const [previewLoading, setPreviewLoading] = useState(false);
 	const [previewError, setPreviewError] = useState<string | null>(null);
+	const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
 	const fullImageCache = useRef<Map<string, { data: string; mime: string }>>(new Map());
 
 	const handleNotchHide = useCallback(() => {
@@ -346,8 +347,8 @@ export default function NotchWidget() {
 	// Widen/restore the notch window for the overlay (Plan 14 task 6) — the
 	// main process owns the actual bounds swap (`setNotchPreviewActive`).
 	useEffect(() => {
-		void window.electronAPI.notchSetPreviewActive(!!previewImageID);
-	}, [previewImageID]);
+		void window.electronAPI.notchSetPreviewActive(!!previewImageID || imagePreviewOpen);
+	}, [previewImageID, imagePreviewOpen]);
 
 	const replyOpenRef = useRef(false);
 	useEffect(() => {
@@ -525,7 +526,7 @@ export default function NotchWidget() {
 		e.stopPropagation();
 		setPreviewImage(img);
 		setPreviewError(null);
-		void window.electronAPI.notchSetPreviewMode(true);
+		setImagePreviewOpen(true);
 		const cached = fullImageCache.current.get(img.id);
 		if (cached) {
 			setFullImage(cached);
@@ -549,7 +550,7 @@ export default function NotchWidget() {
 		setFullImage(null);
 		setPreviewError(null);
 		setPreviewLoading(false);
-		void window.electronAPI.notchSetPreviewMode(false);
+		setImagePreviewOpen(false);
 	}
 
 	function openReply(entry: NotchHistoryEntry) {
