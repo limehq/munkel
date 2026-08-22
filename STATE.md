@@ -2,6 +2,8 @@
 
 ## Now
 
+**2026-08-18 — Origin-Drift-Follow-up lokal grün.** Branch `platform/windows/origin-drift-fix` off `v2-clean` (`1109002`): Typecheck `PersistedState.version: 1 | 2`, Payload-Tests an shared-wire, GroupSession-Echo via Disconnect, NotchWidget Hover/History/Pulse wieder verdrahtet, Hover-Reopen → `ui === 'open'`. Verifikation: **654 pass / 0 fail**, `tsc` grün. PR #47 bleibt separat (rebase nach Merge dieser Basis). Pause: Commit+Push, kein Merge.
+
 **2026-07-18 — Echo-Opt-in-Fix + Doku-Sync.** User meldete: eigene Broadcasts erscheinen in der eigenen Notch. Debug-Lauf: Hypothese A+D bestätigt (`willEcho:true` / `effectiveEcho:true` beim Boot); Relay-Loopback verworfen (kein Incoming-Self-Frame). Ursache: Plan-13-Dev-Toggle `devEchoBroadcasts` Default `true`. Fix: Default + Migration `state.json` **v2 → `false` (opt-in)**; Toggle bleibt in Dev-Settings. User-verifiziert; Debug-Instrumentierung entfernt. Uncommitted auf `platform/windows/macos-parity-p1`.
 
 **2026-07-17 — Plan 14 (OQ4) umgesetzt: Image Quick-Look Overlay, macOS-Hover-Parity.** Tasks 1–8: `blob-download`, `loadFullImage`, IPC, `useImagePreview` (180ms Debounce), `ImagePreviewOverlay`, `setNotchPreviewActive` (ein Fenster → Display-`workArea`), Full-Res-Copy. **Teststand: 588 pass / 2 skip / 0 fail**. Matrix: **38 DONE / 1 PARTIAL (About) / 0 MISSING / 1 BLOCKED (P2.2/OQ5)**. OQ4 geschlossen.
@@ -37,14 +39,15 @@ Davor: **Iteration 8 abgeschlossen — P3 KOMPLETT: pulse-Verdrahtung, P3.6 Hist
 - ✅ **P3-Abschluss Iteration 8 (2026-07-10)** — pulse-Verdrahtung (`5acfb69`), P3.6 History-Expand/Collapse mit Chevron + Per-Row-Copy (`d8e0a2d`), P3.1 Rebindable Hotkey mit Recorder/Validierung (`24d6340`). Review: P3.1 BLOCK (Rollback-Doppel-Fehler ließ App hotkey-los bei behaupteter Bindung) → Fix `8ba4574` (Confirmed-Binding-Invariante, Default-Heal, unbound-UI mit Retry-Heilung, Shift-only-Ablehnung) → **SHIP**; P3.6+pulse **SHIP** (Follow-ups: 220px-Cap vs. resize-on-expand, Overflow >480px unverifiziert, 3 fehlende Tests). Teststand: **429 pass / 2 skip / 0 fail**.
 - ✅ **Plan 14 / OQ4 Image Quick-Look (2026-07-17)** — Hover-Overlay, wide notch, blob-download, full-res copy; Matrix 38/1/0/1.
 - ✅ **Echo opt-in default (2026-07-18)** — `devEchoBroadcasts` default `false`, `state.json` v2-Migration; User-verifiziert.
+- ✅ **Origin-Drift-Follow-up (2026-08-18)** — Typecheck `version: 1 | 2`; stale Payload/Echo-Tests; NotchWidget-Wiring (ref/testid/hover-copy/collapsible/pulse); Hover-Reopen öffnet History. Teststand: **654 pass / 0 fail**.
 - ✅ (früher) Single-Instance/Self-Heal, Circle-Leave-Dialog, Logo-Assets, Auto-Update, Notch Peek/History — alles in `platform/windows/v2-clean` bzw. darunter gemerged.
 
 ## Last
 
-2026-07-18 — Echo-Opt-in-Fix user-verifiziert; Projektdoku (HANDOFF/STATE/Plans) synchronisiert. Davor 2026-07-17 Plan 14 umgesetzt. Branch weiterhin uncommitted gegenüber Tip `9de332f`.
+2026-08-18 — Origin-Drift auf `platform/windows/origin-drift-fix` geschlossen (654 pass / 0 fail). Pause: committen + pushen, nicht mergen. PR #47 danach rebase.
 
 ## Next
 
-1. Restliche visuelle QA Plan 14 (falls noch Punkte offen).
-2. **OQ5** (CLI-Distribution) mit User.
-3. Commit + PR `macos-parity-p1` → `v2-clean` (kein Self-Merge; erst nach User-OK).
+1. PR `origin-drift-fix` → `v2-clean` öffnen (kein Self-Merge).
+2. Nach Merge: PR #47 auf die neue Basis rebasen.
+3. **OQ5** (CLI-Distribution) mit User.
