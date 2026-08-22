@@ -21,6 +21,7 @@ function createMockElectronApi() {
 		notchSetHoverCopyActive: (_active: boolean) => Promise.resolve(true),
 		notchLoadFullImage: (_group: string, _r2Key: string) => Promise.resolve({ ok: false as const }),
 		notchSetPreviewActive: (_active: boolean) => Promise.resolve(),
+		fetchFullImage: (_code: string, _r2Key: string) => Promise.resolve({ ok: false as const, error: 'not available in test' }),
 		notchEmpty: () => Promise.resolve(),
 		beginNotchReply: () => Promise.resolve(),
 		endNotchReply: () => Promise.resolve(),
@@ -1981,6 +1982,102 @@ describe('NotchWidget message ticker wiring (Plan 13 item 7)', () => {
 			(node) => node.type === 'p' && typeof node.props.className === 'string' && node.props.className.includes('message-text'),
 		);
 		expect(collapsedParagraphs.length).toBe(2);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+});
+
+describe('NotchWidget image preview click-through authority (single-click-through-authority fix)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let originalResizeObserver: unknown;
+
+	function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
+		return {
+			sender: 'Alice',
+			text: 'Hello from Alice',
+			isDirect: false,
+			group: 'test-circle',
+			groupColor: '#3b82f6',
+			receivedAt: new Date().toISOString(),
+			images: [{ id: 'img-1', width: 100, height: 100, thumb: 'AAAA', mime: 'image/avif' }],
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi();
+		(globalThis as unknown as {
+			window: { electronAPI: typeof electronApi; addEventListener: unknown; removeEventListener: unknown };
+		}).window = {
+			electronAPI: electronApi,
+			addEventListener: () => {},
+			removeEventListener: () => {},
+		};
+		originalResizeObserver = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+		delete (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+		(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+	});
+
+	function wait(ms: number) {
+		return new Promise<void>((resolve) => setTimeout(resolve, ms));
+	}
+
+	async function renderWidget() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<NotchWidget />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	function imageThumb(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ className: 'image-preview-thumb' });
+	}
+
+	it('keeps the overlay active when a click preview closes while a hover preview is still up (does not send notchSetPreviewActive(false))', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage());
+		});
+
+		const thumb = imageThumb(root);
+		await act(async () => {
+			thumb.props.onMouseEnter();
+		});
+		// The hover preview commits after the 180ms debounce (see
+		// useImagePreview.ts / PREVIEW_DEBOUNCE_MS).
+		await act(async () => {
+			await wait(220);
+		});
+
+		await act(async () => {
+			thumb.props.onClick({ stopPropagation: () => {} });
+		});
+
+		const previewActiveCalls: boolean[] = [];
+		electronApi.notchSetPreviewActive = (active: boolean) => {
+			previewActiveCalls.push(active);
+			return Promise.resolve();
+		};
+
+		const overlay = root.root.findByProps({ className: 'image-preview-overlay' });
+		await act(async () => {
+			overlay.props.onClick();
+		});
+
+		expect(previewActiveCalls.length).toBeGreaterThan(0);
+		expect(previewActiveCalls).not.toContain(false);
 
 		await act(async () => {
 			root.unmount();
