@@ -40,6 +40,14 @@ export interface UseNotchLifecycleReturn {
 	openReply: (entry: NotchHistoryEntry) => void;
 	closeReply: () => void;
 	onNotchMessage: (message: NotchMessage) => void;
+	/**
+	 * Append a message sent by this user to the notch history (e.g. a reply
+	 * that was successfully dispatched). Prepends as the newest entry,
+	 * prunes expired history, and deliberately does NOT reset phase or reply
+	 * state — the user's reply context stays open while the sent message
+	 * becomes visible in history.
+	 */
+	appendOwnMessage: (message: NotchMessage) => void;
 	copyText: (entry: NotchHistoryEntry, fullImageBase64?: string) => void;
 	scheduleHoverLeave: () => void;
 	cancelHoverLeave: () => void;
@@ -47,7 +55,7 @@ export interface UseNotchLifecycleReturn {
 	openFromPreview: () => void;
 }
 
-export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNotchLifecycleReturn {
+export function useNotchLifecycle(options?: { onNotchHide?: () => void; ownMemberId?: string }): UseNotchLifecycleReturn {
 	const [history, setHistory] = useState<NotchHistoryEntry[]>([]);
 	const [phase, setPhase] = useState<NotchPhase>('retracted');
 	const [ui, setUi] = useState<NotchUiState>('collapsed');
@@ -74,7 +82,7 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 	const historyRef = useRef(history);
 	historyRef.current = history;
 
-	const newest = history[0] ?? null;
+	const newest = history.find((entry) => !entry.isOwn) ?? null;
 	const reopening = ui === 'open';
 	const previewing = ui === 'preview';
 	const replyOpen = replyingTo !== null;
@@ -166,13 +174,30 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		setCopiedId(entry.id);
 	}, []);
 
-	const onNotchMessage = useCallback((message: NotchMessage) => {
-		const entry: NotchHistoryEntry = {
+	const makeHistoryEntry = useCallback((message: NotchMessage): NotchHistoryEntry => {
+		return {
 			...message,
 			id: nextNotchId(),
 			receivedAt: message.receivedAt ?? new Date().toISOString(),
 		};
+	}, []);
+
+	const appendHistory = useCallback((entry: NotchHistoryEntry) => {
 		setHistory((current) => pruneNotchHistory([entry, ...current], Date.now(), NOTCH_HISTORY_MS));
+	}, []);
+
+	const onNotchMessage = useCallback((message: NotchMessage) => {
+		const ownMemberId = options?.ownMemberId;
+		const isOwnEcho =
+			(!!ownMemberId && message.senderMemberId === ownMemberId) ||
+			historyRef.current.some(
+				(entry) =>
+					entry.isOwn &&
+					entry.senderMemberId === message.senderMemberId &&
+					entry.text === message.text,
+			);
+		if (isOwnEcho) return;
+		appendHistory(makeHistoryEntry(message));
 		if (leaveHoverTimer.current) {
 			clearTimeout(leaveHoverTimer.current);
 			leaveHoverTimer.current = null;
@@ -184,7 +209,11 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		closeReply();
 		// A new message is unread until the user interacts with it again.
 		setInteracted(false);
-	}, [closeReply]);
+	}, [appendHistory, makeHistoryEntry, closeReply, options?.ownMemberId]);
+
+	const appendOwnMessage = useCallback((message: NotchMessage) => {
+		appendHistory({ ...makeHistoryEntry(message), isOwn: true });
+	}, [appendHistory, makeHistoryEntry]);
 
 	// Phase lifecycle: FULL → PEEK → RETRACTED for each new newest message.
 	// Silent messages skip the full preview and go straight to peek (ring/sliver).
@@ -336,6 +365,7 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		openReply,
 		closeReply,
 		onNotchMessage,
+		appendOwnMessage,
 		copyText,
 		scheduleHoverLeave,
 		cancelHoverLeave,

@@ -23,6 +23,7 @@ import type { ImageItem } from '../core';
 import { readFile } from 'node:fs/promises';
 import { RelayClient } from './relay-client';
 import { getCircleColor } from '../shared/group-color';
+import { memberLabel } from '../shared/member-label';
 import { clampMessageText } from '@munkel/shared-wire/message-limits';
 import type { CircleState, IncomingImage, Member, NotchMessage, PresenceStatus } from '../shared/types';
 import type { ChatPayload, ClientMessage, PresencePayload, ProfilePayload, ServerMessage } from '../core';
@@ -417,7 +418,7 @@ export class GroupSession {
 					// Resolve the sender label + direct/broadcast flag once —
 					// shared by the chat, profile, and image branches below.
 					const senderRecord = this.members.find((m) => m.memberId === frame.from);
-					const senderLabel = senderRecord?.displayName ?? frame.from;
+					const senderLabel = memberLabel(senderRecord ?? { memberId: frame.from });
 					const isDirect = frame.to !== undefined;
 					const colorIndex = this.callbacks.getColorIndex();
 

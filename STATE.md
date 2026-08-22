@@ -4,6 +4,16 @@
 
 **2026-08-18 — Origin-Drift-Follow-up lokal grün.** Branch `platform/windows/origin-drift-fix` off `v2-clean` (`1109002`): Typecheck `PersistedState.version: 1 | 2`, Payload-Tests an shared-wire, GroupSession-Echo via Disconnect, NotchWidget Hover/History/Pulse wieder verdrahtet, Hover-Reopen → `ui === 'open'`. Verifikation: **654 pass / 0 fail**, `tsc` grün. PR #47 bleibt separat (rebase nach Merge dieser Basis). Pause: Commit+Push, kein Merge.
 
+**2026-08-17 — Git-Divergenz-Reconciliation abgeschlossen.** Lokalen divergierten `v2-clean`
+(9 ahead / 111 behind origin) sauber auf frischen `origin/platform/windows/v2-clean` (`1109002`)
+überführt, **nichts verloren**. Feature-Branch `platform/windows/notch-history-and-preview-fix`
+(off `1109002`, 6 Commits: 5 Code + 1 Docs, **gepusht**, **PR #47** → `v2-clean`, kein Self-Merge):
+collapsed-Resize-Footprint (← `cc5ba84`), Sender-Display-Namen (← `b5bacc8`), Own-Reply (← `a3f3966`),
+Quick-Look-hittable (← `bffcbee`), Preview-Dismiss+Echo-Skip (← `9e4165c`). Verifikation: 0 neue Fehler,
+7 pre-existing behoben, +20 Tests. **Befund (Follow-up):** origin-Basis selbst ist rot — 22 pre-existing
+Testfehler + 2 typecheck-Fehler (`identity-store.ts` `version`-Typ-Drift) aus `upstream/main`-Sync
+(`94bc0b8`)/Integration-Merge (`8abd1b4`). Details: `scratchpad/reconcile-manifest.md` + NOTE.md.
+
 **2026-07-18 — Echo-Opt-in-Fix + Doku-Sync.** User meldete: eigene Broadcasts erscheinen in der eigenen Notch. Debug-Lauf: Hypothese A+D bestätigt (`willEcho:true` / `effectiveEcho:true` beim Boot); Relay-Loopback verworfen (kein Incoming-Self-Frame). Ursache: Plan-13-Dev-Toggle `devEchoBroadcasts` Default `true`. Fix: Default + Migration `state.json` **v2 → `false` (opt-in)**; Toggle bleibt in Dev-Settings. User-verifiziert; Debug-Instrumentierung entfernt. Uncommitted auf `platform/windows/macos-parity-p1`.
 
 **2026-07-17 — Plan 14 (OQ4) umgesetzt: Image Quick-Look Overlay, macOS-Hover-Parity.** Tasks 1–8: `blob-download`, `loadFullImage`, IPC, `useImagePreview` (180ms Debounce), `ImagePreviewOverlay`, `setNotchPreviewActive` (ein Fenster → Display-`workArea`), Full-Res-Copy. **Teststand: 588 pass / 2 skip / 0 fail**. Matrix: **38 DONE / 1 PARTIAL (About) / 0 MISSING / 1 BLOCKED (P2.2/OQ5)**. OQ4 geschlossen.
@@ -44,10 +54,14 @@ Davor: **Iteration 8 abgeschlossen — P3 KOMPLETT: pulse-Verdrahtung, P3.6 Hist
 
 ## Last
 
-2026-08-18 — Origin-Drift auf `platform/windows/origin-drift-fix` geschlossen (654 pass / 0 fail). Pause: committen + pushen, nicht mergen. PR #47 danach rebase.
+2026-08-22 — `origin-drift-fix` (PR #48) gemerged; `notch-history-and-preview-fix` (PR #47) auf die neue Basis gemerged.
+2026-08-18 — Origin-Drift auf `platform/windows/origin-drift-fix` geschlossen (654 pass / 0 fail).
+2026-08-17 — Git-Divergenz-Reconciliation abgeschlossen: 5 Code-Commits + 1 Docs-Commit auf
+`platform/windows/notch-history-and-preview-fix` (off origin-Tip `1109002`), **PR #47** → `v2-clean`.
+Backup-Refs `backup/pre-reconcile-*` auf `78feefd`.
 
 ## Next
 
-1. PR `origin-drift-fix` → `v2-clean` öffnen (kein Self-Merge).
-2. Nach Merge: PR #47 auf die neue Basis rebasen.
+1. Restliche offene Branches sichten (`notch-lifecycle-harden`, `update-signature-fix`) und schliessen.
+2. **OQ5** (CLI-Distribution) mit User.
 3. **OQ5** (CLI-Distribution) mit User.

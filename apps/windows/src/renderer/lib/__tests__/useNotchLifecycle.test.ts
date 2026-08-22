@@ -859,4 +859,65 @@ describe('useNotchLifecycle', () => {
 			expect(result.current.unread).toBe(true);
 		});
 	});
+
+	it('appendOwnMessage prepends history without resetting phase or reply', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'incoming', senderMemberId: 'them' }));
+		});
+		expect(result.current.phase).toBe('full');
+		const incomingId = result.current.newest?.id;
+		expect(incomingId).toBeTruthy();
+
+		await act(async () => {
+			result.current.openReply(result.current.newest!);
+			result.current.appendOwnMessage({
+				sender: 'Me',
+				senderMemberId: 'me',
+				text: 'my reply',
+				isDirect: false,
+				group: 'test-circle',
+				groupColor: '#3b82f6',
+				receivedAt: new Date().toISOString(),
+				silent: true,
+			});
+		});
+
+		expect(result.current.history[0]?.text).toBe('my reply');
+		expect(result.current.history[0]?.isOwn).toBe(true);
+		expect(result.current.newest?.id).toBe(incomingId);
+		expect(result.current.newest?.text).toBe('incoming');
+		expect(result.current.replyOpen).toBe(true);
+		expect(result.current.phase).toBe('full');
+	});
+
+	it('skips own-member echoes and isOwn text duplicates in onNotchMessage', async () => {
+		const { result } = renderHook(() => useNotchLifecycle({ ownMemberId: 'me' }));
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'incoming', senderMemberId: 'them' }));
+		});
+		expect(result.current.history.length).toBe(1);
+
+		await act(async () => {
+			result.current.appendOwnMessage({
+				sender: 'Me',
+				senderMemberId: 'me',
+				text: 'echo me',
+				isDirect: false,
+				group: 'test-circle',
+				groupColor: '#3b82f6',
+				receivedAt: new Date().toISOString(),
+				silent: true,
+			});
+			result.current.onNotchMessage(makeMessage({ text: 'from me', senderMemberId: 'me' }));
+		});
+		expect(result.current.history.some((entry) => entry.text === 'from me')).toBe(false);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'echo me', senderMemberId: 'me' }));
+		});
+		expect(result.current.history.filter((entry) => entry.text === 'echo me').length).toBe(1);
+	});
 });

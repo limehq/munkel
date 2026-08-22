@@ -12,6 +12,7 @@
 import { stat } from 'node:fs/promises';
 import { normalizeCircleCode, MAX_IMAGES_PER_MESSAGE } from '../core';
 import type { CircleState } from '../shared/types';
+import { memberLabel } from '../shared/member-label';
 import type { ControlGroupInfo, ControlRequest, ControlResponse } from '@munkel/shared-wire/control';
 import type { SendResult } from './group-session';
 
@@ -39,10 +40,6 @@ function formatBytes(bytes: number): string {
 function imageExtension(path: string): string {
 	const match = path.match(/\.([^.]+)$/);
 	return match ? match[1].toLowerCase() : '';
-}
-
-function memberLabel(member: CircleState['members'][number]): string {
-	return member.displayName ?? member.memberId;
 }
 
 function recipientMatches(

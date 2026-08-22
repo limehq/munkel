@@ -78,6 +78,10 @@ export interface NotchMessage {
 	images?: IncomingImage[];
 	/** When true, the incoming message is added to history but the preview is not shown. */
 	silent?: boolean;
+	/** When true, the message was sent by this user (e.g. a successful reply).
+	 * Own messages appear in history but never drive the single-message view
+	 * or phase lifecycle, so the outgoing confirmation chip stays visible. */
+	isOwn?: boolean;
 }
 
 export interface IpcApi {

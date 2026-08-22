@@ -291,6 +291,16 @@ describe('setNotchPreviewActive (Plan 14 task 6 — wide notch bounds)', () => {
 				resizable = value;
 				calls.push(['setResizable', value]);
 			},
+			setIgnoreMouseEvents: (value: boolean, opts?: { forward: boolean }) => {
+				calls.push(['setIgnoreMouseEvents', value, opts]);
+			},
+			setFocusable: (value: boolean) => {
+				calls.push(['setFocusable', value]);
+			},
+			focus: () => {
+				calls.push(['focus']);
+			},
+			isDestroyed: () => false,
 		};
 	}
 
@@ -339,6 +349,19 @@ describe('setNotchPreviewActive (Plan 14 task 6 — wide notch bounds)', () => {
 		expect(win.isResizable()).toBe(false);
 	});
 
+	it('steals focus and disables click-through while the preview is active', () => {
+		const win = mockPreviewWindow({ x: 0, y: 0, width: NOTCH_WIDTH, height: NOTCH_DEFAULT_HEIGHT });
+
+		setNotchPreviewActive(win as unknown as BrowserWindow, true);
+
+		expect(win.calls).toContainEqual(['setIgnoreMouseEvents', false, { forward: true }]);
+		expect(win.calls).toContainEqual(['setFocusable', true]);
+		expect(win.calls).toContainEqual(['focus']);
+
+		setNotchPreviewActive(win as unknown as BrowserWindow, false);
+		expect(win.calls).toContainEqual(['setFocusable', false]);
+	});
+
 	it('is a no-op when called with the already-active state (idempotent)', () => {
 		const win = mockPreviewWindow({ x: 0, y: 0, width: NOTCH_WIDTH, height: NOTCH_DEFAULT_HEIGHT });
 
@@ -347,6 +370,13 @@ describe('setNotchPreviewActive (Plan 14 task 6 — wide notch bounds)', () => {
 		setNotchPreviewActive(win as unknown as BrowserWindow, true);
 
 		expect(win.calls.length).toBe(callsAfterFirst);
+	});
+
+	it('is a no-op for a destroyed window', () => {
+		const win = mockPreviewWindow({ x: 0, y: 0, width: NOTCH_WIDTH, height: NOTCH_DEFAULT_HEIGHT });
+		(win as { isDestroyed?: () => boolean }).isDestroyed = () => true;
+		expect(() => setNotchPreviewActive(win as unknown as BrowserWindow, true)).not.toThrow();
+		expect(isNotchPreviewActive()).toBe(false);
 	});
 
 	it('is a no-op for a null window', () => {

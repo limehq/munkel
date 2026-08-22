@@ -4,8 +4,11 @@ import { TickerText } from './TickerText';
 import ImagePreviewOverlay from './ImagePreviewOverlay';
 import { useAppStore } from '../store/app-store';
 import { resolveReplyRecipient } from '../lib/resolve-reply-recipient';
+import { resolveNotchSender } from '../lib/resolve-notch-sender';
 import { shouldOpenReplyOnMessageClick } from '../lib/should-open-reply-on-message-click';
 import { useNotchLifecycle, type NotchHistoryEntry } from '../lib/useNotchLifecycle';
+import { resolveNotchResizeHeight } from '../lib/notch-resize-height';
+import { memberLabel } from '../../shared/member-label';
 import type { IncomingImage } from '../../shared/types';
 import { useImagePreview } from '../lib/useImagePreview';
 import { MAX_MESSAGE_CHARS, clampMessageText } from '@munkel/shared-wire/message-limits';
@@ -58,7 +61,7 @@ function firstLoadedImageBase64(entry: NotchHistoryEntry, fullImages: Map<string
 }
 
 export default function NotchWidget() {
-	const { sendChat } = useAppStore();
+	const { sendChat, state } = useAppStore();
 
 	const [replyText, setReplyText] = useState('');
 	const [replyPrivate, setReplyPrivate] = useState(false);
@@ -123,31 +126,7 @@ export default function NotchWidget() {
 	// idle-disarm timer alive (see hover-copy-shortcut.ts HOVER_COPY_IDLE_MS).
 	const lastHoverCopyPingRef = useRef(0);
 
-	// Report the widget's layout height to the main process so the notch
-	// window shrinks/grows to its content instead of staying a fixed-size
-	// box (WIN-NOTCH-004). offsetHeight is used because it ignores the
-	// slide-up transforms of the peek/retracted states.
-	useEffect(() => {
-		const el = widgetRef.current;
-		if (!el || typeof ResizeObserver === 'undefined') return;
-		let debounceTimer: ReturnType<typeof setTimeout> | undefined;
-		const report = () => void window.electronAPI.notchResize(el.offsetHeight);
-		const debouncedReport = () => {
-			if (debounceTimer) clearTimeout(debounceTimer);
-			debounceTimer = setTimeout(report, RESIZE_REPORT_DEBOUNCE_MS);
-		};
-		const observer = new ResizeObserver(debouncedReport);
-		observer.observe(el);
-		// Report the initial size immediately so the window is sized correctly
-		// before the first observer callback would otherwise fire.
-		report();
-		return () => {
-			observer.disconnect();
-			if (debounceTimer) clearTimeout(debounceTimer);
-		};
-	}, []);
-
-	// History expand/collapse (Plan 12 P3.6). History-list rows (rendered
+	// History expand/collapse (Plan 12 P3.6). History-list rows (rendered)
 	// while reopened via hover — see the `reopening` branch below) default to
 	// a single ellipsized line; a per-row chevron toggles that row's id into
 	// this set to show the full text. Deliberately a *separate* affordance
@@ -202,7 +181,10 @@ export default function NotchWidget() {
 		// NotchPresenter's hide handler calling `clearPreview()`).
 		clearPreview();
 	}, [clearSentConfirmation, clearPreview]);
-	const lifecycle = useNotchLifecycle({ onNotchHide: handleNotchHide });
+	const lifecycle = useNotchLifecycle({
+		onNotchHide: handleNotchHide,
+		ownMemberId: state.identity?.memberId,
+	});
 	// Pointer-down position on the message body, so a click that was really a
 	// drag-to-select gesture does not open the reply field (see openReply).
 	const messagePointerDown = useRef<{ id: string; x: number; y: number } | null>(null);
@@ -220,12 +202,59 @@ export default function NotchWidget() {
 		openReply: openReplyLifecycle,
 		closeReply,
 		onNotchMessage,
+		appendOwnMessage,
 		copyText,
 		scheduleHoverLeave,
 		cancelHoverLeave,
 		reopenFromHoverTarget,
 		openFromPreview,
 	} = lifecycle;
+
+	// Report layout height so the BrowserWindow shrinks/grows to content
+	// (WIN-NOTCH-004). Collapsed peek/retract uses a fixed footprint so hover-leave
+	// cannot leave a tall transparent window masking retract. `reopening` is
+	// `ui === 'open'` from useNotchLifecycle.
+	useEffect(() => {
+		const el = widgetRef.current;
+		if (!el || typeof ResizeObserver === 'undefined') return;
+		let debounceTimer: ReturnType<typeof setTimeout> | undefined;
+		const collapsed =
+			history.length > 0 &&
+			!reopening &&
+			!replyOpen &&
+			(phase === 'peek' || phase === 'retracted');
+		const report = (immediate = false) => {
+			const height = resolveNotchResizeHeight({
+				offsetHeight: el.offsetHeight,
+				historyLength: history.length,
+				phase,
+				reopening,
+				replyOpen,
+			});
+			const send = () => void window.electronAPI.notchResize(height);
+			if (immediate || collapsed) {
+				if (debounceTimer) clearTimeout(debounceTimer);
+				send();
+				return;
+			}
+			if (debounceTimer) clearTimeout(debounceTimer);
+			debounceTimer = setTimeout(send, RESIZE_REPORT_DEBOUNCE_MS);
+		};
+		const observer = new ResizeObserver(() => report(false));
+		observer.observe(el);
+		report(true);
+		return () => {
+			observer.disconnect();
+			if (debounceTimer) clearTimeout(debounceTimer);
+		};
+	}, [history.length, phase, reopening, replyOpen]);
+
+	// Any transition into replyOpen closes a running image preview so
+	// `setNotchPreviewActive(win, true)` cannot focus the notch and steal the
+	// reply input's focus.
+	useEffect(() => {
+		if (replyOpen) clearPreview();
+	}, [replyOpen, clearPreview]);
 
 	const expanded = ui === 'open' || replyOpen || phase === 'full';
 	const widgetClass = newest
@@ -594,6 +623,21 @@ export default function NotchWidget() {
 				return; // keep text, leave field open
 			}
 			setReplyText('');
+			appendOwnMessage({
+				sender: state.identity
+					? memberLabel({
+							memberId: state.identity.memberId,
+							displayName: state.identity.displayName,
+						})
+					: '',
+				senderMemberId: state.identity?.memberId,
+				text,
+				isDirect: replyPrivate,
+				group: entry.group,
+				groupColor: entry.groupColor,
+				receivedAt: new Date().toISOString(),
+				silent: true,
+			});
 			// Show the "Sent to …" chip in place of the reply field, then close
 			// the reply field once it's had time to be read (macOS parity — see
 			// SENT_CONFIRMATION_MS above). `recipient.to !== undefined` is the
@@ -603,7 +647,7 @@ export default function NotchWidget() {
 			if (sentConfirmationTimerRef.current) clearTimeout(sentConfirmationTimerRef.current);
 			setSentConfirmation({
 				entryId: entry.id,
-				label: recipient.to !== undefined ? `Sent to ${entry.sender}` : 'Sent to all',
+				label: recipient.to !== undefined ? `Sent to ${senderFor(entry)}` : 'Sent to all',
 			});
 			const targetEntryId = entry.id;
 			sentConfirmationTimerRef.current = setTimeout(() => {
@@ -656,11 +700,16 @@ export default function NotchWidget() {
 	 * two are mutually exclusive per row: history rows never get the ticker,
 	 * and the single-message view never gets the chevron-driven ellipsis.
 	 */
+	function senderFor(entry: NotchHistoryEntry): string {
+		return resolveNotchSender(entry, state.circles, state.identity);
+	}
+
 	function renderMessageRow(entry: NotchHistoryEntry, options?: { pulse?: boolean; collapsible?: boolean }) {
 		const hasImages = !!entry.images?.length;
 		const replying = replyingTo === entry.id;
 		const collapsible = options?.collapsible ?? false;
 		const collapsed = collapsible && !expandedHistoryIds.has(entry.id);
+		const sender = senderFor(entry);
 
 		return (
 			<div
@@ -671,7 +720,7 @@ export default function NotchWidget() {
 				onMouseLeave={() => setHoveredEntryId((current) => (current === entry.id ? null : current))}
 			>
 				<div className="message-row">
-					<Avatar name={entry.sender} size={40} pulse={options?.pulse ?? false} />
+					<Avatar name={sender} size={40} pulse={options?.pulse ?? false} />
 					<div
 						className="message-body"
 						onPointerDown={(e) => {
@@ -680,7 +729,7 @@ export default function NotchWidget() {
 						onClick={(e) => openReplyFromMessage(entry, e)}
 					>
 						<div className="message-meta">
-							<span className="sender">{entry.sender}</span>
+							<span className="sender">{sender}</span>
 							<span>{entry.isDirect ? '🔒' : '🌐'}</span>
 							<span>·</span>
 							<span className="circle-dot" style={{ background: entry.groupColor }} />
@@ -700,6 +749,10 @@ export default function NotchWidget() {
 										src={`data:${img.mime ?? 'image/avif'};base64,${img.thumb}`}
 										alt={`${img.width}×${img.height}`}
 										title={`${img.width}×${img.height}`}
+										onMouseEnter={() => {
+											if (!replyOpen) requestImagePreview(img.id);
+										}}
+										onMouseLeave={() => endImagePreview(img.id)}
 										onClick={(e) => openPreview(entry.group, img, e)}
 									/>
 								))}
@@ -764,7 +817,7 @@ export default function NotchWidget() {
 								<input
 									ref={replyInputRef}
 									className="frosted-field"
-									placeholder={replyPrivate ? `Private to ${entry.sender}…` : 'Reply to all…'}
+									placeholder={replyPrivate ? `Private to ${sender}…` : 'Reply to all…'}
 									value={replyText}
 									maxLength={MAX_MESSAGE_CHARS}
 									onChange={(e) => {
@@ -796,12 +849,13 @@ export default function NotchWidget() {
 	}
 
 	function renderPreview(entry: NotchHistoryEntry) {
+		const sender = senderFor(entry);
 		return (
 			<div className="preview-row">
-				<Avatar name={entry.sender} size={40} />
+				<Avatar name={sender} size={40} />
 				<div className="preview-body">
 					<div className="message-meta">
-						<span className="sender">{entry.sender}</span>
+						<span className="sender">{sender}</span>
 						<span className="circle-dot" style={{ background: entry.groupColor }} />
 						<span className="circle-name">{entry.group}</span>
 					</div>
@@ -842,15 +896,17 @@ export default function NotchWidget() {
 			</div>
 
 			<div className="notch-inner">
-				{expanded && history.length > 0 ? (
+				{ui === 'open' && history.length > 0 ? (
 					<div className="notch-content">
-						{reopening ? (
-							<div className="notch-history-list">
-								{history.map((entry) => renderMessageRow(entry, { collapsible: true }))}
-							</div>
-						) : newest ? (
-							renderMessageRow(newest, { pulse: !replyingTo })
-						) : null}
+						<div className="notch-history-list">
+							{history.map((entry) => renderMessageRow(entry, { collapsible: true }))}
+						</div>
+					</div>
+				) : (phase === 'full' || replyOpen) && newest ? (
+					<div className="notch-content">
+						{renderMessageRow(history.find((e) => e.id === replyingTo) ?? newest, {
+							pulse: !replyingTo,
+						})}
 					</div>
 				) : ui === 'preview' && newest ? (
 					<div className="notch-preview-content" onClick={openFromPreview}>
