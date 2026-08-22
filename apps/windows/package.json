@@ -14,7 +14,7 @@
 		"pack": "bun run build && electron-builder --win --config electron-builder.yml",
 		"pack:dir": "bun run build && electron-builder --win dir --config electron-builder.yml",
 		"pack:installer": "bun run build && electron-builder --win nsis --config electron-builder.yml",
-		"pack:release": "bun run build && electron-builder --win nsis --publish never --config electron-builder.yml",
+		"pack:release": "node scripts/pack-release.mjs",
 		"render-ico": "bun scripts/render-ico.mjs"
 	},
 	"dependencies": {

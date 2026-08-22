@@ -193,7 +193,10 @@ jobs:
 
       - name: Build and pack Windows installer
         working-directory: apps/windows
-        run: bun run pack:release
+        # windows-latest defaults to pwsh; bash is needed for ${GITHUB_REF_NAME#v}.
+        shell: bash
+        run: |
+          MUNKEL_VERSION="${GITHUB_REF_NAME#v}" bun run pack:release
 
       - name: Upload Windows installer to GitHub release
         uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
