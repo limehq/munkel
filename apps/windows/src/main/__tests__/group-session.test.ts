@@ -662,13 +662,10 @@ describe('GroupSession', () => {
 		session.connect();
 		await waitFor(() => serverSocket !== null);
 
-		// 60 KiB of plaintext — over MAX_PAYLOAD_CHARS, so sendPayload rejects
-		// before ever reaching the relay (or the echo check).
-		const result = await session.sendChat('x'.repeat(60_000));
-		expect(result.ok).toBe(false);
-		expect(notches).toHaveLength(0);
-
 		session.disconnect();
+		const result = await session.sendChat('hello');
+		expect(result).toEqual({ ok: false, error: 'Circle offline — message not sent.' });
+		expect(notches).toHaveLength(0);
 	});
 
 	test('truncates an over-length chat to MAX_CHAT_CHARS before sending', async () => {

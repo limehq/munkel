@@ -56,3 +56,6 @@ graphify-out/*
 !graphify-out/graph.json
 !graphify-out/GRAPH_REPORT.md
 !graphify-out/wiki/
+
+# Vite writes a timestamped temp config next to the real one on each dev run
+*.timestamp-*.mjs

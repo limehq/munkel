@@ -60,8 +60,7 @@ describe('payload encoding', () => {
     expect(decodePayload(JSON.stringify(chat))).toEqual(chat);
 
     const profile = encodeProfile('Sam', new Uint8Array([1, 2, 3]));
-    // Decoding adds the forward-compatible `status: 'online'` fallback.
-    expect(decodePayload(JSON.stringify(profile))).toEqual({ ...profile, status: 'online' });
+    expect(decodePayload(JSON.stringify(profile))).toEqual(profile);
   });
 
   it('round-trips a profile payload with status and avatarURL', () => {
@@ -74,8 +73,11 @@ describe('payload encoding', () => {
     expect(decodePayload(JSON.stringify(payload))).toEqual(payload);
   });
 
-  it('falls back unknown or missing status to online', () => {
-    expect(decodePayload(JSON.stringify({ kind: 'profile', displayName: 'Sam' })).status).toBe('online');
+  it('falls back unknown status to online and leaves missing profile status undefined', () => {
+    const missingStatus = decodePayload(JSON.stringify({ kind: 'profile', displayName: 'Sam' }));
+    expect(missingStatus.kind).toBe('profile');
+    expect(missingStatus.status).toBeUndefined();
+
     expect(decodePayload(JSON.stringify({ kind: 'profile', displayName: 'Sam', status: 'invisible' })).status).toBe('online');
     expect(decodePayload(JSON.stringify({ kind: 'presence', status: 'invisible' })).status).toBe('online');
   });

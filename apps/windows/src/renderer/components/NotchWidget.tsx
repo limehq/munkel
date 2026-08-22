@@ -813,9 +813,20 @@ export default function NotchWidget() {
 
 	return (
 		<div
+			ref={widgetRef}
+			data-testid="notch-widget"
 			className={`notch-widget ${widgetClass}`}
-			onMouseEnter={cancelHoverLeave}
-			onMouseLeave={scheduleHoverLeave}
+			onMouseEnter={() => {
+				cancelHoverLeave();
+				setNotchHovered(true);
+			}}
+			onMouseLeave={() => {
+				scheduleHoverLeave();
+				setNotchHovered(false);
+				setHoveredEntryId(null);
+				clearPreview();
+			}}
+			onMouseMove={reportHoverCopyActivity}
 		>
 			{history.length > 0 && ui === 'collapsed' && (
 				<div className="notch-hover-target" onMouseEnter={reopenFromHoverTarget} />
@@ -833,9 +844,13 @@ export default function NotchWidget() {
 			<div className="notch-inner">
 				{expanded && history.length > 0 ? (
 					<div className="notch-content">
-						<div className="notch-history-list">
-							{history.map((entry) => renderMessageRow(entry))}
-						</div>
+						{reopening ? (
+							<div className="notch-history-list">
+								{history.map((entry) => renderMessageRow(entry, { collapsible: true }))}
+							</div>
+						) : newest ? (
+							renderMessageRow(newest, { pulse: !replyingTo })
+						) : null}
 					</div>
 				) : ui === 'preview' && newest ? (
 					<div className="notch-preview-content" onClick={openFromPreview}>
