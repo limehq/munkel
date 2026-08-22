@@ -196,7 +196,7 @@ describe('useNotchLifecycle', () => {
 		expect(emptySpy).toHaveBeenCalledTimes(1);
 	});
 
-	it('hover over collapsed notch enters preview, not open', async () => {
+	it('hover over collapsed notch opens history', async () => {
 		const setInteractiveSpy = spyOn(electronApi, 'notchSetInteractive');
 		const { result } = renderHook(useNotchLifecycle);
 
@@ -214,14 +214,14 @@ describe('useNotchLifecycle', () => {
 		await act(async () => {
 			result.current.reopenFromHoverTarget();
 		});
-		expect(result.current.ui).toBe('preview');
-		expect(result.current.previewing).toBe(true);
-		expect(result.current.reopening).toBe(false);
+		expect(result.current.ui).toBe('open');
+		expect(result.current.previewing).toBe(false);
+		expect(result.current.reopening).toBe(true);
 		expect(result.current.phase).toBe('peek');
 		expect(setInteractiveSpy).toHaveBeenLastCalledWith(true);
 	});
 
-	it('hover target does nothing while phase is full', async () => {
+	it('hover target opens history while phase is full', async () => {
 		const { result } = renderHook(useNotchLifecycle);
 
 		await act(async () => {
@@ -233,11 +233,11 @@ describe('useNotchLifecycle', () => {
 		await act(async () => {
 			result.current.reopenFromHoverTarget();
 		});
-		expect(result.current.ui).toBe('collapsed');
-		expect(result.current.previewing).toBe(false);
+		expect(result.current.ui).toBe('open');
+		expect(result.current.reopening).toBe(true);
 	});
 
-	it('clicking preview opens full view', async () => {
+	it('openFromPreview keeps history open after hover reopen', async () => {
 		const { result } = renderHook(useNotchLifecycle);
 
 		await act(async () => {
@@ -249,7 +249,7 @@ describe('useNotchLifecycle', () => {
 		await act(async () => {
 			result.current.reopenFromHoverTarget();
 		});
-		expect(result.current.ui).toBe('preview');
+		expect(result.current.ui).toBe('open');
 
 		await act(async () => {
 			result.current.openFromPreview();
@@ -258,7 +258,7 @@ describe('useNotchLifecycle', () => {
 		expect(result.current.reopening).toBe(true);
 	});
 
-	it('mouse leave from preview returns to collapsed', async () => {
+	it('mouse leave from hover-reopen returns to collapsed', async () => {
 		const { result } = renderHook(useNotchLifecycle);
 
 		await act(async () => {
@@ -270,7 +270,7 @@ describe('useNotchLifecycle', () => {
 		await act(async () => {
 			result.current.reopenFromHoverTarget();
 		});
-		expect(result.current.ui).toBe('preview');
+		expect(result.current.ui).toBe('open');
 
 		await act(async () => {
 			result.current.scheduleHoverLeave();
@@ -358,7 +358,7 @@ describe('useNotchLifecycle', () => {
 		expect(result.current.ui).toBe('collapsed');
 	});
 
-	it('timer expiry still prunes while in preview', async () => {
+	it('timer expiry still prunes while hover-reopened', async () => {
 		const { result } = renderHook(useNotchLifecycle);
 
 		await act(async () => {
@@ -370,7 +370,7 @@ describe('useNotchLifecycle', () => {
 		await act(async () => {
 			result.current.reopenFromHoverTarget();
 		});
-		expect(result.current.ui).toBe('preview');
+		expect(result.current.ui).toBe('open');
 
 		await act(async () => {
 			timers.advance(55_000);
@@ -380,7 +380,7 @@ describe('useNotchLifecycle', () => {
 		expect(result.current.ui).toBe('collapsed');
 	});
 
-	it('hover-stuck repro: preview does not block empty-hide', async () => {
+	it('hover-stuck repro: hover-reopen does not block empty-hide', async () => {
 		const emptySpy = spyOn(electronApi, 'notchEmpty');
 		const { result } = renderHook(useNotchLifecycle);
 
@@ -393,10 +393,8 @@ describe('useNotchLifecycle', () => {
 		await act(async () => {
 			result.current.reopenFromHoverTarget();
 		});
-		expect(result.current.ui).toBe('preview');
+		expect(result.current.ui).toBe('open');
 
-		// Simulate a missing mouseleave event — preview stays visible but the
-		// history timer keeps running.
 		await act(async () => {
 			timers.advance(55_000);
 		});
@@ -567,7 +565,7 @@ describe('useNotchLifecycle', () => {
 		expect(setInteractiveSpy).toHaveBeenLastCalledWith(true);
 	});
 
-	it('preview keeps the notch interactive in peek phase', async () => {
+	it('hover-reopen keeps the notch interactive in peek phase', async () => {
 		const setInteractiveSpy = spyOn(electronApi, 'notchSetInteractive');
 		const { result } = renderHook(useNotchLifecycle);
 
@@ -583,8 +581,8 @@ describe('useNotchLifecycle', () => {
 		await act(async () => {
 			result.current.reopenFromHoverTarget();
 		});
-		expect(result.current.ui).toBe('preview');
-		expect(result.current.reopening).toBe(false);
+		expect(result.current.ui).toBe('open');
+		expect(result.current.reopening).toBe(true);
 		expect(setInteractiveSpy).toHaveBeenLastCalledWith(true);
 	});
 
@@ -768,7 +766,6 @@ describe('useNotchLifecycle', () => {
 			await act(async () => {
 				result.current.onNotchMessage(makeMessage());
 			});
-			// Hover reopen is ignored while phase is full — wait for peek first.
 			await act(async () => {
 				timers.advance(5_000);
 			});
@@ -777,7 +774,7 @@ describe('useNotchLifecycle', () => {
 			await act(async () => {
 				result.current.reopenFromHoverTarget();
 			});
-			expect(result.current.ui).toBe('preview');
+			expect(result.current.ui).toBe('open');
 			expect(result.current.unread).toBe(false);
 
 			await act(async () => {

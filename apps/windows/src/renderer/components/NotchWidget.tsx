@@ -870,8 +870,17 @@ export default function NotchWidget() {
 			ref={widgetRef}
 			data-testid="notch-widget"
 			className={`notch-widget ${widgetClass}`}
-			onMouseEnter={cancelHoverLeave}
-			onMouseLeave={scheduleHoverLeave}
+			onMouseEnter={() => {
+				cancelHoverLeave();
+				setNotchHovered(true);
+			}}
+			onMouseLeave={() => {
+				scheduleHoverLeave();
+				setNotchHovered(false);
+				setHoveredEntryId(null);
+				clearPreview();
+			}}
+			onMouseMove={reportHoverCopyActivity}
 		>
 			{history.length > 0 && ui === 'collapsed' && (
 				<div className="notch-hover-target" onMouseEnter={reopenFromHoverTarget} />

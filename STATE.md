@@ -2,6 +2,8 @@
 
 ## Now
 
+**2026-08-18 — Origin-Drift-Follow-up lokal grün.** Branch `platform/windows/origin-drift-fix` off `v2-clean` (`1109002`): Typecheck `PersistedState.version: 1 | 2`, Payload-Tests an shared-wire, GroupSession-Echo via Disconnect, NotchWidget Hover/History/Pulse wieder verdrahtet, Hover-Reopen → `ui === 'open'`. Verifikation: **654 pass / 0 fail**, `tsc` grün. PR #47 bleibt separat (rebase nach Merge dieser Basis). Pause: Commit+Push, kein Merge.
+
 **2026-08-17 — Git-Divergenz-Reconciliation abgeschlossen.** Lokalen divergierten `v2-clean`
 (9 ahead / 111 behind origin) sauber auf frischen `origin/platform/windows/v2-clean` (`1109002`)
 überführt, **nichts verloren**. Feature-Branch `platform/windows/notch-history-and-preview-fix`
@@ -47,17 +49,19 @@ Davor: **Iteration 8 abgeschlossen — P3 KOMPLETT: pulse-Verdrahtung, P3.6 Hist
 - ✅ **P3-Abschluss Iteration 8 (2026-07-10)** — pulse-Verdrahtung (`5acfb69`), P3.6 History-Expand/Collapse mit Chevron + Per-Row-Copy (`d8e0a2d`), P3.1 Rebindable Hotkey mit Recorder/Validierung (`24d6340`). Review: P3.1 BLOCK (Rollback-Doppel-Fehler ließ App hotkey-los bei behaupteter Bindung) → Fix `8ba4574` (Confirmed-Binding-Invariante, Default-Heal, unbound-UI mit Retry-Heilung, Shift-only-Ablehnung) → **SHIP**; P3.6+pulse **SHIP** (Follow-ups: 220px-Cap vs. resize-on-expand, Overflow >480px unverifiziert, 3 fehlende Tests). Teststand: **429 pass / 2 skip / 0 fail**.
 - ✅ **Plan 14 / OQ4 Image Quick-Look (2026-07-17)** — Hover-Overlay, wide notch, blob-download, full-res copy; Matrix 38/1/0/1.
 - ✅ **Echo opt-in default (2026-07-18)** — `devEchoBroadcasts` default `false`, `state.json` v2-Migration; User-verifiziert.
+- ✅ **Origin-Drift-Follow-up (2026-08-18)** — Typecheck `version: 1 | 2`; stale Payload/Echo-Tests; NotchWidget-Wiring (ref/testid/hover-copy/collapsible/pulse); Hover-Reopen öffnet History. Teststand: **654 pass / 0 fail**.
 - ✅ (früher) Single-Instance/Self-Heal, Circle-Leave-Dialog, Logo-Assets, Auto-Update, Notch Peek/History — alles in `platform/windows/v2-clean` bzw. darunter gemerged.
 
 ## Last
 
+2026-08-22 — `origin-drift-fix` (PR #48) gemerged; `notch-history-and-preview-fix` (PR #47) auf die neue Basis gemerged.
+2026-08-18 — Origin-Drift auf `platform/windows/origin-drift-fix` geschlossen (654 pass / 0 fail).
 2026-08-17 — Git-Divergenz-Reconciliation abgeschlossen: 5 Code-Commits + 1 Docs-Commit auf
-`platform/windows/notch-history-and-preview-fix` (off origin-Tip `1109002`), gepusht, **PR #47** →
-`v2-clean` (kein Self-Merge). Backup-Refs `backup/pre-reconcile-*` auf `78feefd`. Verifikation:
-0 neue Fehler, 7 pre-existing behoben, +20 Tests. origin-Basis rot (22 Tests + typecheck) als Follow-up erfasst.
+`platform/windows/notch-history-and-preview-fix` (off origin-Tip `1109002`), **PR #47** → `v2-clean`.
+Backup-Refs `backup/pre-reconcile-*` auf `78feefd`.
 
 ## Next
 
-1. **Follow-up:** origin-Drift fixen (22 pre-existing Testfehler + `identity-store.ts`-typecheck) — eigener Auftrag.
-2. **PR #47:** Review/CI abwarten; kein Self-Merge.
+1. Restliche offene Branches sichten (`notch-lifecycle-harden`, `update-signature-fix`) und schliessen.
+2. **OQ5** (CLI-Distribution) mit User.
 3. **OQ5** (CLI-Distribution) mit User.

@@ -118,7 +118,7 @@ describe('blob routes', () => {
     });
     expect(MAX_BLOB_BYTES).toBe(3 * chunkSize);
 
-    const put = await app.request(PATH, { method: 'PUT', body: stream }, env);
+    const put = await app.request(PATH, { method: 'PUT', body: stream, duplex: 'half' } as RequestInit, env);
     expect(put.status).toBe(204);
 
     const get = await app.request(PATH, {}, env);
@@ -134,7 +134,7 @@ describe('blob routes', () => {
       },
     });
 
-    const put = await app.request(PATH, { method: 'PUT', body: stream }, env);
+    const put = await app.request(PATH, { method: 'PUT', body: stream, duplex: 'half' } as RequestInit, env);
     expect(put.status).toBe(413);
     expect(bucket.store.has(`${GROUP}/${KEY}`)).toBe(false);
   });
