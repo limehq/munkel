@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.2](https://github.com/limehq/munkel/compare/v0.18.1...v0.18.2) (2026-09-13)
+
+
+### Bug Fixes
+
+* **macos:** keep the notch dark on external displays ([#241](https://github.com/limehq/munkel/issues/241)) ([e904345](https://github.com/limehq/munkel/commit/e90434515307da5d2c6540959d0c7d577ec418b1))
+
 ## [0.18.1](https://github.com/limehq/munkel/compare/v0.18.0...v0.18.1) (2026-08-18)
 
 
