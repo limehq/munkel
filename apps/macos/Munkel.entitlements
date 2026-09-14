@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Sign in with Apple. Requires a real Apple Developer team signing
+	     identity and an App ID with the capability enabled; under the ad-hoc
+	     signed dev build the entitlement is present but not honored, so the
+	     Apple sheet won't complete. GitHub sign-in is unaffected. -->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+</dict>
+</plist>

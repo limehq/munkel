@@ -92,10 +92,16 @@ fi
 
 # Swift Bundler ad-hoc signs; re-sign with our identity (hardened runtime +
 # secure timestamp are notarization prerequisites) or a clean ad-hoc signature.
+# Sign in with Apple needs the com.apple.developer.applesignin entitlement,
+# which only a real identity can carry (plus an App ID with the capability and,
+# for distribution, a provisioning profile). Ad-hoc builds skip it: the
+# entitlement wouldn't be honored anyway and GitHub sign-in still works.
+ENTITLEMENTS="Munkel.entitlements"
 if [[ "$IDENTITY" == "-" ]]; then
   codesign --force --sign - "$BUNDLE" >/dev/null 2>&1 || true
 else
-  codesign --force --options runtime --timestamp --sign "$IDENTITY" "$BUNDLE"
+  codesign --force --options runtime --timestamp \
+    --entitlements "$ENTITLEMENTS" --sign "$IDENTITY" "$BUNDLE"
 fi
 
 echo "built $BUNDLE ($VERSION)"
