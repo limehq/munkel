@@ -10,9 +10,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem?
     private let popover = NSPopover()
     private var model: AppModel?
+    #if !MAS
     /// Sparkle auto-updater, retained for the process lifetime. Release-only —
     /// nil in the dev build, which must not update the installed release.
     private var updater: UpdaterController?
+    #endif
     /// Guards against the transient-popover flicker: clicking the status
     /// button while open first closes the popover (outside click on
     /// mouseDown), then fires the action (mouseUp) — which would reopen it.
@@ -42,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         // Sparkle auto-updates. Release-only: the dev build runs as "Munkel Dev"
         // with its own bundle id and must not update the installed release.
-        #if !DEBUG
+        #if !DEBUG && !MAS
         let updater = UpdaterController()
         self.updater = updater
         model.updater = updater
@@ -81,13 +83,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         item.button?.action = #selector(togglePopover(_:))
         statusItem = item
 
-        #if !DEBUG
+        #if !DEBUG && !MAS
         if let button = item.button {
             installUpdateBadge(on: button, updater: updater)
         }
         #endif
     }
 
+    #if !MAS
     private func installUpdateBadge(on button: NSStatusBarButton, updater: UpdaterController) {
         let badge = NSImageView()
         badge.image = NSImage(systemSymbolName: "circle.fill", accessibilityDescription: "Update available")
@@ -104,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
             badge.isHidden = version == nil
         }
     }
+    #endif
 
     /// A standard (never-displayed) main menu so the editing actions reach the
     /// first responder — the focused field editor. The App and Edit submenus are

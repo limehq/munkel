@@ -67,9 +67,11 @@ final class AppModel: ObservableObject {
         }
     }
 
+    #if !MAS
     /// Sparkle bridge, injected by `AppDelegate` at launch (release build only;
     /// nil in the dev build, which doesn't auto-update).
     var updater: UpdaterController?
+    #endif
     var closePopover: (() -> Void)?
 
     private static let groupsKey = "groupCodes"

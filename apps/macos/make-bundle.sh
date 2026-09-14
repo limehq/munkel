@@ -31,6 +31,17 @@ BUNDLE=".build/$APP_NAME.app"
 VERSION="${MUNKEL_VERSION:-0.1.0}"
 IDENTITY="${CODESIGN_IDENTITY:--}"
 
+# The Mac App Store flavor is a release build with Sparkle dropped from the
+# package graph (Package.swift keys off MUNKEL_MAS) and the App Sandbox
+# entitlements applied at sign time. Swift Bundler only understands
+# debug/release, so map mas -> release and carry the flavor through the env.
+if [[ "$CONFIG" == "mas" ]]; then
+  SWIFT_CONFIG="release"
+  export MUNKEL_MAS=1
+else
+  SWIFT_CONFIG="$CONFIG"
+fi
+
 SWIFT_BUNDLER="$("$REPO_ROOT/scripts/ensure-swift-bundler.sh")"
 
 # Inject the version through a throwaway config so the tracked Bundler.toml never
@@ -54,13 +65,13 @@ done
 # toolchain ships a fix — debug is already -Onone and so is unaffected.
 # swift-bundler forwards each --Xswiftpm value straight through to `swift build`.
 opt_workaround=()
-if [[ "$CONFIG" == "release" ]]; then
+if [[ "$SWIFT_CONFIG" == "release" ]]; then
   opt_workaround=(--Xswiftpm -Xswiftc --Xswiftpm -Onone)
 fi
 
 "$SWIFT_BUNDLER" bundle \
   --config-file "$CONFIG_DIR/Bundler.toml" \
-  --configuration "$CONFIG" \
+  --configuration "$SWIFT_CONFIG" \
   --scratch-path .build \
   "${arch_flags[@]}" \
   "${opt_workaround[@]}"
@@ -92,10 +103,17 @@ fi
 
 # Swift Bundler ad-hoc signs; re-sign with our identity (hardened runtime +
 # secure timestamp are notarization prerequisites) or a clean ad-hoc signature.
+# The mas flavor adds the App Sandbox entitlements; ad-hoc locally is enough to
+# verify the app launches sandboxed (the real Apple Distribution cert +
+# provisioning profile are applied at packaging/upload time, see RELEASING.md).
+entitlement_flags=()
+if [[ "$CONFIG" == "mas" ]]; then
+  entitlement_flags=(--entitlements Munkel.mas.entitlements)
+fi
 if [[ "$IDENTITY" == "-" ]]; then
-  codesign --force --sign - "$BUNDLE" >/dev/null 2>&1 || true
+  codesign --force "${entitlement_flags[@]}" --sign - "$BUNDLE" >/dev/null 2>&1 || true
 else
-  codesign --force --options runtime --timestamp --sign "$IDENTITY" "$BUNDLE"
+  codesign --force --options runtime --timestamp "${entitlement_flags[@]}" --sign "$IDENTITY" "$BUNDLE"
 fi
 
 echo "built $BUNDLE ($VERSION)"

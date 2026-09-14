@@ -398,7 +398,9 @@ sharing.
   [`apps/landing/wrangler.jsonc`](../apps/landing/wrangler.jsonc).
 - **macOS app + CLI** → distributed as a signed, notarized DMG and via the
   Homebrew cask `limehq/tap/munkel`. Sparkle delivers signed (EdDSA) auto-updates
-  with the appcast at `munkel.app/appcast.xml`.
+  with the appcast at `munkel.app/appcast.xml`. A GUI-only, sandboxed **Mac App
+  Store** flavor (no CLI, no Sparkle) builds from the same sources — see
+  [`RELEASING.md`](../RELEASING.md#mac-app-store-separate-distribution).
 
 Both Cloudflare Workers deploy automatically from GitHub Actions on pushes to
 `main` that touch their paths

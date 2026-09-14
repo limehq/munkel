@@ -183,6 +183,63 @@ First-release note: the release that introduces Sparkle produces the first
 appcast, but existing users run a build without an updater: they update once
 manually, and auto-updates take over from the next release onward.
 
+## Mac App Store (separate distribution)
+
+Munkel also ships a **GUI-only** App Store build alongside the Developer ID +
+DMG + Sparkle path above (dual distribution). Both share the bundle id
+`dev.uq.munkel`; the App Store build differs in what the **App Sandbox** forbids:
+
+- **No CLI.** A sandboxed app can't symlink a binary onto `PATH` or edit shell
+  profiles, and Apple rejects apps that do. The store build omits the embedded
+  `munkel` CLI and its **Install Command Line Tool…** menu item; CLI users stay
+  on Homebrew / direct download.
+- **No Sparkle.** App Store apps update through the store; a bundled updater is a
+  rejection. The build drops the Sparkle dependency entirely and hides the update
+  menu items.
+
+### The build flavor
+
+`make-bundle.sh mas` (or `bun run build:mas` for a universal binary) produces the
+sandboxed app:
+
+- `Package.swift` reads `MUNKEL_MAS=1`, drops Sparkle from the dependency graph,
+  and defines the `MAS` compilation condition. `#if !MAS` guards the updater and
+  CLI-installer code, so the corresponding menu items vanish with it.
+- The bundle is signed with `apps/macos/Munkel.mas.entitlements` (App Sandbox +
+  outgoing network client). Locally that is an ad-hoc signature — enough to
+  verify the app launches sandboxed; the real signing happens at upload.
+
+```sh
+cd apps/macos && ./make-bundle.sh mas
+codesign -d --entitlements - .build/Munkel.app   # app-sandbox + network.client
+```
+
+### Producing the upload (manual, not in CI yet)
+
+The store package needs Apple assets that live outside this repo, so it is not
+wired into `release.yml`. One-time and per-release steps:
+
+1. **Certificates & profile**: an *Apple Distribution* cert and a *Mac Installer
+   Distribution* cert, plus a Mac App Store provisioning profile for
+   `dev.uq.munkel` (embedded at `Contents/embedded.provisionprofile`).
+2. **Re-sign** the `mas` bundle with the Apple Distribution identity and the
+   sandbox entitlements, replacing the local ad-hoc signature.
+3. **Package**: `productbuild --component Munkel.app /Applications --sign "3rd
+   Party Mac Developer Installer: …" Munkel.pkg`.
+4. **Upload** the `.pkg` via Transporter to the App Store Connect record for
+   `dev.uq.munkel`.
+5. **App Store Connect**: screenshots and review notes explaining the menu-bar +
+   notch UI, the screen-capture exclusion, and the ephemeral (no-storage) model.
+6. **Export compliance** (`ITSAppUsesNonExemptEncryption`): Munkel uses
+   AES-256-GCM for E2E messaging — set the key and file the self-classification /
+   annual report per the legal call. Deliberately **not** baked into the build:
+   it is a compliance decision, not a build constant.
+7. **Privacy nutrition labels**: near-zero — the relay and R2 see only opaque
+   ciphertext and nothing is stored (see `PRIVACY.md`).
+
+Tracked in issue #72; CI automation (a separate build+upload job with its own
+certs/secrets) is a follow-up.
+
 ## Why notarization is non-negotiable
 
 Homebrew quarantines cask downloads, deprecated `--no-quarantine` in
