@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.18.3](https://github.com/limehq/munkel/compare/v0.18.2...v0.18.3) (2026-11-09)
+
+
+### Bug Fixes
+
+* **macos:** show own private messages in notch ([#248](https://github.com/limehq/munkel/issues/248)) ([2055503](https://github.com/limehq/munkel/commit/2055503cf58326abd143e1ee4c69689b923ca5b2))
+
 ## [0.18.2](https://github.com/limehq/munkel/compare/v0.18.1...v0.18.2) (2026-09-13)
 
 
