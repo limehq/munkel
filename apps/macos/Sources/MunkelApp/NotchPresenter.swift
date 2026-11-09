@@ -74,6 +74,7 @@ final class NotchPresenter {
 
     func show(
         sender: String,
+        recipient: String? = nil,
         avatarData: Data?,
         text: String = "",
         sentAt: Date,
@@ -88,6 +89,7 @@ final class NotchPresenter {
     ) {
         let message = IncomingMessage(
             sender: sender,
+            recipient: recipient,
             avatarData: avatarData,
             text: text,
             isDirect: isDirect,
@@ -108,6 +110,7 @@ final class NotchPresenter {
         }
         let entry = HistoryEntry(
             sender: sender,
+            recipient: recipient,
             text: historyText,
             isDirect: isDirect,
             group: group,

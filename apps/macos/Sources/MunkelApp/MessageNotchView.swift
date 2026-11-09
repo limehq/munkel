@@ -116,6 +116,12 @@ struct MessageNotchView: View {
         HStack(spacing: 4) {
             Text(message.sender)
                 .font(.system(size: 11, weight: .semibold))
+            if let recipient = message.recipient {
+                Image(systemName: "arrow.right")
+                    .font(.system(size: 8, weight: .semibold))
+                Text(recipient)
+                    .font(.system(size: 11, weight: .semibold))
+            }
             // Globe: everyone saw this. Lock: only you did. No .help — tooltip
             // windows leak into screen shares.
             Image(systemName: message.isDirect ? "lock.fill" : "globe")

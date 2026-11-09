@@ -634,7 +634,7 @@ struct MessageNotchContainer: View {
                 // for light backgrounds and vanishes on the black notch.
                 prompt: Text(
                     model.replyPrivately
-                        ? "Private to \(message.sender)…"
+                        ? "Private to \(message.counterpart)…"
                         : "Reply to all…"
                 )
                 // 0.45 white washed out on the always-black notch when the
@@ -757,7 +757,7 @@ struct MessageNotchContainer: View {
             // The channel name only matters when there is more than one.
             Text(
                 model.replyPrivately
-                    ? "Sent to \(message.sender)"
+                    ? "Sent to \(message.counterpart)"
                     : message.inMultipleGroups
                         ? "Sent to all in \(message.group)"
                         : "Sent to all"
@@ -947,7 +947,7 @@ private struct HistoryRow: View {
             Circle()
                 .fill(entry.groupColor)
                 .frame(width: 5, height: 5)
-            Text(entry.sender)
+            Text(entry.recipient.map { "\(entry.sender) → \($0)" } ?? entry.sender)
                 .font(.system(size: 10, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.4))
             Image(systemName: entry.isDirect ? "lock.fill" : "globe")
