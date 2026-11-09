@@ -140,9 +140,11 @@ final class AppModel: ObservableObject {
 
     func send(text: String, group code: String, to memberId: String? = nil) {
         guard let session = sessions[code] else { return }
+        let recipient = recipientLabel(memberId, in: session)
         Task { await session.sendChat(text, to: memberId) }
         notch.show(
             sender: displayName,
+            recipient: recipient,
             avatarData: Identity.avatarData,
             text: text,
             sentAt: Date(),
@@ -165,6 +167,7 @@ final class AppModel: ObservableObject {
     /// GroupSession.sendImages.
     func send(images datas: [Data], caption: String = "", group code: String, to memberId: String? = nil) {
         guard let session = sessions[code], !datas.isEmpty else { return }
+        let recipient = recipientLabel(memberId, in: session)
         Task { await session.sendImages(datas, caption: caption, to: memberId) }
         Task { [weak self] in
             let built = await Task.detached { () -> (images: [IncomingImage], fulls: [String: Data])? in
@@ -187,6 +190,7 @@ final class AppModel: ObservableObject {
             guard let self, let built else { return }
             self.notch.show(
                 sender: self.displayName,
+                recipient: recipient,
                 avatarData: Identity.avatarData,
                 text: caption,
                 sentAt: Date(),
@@ -205,6 +209,11 @@ final class AppModel: ObservableObject {
                 }
             }
         }
+    }
+
+    private func recipientLabel(_ memberId: String?, in session: GroupSession) -> String? {
+        guard let memberId else { return nil }
+        return session.members.first { $0.id == memberId }?.label ?? memberId
     }
 
     #if DEBUG
