@@ -34,7 +34,7 @@ interface AppStore {
 
 	joinCircle: (code: string, relayUrl?: string) => Promise<void>;
 	leaveCircle: (code: string) => Promise<void>;
-	sendChat: (code: string, text: string, to?: string) => Promise<{ ok: boolean; error?: string }>;
+	sendChat: (code: string, text: string, to?: string) => Promise<SendResult>;
 	sendImages: (code: string, paths: string[], caption: string, to?: string) => Promise<SendResult>;
 	selectImages: () => Promise<string[] | undefined>;
 	updateProfile: (displayName: string, avatar?: string) => Promise<void>;

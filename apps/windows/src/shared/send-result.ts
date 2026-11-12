@@ -1,7 +1,7 @@
 export type SkippedImage = { path: string; reason: string };
 
 export type SendResult =
-	| { ok: true; skipped?: SkippedImage[] }
+	| { ok: true; skipped?: SkippedImage[]; echoed?: true }
 	| { ok: false; error: string; skipped?: SkippedImage[] };
 
 export function formatBytes(bytes: number): string {

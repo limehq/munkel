@@ -226,6 +226,11 @@ function broadcastState(update: ReturnType<AppState['getState']>): void {
 }
 
 function showNotchMessage(message: NotchMessage, opts?: { silent?: boolean }): void {
+	if (message.isOwn && message.isDirect) {
+		const historyWin = ensureNotchWindow();
+		whenWindowReady(historyWin, () => historyWin.webContents.send(PUSH_CHANNELS.NOTCH_MESSAGE, message));
+		return;
+	}
 	const win = ensureNotchWindow();
 	whenWindowReady(win, () => {
 		updateNotch(win, message);

@@ -30,3 +30,32 @@ describe('resolveReplyRecipient', () => {
 		}
 	});
 });
+
+describe('resolveReplyRecipient for own messages (#123)', () => {
+	const ownDm: NotchMessage = {
+		...baseMessage,
+		sender: 'Me',
+		senderMemberId: 'me-uuid',
+		recipientMemberId: 'peer-uuid',
+		isOwn: true,
+		isDirect: true,
+	};
+
+	it('a private reply to an own DM targets the recipient, never ourselves', () => {
+		expect(resolveReplyRecipient(ownDm, true)).toEqual({ ok: true, to: 'peer-uuid' });
+	});
+
+	it('a broadcast reply to an own broadcast stays a broadcast', () => {
+		const ownBroadcast = { ...ownDm, isDirect: false, recipientMemberId: undefined };
+		expect(resolveReplyRecipient(ownBroadcast, false)).toEqual({ ok: true, to: undefined });
+	});
+
+	it('fail-closed for a private reply to an own message without a recipient', () => {
+		const message = { ...ownDm, recipientMemberId: undefined };
+		const result = resolveReplyRecipient(message, true);
+		expect(result.ok).toBe(false);
+		if (!result.ok) {
+			expect(result.error).toContain('recipient unknown');
+		}
+	});
+});

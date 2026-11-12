@@ -59,7 +59,7 @@ export interface UseNotchLifecycleReturn {
 	reopenFromHoverTarget: () => void;
 }
 
-export function useNotchLifecycle(options?: { onNotchHide?: () => void; ownMemberId?: string }): UseNotchLifecycleReturn {
+export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNotchLifecycleReturn {
 	const [history, setHistory] = useState<NotchHistoryEntry[]>([]);
 	const [phase, setPhase] = useState<NotchPhase>('retracted');
 	const [ui, setUi] = useState<NotchUiState>('collapsed');
@@ -183,17 +183,15 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void; ownMembe
 		setHistory((current) => pruneNotchHistory([entry, ...current], Date.now(), NOTCH_HISTORY_MS));
 	}, []);
 
+	const appendOwnMessage = useCallback((message: NotchMessage) => {
+		appendHistory({ ...makeHistoryEntry(message), isOwn: true });
+	}, [appendHistory, makeHistoryEntry]);
+
 	const onNotchMessage = useCallback((message: NotchMessage) => {
-		const ownMemberId = options?.ownMemberId;
-		const isOwnEcho =
-			(!!ownMemberId && message.senderMemberId === ownMemberId) ||
-			historyRef.current.some(
-				(entry) =>
-					entry.isOwn &&
-					entry.senderMemberId === message.senderMemberId &&
-					entry.text === message.text,
-			);
-		if (isOwnEcho) return;
+		if (message.isOwn) {
+			if (message.isDirect) appendOwnMessage(message);
+			return;
+		}
 		const entry = makeHistoryEntry(message);
 		freshNewestIdRef.current = entry.id;
 		appendHistory(entry);
@@ -208,11 +206,7 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void; ownMembe
 		closeReply();
 		// A new message is unread until the user interacts with it again.
 		setInteracted(false);
-	}, [appendHistory, makeHistoryEntry, closeReply, options?.ownMemberId]);
-
-	const appendOwnMessage = useCallback((message: NotchMessage) => {
-		appendHistory({ ...makeHistoryEntry(message), isOwn: true });
-	}, [appendHistory, makeHistoryEntry]);
+	}, [appendHistory, appendOwnMessage, makeHistoryEntry, closeReply]);
 
 	useEffect(() => {
 		phaseTimers.current.forEach(clearTimeout);

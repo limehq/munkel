@@ -841,32 +841,50 @@ describe('useNotchLifecycle', () => {
 		expect(NOTCH_FULL_MS + NOTCH_PEEK_MS).toBe(NOTCH_RETRACT_AT_MS);
 	});
 
-	it('skips own-member echoes and isOwn text duplicates in onNotchMessage', async () => {
-		const { result } = renderHook(() => useNotchLifecycle({ ownMemberId: 'me' }));
+	it('appends an own DM echo as an isOwn history entry without driving the phase', async () => {
+		const { result } = renderHook(useNotchLifecycle);
 
 		await act(async () => {
 			result.current.onNotchMessage(makeMessage({ text: 'incoming', senderMemberId: 'them' }));
 		});
+		const incomingId = result.current.newest?.id;
+
+		await act(async () => {
+			result.current.onNotchMessage(
+				makeMessage({
+					text: 'to them',
+					sender: 'Me',
+					senderMemberId: 'me',
+					recipientMemberId: 'them',
+					isDirect: true,
+					isOwn: true,
+				}),
+			);
+		});
+
+		expect(result.current.history[0]?.text).toBe('to them');
+		expect(result.current.history[0]?.isOwn).toBe(true);
+		expect(result.current.newest?.id).toBe(incomingId);
+		expect(result.current.phase).toBe('full');
+	});
+
+	it('drops an own broadcast echo: no history entry and no phase change (as before #123)', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'incoming', senderMemberId: 'them' }));
+		});
+		const incomingId = result.current.newest?.id;
+
+		await act(async () => {
+			result.current.onNotchMessage(
+				makeMessage({ text: 'my broadcast', sender: 'Me', senderMemberId: 'me', isOwn: true, isDirect: false }),
+			);
+		});
+
+		expect(result.current.history.some((entry) => entry.text === 'my broadcast')).toBe(false);
 		expect(result.current.history.length).toBe(1);
-
-		await act(async () => {
-			result.current.appendOwnMessage({
-				sender: 'Me',
-				senderMemberId: 'me',
-				text: 'echo me',
-				isDirect: false,
-				group: 'test-circle',
-				groupColor: '#3b82f6',
-				receivedAt: new Date().toISOString(),
-				silent: true,
-			});
-			result.current.onNotchMessage(makeMessage({ text: 'from me', senderMemberId: 'me' }));
-		});
-		expect(result.current.history.some((entry) => entry.text === 'from me')).toBe(false);
-
-		await act(async () => {
-			result.current.onNotchMessage(makeMessage({ text: 'echo me', senderMemberId: 'me' }));
-		});
-		expect(result.current.history.filter((entry) => entry.text === 'echo me').length).toBe(1);
+		expect(result.current.newest?.id).toBe(incomingId);
+		expect(result.current.phase).toBe('full');
 	});
 });

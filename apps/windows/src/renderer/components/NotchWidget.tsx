@@ -4,7 +4,7 @@ import { TickerText } from './TickerText';
 import ImagePreviewOverlay from './ImagePreviewOverlay';
 import { useAppStore } from '../store/app-store';
 import { resolveReplyRecipient } from '../lib/resolve-reply-recipient';
-import { resolveNotchSender } from '../lib/resolve-notch-sender';
+import { resolveNotchRecipient, resolveNotchSender } from '../lib/resolve-notch-sender';
 import { shouldOpenReplyOnMessageClick } from '../lib/should-open-reply-on-message-click';
 import { useNotchLifecycle, type NotchHistoryEntry } from '../lib/useNotchLifecycle';
 import { resolveNotchResizeHeight } from '../lib/notch-resize-height';
@@ -194,7 +194,6 @@ export default function NotchWidget() {
 	}, [clearSentConfirmation, clearPreview]);
 	const lifecycle = useNotchLifecycle({
 		onNotchHide: handleNotchHide,
-		ownMemberId: state.identity?.memberId,
 	});
 	// Pointer-down position on the message body, so a click that was really a
 	// drag-to-select gesture does not open the reply field (see openReply).
@@ -648,21 +647,24 @@ export default function NotchWidget() {
 				return; // keep text, leave field open
 			}
 			setReplyText('');
-			appendOwnMessage({
-				sender: state.identity
-					? memberLabel({
-							memberId: state.identity.memberId,
-							displayName: state.identity.displayName,
-						})
-					: '',
-				senderMemberId: state.identity?.memberId,
-				text,
-				isDirect: replyPrivate,
-				group: entry.group,
-				groupColor: entry.groupColor,
-				receivedAt: new Date().toISOString(),
-				silent: true,
-			});
+			if (!result.echoed) {
+				appendOwnMessage({
+					sender: state.identity
+						? memberLabel({
+								memberId: state.identity.memberId,
+								displayName: state.identity.displayName,
+							})
+						: '',
+					senderMemberId: state.identity?.memberId,
+					text,
+					isDirect: replyPrivate,
+					recipientMemberId: recipient.to,
+					group: entry.group,
+					groupColor: entry.groupColor,
+					receivedAt: new Date().toISOString(),
+					silent: true,
+				});
+			}
 			// Show the "Sent to …" chip in place of the reply field, then close
 			// the reply field once it's had time to be read (macOS parity — see
 			// SENT_CONFIRMATION_MS above). `recipient.to !== undefined` is the
@@ -672,7 +674,7 @@ export default function NotchWidget() {
 			if (sentConfirmationTimerRef.current) clearTimeout(sentConfirmationTimerRef.current);
 			setSentConfirmation({
 				entryId: entry.id,
-				label: recipient.to !== undefined ? `Sent to ${senderFor(entry)}` : 'Sent to all',
+				label: recipient.to !== undefined ? `Sent to ${counterpartFor(entry)}` : 'Sent to all',
 			});
 			const targetEntryId = entry.id;
 			sentConfirmationTimerRef.current = setTimeout(() => {
@@ -729,6 +731,10 @@ export default function NotchWidget() {
 		return resolveNotchSender(entry, state.circles, state.identity);
 	}
 
+	function counterpartFor(entry: NotchHistoryEntry): string {
+		return resolveNotchRecipient(entry, state.circles) ?? senderFor(entry);
+	}
+
 	function renderMessageRow(entry: NotchHistoryEntry, options?: { pulse?: boolean; collapsible?: boolean }) {
 		const hasImages = !!entry.images?.length;
 		const replying = replyingTo === entry.id;
@@ -754,7 +760,7 @@ export default function NotchWidget() {
 						onClick={(e) => openReplyFromMessage(entry, e)}
 					>
 						<div className="message-meta">
-							<span className="sender">{sender}</span>
+							<span className="sender">{entry.isOwn && entry.recipientMemberId ? `Me → ${counterpartFor(entry)}` : sender}</span>
 							<span>{entry.isDirect ? '🔒' : '🌐'}</span>
 							<span>·</span>
 							<span className="circle-dot" style={{ background: entry.groupColor }} />
@@ -834,6 +840,7 @@ export default function NotchWidget() {
 							<div className="reply-field">
 								<button
 									className="channel-toggle"
+									disabled={entry.isOwn === true && !entry.recipientMemberId}
 									onClick={() => setReplyPrivate(!replyPrivate)}
 									title={replyPrivate ? 'Private reply' : 'Reply to all'}
 								>
@@ -842,7 +849,7 @@ export default function NotchWidget() {
 								<input
 									ref={replyInputRef}
 									className="frosted-field"
-									placeholder={replyPrivate ? `Private to ${sender}…` : 'Reply to all…'}
+									placeholder={replyPrivate ? `Private to ${counterpartFor(entry)}…` : 'Reply to all…'}
 									value={replyText}
 									maxLength={MAX_MESSAGE_CHARS}
 									onChange={(e) => {
