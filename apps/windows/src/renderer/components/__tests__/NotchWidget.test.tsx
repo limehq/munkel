@@ -1511,6 +1511,44 @@ describe('NotchWidget "Sent to …" reply confirmation (Plan 12)', () => {
 		});
 	});
 
+	it('keeps the reply draft text when an incoming message arrives while replying', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'first' }));
+		});
+		await openReplyForNewest(root);
+		await act(async () => {
+			replyInput(root).props.onChange({ target: { value: 'half written' } });
+		});
+
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'second' }));
+		});
+
+		expect(replyInput(root).props.value).toBe('half written');
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('keeps the reply mode while replying when an incoming private message arrives', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'broadcast', isDirect: false }));
+		});
+		await openReplyForNewest(root);
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'private', isDirect: true, senderMemberId: 'bob' }));
+		});
+
+		expect(replyInput(root).props.placeholder).toBe('Reply to all…');
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
 	it('clears a pending confirmation chip when a new message arrives', async () => {
 		const root = await renderWidget();
 		await act(async () => {

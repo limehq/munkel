@@ -77,6 +77,7 @@ export interface NotchMessage {
 	groupColor: string;
 	/** Local receiver timestamp (ISO-8601) used for notch history expiry. */
 	receivedAt: string;
+	sentAt?: string;
 	images?: IncomingImage[];
 	/** When true, the incoming message is added to history but the preview is not shown. */
 	silent?: boolean;

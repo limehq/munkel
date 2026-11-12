@@ -51,6 +51,10 @@ function renderHookStrict<T>(useHook: () => T) {
 	return { result, unmount: () => root.unmount() };
 }
 
+function iso(ms: number): string {
+	return new Date(ms).toISOString();
+}
+
 function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
 	return {
 		sender: 'Alice',
@@ -797,28 +801,100 @@ describe('useNotchLifecycle', () => {
 		expect(result.current.phase).toBe('full');
 	});
 
-	it('seeds phase from receivedAt when an older message becomes newest after history prune', async () => {
+	it('two messages in one tick: the older one, arriving last, does not become the fresh newest', async () => {
 		const { result } = renderHook(useNotchLifecycle);
 
 		await act(async () => {
-			result.current.onNotchMessage(
-				makeMessage({ text: 'older', receivedAt: new Date(50_000).toISOString() }),
-			);
+			timers.advance(20_000);
+			result.current.onNotchMessage(makeMessage({ text: 'newer', sentAt: iso(15_000), receivedAt: iso(10_000) }));
+			result.current.onNotchMessage(makeMessage({ text: 'older', sentAt: iso(5_000), receivedAt: iso(20_000) }));
 		});
-		await act(async () => {
-			timers.advance(60_000);
-			result.current.onNotchMessage(
-				makeMessage({ text: 'newer', receivedAt: new Date(10_000).toISOString() }),
-			);
-		});
+		expect(result.current.history.map((e) => e.text)).toEqual(['newer', 'older']);
+		expect(result.current.newest?.text).toBe('newer');
 		expect(result.current.phase).toBe('full');
 
 		await act(async () => {
-			timers.advance(10_000);
+			timers.advance(50_000);
+		});
+		expect(result.current.newest?.text).toBe('older');
+		expect(result.current.phase).toBe('retracted');
+	});
+
+	it('orders an own DM echo by its sentAt among incoming messages', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			timers.advance(30_000);
+		});
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'incoming', senderMemberId: 'them', sentAt: iso(20_000), receivedAt: iso(30_000) }));
+			result.current.onNotchMessage(makeMessage({
+				text: 'mine', sender: 'Me', senderMemberId: 'me', recipientMemberId: 'them',
+				isDirect: true, isOwn: true, sentAt: iso(10_000), receivedAt: iso(30_000),
+			}));
 		});
 
-		expect(result.current.newest?.text).toBe('older');
+		expect(result.current.history.map((e) => e.text)).toEqual(['incoming', 'mine']);
+		expect(result.current.newest?.text).toBe('incoming');
+	});
+
+	it('seeds the phase from the receivedAt of the entry that becomes newest after the previous newest ages out', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			timers.advance(10_000);
+			result.current.onNotchMessage(makeMessage({ text: 'ahead', sentAt: iso(25_000) }));
+		});
+		await act(async () => {
+			timers.advance(20_000);
+			result.current.onNotchMessage(makeMessage({ text: 'behind', sentAt: iso(5_000) }));
+		});
+		expect(result.current.newest?.text).toBe('ahead');
+
+		await act(async () => {
+			timers.advance(40_000);
+		});
+
+		expect(result.current.newest?.text).toBe('behind');
+		expect(result.current.phase).toBe('retracted');
+	});
+
+	it('a late older message does not restart the phase of the current newest', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+		await act(async () => {
+			timers.advance(20_000);
+			result.current.onNotchMessage(makeMessage({ text: 'newer', sentAt: iso(20_000) }));
+		});
+		await act(async () => {
+			timers.advance(NOTCH_FULL_MS);
+		});
 		expect(result.current.phase).toBe('peek');
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'older', sentAt: iso(10_000) }));
+		});
+
+		expect(result.current.newest?.text).toBe('newer');
+		expect(result.current.phase).toBe('peek');
+	});
+
+	it('an incoming message keeps the reply open on its target', async () => {
+		const { result } = renderHook(useNotchLifecycle);
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'target', senderMemberId: 'them' }));
+		});
+		await act(async () => {
+			result.current.openReply(result.current.newest!);
+		});
+		const targetId = result.current.replyingTo;
+
+		await act(async () => {
+			result.current.onNotchMessage(makeMessage({ text: 'incoming', senderMemberId: 'them' }));
+		});
+
+		expect(result.current.replyOpen).toBe(true);
+		expect(result.current.replyingTo).toBe(targetId);
 	});
 
 	it('runs full → peek → retracted for a genuinely new message using exported phase constants', async () => {

@@ -453,6 +453,7 @@ describe('GroupSession', () => {
 		expect(notches[0].senderMemberId).toBe('peer-1');
 		expect(notches[0].receivedAt).toEqual(expect.any(String));
 		expect(notches[0].receivedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+		expect(notches[0].sentAt).toBe(chatPayload.sentAt);
 
 		session.disconnect();
 	});
@@ -582,6 +583,7 @@ describe('GroupSession', () => {
 		expect(notches[0]!.senderMemberId).toBe(memberId);
 		expect(notches[0]!.text).toBe('Hello myself');
 		expect(notches[0]!.isDirect).toBe(false);
+		expect(notches[0]!.sentAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
 		expect(notches[0]!.group).toBe(code);
 		expect(notches[0]!.groupColor).toBe(getCircleColor(2));
 		expect(notches[0]!.images).toBeUndefined();
