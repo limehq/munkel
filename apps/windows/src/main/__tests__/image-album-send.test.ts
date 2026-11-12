@@ -1,23 +1,31 @@
-import { describe, expect, it, mock } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it, mock, spyOn } from 'bun:test';
+import * as core from '../../core';
 import { MAX_SOURCE_BYTES } from '../../core';
 import { fileTooLargeReason } from '../../shared/send-result';
+import { prepareImageAlbum, READ_CONCURRENCY, ReadLimiter } from '../image-album-send';
 
-mock.module('../../core', () => {
-	const actual = require('../../core') as typeof import('../../core');
-	return {
-		...actual,
-		isSourceSafe: () => true,
-		imageCodec: {
-			prepareFull: async () => ({ data: new Uint8Array(8), width: 1, height: 1 }),
-			makeThumbnail: async () => ({ data: new Uint8Array(8) }),
-		},
-		sealRaw: async () => new Uint8Array(8),
-		uploadBlob: async () => ({ ok: true as const }),
-		generateBlobKey: () => 'a'.repeat(16),
-	};
-});
+const installedStubs: Array<{ mockRestore(): void }> = [];
 
-const { prepareImageAlbum, READ_CONCURRENCY, ReadLimiter } = await import('../image-album-send');
+function stubCoreForAlbum(): void {
+	installedStubs.push(
+		spyOn(core, 'isSourceSafe').mockImplementation(() => true),
+		spyOn(core.imageCodec, 'prepareFull').mockImplementation(async () => ({
+			data: new Uint8Array(8),
+			width: 1,
+			height: 1,
+		})),
+		spyOn(core.imageCodec, 'makeThumbnail').mockImplementation(async () => ({ data: new Uint8Array(8) })),
+		spyOn(core, 'sealRaw').mockImplementation(async () => new Uint8Array(8)),
+		spyOn(core, 'uploadBlob').mockImplementation(async () => ({ ok: true as const })),
+		spyOn(core, 'generateBlobKey').mockImplementation(() => 'a'.repeat(16)),
+	);
+}
+
+function restoreCoreStubs(): void {
+	while (installedStubs.length > 0) {
+		installedStubs.pop()?.mockRestore();
+	}
+}
 
 async function testMessageKey(): Promise<CryptoKey> {
 	return crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, true, ['encrypt', 'decrypt']);
@@ -47,6 +55,14 @@ describe('ReadLimiter', () => {
 });
 
 describe('prepareImageAlbum', () => {
+	beforeEach(() => {
+		stubCoreForAlbum();
+	});
+
+	afterEach(() => {
+		restoreCoreStubs();
+	});
+
 	it('rejects oversized files from stat without reading them', async () => {
 		const readFile = mock(async () => {
 			throw new Error('readFile must not be called for oversized files');
