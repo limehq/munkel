@@ -1,4 +1,4 @@
-import { app, ipcMain, BrowserWindow, IpcMainInvokeEvent, Tray, globalShortcut } from 'electron';
+import { app, ipcMain, BrowserWindow, IpcMainInvokeEvent, Tray, globalShortcut, safeStorage } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import { createMenuWindow, showMenuWindow, toggleMenuWindow } from './menu-window';
@@ -30,6 +30,7 @@ import {
 import { registerPaletteHotkey, rebindPaletteHotkey } from './palette-hotkey';
 import { DEFAULT_PALETTE_HOTKEY } from '../shared/accelerator';
 import { IdentityStore } from './identity-store';
+import { createSafeStorageCodec } from './safe-storage-codec';
 import { applyLaunchAtLogin, setLaunchAtLoginPreference } from './login-item';
 import { applyContentProtection } from './content-protection';
 import { deriveGroupKeys } from '@munkel/shared-wire/crypto';
@@ -337,7 +338,7 @@ app.whenReady().then(async () => {
 	// reads state.json from. A mismatch vs the inspected file would mean persisted
 	// circles never load → 0 sessions → 0 relay connections.
 	console.error('[munkel] userData path:', app.getPath('userData'));
-	const identityStore = new IdentityStore(app.getPath('userData'));
+	const identityStore = new IdentityStore(app.getPath('userData'), createSafeStorageCodec(safeStorage));
 	let presenceMonitor: PresenceMonitor;
 	const appState = new AppState(
 		identityStore,

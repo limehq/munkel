@@ -4,7 +4,7 @@ import type { PresenceStatus } from '../shared/types';
 import { DEFAULT_PALETTE_HOTKEY, isValidAccelerator } from '../shared/accelerator';
 
 export interface PersistedState {
-	version: 1 | 2;
+	version: 1 | 2 | 3;
 	memberId: string;
 	displayName: string;
 	avatar?: string;
@@ -51,9 +51,17 @@ export interface PersistedState {
 	lastPaletteMember: string | null;
 }
 
+export interface CircleCodeCodec {
+	isAvailable(): boolean;
+	encrypt(plain: string): string | null;
+	decrypt(stored: string): string | null;
+}
+
+type RawCircle = Record<string, unknown>;
+
 function defaultState(): PersistedState {
 	return {
-		version: 2,
+		version: 3,
 		memberId: crypto.randomUUID().toLowerCase(),
 		displayName: '',
 		presenceStatus: 'online',
@@ -75,8 +83,72 @@ function paletteId(value: unknown): string | null {
 export class IdentityStore {
 	private readonly filePath: string;
 
-	constructor(userDataPath: string) {
+	private retained: RawCircle[] = [];
+	private knownEncrypted = new Map<string, string>();
+
+	constructor(
+		userDataPath: string,
+		private readonly codec: CircleCodeCodec | null = null,
+	) {
 		this.filePath = path.join(userDataPath, 'state.json');
+	}
+
+	private decodeCircles(raw: unknown[]): { circles: PersistedState['circles']; retained: RawCircle[]; hasPlain: boolean } {
+		const circles: PersistedState['circles'] = [];
+		const retained: RawCircle[] = [];
+		const known = new Map<string, string>();
+		let hasPlain = false;
+		for (const item of raw) {
+			if (!item || typeof item !== 'object') continue;
+			const entry = item as RawCircle;
+			const relayUrl = typeof entry.relayUrl === 'string' ? entry.relayUrl : '';
+			const joinedAt = typeof entry.joinedAt === 'string' ? entry.joinedAt : new Date().toISOString();
+			if (typeof entry.codeEnc === 'string') {
+				let code: string | null = null;
+				try {
+					code = this.codec && this.codec.isAvailable() ? this.codec.decrypt(entry.codeEnc) : null;
+				} catch {
+					code = null;
+				}
+				if (code) {
+					circles.push({ code, relayUrl, joinedAt });
+					known.set(code, entry.codeEnc);
+				} else {
+					retained.push(entry);
+				}
+			} else if (typeof entry.code === 'string' && entry.code.length > 0) {
+				hasPlain = true;
+				circles.push({ code: entry.code, relayUrl, joinedAt });
+			}
+		}
+		this.knownEncrypted = known;
+		return { circles, retained, hasPlain };
+	}
+
+	private encodeCircles(circles: PersistedState['circles']): RawCircle[] {
+		const out: RawCircle[] = [];
+		let plainCount = 0;
+		for (const circle of circles) {
+			let codeEnc: string | null = null;
+			try {
+				codeEnc = this.codec && this.codec.isAvailable() ? this.codec.encrypt(circle.code) : null;
+			} catch {
+				codeEnc = null;
+			}
+			if (!codeEnc) {
+				codeEnc = this.knownEncrypted.get(circle.code) ?? null;
+			}
+			if (codeEnc) {
+				out.push({ codeEnc, relayUrl: circle.relayUrl, joinedAt: circle.joinedAt });
+			} else {
+				plainCount += 1;
+				out.push({ code: circle.code, relayUrl: circle.relayUrl, joinedAt: circle.joinedAt });
+			}
+		}
+		if (plainCount > 0) {
+			console.warn('[identity] encryption unavailable — circle codes stored unencrypted', JSON.stringify({ count: plainCount }));
+		}
+		return [...out, ...this.retained];
 	}
 
 	load(): PersistedState {
@@ -93,13 +165,22 @@ export class IdentityStore {
 			const raw = fs.readFileSync(this.filePath, 'utf8');
 			const parsed = JSON.parse(raw) as unknown;
 			const migrated = this.migrate(parsed);
+			const decoded = this.decodeCircles(migrated.circles as unknown[]);
+			migrated.circles = decoded.circles;
+			this.retained = decoded.retained;
+			if (decoded.retained.length > 0) {
+				console.warn(
+					'[identity] circle codes could not be decrypted — skipped',
+					JSON.stringify({ count: decoded.retained.length }),
+				);
+			}
 			// Persist v1→v2 (and other) migrations so the echo opt-in reset
 			// sticks across restarts instead of re-applying from a stale file.
 			const prevVersion =
 				parsed && typeof parsed === 'object' && typeof (parsed as { version?: unknown }).version === 'number'
 					? (parsed as { version: number }).version
 					: 0;
-			if (migrated.version !== prevVersion) {
+			if (migrated.version !== prevVersion || (decoded.hasPlain && this.codec?.isAvailable())) {
 				this.save(migrated);
 			}
 			return migrated;
@@ -116,7 +197,15 @@ export class IdentityStore {
 
 	save(state: PersistedState): void {
 		fs.mkdirSync(path.dirname(this.filePath), { recursive: true });
-		fs.writeFileSync(this.filePath, JSON.stringify(state, null, 2), { mode: 0o600 });
+		const onDisk = { ...state, version: 3, circles: this.encodeCircles(state.circles) };
+		const tmpPath = `${this.filePath}.${process.pid}.tmp`;
+		try {
+			fs.writeFileSync(tmpPath, JSON.stringify(onDisk, null, 2), { mode: 0o600 });
+			fs.renameSync(tmpPath, this.filePath);
+		} catch (err) {
+			fs.rmSync(tmpPath, { force: true });
+			throw err;
+		}
 	}
 
 	patch(
@@ -217,8 +306,8 @@ export class IdentityStore {
 			: 0;
 		if (prevVersion < 2) {
 			draft.devEchoBroadcasts = false;
-			draft.version = 2;
 		}
+		draft.version = 3;
 		// Guard against a hand-edited or corrupted state.json shipping an
 		// unregistrable accelerator string straight into globalShortcut.register.
 		if (!isValidAccelerator(draft.paletteHotkey)) {

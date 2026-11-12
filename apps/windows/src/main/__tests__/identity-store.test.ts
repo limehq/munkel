@@ -303,7 +303,7 @@ describe('IdentityStore devEchoBroadcasts (Plan 13 item 6)', () => {
 	it('defaults devEchoBroadcasts to false for a freshly created store (opt-in)', () => {
 		const store = new IdentityStore(dir);
 		expect(store.load().devEchoBroadcasts).toBe(false);
-		expect(store.load().version).toBe(2);
+		expect(store.load().version).toBe(3);
 	});
 
 	it('persists devEchoBroadcasts=false via patch and reflects it on the next load', () => {
@@ -336,7 +336,7 @@ describe('IdentityStore devEchoBroadcasts (Plan 13 item 6)', () => {
 		const store = new IdentityStore(dir);
 		const state = store.load();
 		expect(state.devEchoBroadcasts).toBe(false);
-		expect(state.version).toBe(2);
+		expect(state.version).toBe(3);
 		expect(state.memberId).toBe('legacy-member');
 	});
 
@@ -356,7 +356,7 @@ describe('IdentityStore devEchoBroadcasts (Plan 13 item 6)', () => {
 		const store = new IdentityStore(dir);
 		const state = store.load();
 		expect(state.devEchoBroadcasts).toBe(false);
-		expect(state.version).toBe(2);
+		expect(state.version).toBe(3);
 	});
 });
 
