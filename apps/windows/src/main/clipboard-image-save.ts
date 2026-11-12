@@ -8,8 +8,15 @@
  *
  * ## Lifecycle of a clipboard temp file
  *
- * 1. Created here on a successful Ctrl+V image paste (`munkel-clipboard-*.png`
- *    in the OS tmpdir), path returned to the renderer.
+ * 1. Created here on a successful Ctrl+V image paste inside a private
+ *    per-instance directory (`munkel-clipboard-dir-XXXXXX`, created lazily
+ *    via `mkdtemp` under the OS tmpdir; POSIX mode 0o700, files 0o600). The
+ *    file is `munkel-clipboard-*.png`; its path is returned to the renderer.
+ *    On Windows the mode bits are essentially ignored by Node, so the
+ *    directory is NOT an access-control boundary there: it only isolates
+ *    our files from the shared tmpdir (unguessable name, one place to
+ *    delete) and confidentiality still rests on the user-profile ACL of
+ *    %TEMP%.
  * 2. The renderer carries the path in its `imagePaths` attachment list —
  *    same shape as a `select-images` dialog pick.
  * 3. The path's lifecycle ends when the album send **succeeds**: the
@@ -19,13 +26,12 @@
  *    created (tracked in a main-side owned-paths set; see the function's
  *    doc comment for why a basename match alone must never authorize a
  *    deletion). On a FAILED send the files are intentionally kept — the
- *    renderer keeps the attachments for retry.
- * 4. Safety net: files that never reach step 3 (attachment removed by hand,
- *    app quit before sending, crash) are swept by `sweepClipboardTempFiles`
- *    at the next app startup. Only files matching the app-specific
- *    `CLIPBOARD_TEMP_PREFIX`/`.png` pattern are ever touched; anything from
- *    a previous session is stale by definition, so the sweep needs no age
- *    check.
+ *    renderer keeps the attachments for retry within the session.
+ * 4. At app quit (`will-quit`) `removeOwnedClipboardTempFilesSync` deletes
+ *    every still-owned file and then the private directory.
+ * 5. Safety net for crashes and forced kills: `sweepClipboardTempFiles` at
+ *    the next startup deletes old schema files inside leftover private
+ *    directories (and legacy files lying directly in the tmpdir).
  */
 
 /** Minimal slice of Electron's `NativeImage` this module needs. */
@@ -36,6 +42,46 @@ export interface ClipboardImageLike {
 }
 
 export const CLIPBOARD_TEMP_PREFIX = 'munkel-clipboard-';
+
+export const CLIPBOARD_TEMP_DIR_PREFIX = 'munkel-clipboard-dir-';
+
+export interface ClipboardTempDir {
+	ensure(): Promise<string>;
+	current(): string | null;
+	reset(): void;
+}
+
+/** Lazily creates one private directory per app instance (`mkdtemp` yields
+ * an unguessable name; POSIX mode 0o700) and reuses it. A failed creation is
+ * not cached, so a later paste can retry. `reset` drops the cached path (e.g.
+ * after another instance's sweep removed the directory). */
+export function createClipboardTempDir(deps: {
+	tmpdir(): string;
+	join(...parts: string[]): string;
+	mkdtemp(prefix: string): Promise<string>;
+}): ClipboardTempDir {
+	let dir: string | null = null;
+	let pending: Promise<string> | null = null;
+	return {
+		ensure() {
+			if (dir !== null) return Promise.resolve(dir);
+			pending ??= deps
+				.mkdtemp(deps.join(deps.tmpdir(), CLIPBOARD_TEMP_DIR_PREFIX))
+				.then((created) => {
+					dir = created;
+					return created;
+				})
+				.finally(() => {
+					pending = null;
+				});
+			return pending;
+		},
+		current: () => dir,
+		reset() {
+			dir = null;
+		},
+	};
+}
 
 /**
  * Decoded-pixel cap checked BEFORE the expensive `toPNG()` encode and disk
@@ -53,8 +99,10 @@ export const CLIPBOARD_TEMP_PREFIX = 'munkel-clipboard-';
 export const MAX_CLIPBOARD_PIXELS = 8 * 2048 * 2048;
 
 export interface SaveClipboardImageDeps {
-	/** e.g. `os.tmpdir` */
-	tmpdir(): string;
+	/** Resolves the private per-instance directory (see `createClipboardTempDir`). */
+	ensureDir(): Promise<string>;
+	/** Drops the cached directory so the next `ensureDir` creates a fresh one. */
+	resetDir?(): void;
 	/** e.g. `node:path`'s `join` */
 	join(...parts: string[]): string;
 	/** e.g. `node:fs/promises`' `writeFile` */
@@ -92,14 +140,26 @@ export async function saveClipboardImageToTemp(
 	}
 
 	const suffix = deps.uniqueSuffix?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-	const tempPath = deps.join(deps.tmpdir(), `${CLIPBOARD_TEMP_PREFIX}${suffix}.png`);
+	const filename = `${CLIPBOARD_TEMP_PREFIX}${suffix}.png`;
+	let bytes: Uint8Array = new Uint8Array();
+	const attempt = async (): Promise<string> => {
+		const tempPath = deps.join(await deps.ensureDir(), filename);
+		await deps.writeFile(tempPath, bytes);
+		return tempPath;
+	};
 	try {
-		await deps.writeFile(tempPath, image.toPNG());
+		bytes = image.toPNG();
+		try {
+			return await attempt();
+		} catch (err) {
+			if ((err as NodeJS.ErrnoException | undefined)?.code !== 'ENOENT' || !deps.resetDir) throw err;
+			deps.resetDir();
+			return await attempt();
+		}
 	} catch (err) {
 		console.error('[munkel] failed to save clipboard image to temp file:', err);
 		return null;
 	}
-	return tempPath;
 }
 
 /** True when `filePath`'s basename matches this module's naming scheme.
@@ -115,7 +175,8 @@ export function isClipboardTempPath(filePath: string): boolean {
 
 export interface CleanupDeps {
 	unlink(path: string): Promise<void>;
-	tmpdir(): string;
+	/** The private per-instance directory every deletable file must live in. */
+	rootDir(): string | null;
 	/** e.g. `node:path`'s `resolve` */
 	resolve(...parts: string[]): string;
 	/** e.g. `node:path`'s `sep` */
@@ -136,28 +197,31 @@ export interface CleanupDeps {
  *    renderer-invented path (matching basename, `..` traversal, absolute
  *    foreign path) is never in the set and is skipped.
  * 2. Basename matches the module's naming scheme (secondary filter).
- * 3. The resolved path is inside the resolved tmpdir (secondary
- *    containment filter — paranoia against a corrupted set entry).
+ * 3. The resolved path is inside the resolved private directory
+ *    (secondary containment filter — paranoia against a corrupted set
+ *    entry).
  *
  * Successfully deleted paths are removed from the set. Unlink errors are
- * logged and swallowed (the startup sweep is the backstop).
+ * logged and swallowed (quit cleanup and the startup sweep are the backstops).
  */
 export async function cleanupClipboardTempPaths(
 	paths: string[],
 	ownedTempPaths: Set<string>,
 	deps: CleanupDeps,
 ): Promise<void> {
-	const tmpRoot = deps.resolve(deps.tmpdir());
+	const rootDir = deps.rootDir();
+	if (rootDir === null) return;
+	const root = deps.resolve(rootDir);
 	for (const path of paths) {
 		if (!ownedTempPaths.has(path)) continue;
 		if (!isClipboardTempPath(path)) continue;
 		const resolved = deps.resolve(path);
-		if (!resolved.startsWith(tmpRoot + deps.sep)) continue;
+		if (!resolved.startsWith(root + deps.sep)) continue;
 		try {
 			await deps.unlink(path);
 			ownedTempPaths.delete(path);
 		} catch (err) {
-			console.warn('[munkel] failed to delete clipboard temp file (startup sweep will retry):', err);
+			console.warn('[munkel] failed to delete clipboard temp file (quit cleanup / startup sweep will retry):', err);
 		}
 	}
 }
@@ -194,32 +258,82 @@ export function addOwnedClipboardTempPath(ownedTempPaths: Set<string>, tempPath:
 	ownedTempPaths.add(tempPath);
 }
 
-/** Minimum age before the startup sweep may delete a leftover temp file.
- * The sweep runs at startup, before this instance has created anything, so
- * every matching file is stale in principle — but another *running*
- * instance (second-instance race during the single-instance-lock window,
- * or a dev build next to a packaged one) could have just written one. One
- * hour is far beyond any legitimate paste→send window. */
+export interface QuitCleanupDeps {
+	unlinkSync(path: string): void;
+	rmdirSync(path: string): void;
+	resolve(...parts: string[]): string;
+	sep: string;
+}
+
+/**
+ * Quit-time cleanup (step 4 of the lifecycle). Synchronous so it completes
+ * inside the `will-quit` handler. Applies the same three checks as
+ * `cleanupClipboardTempPaths` (owned, naming scheme, inside the private
+ * directory), then removes the private directory itself (non-recursive: it
+ * only succeeds if empty, so nothing foreign is ever swept away). Errors are
+ * swallowed; the startup sweep is the backstop.
+ */
+export function removeOwnedClipboardTempFilesSync(
+	ownedTempPaths: Set<string>,
+	privateDir: string | null,
+	deps: QuitCleanupDeps,
+): void {
+	if (privateDir === null) return;
+	const root = deps.resolve(privateDir);
+	for (const path of [...ownedTempPaths]) {
+		if (!isClipboardTempPath(path)) continue;
+		if (!deps.resolve(path).startsWith(root + deps.sep)) continue;
+		try {
+			deps.unlinkSync(path);
+			ownedTempPaths.delete(path);
+		} catch (err) {
+			console.warn('[munkel] failed to delete clipboard temp file at quit (startup sweep will retry):', err);
+		}
+	}
+	try {
+		deps.rmdirSync(privateDir);
+	} catch {
+		// Not empty (failed unlink, or an evicted file) or already gone.
+	}
+}
+
+/** Minimum age before the startup sweep may delete a leftover temp file or
+ * private directory. The sweep runs at startup, before this instance has
+ * created anything, so everything matching is stale in principle — but
+ * another *running* instance (second-instance race during the
+ * single-instance-lock window, or a dev build next to a packaged one) keeps
+ * its own fresh private directory, and a leftover directory cannot be told
+ * apart from a live one by name. The age check is that tell: an active
+ * instance's directory and files have a recent mtime. One hour is far beyond
+ * any legitimate paste→send window; shortening it would put a second
+ * running instance's files at risk, so it is deliberately unchanged. */
 export const SWEEP_MIN_AGE_MS = 60 * 60 * 1000;
 
 /**
- * Startup safety net (step 4 of the lifecycle): deletes leftover
- * `munkel-clipboard-*.png` files in the tmpdir that are older than
- * `SWEEP_MIN_AGE_MS`. The sweep only ever touches files directly inside
- * the tmpdir whose names match the module's scheme — it never receives
- * renderer input. All errors are swallowed — a failed sweep must never
- * block startup.
+ * Startup safety net (step 5 of the lifecycle): deletes leftover
+ * `munkel-clipboard-*.png` files older than `SWEEP_MIN_AGE_MS` inside
+ * real (non-symlink) `munkel-clipboard-dir-*` directories of the tmpdir (and legacy files lying
+ * directly in the tmpdir from before the private directory existed), then
+ * removes private directories that are themselves older than the minimum
+ * age. It never receives renderer input and never recurses further. All
+ * errors are swallowed — a failed sweep must never block startup.
  */
 export async function sweepClipboardTempFiles(deps: {
 	tmpdir(): string;
 	join(...parts: string[]): string;
 	readdir(path: string): Promise<string[]>;
 	stat(path: string): Promise<{ mtimeMs: number }>;
+	lstat(path: string): Promise<{ isDirectory(): boolean }>;
 	unlink(path: string): Promise<void>;
+	rmdir(path: string): Promise<void>;
 	/** Wall clock for the age check; injectable for tests. */
 	now?(): number;
 }): Promise<void> {
 	const now = deps.now ?? (() => Date.now());
+	const isStale = async (fullPath: string): Promise<boolean> => {
+		const { mtimeMs } = await deps.stat(fullPath);
+		return now() - mtimeMs >= SWEEP_MIN_AGE_MS;
+	};
 	let names: string[];
 	try {
 		names = await deps.readdir(deps.tmpdir());
@@ -227,15 +341,30 @@ export async function sweepClipboardTempFiles(deps: {
 		return;
 	}
 	for (const name of names) {
-		if (!isClipboardTempPath(name)) continue;
 		const fullPath = deps.join(deps.tmpdir(), name);
 		try {
-			const { mtimeMs } = await deps.stat(fullPath);
-			if (now() - mtimeMs < SWEEP_MIN_AGE_MS) continue; // possibly another live instance's file
-			await deps.unlink(fullPath);
+			if (isClipboardTempPath(name)) {
+				if (await isStale(fullPath)) await deps.unlink(fullPath);
+			} else if (name.startsWith(CLIPBOARD_TEMP_DIR_PREFIX) && (await deps.lstat(fullPath)).isDirectory()) {
+				await sweepPrivateDir(fullPath);
+			}
 		} catch {
 			// Ignore — e.g. another instance still holds the file, or it
 			// vanished between readdir and stat.
 		}
+	}
+
+	async function sweepPrivateDir(dir: string): Promise<void> {
+		const dirWasStale = await isStale(dir);
+		for (const fileName of await deps.readdir(dir)) {
+			if (!isClipboardTempPath(fileName)) continue;
+			const filePath = deps.join(dir, fileName);
+			try {
+				if (await isStale(filePath)) await deps.unlink(filePath);
+			} catch {
+				// Ignore — see above.
+			}
+		}
+		if (dirWasStale) await deps.rmdir(dir);
 	}
 }
