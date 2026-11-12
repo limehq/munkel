@@ -1,0 +1,71 @@
+name: Release (Windows)
+
+# Windows release namespace. `win-v*` tags are the only tag-triggered path to
+# a Windows publish — the macOS `v*` namespace lives in release.yml, and any
+# tag outside both namespaces (e.g. merge markers) starts no release run.
+#
+# Version derivation: the tag must be exactly `win-v<semver>`; the workflow
+# strips `win-v`, validates the remainder, and exports it as MUNKEL_VERSION
+# (pack-release.mjs only strips a leading `v`, not `win-v`, and re-validates).
+on:
+  push:
+    tags: ["win-v*"]
+  # Re-runs: `gh workflow run release-windows.yml --ref win-v1.2.3`. The ref
+  # MUST be the tag — dispatching from a branch fails validation below with a
+  # clear error before anything is built.
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    # Least privilege: writes live on the job, not the workflow top level.
+    permissions:
+      contents: write # upload artifacts to the GitHub release
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Derive and validate version
+        shell: bash
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          VERSION="${TAG#win-v}"
+          if [ "$VERSION" = "$TAG" ] || \
+             ! printf '%s' "$VERSION" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$'; then
+            echo "::error::Ref '$TAG' is not a Windows release tag (expected win-v<semver>, e.g. win-v1.2.3). Refusing to build a mis-versioned artifact. For a re-run, use: gh workflow run release-windows.yml --ref win-v<semver>"
+            exit 1
+          fi
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+
+      - name: Cache Electron binary
+        uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4
+        with:
+          path: ~\AppData\Local\electron\Cache
+          key: ${{ runner.os }}-electron-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-electron-
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Build and pack Windows installer
+        working-directory: apps/windows
+        # MUNKEL_VERSION comes from the validated tag above, not the raw ref.
+        shell: bash
+        run: MUNKEL_VERSION="$VERSION" bun run pack:release
+
+      - name: Upload Windows installer to GitHub release
+        # TAG is the validated win-v tag; never the raw ref (which could be a
+        # branch on the dispatch path — rejected above anyway).
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        with:
+          tag_name: ${{ env.TAG }}
+          files: |
+            apps/windows/release/Munkel-Setup-*.exe
+            apps/windows/release/latest.yml
+            apps/windows/release/*.blockmap

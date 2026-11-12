@@ -1,0 +1,42 @@
+appId: app.munkel.windows
+productName: Munkel
+copyright: Copyright © Munkel
+artifactName: Munkel-Setup-${version}.${ext}
+directories:
+  output: release
+files:
+  - dist/**/*
+  - assets/**/*
+  - package.json
+asar: true
+asarUnpack:
+  - "**/node_modules/sharp/**/*"
+  - "**/node_modules/@img/**/*"
+win:
+  target:
+    - nsis
+    - zip
+    - dir
+  icon: assets/icon.ico
+  executableName: Munkel
+  # electron-updater feed for fork beta builds.
+  publish:
+    provider: github
+    owner: rodgi040
+    repo: munkel
+  # Deliberately disabled: Windows releases ship unsigned for now (limehq/munkel#235).
+  # Trust reduces to feed integrity (latest.yml checksum over HTTPS), not publisher identity.
+  # Re-enable with Authenticode signing — tracked in rodgi040/munkel#60.
+  verifyUpdateCodeSignature: false
+nsis:
+  # One-click: double-click Setup.exe → done (no wizard, no manual config).
+  oneClick: true
+  deleteAppDataOnUninstall: true
+  perMachine: false
+  allowToChangeInstallationDirectory: false
+  createDesktopShortcut: always
+  createStartMenuShortcut: true
+  shortcutName: Munkel
+  runAfterFinish: true
+  installerIcon: assets/icon.ico
+  uninstallerIcon: assets/icon.ico

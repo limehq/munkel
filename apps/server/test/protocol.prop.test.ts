@@ -1,6 +1,6 @@
 import fc from 'fast-check';
 import { describe, expect, it } from 'vitest';
-import { clientMessageSchema, MAX_PAYLOAD_CHARS, MEMBER_ID_REGEX } from '../src/protocol';
+import { clientMessageSchema, MAX_PAYLOAD_CHARS, MEMBER_ID_REGEX } from '@munkel/shared-wire/protocol';
 
 const MEMBER_ID_ALPHABET =
   'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-'.split('');

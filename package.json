@@ -2,9 +2,7 @@
 	"name": "munkel",
 	"private": true,
 	"packageManager": "bun@1.3.9",
-	"workspaces": [
-		"apps/*"
-	],
+	"workspaces": ["apps/*", "packages/*"],
 	"scripts": {
 		"dev": "turbo dev --filter=!@munkel/macos",
 		"build": "turbo build",
@@ -12,12 +10,15 @@
 		"typecheck": "turbo typecheck",
 		"deploy": "turbo deploy",
 		"build:release": "scripts/build-release.sh",
+		"test:interop": "bun scripts/interop.ts",
+		"test:interop:vectors": "bun scripts/generate-interop-vectors.ts && bun test apps/windows/src/core/__tests__/swift-interop.test.ts",
 		"prepare": "husky"
 	},
 	"overrides": {
 		"esbuild": "0.28.1"
 	},
 	"devDependencies": {
+		"@munkel/shared-wire": "workspace:*",
 		"husky": "^9.1.7",
 		"turbo": "^2.10.0"
 	}

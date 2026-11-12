@@ -37,3 +37,74 @@ xcuserdata/
 # Turborepo
 .turbo/
 .gstack/
+
+# Agent / GSD working files (private to user-agent collaboration)
+/AGENTS.md
+/State.md
+/HANDOFF.md
+/NOTE.md
+/handoff.js
+/debug.md
+
+# Flightplan payload — local agent tooling, not part of the product.
+# Product files that share a Flightplan name stay tracked: CLAUDE.md,
+# ROADMAP.md, skills/munkel/, .claude/settings.json,
+# .claude/skills/github-issue-workflow/.
+# .flightplan-root stays tracked (plan_root must survive a fresh clone).
+.flightplan-version
+.flightplan-mode
+.flightplan-manifest.json
+.flightplan-last-update.json
+.flightplan-backup/
+_flightplan-backup-*/
+*.flightplan.md
+*.flightplan-merged.md
+*.flightplan-backup.md
+.agents/
+.codex/
+/commands/
+flightplan/
+/Planning/
+/STEERING.md
+/PRD.md
+/BLOCKER.md
+/REPORT.md
+/TECHSTACK.md
+/FLIGHTPLAN-TOOLS.md
+/CODEBASE-MAP.md
+/skills/fp-*
+/skills/research/
+/.claude/skills/fp-*
+/.claude/skills/research/
+/.claude/agents/
+/.claude/commands/
+/techstack-docs/
+
+# Planning artifacts
+.planning/
+
+# Scratchpad / local working drafts and backups
+/scratchpad/
+# Local debugging notes kept alongside a live investigation, not part of the record.
+/Debugging/
+# Verbatim sub-agent session transcripts. Useful while the work is open, far too
+# large and too duplicative of the docs to belong in history.
+/kimi-export-session_*.md
+/codex-export-session_*.md
+/cursor-export-session_*.md
+
+# graphify build artifacts (keep only clean deliverables)
+graphify-out/*
+!graphify-out/graph.json
+!graphify-out/GRAPH_REPORT.md
+!graphify-out/wiki/
+
+# Vite writes a timestamped temp config next to the real one on each dev run
+*.timestamp-*.mjs
+
+# Flightplan template lines merged by /fp-update (graphify-out/ omitted — it would
+# undo the un-ignore of graph.json / GRAPH_REPORT.md / wiki/ above).
+*.env
+Thumbs.db
+.claude/settings.local.json
+*.tar.gz

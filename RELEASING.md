@@ -46,8 +46,22 @@ only touches those is deployed by its own path-triggered workflow and never cuts
 an app release. Protocol/crypto changes in `apps/server` always co-change the
 Swift mirror in `apps/macos`, so they still land in the release.
 
-Escape hatch: a manually pushed `v*` tag still triggers `release.yml`
-directly, bypassing release-please.
+## Tag namespaces
+
+Two tag namespaces trigger release workflows, and they are disjoint:
+
+| Namespace | Workflow | What it produces |
+|---|---|---|
+| `v*` | `release.yml` | macOS: DMG, Sparkle appcast, Homebrew cask bump |
+| `win-v*` | `release-windows.yml` | Windows: NSIS installer + `latest.yml` updater feed + blockmaps |
+
+Any other tag name — including merge-marker tags in any naming style — starts
+**no** release run: the prefixes are enforced by the workflows' `on: push`
+trigger patterns, not by convention. A manually pushed `v*` tag still triggers
+`release.yml` directly (bypassing release-please) — that is the macOS release
+path, not a shared one. Windows releases are cut separately (see **Windows
+releases**); release-please never dispatches `release-windows.yml`, so a
+release-please cut from `main` produces macOS artifacts only.
 
 Forcing a specific version: add a `Release-As: <x.y.z>` footer to any commit on
 `main` (e.g. a quick patch to exercise the in-app Sparkle updater). release-please
@@ -94,6 +108,35 @@ Pushing a tag `v<version>` runs `.github/workflows/release.yml`:
 6. `scripts/build-brew-cask.sh` renders `Casks/munkel.rb` (with `auto_updates
    true`) with the new version + DMG sha256 and pushes it to
    `limehq/homebrew-tap`.
+
+## Windows releases
+
+The Windows installer is released from its own tag namespace. Pushing a tag
+`win-v<version>` runs `.github/workflows/release-windows.yml`, which builds
+and packs the NSIS installer in `apps/windows` and uploads
+`Munkel-Setup-<version>.exe`, `latest.yml`, and the blockmap files to a GitHub
+release under the same tag. The version is derived from the tag itself
+(`win-v` stripped) — nothing is hardcoded, mirroring the macOS flow.
+
+The workflow validates the tag before building: the ref must be exactly
+`win-v<semver>`, or the run fails with a clear error and no artifact is
+produced. `apps/windows/scripts/pack-release.mjs` re-validates the version
+independently. This also covers manual dispatch:
+`gh workflow run release-windows.yml --ref win-v<version>` re-runs a release;
+dispatching from a branch ref is rejected the same way (only a branch named
+literally `win-v<semver>` would slip through — don't do that).
+
+Windows builds are currently unsigned (Authenticode is tracked separately);
+SmartScreen may warn on first run. Fork beta builds install per-user into
+`%LOCALAPPDATA%\Programs\` with no admin prompt.
+
+To cut a Windows release:
+
+```sh
+git tag win-v0.1.0 && git push origin win-v0.1.0
+# → release-windows.yml only. A v* tag never starts it, and a win-v* tag
+#   never starts the macOS release.yml.
+```
 
 ## One-time setup checklist
 

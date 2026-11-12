@@ -31,9 +31,34 @@ avatar image bytes. Avatar URLs are only fetched from `*.githubusercontent.com`.
 
 ## Local data
 
-The app stores local settings in the `dev.uq.munkel` defaults domain, including
-joined channel codes, relay URL, member ID, display name, GitHub login, the
-downscaled avatar image, the GitHub avatar URL, and the chosen presence status.
+Munkel stores channel membership and profile settings on your device. Message
+content is not stored locally.
+
+### macOS
+
+The release app writes to the `dev.uq.munkel` UserDefaults domain (the **Munkel
+Dev** build uses `dev.uq.munkel.debug`). Stored values include member ID,
+display name, downscaled avatar image, GitHub login, GitHub avatar URL,
+presence status, joined channel codes, relay URL, launch-at-login preference,
+auto-update "Check Automatically" preference, and the rebindable global hotkey
+for opening the command palette.
+
+**Uninstall:** Removing the app from Applications does not delete this data. It
+remains in UserDefaults until you remove the domain manually (for example
+`defaults delete dev.uq.munkel`) or overwrite it by using a fresh install.
+
+### Windows
+
+The app writes persisted state to `%APPDATA%\munkel\state.json` (roaming
+application data). Stored values include member ID, display name, downscaled
+avatar, GitHub login, presence status, joined channel codes and per-channel
+relay URLs, launch-at-login preference, auto-update "Check Automatically"
+preference, and the rebindable global hotkey (default `Ctrl+Shift+M`).
+
+**Uninstall:** Uninstalling Munkel through Windows Settings or the Start Menu
+uninstaller removes the `%APPDATA%\munkel` directory, including joined channels
+and profile data. Auto-updates do not delete this directory; channels survive
+updates.
 
 ## Presence
 

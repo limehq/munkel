@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { clientMessageSchema, GROUP_ID_REGEX, MAX_PAYLOAD_CHARS, MEMBER_ID_REGEX } from '../src/protocol';
+import { clientMessageSchema, GROUP_ID_REGEX, MAX_PAYLOAD_CHARS, MEMBER_ID_REGEX } from '@munkel/shared-wire/protocol';
 
 describe('clientMessageSchema', () => {
   it('accepts a broadcast send', () => {

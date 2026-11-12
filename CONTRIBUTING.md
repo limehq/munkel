@@ -36,6 +36,23 @@ bundle instead, run `cd apps/macos && ./make-bundle.sh release && open
 .build/Munkel.app`. See [`README.md`](README.md) for the full development
 workflow.
 
+### Local working files
+
+Some artifacts are useful while a piece of work is open but do not belong in
+history, so `.gitignore` keeps them out rather than leaving them to clutter
+`git status` indefinitely:
+
+- `scratchpad/` — drafts, measurement logs, throwaway scripts.
+- `Debugging/` — notes written alongside a live investigation. Once a finding
+  matters beyond the session it goes into the issue, the PR, or `docs/bugs/`.
+- `*-export-session_*.md` — verbatim transcripts of delegated sub-agent runs.
+  Worth keeping locally while the work is open; too large and too duplicative of
+  the documentation to carry in the repository.
+
+The rule behind all three: a file is ignored when its value expires with the
+task. Anything meant to outlive the task belongs in a durable artifact instead —
+an issue, a pull request, or a document under `docs/`.
+
 ## Pull requests
 
 - Keep changes scoped to one behavior or maintenance task.
@@ -61,6 +78,20 @@ Documentation that drifts from the code is treated as a bug: it is tracked in
 the issue tracker and fixed like any other defect. Reviewers check that the
 docs in a PR match the behavior it ships. CI runs `bun run typecheck` and
 `bun run test` on every pull request, so keep both green alongside the docs.
+
+### Landing preview CI
+
+The `Deploy Landing Preview` workflow (`.github/workflows/deploy-landing-preview.yml`)
+runs only when a pull request's diff touches `apps/landing/**` or that workflow
+file. It is not triggered by root lockfile or turbo config changes alone, so
+long-lived branches that rarely touch landing do not accumulate a permanent red
+check from preview deploy.
+
+Preview upload needs `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` for the
+`limehq` Cloudflare account. Repositories without those secrets still build
+landing in CI; upload and the preview URL comment are skipped instead of failing
+the job. Production deploy on `main` (`.github/workflows/deploy-landing.yml`) is
+unchanged and still requires credentials.
 
 ## Security reports
 

@@ -97,6 +97,14 @@ Single tests:
   R2 (`munkel-blobs`, ~66 s TTL + per-minute cron sweep); the relay frame carries
   only a small inline AVIF thumbnail plus an `r2Key` pointer. Relay payload cap is
   48 KiB of base64 ciphertext.
+- **Tests wait on events, never on deadlines** (#67). A test waiting for real I/O
+  awaits the event itself (`wss.once('connection')`, `socket.on('message')`) — never
+  a poll loop against a wall-clock budget. A test exercising a genuine debounce or
+  interval in production code drives the injected clock from
+  `apps/windows/src/test-support/fake-timers.ts`. No third variant, no
+  `setTimeout` sleeps, and no fake timers around a real socket — that clock is real.
+  Anything holding a resource (a session, a server) is released in `afterEach`, not
+  at the end of the test body, which a killed test never reaches.
 
 ## Deploy
 

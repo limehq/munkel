@@ -1,5 +1,9 @@
 # Launch platforms
 
+## Windows distribution
+
+Windows v1 ships as zip and portable directory artifacts. The fork beta is unsigned, and there is no auto-update flow for v1.
+
 Single source of truth for **where Munkel launches** and which launch badges
 we collect. Tracks status per platform so the landing-page badge track
 (`apps/landing` → `LAUNCH_PLATFORMS`) and the launch effort stay in sync.

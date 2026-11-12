@@ -1,17 +1,24 @@
 import { Server } from 'partyserver';
 import type { Connection, ConnectionContext, WSMessage } from 'partyserver';
-import { clientMessageSchema, MEMBER_ID_REGEX } from './protocol';
-import type { ErrorCode, ServerMessage } from './protocol';
+import { clientMessageSchema, MEMBER_ID_REGEX } from '@munkel/shared-wire/protocol';
+import type { ErrorCode, ServerMessage } from '@munkel/shared-wire/protocol';
 import { createLogger } from './lib/logger';
+import { consume, createRateLimitState, type RateLimitState } from './lib/rate-limiter';
 
 const MAX_CONNECTIONS_PER_GROUP = 32;
 const STALE_TIMEOUT_MS = 120_000;
+
+/** Short burst allowed per connection, e.g. for a reconnect image series. */
+const RATE_LIMIT_BURST = 30;
+/** Sustained message rate per connection. */
+const RATE_LIMIT_REFILL_PER_SECOND = 5;
 
 const log = createLogger('group');
 
 interface Attachment {
   memberId: string;
   lastSeen: number;
+  rateLimit: RateLimitState;
 }
 
 /**
@@ -54,7 +61,11 @@ export class GroupRoom extends Server {
       }
     }
 
-    connection.setState({ memberId, lastSeen: Date.now() } satisfies Attachment);
+    connection.setState({
+      memberId,
+      lastSeen: Date.now(),
+      rateLimit: createRateLimitState(Date.now(), RATE_LIMIT_BURST),
+    } satisfies Attachment);
 
     this.sendTo(connection, { type: 'welcome', members: this.membersExcept(memberId) });
     if (!alreadyPresent) {
@@ -91,6 +102,16 @@ export class GroupRoom extends Server {
       this.sendError(connection, 'invalid-message', 'Frame does not match protocol');
       return;
     }
+
+    const rateLimitResult = consume(attachment.rateLimit, Date.now(), {
+      burst: RATE_LIMIT_BURST,
+      refillPerSecond: RATE_LIMIT_REFILL_PER_SECOND,
+    });
+    if (!rateLimitResult.allowed) {
+      this.sendError(connection, 'rate-limited', 'Rate limit exceeded');
+      return;
+    }
+    connection.setState({ ...attachment, lastSeen: Date.now(), rateLimit: rateLimitResult.state });
 
     switch (parsed.data.type) {
       case 'ping':
