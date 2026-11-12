@@ -167,6 +167,183 @@ client runs in memory-only mode (no cookies, no `localStorage`, no `identify()`,
 no session recording, autocapture, or web vitals) and honours DNT/GPC. This is
 the landing site only — it stays isolated from the relay, R2, and all keys.
 
+## Windows app (`apps/windows`)
+
+The Windows client is an Electron app. It speaks the same wire protocol and uses
+the same crypto as the macOS app, but it links the shared TypeScript code in
+[`packages/shared-wire`](../packages/shared-wire) instead of the Swift
+`MunkelKit` library. The trust model is unchanged: keys are derived on-device,
+payloads are sealed in the main process, and the relay sees the same ciphertext
+and derived identifiers. Packaging is declared in
+[`apps/windows/package.json`](../apps/windows/package.json). The renderer
+↔ main contract is documented in
+[`apps/windows/docs/ipc-contract.md`](../apps/windows/docs/ipc-contract.md), and
+the UI spec is in [`apps/windows/docs/ui-spec.md`](../apps/windows/docs/ui-spec.md).
+
+### Processes
+
+- **Main process** — [`main.ts`](../apps/windows/src/main/main.ts) creates the
+  menu, notch, and palette windows, the tray icon
+  ([`tray.ts`](../apps/windows/src/main/tray.ts)), the palette hotkey
+  ([`palette-hotkey.ts`](../apps/windows/src/main/palette-hotkey.ts)), the update
+  service ([`update-service.ts`](../apps/windows/src/main/update-service.ts)),
+  and the control server. It holds the single `AppState`.
+- **Session layer** — [`session-store.ts`](../apps/windows/src/main/session-store.ts)
+  (`AppState`) keeps one [`GroupSession`](../apps/windows/src/main/group-session.ts)
+  per joined circle. A session seals and opens payloads and holds one
+  [`RelayClient`](../apps/windows/src/main/relay-client.ts), a reconnecting
+  WebSocket client.
+- **Preload** — [`preload.ts`](../apps/windows/src/main/preload.ts) exposes a
+  typed allowlist as `window.electronAPI`; renderers never receive `ipcRenderer`.
+- **Renderer** — a React app routed by URL hash in
+  [`App.tsx`](../apps/windows/src/renderer/App.tsx): `#/menu`, `#/notch`, and
+  `#/palette`. Shared state lives in
+  [`app-store.tsx`](../apps/windows/src/renderer/store/app-store.tsx).
+- **Control server** — [`control-handlers.ts`](../apps/windows/src/main/control-handlers.ts)
+  answers the `munkel` CLI over a named pipe. `main.ts` starts the server with a
+  random per-launch pipe name from `generatePipeName` and writes it to the
+  control-pipe file via `writeControlPipeName`
+  ([`control.ts`](../packages/shared-wire/src/control.ts)). The fixed-name form
+  `\\.\pipe\Munkel-<user>-Control` shown in the IPC contract comes from
+  `buildPipeName`, which `main.ts` does not call.
+
+### IPC boundary
+
+- Channel names are defined once in
+  [`ipc-channels.ts`](../apps/windows/src/shared/ipc-channels.ts). Every invoke
+  and push channel, its sender guard, and its payload are listed in
+  [`ipc-contract.md`](../apps/windows/docs/ipc-contract.md).
+- Privileged handlers check the sender window, for example
+  `set-last-palette-target` accepts only the palette window
+  ([`main.ts`](../apps/windows/src/main/main.ts)).
+- Raw `messageKey` values and the GitHub access token never cross IPC (see the
+  security notes in the IPC contract).
+
+### Notch lifecycle
+
+- An incoming message reaches the notch through `showNotchMessage` in
+  [`main.ts`](../apps/windows/src/main/main.ts), which updates and shows the notch
+  window and pushes `notch-message` to it. Private own echoes are the exception
+  (see [Own messages](#own-messages-dev-only-echo)).
+- Messages are flagged `silent` while the local user is not Online (Do Not
+  Disturb or Away). A silent message skips the full phase: the renderer goes
+  straight to `peek` and retracts after 30 s
+  ([`useNotchLifecycle.ts`](../apps/windows/src/renderer/lib/useNotchLifecycle.ts)).
+- Otherwise the display phase comes from local receive time in
+  [`notch-phase.ts`](../apps/windows/src/renderer/lib/notch-phase.ts): full for
+  5 s, peek until 35 s, then retracted.
+- History is kept in renderer memory by
+  [`useNotchLifecycle.ts`](../apps/windows/src/renderer/lib/useNotchLifecycle.ts).
+  Entries older than 60 s (`NOTCH_HISTORY_MS`, measured from `receivedAt`) are
+  pruned by [`prune-notch-history.ts`](../apps/windows/src/renderer/lib/prune-notch-history.ts).
+- Ordering is newest-first by `(min(sentAt, receivedAt), receivedAt)` in
+  [`notch-order.ts`](../apps/windows/src/renderer/lib/notch-order.ts). An
+  unparseable `sentAt` uses `receivedAt` as its sort key, so such a message sorts
+  by arrival time and, as the latest arrival, lands at the top.
+- Reply draft: while a reply is open, an incoming message keeps the draft and
+  does not collapse the field (`onNotchMessage` in `useNotchLifecycle.ts`
+  collapses only when `replyingTo === null`). Without an open reply,
+  [`NotchWidget.tsx`](../apps/windows/src/renderer/components/NotchWidget.tsx)
+  clears the reply text on an incoming message.
+
+### Palette and last target
+
+- The palette is shown through `showPalette`
+  ([`palette-window.ts`](../apps/windows/src/main/palette-window.ts)), which
+  pushes `palette-show` so the renderer re-resolves the pre-selected recipient.
+- Each navigation calls `rememberRecipient` in
+  [`PaletteWindow.tsx`](../apps/windows/src/renderer/components/PaletteWindow.tsx),
+  which invokes `set-last-palette-target`. The target is saved even without a
+  send. The "Everyone" row is stored as `member: null`.
+- The start index comes from
+  [`resolve-palette-start-index.ts`](../apps/windows/src/renderer/lib/resolve-palette-start-index.ts):
+  exact channel and member match first, then the first row of the same channel,
+  then index 0.
+- Storage: `lastPaletteChannel` and `lastPaletteMember` in `state.json`
+  ([`identity-store.ts`](../apps/windows/src/main/identity-store.ts)).
+
+### Own messages (dev-only echo)
+
+On macOS the sender always surfaces its own message locally (see
+[Sending a message](#sending-a-message)). On Windows this is gated, and the
+behavior differs:
+
+- The echo is dev-only. The build flag is `isDev = !app.isPackaged`
+  ([`main.ts`](../apps/windows/src/main/main.ts)). The effective value is
+  `isDev && persisted devEchoBroadcasts`, and the persisted default is `false`
+  ([`session-store.ts`](../apps/windows/src/main/session-store.ts),
+  [`identity-store.ts`](../apps/windows/src/main/identity-store.ts)). A release
+  build therefore never echoes, even if `state.json` says `true`. The toggle is
+  menu-only (`set-dev-echo-broadcasts`).
+- In a dev build with the echo on, every successful send from any surface (notch,
+  menu, palette, or CLI) is dispatched as a message with `isOwn: true` through
+  `onNotch` in [`group-session.ts`](../apps/windows/src/main/group-session.ts).
+  - Direct echo: `main.ts` pushes it to the hidden notch window without calling
+    `showNotch`, and the renderer appends it to history
+    (`appendOwnMessage` in `useNotchLifecycle.ts`). A direct send from the menu,
+    palette, or CLI therefore gets a notch history entry in a dev build.
+  - Broadcast echo: `main.ts` calls `showNotch`, which makes the window visible
+    (`showInactive` and `NOTCH_SHOW`). The renderer then discards the echo in
+    `onNotchMessage` without a phase change or a history entry. The notch opens
+    with no new content, in its current phase. The `NOTCH_UPDATE` listener also
+    sets the reply target to broadcast (`setReplyPrivate(data.isDirect)` in
+    [`NotchWidget.tsx`](../apps/windows/src/renderer/components/NotchWidget.tsx)).
+- Only the notch reply field appends its own sent message itself, and only when
+  the send result is not `echoed`
+  ([`NotchWidget.tsx`](../apps/windows/src/renderer/components/NotchWidget.tsx)).
+  In a release build this means replies typed in the notch appear in history,
+  both broadcast and direct. In a release build, menu, palette, and CLI sends
+  leave no notch entry, because nothing echoes them. In a dev build, broadcasts
+  from those surfaces still leave no entry, because the broadcast echo is
+  discarded.
+- macOS behavior is unchanged by this section.
+
+### Persistence
+
+- Main-process state is one JSON file, `state.json`, in `%APPDATA%\munkel`
+  (the userData path is pinned in [`main.ts`](../apps/windows/src/main/main.ts)).
+  [`identity-store.ts`](../apps/windows/src/main/identity-store.ts) reads and
+  writes it. It holds the member ID, display name, avatar, GitHub login name,
+  presence status, circles (code, relay URL, join time), settings, and the last
+  palette target.
+- Circle codes are stored in plaintext in `state.json` (`circles[].code`). The
+  Windows source does not use `safeStorage`, so the channel code, which is the
+  only credential, is not encrypted at rest. Node applies only the read-only bit
+  on Windows, so confidentiality relies on the user-profile ACL.
+- Message text and notch history are not written to disk.
+- Documented exception: clipboard images pasted in the palette or menu are written
+  as plaintext PNG temp files in the system temp directory
+  ([`clipboard-image-save.ts`](../apps/windows/src/main/clipboard-image-save.ts),
+  `writeFile` before the return). Files stay there if a send fails. They are
+  deleted after a successful send, and leftovers older than one hour are swept at
+  the next startup (see the `save-clipboard-image` row in
+  [`ipc-contract.md`](../apps/windows/docs/ipc-contract.md)).
+
+### Relay and crypto
+
+- Protocol, normalization, sealing, payload encoding, control, and transport
+  code live in [`packages/shared-wire`](../packages/shared-wire). The Windows
+  [`core/index.ts`](../apps/windows/src/core/index.ts) re-exports them and adds
+  avatar, image codec, and blob helpers
+  ([`blob-upload.ts`](../apps/windows/src/core/blob-upload.ts),
+  [`blob-download.ts`](../apps/windows/src/core/blob-download.ts)).
+- `GroupSession` seals with the message key and checks the sealed size before
+  sending (`assertPayloadFits`).
+- The default relay is `wss://relay.munkel.app`. It can be overridden with
+  `MUNKEL_RELAY_URL` and per circle through `relayUrl`
+  ([`session-store.ts`](../apps/windows/src/main/session-store.ts)).
+- Swift–TypeScript interop is tested in
+  [`swift-interop.test.ts`](../apps/windows/src/core/__tests__/swift-interop.test.ts).
+
+### Capture exclusion and presence
+
+- Menu, notch, and palette windows share one content-protection setting, applied
+  through [`content-protection.ts`](../apps/windows/src/main/content-protection.ts).
+  Windows has no `.readOnly` equivalent of the macOS DEBUG path, as the IPC
+  contract notes.
+- Away is set after 5 minutes without input, polled every 30 s
+  ([`presence-monitor.ts`](../apps/windows/src/main/presence-monitor.ts)).
+
 ## Identity, keys, and groups
 
 There are no accounts. Everything derives on-device from the human-readable
@@ -215,10 +392,10 @@ AVIF thumbnail plus an `r2Key` pointer per image (see
 [`GroupSession.sendImages`](../apps/macos/Sources/MunkelApp/GroupSession.swift)
 and [`blob.ts`](../apps/server/src/blob.ts)).
 
-The sender also surfaces its own message locally: `AppModel.send` shows it in
+On macOS the sender also surfaces its own message locally: `AppModel.send` shows it in
 the sender's own notch, with the lock for a direct message (`to` set), so you
 see what you sent. The relay still never echoes (point 4), this is a purely
-local render.
+local render. On Windows the echo is dev-only and works differently; see [Own messages](#own-messages-dev-only-echo).
 
 ### Receiving a message
 
