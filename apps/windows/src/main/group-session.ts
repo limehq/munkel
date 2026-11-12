@@ -164,9 +164,10 @@ export class GroupSession {
 	 * "too long" / sealing failures vs. an opaque relay-disconnect.
 	 */
 	async sendChat(text: string, to?: string): Promise<SendResult> {
-		const result = await this.sendPayload(encodeChat(text), to);
+		const payload = encodeChat(text);
+		const result = await this.sendPayload(payload, to);
 		if (result.ok && this.callbacks.shouldEchoBroadcasts?.()) {
-			this.callbacks.onNotch(this.buildOwnNotchMessage(text, undefined, to));
+			this.callbacks.onNotch(this.buildOwnNotchMessage(text, payload.sentAt, undefined, to));
 			return to === undefined ? result : { ...result, echoed: true };
 		}
 		return result;
@@ -220,7 +221,8 @@ export class GroupSession {
 				};
 			}
 
-			const result = await this.sendPayload(encodeImage(items, caption), to);
+			const payload = encodeImage(items, caption);
+			const result = await this.sendPayload(payload, to);
 			if (!result.ok) {
 				return skipped.length > 0 ? { ...result, skipped } : result;
 			}
@@ -228,7 +230,7 @@ export class GroupSession {
 			if (this.callbacks.shouldEchoBroadcasts?.()) {
 				const images = buildEchoImages(items);
 				const text = caption || `Sent ${images.length} image${images.length === 1 ? '' : 's'}`;
-				this.callbacks.onNotch(this.buildOwnNotchMessage(text, images, to));
+				this.callbacks.onNotch(this.buildOwnNotchMessage(text, payload.sentAt, images, to));
 				if (to !== undefined) {
 					return skipped.length > 0 ? { ok: true, skipped, echoed: true } : { ok: true, echoed: true };
 				}
@@ -262,7 +264,7 @@ export class GroupSession {
 	}
 
 	/** Builds a `NotchMessage` for our own successful send (broadcast or private), dev-echo only (Plan 13 item 6, #123). */
-	private buildOwnNotchMessage(text: string, images?: IncomingImage[], to?: string): NotchMessage {
+	private buildOwnNotchMessage(text: string, sentAt: string, images?: IncomingImage[], to?: string): NotchMessage {
 		return {
 			sender: this.identity.displayName || 'You',
 			senderMemberId: this.memberId,
@@ -273,6 +275,7 @@ export class GroupSession {
 			group: this.code,
 			groupColor: getCircleColor(this.callbacks.getColorIndex()),
 			receivedAt: new Date().toISOString(),
+			sentAt,
 			...(images ? { images } : {}),
 		};
 	}
@@ -431,6 +434,7 @@ export class GroupSession {
 							group: this.code,
 							groupColor: getCircleColor(colorIndex),
 							receivedAt: new Date().toISOString(),
+							sentAt: decoded.sentAt,
 						});
 					} else if (decoded.kind === 'profile') {
 						const index = this.members.findIndex((m) => m.memberId === frame.from);
@@ -506,6 +510,7 @@ export class GroupSession {
 							group: this.code,
 							groupColor: getCircleColor(colorIndex),
 							receivedAt: new Date().toISOString(),
+							sentAt: decoded.sentAt,
 							images,
 						});
 					}

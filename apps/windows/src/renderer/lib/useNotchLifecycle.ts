@@ -7,6 +7,7 @@ import {
 	type NotchPhase,
 } from './notch-phase';
 import { pruneNotchHistory } from './prune-notch-history';
+import { insertNotchEntry } from './notch-order';
 import { copyAvifBase64ToClipboardAsPng } from './copy-image-to-clipboard';
 import type { NotchMessage } from '../../shared/types';
 
@@ -179,8 +180,11 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 		};
 	}, []);
 
-	const appendHistory = useCallback((entry: NotchHistoryEntry) => {
-		setHistory((current) => pruneNotchHistory([entry, ...current], Date.now(), NOTCH_HISTORY_MS));
+	const appendHistory = useCallback((entry: NotchHistoryEntry): NotchHistoryEntry[] => {
+		const next = pruneNotchHistory(insertNotchEntry(historyRef.current, entry), Date.now(), NOTCH_HISTORY_MS);
+		historyRef.current = next;
+		setHistory(next);
+		return next;
 	}, []);
 
 	const appendOwnMessage = useCallback((message: NotchMessage) => {
@@ -193,20 +197,22 @@ export function useNotchLifecycle(options?: { onNotchHide?: () => void }): UseNo
 			return;
 		}
 		const entry = makeHistoryEntry(message);
+		const next = appendHistory(entry);
+		if (next.find((e) => !e.isOwn)?.id !== entry.id) return;
 		freshNewestIdRef.current = entry.id;
-		appendHistory(entry);
-		if (leaveHoverTimer.current) {
-			clearTimeout(leaveHoverTimer.current);
-			leaveHoverTimer.current = null;
+		if (replyingTo === null) {
+			if (leaveHoverTimer.current) {
+				clearTimeout(leaveHoverTimer.current);
+				leaveHoverTimer.current = null;
+			}
+			leaveSuppressedRef.current = false;
+			pointerInsideRef.current = false;
+			setUi('collapsed');
+			setHovering(false);
 		}
-		leaveSuppressedRef.current = false;
-		pointerInsideRef.current = false;
-		setUi('collapsed');
-		setHovering(false);
-		closeReply();
 		// A new message is unread until the user interacts with it again.
 		setInteracted(false);
-	}, [appendHistory, appendOwnMessage, makeHistoryEntry, closeReply]);
+	}, [appendHistory, appendOwnMessage, makeHistoryEntry, replyingTo]);
 
 	useEffect(() => {
 		phaseTimers.current.forEach(clearTimeout);

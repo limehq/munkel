@@ -64,7 +64,7 @@ renderer registers listeners through `window.electronAPI`.
 | `state-update` | `{ identity, circles }` | Broadcast current app state to menu, palette, and notch windows. |
 | `github-login-state` | `GitHubLoginState` | Push the GitHub login UI state to the menu window only. |
 | `update-state` | `UpdateState` | Push auto-update phase/progress/errors to menu and palette windows. |
-| `notch-message` | `NotchMessage` | New incoming message for the notch widget. `senderMemberId` is the relay `frame.from` UUID (required for private replies). For the sender's own echoed sends (dev-only), `senderMemberId` is the own member id and `recipientMemberId` is the private recipient (#123). `images?` is populated for image albums. |
+| `notch-message` | `NotchMessage` | New incoming message for the notch widget. `senderMemberId` is the relay `frame.from` UUID (required for private replies). For the sender's own echoed sends (dev-only), `senderMemberId` is the own member id and `recipientMemberId` is the private recipient (#123). `images?` is populated for image albums. `sentAt?` is the sender's payload timestamp (ISO-8601); the notch history is ordered newest-first by `(min(sentAt, receivedAt), receivedAt)` (a missing or unparseable `sentAt` falls back to `receivedAt`; the `min` stops a sender with a fast clock from staying on top), so a late-arriving older message is inserted below the current newest and does not restart its phase. An incoming message never closes an open reply or clears its draft. |
 | `notch-show` | *none* | Tell the notch window to animate in. |
 | `notch-hide` | *none* | Tell the notch window to animate out. |
 | `notch-update` | `NotchMessage` | Update the message shown by the notch widget. |
@@ -137,6 +137,7 @@ interface NotchMessage {
   group: string;
   groupColor: string;
   receivedAt: string;       // local receiver timestamp (ISO-8601), required for 60s history expiry
+  sentAt?: string;          // sender payload timestamp (ISO-8601); history sort key is min(sentAt, receivedAt); unparseable falls back to receivedAt
   images?: IncomingImage[];
 }
 ```

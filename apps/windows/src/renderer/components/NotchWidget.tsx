@@ -478,10 +478,10 @@ export default function NotchWidget() {
 	useEffect(() => {
 		const removeMessage = window.electronAPI.onNotchMessage((data) => {
 			onNotchMessage(data);
-			// A new message makes any in-flight reply text/context stale.
+			clearSentConfirmation();
+			if (replyingTo) return;
 			setReplyText('');
 			setError(null);
-			clearSentConfirmation();
 		});
 		const removeUpdate = window.electronAPI.onNotchUpdate((data) => {
 			setReplyPrivate(data.isDirect);
@@ -490,10 +490,10 @@ export default function NotchWidget() {
 			removeMessage();
 			removeUpdate();
 		};
-	}, [onNotchMessage, clearSentConfirmation]);
+	}, [onNotchMessage, clearSentConfirmation, replyingTo]);
 
 	useEffect(() => {
-		if (!newest) return;
+		if (!newest || replyingTo) return;
 		setReplyPrivate(newest.isDirect);
 	}, [newest?.id]);
 
