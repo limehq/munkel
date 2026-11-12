@@ -24,3 +24,10 @@ export function resolveNotchSender(
 	if (member) return memberLabel(member);
 	return entry.sender;
 }
+
+export function resolveNotchRecipient(entry: NotchHistoryEntry, circles: CircleState[]): string | undefined {
+	if (!entry.recipientMemberId) return undefined;
+	const circle = circles.find((c) => c.code === entry.group);
+	const member = circle?.members.find((m) => m.memberId === entry.recipientMemberId);
+	return memberLabel(member ?? { memberId: entry.recipientMemberId });
+}

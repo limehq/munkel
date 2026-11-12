@@ -39,11 +39,14 @@ export interface GroupSessionCallbacks {
 	 */
 	getColorIndex(): number;
 	/**
-	 * Dev-only "echo my own broadcasts" (Plan 13 item 6), mirroring macOS
-	 * `AppModel.devEchoBroadcasts`. When this returns `true`, a successful
-	 * *broadcast* (`to === undefined`) send is also dispatched locally via
-	 * `onNotch`, since the relay only delivers a broadcast to the *other*
-	 * members — without this a solo developer never sees their own send.
+	 * Dev-only "echo my own sends" (Plan 13 item 6, extended to private sends
+	 * for #123), mirroring macOS `AppModel.devEchoBroadcasts`. When this returns
+	 * `true`, a successful send (broadcast or private) is also dispatched locally
+	 * via `onNotch`, since the relay only delivers a message to the *other*
+	 * members — without this a solo developer never sees their own send. A
+	 * private echo's result carries `echoed: true`, since the renderer appends
+	 * it itself; broadcast echoes are discarded by the renderer, so the caller
+	 * still records its own broadcast.
 	 * Read at send time (not cached), so a toggle flip mid-session applies
 	 * to the very next send. Omitted entirely by callers that never echo
 	 * (e.g. tests that don't care about the feature).
@@ -162,8 +165,9 @@ export class GroupSession {
 	 */
 	async sendChat(text: string, to?: string): Promise<SendResult> {
 		const result = await this.sendPayload(encodeChat(text), to);
-		if (result.ok && to === undefined && this.callbacks.shouldEchoBroadcasts?.()) {
-			this.callbacks.onNotch(this.buildOwnNotchMessage(text));
+		if (result.ok && this.callbacks.shouldEchoBroadcasts?.()) {
+			this.callbacks.onNotch(this.buildOwnNotchMessage(text, undefined, to));
+			return to === undefined ? result : { ...result, echoed: true };
 		}
 		return result;
 	}
@@ -221,10 +225,13 @@ export class GroupSession {
 				return skipped.length > 0 ? { ...result, skipped } : result;
 			}
 
-			if (to === undefined && this.callbacks.shouldEchoBroadcasts?.()) {
+			if (this.callbacks.shouldEchoBroadcasts?.()) {
 				const images = buildEchoImages(items);
 				const text = caption || `Sent ${images.length} image${images.length === 1 ? '' : 's'}`;
-				this.callbacks.onNotch(this.buildOwnNotchMessage(text, images));
+				this.callbacks.onNotch(this.buildOwnNotchMessage(text, images, to));
+				if (to !== undefined) {
+					return skipped.length > 0 ? { ok: true, skipped, echoed: true } : { ok: true, echoed: true };
+				}
 			}
 
 			return skipped.length > 0 ? { ok: true, skipped } : { ok: true };
@@ -254,13 +261,15 @@ export class GroupSession {
 		}
 	}
 
-	/** Builds a `NotchMessage` for our own successful broadcast send, dev-echo only (Plan 13 item 6). */
-	private buildOwnNotchMessage(text: string, images?: IncomingImage[]): NotchMessage {
+	/** Builds a `NotchMessage` for our own successful send (broadcast or private), dev-echo only (Plan 13 item 6, #123). */
+	private buildOwnNotchMessage(text: string, images?: IncomingImage[], to?: string): NotchMessage {
 		return {
 			sender: this.identity.displayName || 'You',
 			senderMemberId: this.memberId,
 			text,
-			isDirect: false,
+			isDirect: to !== undefined,
+			isOwn: true,
+			...(to !== undefined ? { recipientMemberId: to } : {}),
 			group: this.code,
 			groupColor: getCircleColor(this.callbacks.getColorIndex()),
 			receivedAt: new Date().toISOString(),

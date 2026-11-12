@@ -12,6 +12,15 @@ export function resolveReplyRecipient(
 	if (!replyPrivate) {
 		return { ok: true, to: undefined };
 	}
+	if (message.isOwn) {
+		if (!message.recipientMemberId) {
+			return {
+				ok: false,
+				error: 'Cannot send private reply — recipient unknown.',
+			};
+		}
+		return { ok: true, to: message.recipientMemberId };
+	}
 	if (!message.senderMemberId) {
 		return {
 			ok: false,

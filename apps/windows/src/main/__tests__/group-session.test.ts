@@ -646,7 +646,7 @@ describe('GroupSession', () => {
 		session.disconnect();
 	});
 
-	test('dev-echo (Plan 13 item 6): does not echo a private (to: memberId) chat even when shouldEchoBroadcasts() is enabled', async () => {
+	test('dev-echo (#123): echoes a private (to: memberId) chat with recipientMemberId when shouldEchoBroadcasts() is enabled', async () => {
 		const wss = startServer();
 		const relayUrl = `ws://127.0.0.1:${getPort(wss)}`;
 		const code = 'echo-private-not-echoed';
@@ -669,8 +669,13 @@ describe('GroupSession', () => {
 		await handshake();
 
 		const sent = await session.sendChat('Just for peer-1', 'peer-1');
-		expect(sent).toEqual({ ok: true });
-		expect(notches).toHaveLength(0);
+		expect(sent).toEqual({ ok: true, echoed: true });
+		expect(notches).toHaveLength(1);
+		expect(notches[0]!.sender).toBe('Windows User');
+		expect(notches[0]!.senderMemberId).toBe(memberId);
+		expect(notches[0]!.text).toBe('Just for peer-1');
+		expect(notches[0]!.isDirect).toBe(true);
+		expect(notches[0]!.recipientMemberId).toBe('peer-1');
 
 		session.disconnect();
 	});

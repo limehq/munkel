@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test';
-import { resolveNotchSender } from '../resolve-notch-sender';
+import { resolveNotchRecipient, resolveNotchSender } from '../resolve-notch-sender';
 import type { NotchHistoryEntry } from '../useNotchLifecycle';
 
 function makeEntry(overrides: Partial<NotchHistoryEntry> = {}): NotchHistoryEntry {
@@ -53,5 +53,31 @@ describe('resolveNotchSender', () => {
 				displayName: 'Rodgi',
 			}),
 		).toBe('Rodgi');
+	});
+});
+
+describe('resolveNotchRecipient (#123)', () => {
+	const circles = [
+		{
+			code: 'blue-table-42',
+			groupId: 'g',
+			isConnected: true,
+			relayUrl: 'ws://127.0.0.1:1',
+			members: [{ memberId: 'peer-uuid-0000', displayName: 'Bob', joinedAt: '2026-01-01T00:00:00.000Z' }],
+		},
+	];
+
+	it('resolves the recipient of an own DM to the roster display name', () => {
+		const entry = makeEntry({ isOwn: true, recipientMemberId: 'peer-uuid-0000' });
+		expect(resolveNotchRecipient(entry, circles)).toBe('Bob');
+	});
+
+	it('falls back to the first 8 characters of the recipient id when the roster has no match', () => {
+		const entry = makeEntry({ isOwn: true, recipientMemberId: 'unknown-uuid-9999' });
+		expect(resolveNotchRecipient(entry, circles)).toBe('unknown-');
+	});
+
+	it('returns undefined for an entry without a recipient (broadcast)', () => {
+		expect(resolveNotchRecipient(makeEntry({ isOwn: true }), circles)).toBeUndefined();
 	});
 });

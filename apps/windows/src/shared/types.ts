@@ -70,6 +70,7 @@ export interface NotchMessage {
 	sender: string;
 	/** Relay member UUID (`frame.from`); required for private notch replies. */
 	senderMemberId?: string;
+	recipientMemberId?: string;
 	text: string;
 	isDirect: boolean;
 	group: string;
@@ -97,7 +98,7 @@ export interface IpcApi {
 	// Circle / session management.
 	joinCircle: (code: string, relayUrl?: string) => Promise<void>;
 	leaveCircle: (code: string) => Promise<void>;
-	sendChat: (code: string, text: string, to?: string) => Promise<{ ok: boolean; error?: string }>;
+	sendChat: (code: string, text: string, to?: string) => Promise<SendResult>;
 	sendImages: (code: string, paths: string[], caption: string, to?: string) => Promise<SendResult>;
 	updateProfile: (displayName: string, avatar?: string) => Promise<void>;
 	setPresenceStatus: (status: PresenceStatus) => Promise<void>;

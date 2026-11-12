@@ -2434,3 +2434,309 @@ describe('NotchWidget renderer memory (#90)', () => {
 		});
 	});
 });
+
+describe('NotchWidget own private messages (#123)', () => {
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let originalResizeObserver: unknown;
+	let sentCalls: Array<[string, string, string | undefined]>;
+
+	const ownIdentity = {
+		memberId: 'me-uuid',
+		displayName: 'Rodgi',
+		presenceStatus: 'online' as const,
+		effectiveStatus: 'online' as const,
+	};
+	const circles = [
+		{
+			code: 'test-circle',
+			groupId: 'group-id',
+			isConnected: true,
+			relayUrl: 'ws://127.0.0.1:1',
+			members: [
+				{ memberId: 'me-uuid', displayName: 'Rodgi', joinedAt: '2026-01-01T00:00:00.000Z' },
+				{ memberId: 'peer-uuid', displayName: 'Bob', joinedAt: '2026-01-01T00:00:00.000Z' },
+			],
+		},
+	];
+
+	function makeMessage(overrides: Partial<NotchMessage> = {}): NotchMessage {
+		return {
+			sender: 'Bob',
+			senderMemberId: 'peer-uuid',
+			text: 'hello',
+			isDirect: false,
+			group: 'test-circle',
+			groupColor: '#3b82f6',
+			receivedAt: new Date().toISOString(),
+			...overrides,
+		};
+	}
+
+	beforeEach(() => {
+		electronApi = createMockElectronApi();
+		electronApi.getState = () => Promise.resolve({ identity: ownIdentity, circles } as never);
+		sentCalls = [];
+		electronApi.sendChat = (code: string, text: string, to?: string) => {
+			sentCalls.push([code, text, to]);
+			return Promise.resolve({ ok: true });
+		};
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = {
+			electronAPI: electronApi,
+		};
+		(globalThis as unknown as { navigator: unknown }).navigator = {
+			clipboard: { writeText: (_text: string) => Promise.resolve() },
+		};
+		originalResizeObserver = (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+		delete (globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver;
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+		delete (globalThis as unknown as { navigator?: unknown }).navigator;
+		(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = originalResizeObserver;
+	});
+
+	async function renderWidget() {
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<NotchWidget />
+				</AppProvider>,
+			);
+			await Promise.resolve();
+		});
+		return root!;
+	}
+
+	async function reopenHistory(root: ReturnType<typeof create>) {
+		await act(async () => {
+			root.root.findByProps({ 'data-testid': 'notch-widget' }).props.onMouseEnter();
+		});
+		await act(async () => {
+			root.root.findByProps({ className: 'notch-hover-target' }).props.onMouseEnter();
+		});
+	}
+
+	function entryByText(root: ReturnType<typeof create>, text: string) {
+		const candidates = root.root.findAll(
+			(node) =>
+				typeof node.props['data-testid'] === 'string' &&
+				(node.props['data-testid'] as string).startsWith('history-entry-'),
+		);
+		const match = candidates.find((entry) =>
+			entry.findAllByType('p').some((p) => p.props.children === text),
+		);
+		if (!match) throw new Error(`no history entry found for text: ${text}`);
+		return match;
+	}
+
+	async function openReplyOn(entry: ReturnType<typeof entryByText>) {
+		await act(async () => {
+			entry.findByProps({ 'aria-label': 'Reply' }).props.onClick({ stopPropagation: () => {} });
+		});
+	}
+
+	it('shows an own DM in history as "Me → <recipient>" with the lock symbol', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'incoming' }));
+		});
+		await act(async () => {
+			electronApi.simulateNotchMessage(
+				makeMessage({
+					text: 'my private note',
+					sender: 'Rodgi',
+					senderMemberId: 'me-uuid',
+					recipientMemberId: 'peer-uuid',
+					isDirect: true,
+					isOwn: true,
+				}),
+			);
+		});
+
+		await reopenHistory(root);
+
+		const row = entryByText(root, 'my private note');
+		expect(row.findByProps({ className: 'sender' }).props.children).toBe('Me → Bob');
+		expect(row.findAll((node) => node.props.children === '🔒').length).toBeGreaterThan(0);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('uses the recipient name in the reply placeholder of an own DM', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'incoming' }));
+		});
+		await act(async () => {
+			electronApi.simulateNotchMessage(
+				makeMessage({
+					text: 'my private note',
+					sender: 'Rodgi',
+					senderMemberId: 'me-uuid',
+					recipientMemberId: 'peer-uuid',
+					isDirect: true,
+					isOwn: true,
+				}),
+			);
+		});
+		await reopenHistory(root);
+		await openReplyOn(entryByText(root, 'my private note'));
+
+		expect(root.root.findByProps({ className: 'frosted-field' }).props.placeholder).toBe('Private to Bob…');
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('a reply to an own DM goes to the recipient, never to ourselves, and confirms "Sent to Bob"', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'incoming' }));
+		});
+		await act(async () => {
+			electronApi.simulateNotchMessage(
+				makeMessage({
+					text: 'my private note',
+					sender: 'Rodgi',
+					senderMemberId: 'me-uuid',
+					recipientMemberId: 'peer-uuid',
+					isDirect: true,
+					isOwn: true,
+				}),
+			);
+		});
+		await reopenHistory(root);
+		await openReplyOn(entryByText(root, 'my private note'));
+
+		await act(async () => {
+			root.root.findByProps({ className: 'frosted-field' }).props.onChange({ target: { value: 'hi bob' } });
+		});
+		await act(async () => {
+			root.root.findByProps({ title: 'Send' }).props.onClick();
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+
+		expect(sentCalls).toEqual([['test-circle', 'hi bob', 'peer-uuid']]);
+		const chip = root.root.findAll(
+			(node) =>
+				typeof node.props['data-testid'] === 'string' &&
+				(node.props['data-testid'] as string).startsWith('sent-confirmation-'),
+		)[0];
+		expect(chip!.props.children).toEqual([expect.anything(), 'Sent to Bob']);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('locks the private toggle on an own broadcast entry, so it cannot be turned into a private reply to ourselves', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'incoming' }));
+		});
+		await act(async () => {
+			root.root.findByProps({ 'aria-label': 'Reply' }).props.onClick({ stopPropagation: () => {} });
+		});
+		await act(async () => {
+			root.root.findByProps({ className: 'frosted-field' }).props.onChange({ target: { value: 'hi all' } });
+		});
+		await act(async () => {
+			root.root.findByProps({ title: 'Send' }).props.onClick();
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		await reopenHistory(root);
+		await openReplyOn(entryByText(root, 'hi all'));
+
+		expect(root.root.findByProps({ className: 'channel-toggle' }).props.disabled).toBe(true);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+
+	it('does not show a private notch reply twice when the main process already echoed it', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'incoming', isDirect: true }));
+		});
+		electronApi.sendChat = (code: string, text: string, to?: string) => {
+			sentCalls.push([code, text, to]);
+			electronApi.simulateNotchMessage(
+				makeMessage({ text, sender: 'Rodgi', senderMemberId: 'me-uuid', isDirect: true, recipientMemberId: to, isOwn: true }),
+			);
+			return Promise.resolve({ ok: true, echoed: true });
+		};
+		await act(async () => {
+			root.root.findByProps({ 'aria-label': 'Reply' }).props.onClick({ stopPropagation: () => {} });
+		});
+		await act(async () => {
+			root.root.findByProps({ className: 'frosted-field' }).props.onChange({ target: { value: 'hi bob' } });
+		});
+		await act(async () => {
+			root.root.findByProps({ title: 'Send' }).props.onClick();
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		await reopenHistory(root);
+
+		const copies = root.root.findAll(
+			(node) =>
+				typeof node.props['data-testid'] === 'string' &&
+				(node.props['data-testid'] as string).startsWith('history-entry-') &&
+				node.findAllByType('p').some((p) => p.props.children === 'hi bob'),
+		);
+		expect(copies.length).toBe(1);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+	it('keeps a broadcast reply in history exactly once in dev: the broadcast echo is discarded, the renderer appends', async () => {
+		const root = await renderWidget();
+		await act(async () => {
+			electronApi.simulateNotchMessage(makeMessage({ text: 'incoming' }));
+		});
+		electronApi.sendChat = (code: string, text: string, to?: string) => {
+			sentCalls.push([code, text, to]);
+			electronApi.simulateNotchMessage(
+				makeMessage({ text, sender: 'Rodgi', senderMemberId: 'me-uuid', isDirect: false, isOwn: true }),
+			);
+			return Promise.resolve({ ok: true });
+		};
+		await act(async () => {
+			root.root.findByProps({ 'aria-label': 'Reply' }).props.onClick({ stopPropagation: () => {} });
+		});
+		await act(async () => {
+			root.root.findByProps({ className: 'frosted-field' }).props.onChange({ target: { value: 'hi all' } });
+		});
+		await act(async () => {
+			root.root.findByProps({ title: 'Send' }).props.onClick();
+			await Promise.resolve();
+			await Promise.resolve();
+			await Promise.resolve();
+		});
+		await reopenHistory(root);
+
+		const copies = root.root.findAll(
+			(node) =>
+				typeof node.props['data-testid'] === 'string' &&
+				(node.props['data-testid'] as string).startsWith('history-entry-') &&
+				node.findAllByType('p').some((p) => p.props.children === 'hi all'),
+		);
+		expect(copies.length).toBe(1);
+
+		await act(async () => {
+			root.unmount();
+		});
+	});
+});

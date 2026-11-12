@@ -52,7 +52,7 @@ the main process by `ipcMain.handle(...)`.
 | `get-allow-in-screenshots` | `() => Promise<boolean>` | `main.ts` | Plan 13 item 5, mirrors macOS `CaptureScreenshotPreference`. **Sender must be the menu window AND this must be a dev build** — otherwise `false`. Returns the persisted opt-in (`IdentityStore#allowInScreenshots`, default `false`). |
 | `set-allow-in-screenshots` | `(enabled: boolean) => Promise<boolean>` | `main.ts` (logic in `content-protection.ts`) | Plan 13 item 5. **Sender must be the menu window AND this must be a dev build** — otherwise rejected with `false` (a warning log on the sender-guard rejection) and nothing is applied or persisted. Persists the choice and calls `applyContentProtection` across the menu, notch, and palette windows (`setContentProtection(!enabled)`). Windows has no `.readOnly` sharing-type equivalent — enabling this makes the surfaces visible in **live recordings too**, not just screenshots (the same DEBUG trade-off macOS documents). Always returns `true` on success. |
 | `get-dev-echo-broadcasts` | `() => Promise<boolean>` | `main.ts` | Plan 13 item 6, mirrors macOS `AppModel.devEchoBroadcasts`. **Sender must be the menu window AND this must be a dev build** — otherwise `false`. Returns `AppState#getDevEchoBroadcasts()` — the persisted preference (`IdentityStore#devEchoBroadcasts`, default `true`) folded together with the dev-build gate, so a packaged build launched against a dev-populated userData folder can never report `true` here even if the file says so. |
-| `set-dev-echo-broadcasts` | `(enabled: boolean) => Promise<boolean>` | `main.ts` (logic in `session-store.ts`) | Plan 13 item 6. **Sender must be the menu window AND this must be a dev build** — otherwise rejected with `false` and a warning log; nothing changes. Calls `AppState#setDevEchoBroadcasts`, which persists the raw value and updates the in-memory effective flag (still dev-gated). When enabled, a successful **broadcast** (`to` omitted) `send-chat`/`send-images` also dispatches the sender's own message through the same `onNotch` path used for real incoming messages — the relay only delivers a broadcast to *other* members, so without this a solo developer never sees their own send. Always returns `true` on success. |
+| `set-dev-echo-broadcasts` | `(enabled: boolean) => Promise<boolean>` | `main.ts` (logic in `session-store.ts`) | Plan 13 item 6. **Sender must be the menu window AND this must be a dev build** — otherwise rejected with `false` and a warning log; nothing changes. Calls `AppState#setDevEchoBroadcasts`, which persists the raw value and updates the in-memory effective flag (still dev-gated). When enabled, a successful send (broadcast **or** private, #123) `send-chat`/`send-images` also dispatches the sender's own message through the same `onNotch` path used for real incoming messages — the relay only delivers a message to *other* members, so without this a solo developer never sees their own send. Every echo carries `isOwn: true`; a private echo also carries `recipientMemberId` and `isDirect: true`. The main process shows the notch window only for broadcast echoes (unchanged); a private echo is pushed to the hidden notch window without `showNotch`, and the renderer appends it as an `isOwn` history entry. Own broadcast echoes are discarded by the renderer, as before. Echoed sends return `echoed: true` in the `SendResult`, so the renderer does not append its own reply a second time. |
 
 ## Main → Renderer (push)
 
@@ -64,7 +64,7 @@ renderer registers listeners through `window.electronAPI`.
 | `state-update` | `{ identity, circles }` | Broadcast current app state to menu, palette, and notch windows. |
 | `github-login-state` | `GitHubLoginState` | Push the GitHub login UI state to the menu window only. |
 | `update-state` | `UpdateState` | Push auto-update phase/progress/errors to menu and palette windows. |
-| `notch-message` | `NotchMessage` | New incoming message for the notch widget. `senderMemberId` is the relay `frame.from` UUID (required for private replies). `images?` is populated for image albums. |
+| `notch-message` | `NotchMessage` | New incoming message for the notch widget. `senderMemberId` is the relay `frame.from` UUID (required for private replies). For the sender's own echoed sends (dev-only), `senderMemberId` is the own member id and `recipientMemberId` is the private recipient (#123). `images?` is populated for image albums. |
 | `notch-show` | *none* | Tell the notch window to animate in. |
 | `notch-hide` | *none* | Tell the notch window to animate out. |
 | `notch-update` | `NotchMessage` | Update the message shown by the notch widget. |
@@ -130,6 +130,8 @@ interface IncomingImage {
 interface NotchMessage {
   sender: string;
   senderMemberId?: string;  // relay member UUID (frame.from); set on real messages
+  recipientMemberId?: string;  // private recipient UUID; set on own private echoes (#123)
+  isOwn?: boolean;  // true for the sender's own echoed sends (dev-only, #123)
   text: string;
   isDirect: boolean;
   group: string;
