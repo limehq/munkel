@@ -306,10 +306,19 @@ behavior differs:
   writes it. It holds the member ID, display name, avatar, GitHub login name,
   presence status, circles (code, relay URL, join time), settings, and the last
   palette target.
-- Circle codes are stored in plaintext in `state.json` (`circles[].code`). The
-  Windows source does not use `safeStorage`, so the channel code, which is the
-  only credential, is not encrypted at rest. Node applies only the read-only bit
-  on Windows, so confidentiality relies on the user-profile ACL.
+- Circle codes are encrypted at rest with Electron `safeStorage` (DPAPI, current
+  Windows user). `state.json` (version 3) holds `circles[].codeEnc` (Base64) instead
+  of the code; the in-memory state and the IPC layer still carry plaintext codes.
+  The `IdentityStore` takes a `CircleCodeCodec`
+  ([`identity-store.ts`](../apps/windows/src/main/identity-store.ts)), which
+  [`safe-storage-codec.ts`](../apps/windows/src/main/safe-storage-codec.ts) backs
+  with `safeStorage` and `main.ts` wires after `app.whenReady()`. Older plaintext
+  files are re-written encrypted on first load. A circle that cannot be decrypted
+  (other Windows profile, damaged entry) is skipped with a count-only warning and
+  kept untouched on disk; the other circles and the rest of the state survive. If
+  `safeStorage` is unavailable, existing encrypted entries are preserved and new
+  codes fall back to plaintext with a warning (without code values), so that
+  circles are not lost on restart.
 - Message text and notch history are not written to disk.
 - Documented exception: clipboard images pasted in the palette or menu are written
   as plaintext PNG temp files in the system temp directory
