@@ -10,6 +10,8 @@ enum Identity {
     private static let avatarDataKey = "avatarData"
     private static let avatarURLKey = "avatarURL"
     private static let githubLoginKey = "githubLogin"
+    private static let authProviderKey = "authProvider"
+    private static let providerUserIDKey = "providerUserID"
     private static let presenceStatusKey = "presenceStatus"
 
     static var memberId: String {
@@ -42,11 +44,34 @@ enum Identity {
     }
 
     /// GitHub login while signed in; nil after logout. Purely informational —
-    /// no token is ever kept.
+    /// no token is ever kept. Kept for back-compat; `providerUserID` is the
+    /// provider-agnostic equivalent.
     static var githubLogin: String? {
         get { UserDefaults.standard.string(forKey: githubLoginKey) }
         set { UserDefaults.standard.set(newValue, forKey: githubLoginKey) }
     }
+
+    /// Which provider the user signed in with; nil after sign-out. This is the
+    /// "am I signed in?" signal. Migrates installs that predate the field: a
+    /// stored `githubLogin` means they signed in with GitHub.
+    static var authProvider: AuthProviderKind? {
+        get {
+            if let raw = UserDefaults.standard.string(forKey: authProviderKey) {
+                return AuthProviderKind(rawValue: raw)
+            }
+            return githubLogin != nil ? .github : nil
+        }
+        set { UserDefaults.standard.set(newValue?.rawValue, forKey: authProviderKey) }
+    }
+
+    /// Stable per-provider id (GitHub login or Apple user id); nil after
+    /// sign-out. Falls back to the legacy `githubLogin` for older installs.
+    static var providerUserID: String? {
+        get { UserDefaults.standard.string(forKey: providerUserIDKey) ?? githubLogin }
+        set { UserDefaults.standard.set(newValue, forKey: providerUserIDKey) }
+    }
+
+    static var isSignedIn: Bool { authProvider != nil }
 
     static var presenceStatus: PresenceStatus {
         get {
