@@ -1,5 +1,6 @@
-import { clipboard, dialog, ipcMain, type WebContents } from 'electron';
-import { readdir, stat, unlink, writeFile } from 'node:fs/promises';
+import { app, clipboard, dialog, ipcMain, type WebContents } from 'electron';
+import { rmdirSync, unlinkSync } from 'node:fs';
+import { lstat, mkdtemp, readdir, rmdir, stat, unlink, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import type { AppState } from './session-store';
@@ -8,6 +9,8 @@ import type { PresenceMonitor } from './presence-monitor';
 import {
 	addOwnedClipboardTempPath,
 	cleanupClipboardTempPaths,
+	createClipboardTempDir,
+	removeOwnedClipboardTempFilesSync,
 	saveClipboardImageToTemp,
 	sweepClipboardTempFiles,
 } from './clipboard-image-save';
@@ -39,12 +42,22 @@ export function registerSessionHandlers(
 	// never deleted unless it is literally one we handed out earlier (see
 	// cleanupClipboardTempPaths' doc for the full rationale).
 	const ownedClipboardTempPaths = new Set<string>();
+	const clipboardTempDir = createClipboardTempDir({ tmpdir: () => os.tmpdir(), join: path.join, mkdtemp });
+
+	app.on('will-quit', () => {
+		removeOwnedClipboardTempFilesSync(ownedClipboardTempPaths, clipboardTempDir.current(), {
+			unlinkSync,
+			rmdirSync,
+			resolve: path.resolve,
+			sep: path.sep,
+		});
+	});
 
 	// Safety-net sweep of clipboard temp PNGs left over from previous
 	// sessions (crash, quit-before-send, attachment removed by hand). Only
 	// deletes files older than SWEEP_MIN_AGE_MS. See clipboard-image-save.ts
-	// for the full temp-file lifecycle.
-	void sweepClipboardTempFiles({ tmpdir: () => os.tmpdir(), join: path.join, readdir, stat, unlink });
+	// for the full temp-file lifecycle (private directory, quit cleanup).
+	void sweepClipboardTempFiles({ tmpdir: () => os.tmpdir(), join: path.join, readdir, stat, lstat, unlink, rmdir });
 
 
 	ipcMain.handle(IPC_CHANNELS.JOIN_CIRCLE, async (_event, code: string, relayUrl?: string) => {
@@ -76,7 +89,7 @@ export function registerSessionHandlers(
 		if (result.ok) {
 			await cleanupClipboardTempPaths(paths, ownedClipboardTempPaths, {
 				unlink,
-				tmpdir: () => os.tmpdir(),
+				rootDir: clipboardTempDir.current,
 				resolve: path.resolve,
 				sep: path.sep,
 			});
@@ -127,9 +140,10 @@ export function registerSessionHandlers(
 			return null;
 		}
 		const tempPath = await saveClipboardImageToTemp(clipboard.readImage(), {
-			tmpdir: () => os.tmpdir(),
+			ensureDir: clipboardTempDir.ensure,
+			resetDir: clipboardTempDir.reset,
 			join: path.join,
-			writeFile,
+			writeFile: (file, data) => writeFile(file, data, { mode: 0o600 }),
 		});
 		// Register the path as owned by this instance — the ONLY way a path
 		// becomes eligible for the post-send cleanup deletion above. Bounded

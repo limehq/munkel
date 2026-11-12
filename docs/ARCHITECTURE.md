@@ -312,11 +312,17 @@ behavior differs:
   on Windows, so confidentiality relies on the user-profile ACL.
 - Message text and notch history are not written to disk.
 - Documented exception: clipboard images pasted in the palette or menu are written
-  as plaintext PNG temp files in the system temp directory
-  ([`clipboard-image-save.ts`](../apps/windows/src/main/clipboard-image-save.ts),
-  `writeFile` before the return). Files stay there if a send fails. They are
-  deleted after a successful send, and leftovers older than one hour are swept at
-  the next startup (see the `save-clipboard-image` row in
+  as plaintext PNG temp files into a private per-instance directory
+  (`munkel-clipboard-dir-XXXXXX` under the system temp directory, `mkdtemp`;
+  [`clipboard-image-save.ts`](../apps/windows/src/main/clipboard-image-save.ts),
+  `createClipboardTempDir` and `saveClipboardImageToTemp`). The 0o700/0o600 modes
+  have no effect on Windows, so the directory is not an access boundary there;
+  it only keeps the files out of the shared temp root. Files stay if a send
+  fails (retry). They are deleted after a successful send, at app quit
+  (`will-quit` hook in [`session-handlers.ts`](../apps/windows/src/main/session-handlers.ts),
+  `removeOwnedClipboardTempFilesSync`), and leftovers older than one hour from
+  crashed sessions are swept at the next startup (`sweepClipboardTempFiles`; see
+  the `save-clipboard-image` row in
   [`ipc-contract.md`](../apps/windows/docs/ipc-contract.md)).
 
 ### Relay and crypto
