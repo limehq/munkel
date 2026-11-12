@@ -25,6 +25,7 @@ final class NotchPanelWindow: NSPanel {
         hasShadow = false
         isOpaque = false
         backgroundColor = .clear
+        appearance = NSAppearance(named: .darkAqua)
         level = .screenSaver
         collectionBehavior = [.canJoinAllSpaces, .stationary]
         applyCaptureExclusion()

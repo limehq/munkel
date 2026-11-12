@@ -3,6 +3,7 @@ import SwiftUI
 
 struct IncomingMessage: Equatable {
     let sender: String
+    var recipient: String? = nil
     let avatarData: Data?
     let text: String
     let isDirect: Bool
@@ -17,6 +18,7 @@ struct IncomingMessage: Equatable {
     var images: [IncomingImage] = []
 
     var isImage: Bool { !images.isEmpty }
+    var counterpart: String { recipient ?? sender }
 }
 
 /// One image in a received album: its inline thumbnail plus the pixel size and
@@ -40,6 +42,7 @@ struct IncomingImage: Equatable, Identifiable, Sendable {
 struct HistoryEntry: Identifiable, Equatable {
     let id = UUID()
     let sender: String
+    var recipient: String? = nil
     /// Collapsed-row label — the body text, or a `📷 …` caption/count for an
     /// album. Also what the per-row copy affordance copies.
     let text: String

@@ -12,7 +12,8 @@
     "preview": "vite build && vite preview",
     "typecheck": "tsc --noEmit",
     "deploy": "wrangler deploy",
-    "cf-typegen": "wrangler types"
+    "cf-typegen": "wrangler types",
+    "og": "./scripts/og.sh"
   },
   "dependencies": {
     "@cloudflare/vite-plugin": "^1.42.3",
