@@ -11,6 +11,34 @@
 
 * **windows:** resolve WIN-NOTCH-001/002/003 notch UX cluster on Windows
 
+## [0.18.3](https://github.com/limehq/munkel/compare/v0.18.2...v0.18.3) (2026-11-09)
+
+
+### Bug Fixes
+
+* **macos:** show own private messages in notch ([#248](https://github.com/limehq/munkel/issues/248)) ([2055503](https://github.com/limehq/munkel/commit/2055503cf58326abd143e1ee4c69689b923ca5b2))
+
+## [0.18.2](https://github.com/limehq/munkel/compare/v0.18.1...v0.18.2) (2026-09-13)
+
+
+### Bug Fixes
+
+* **macos:** keep the notch dark on external displays ([#241](https://github.com/limehq/munkel/issues/241)) ([e904345](https://github.com/limehq/munkel/commit/e90434515307da5d2c6540959d0c7d577ec418b1))
+
+## [0.18.1](https://github.com/limehq/munkel/compare/v0.18.0...v0.18.1) (2026-08-18)
+
+
+### Bug Fixes
+
+* **macos:** newest message always takes the top ([#233](https://github.com/limehq/munkel/issues/233)) ([4477ce2](https://github.com/limehq/munkel/commit/4477ce2b12d77f60ae40adbdf5aaca633e1d7cae))
+
+## [0.18.0](https://github.com/limehq/munkel/compare/v0.17.0...v0.18.0) (2026-08-17)
+
+
+### Features
+
+* **macos:** remember the last palette target ([#231](https://github.com/limehq/munkel/issues/231)) ([f39cf00](https://github.com/limehq/munkel/commit/f39cf00dd379753114e9981ebd80958b72898f16))
+
 ## [0.17.0](https://github.com/limehq/munkel/compare/v0.16.0...v0.17.0) (2026-06-26)
 
 

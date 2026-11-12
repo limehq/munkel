@@ -13,7 +13,7 @@ const SITE_URL = 'https://munkel.app'
 const TITLE = 'Munkel · Notch messages, ready for the Dynamic Island MacBook'
 const DESCRIPTION =
   "Munkel slides tiny encrypted messages out of the MacBook notch today. Rumor has it the MacBook Ultra swaps it for a Dynamic Island. We'll be there on day one."
-const OG_IMAGE = `${SITE_URL}/og.png`
+const OG_IMAGE = `${SITE_URL}/og.png?v=2`
 
 const APP_LD = JSON.stringify({
   '@context': 'https://schema.org',

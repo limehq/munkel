@@ -88,9 +88,31 @@ final class CommandPaletteState: ObservableObject {
     }
 
     func reset() {
-        selectedIndex = 0
+        selectedIndex = rememberedIndex
         message = ""
         attachedImages = []
+    }
+
+    // MARK: - Remembered target
+
+    private static let lastChannelKey = "lastPaletteChannel"
+    private static let lastMemberKey = "lastPaletteMember"
+
+    func select(_ index: Int) {
+        guard let recipient = recipients[safe: index] else { return }
+        selectedIndex = index
+        UserDefaults.standard.set(recipient.channel, forKey: Self.lastChannelKey)
+        UserDefaults.standard.set(recipient.memberId, forKey: Self.lastMemberKey)
+    }
+
+    private var rememberedIndex: Int {
+        let defaults = UserDefaults.standard
+        guard let channel = defaults.string(forKey: Self.lastChannelKey) else { return 0 }
+        let member = defaults.string(forKey: Self.lastMemberKey)
+        let all = recipients
+        let sameTarget = all.firstIndex { $0.channel == channel && $0.memberId == member }
+        let sameChannel = all.firstIndex { $0.channel == channel }
+        return sameTarget ?? sameChannel ?? 0
     }
 
     // MARK: - Recipient navigation
@@ -126,17 +148,17 @@ final class CommandPaletteState: ObservableObject {
         switch dir {
         case .up:
             if single {
-                selectedIndex = max(here.lowerBound, selectedIndex - 1)
+                select(max(here.lowerBound, selectedIndex - 1))
             } else {
                 let target = ranges[max(0, row - 1)]
-                selectedIndex = target.lowerBound + min(col, target.count - 1)
+                select(target.lowerBound + min(col, target.count - 1))
             }
         case .down:
             if single {
-                selectedIndex = min(here.upperBound - 1, selectedIndex + 1)
+                select(min(here.upperBound - 1, selectedIndex + 1))
             } else {
                 let target = ranges[min(ranges.count - 1, row + 1)]
-                selectedIndex = target.lowerBound + min(col, target.count - 1)
+                select(target.lowerBound + min(col, target.count - 1))
             }
         }
     }
@@ -148,9 +170,9 @@ final class CommandPaletteState: ObservableObject {
         guard !r.isEmpty else { return }
 
         if backward {
-            selectedIndex = selectedIndex == 0 ? r.count - 1 : selectedIndex - 1
+            select(selectedIndex == 0 ? r.count - 1 : selectedIndex - 1)
         } else {
-            selectedIndex = selectedIndex == r.count - 1 ? 0 : selectedIndex + 1
+            select(selectedIndex == r.count - 1 ? 0 : selectedIndex + 1)
         }
     }
 }
