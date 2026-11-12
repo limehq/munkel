@@ -359,3 +359,73 @@ describe('IdentityStore devEchoBroadcasts (Plan 13 item 6)', () => {
 		expect(state.version).toBe(2);
 	});
 });
+
+describe('IdentityStore last palette target (issue #125)', () => {
+	let dir: string;
+
+	beforeEach(() => {
+		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'munkel-identity-store-'));
+	});
+
+	afterEach(() => {
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	it('defaults lastPaletteChannel and lastPaletteMember to null for a fresh store', () => {
+		const state = new IdentityStore(dir).load();
+		expect(state.lastPaletteChannel).toBeNull();
+		expect(state.lastPaletteMember).toBeNull();
+	});
+
+	it('persists the last palette target across a reload', () => {
+		new IdentityStore(dir).patch({ lastPaletteChannel: 'blue-table-42', lastPaletteMember: 'bob-uuid' });
+
+		const reloaded = new IdentityStore(dir).load();
+		expect(reloaded.lastPaletteChannel).toBe('blue-table-42');
+		expect(reloaded.lastPaletteMember).toBe('bob-uuid');
+	});
+
+	it('persists a null member (Everyone row) after a member was remembered', () => {
+		const store = new IdentityStore(dir);
+		store.patch({ lastPaletteChannel: 'blue-table-42', lastPaletteMember: 'bob-uuid' });
+		store.patch({ lastPaletteChannel: 'blue-table-42', lastPaletteMember: null });
+
+		expect(store.load().lastPaletteMember).toBeNull();
+	});
+
+	it('setLastPaletteTarget persists a valid channel and member', () => {
+		const store = new IdentityStore(dir);
+		store.setLastPaletteTarget({ channel: 'blue-table-42', member: 'bob-uuid' });
+
+		expect(new IdentityStore(dir).load().lastPaletteChannel).toBe('blue-table-42');
+		expect(new IdentityStore(dir).load().lastPaletteMember).toBe('bob-uuid');
+	});
+
+	it('setLastPaletteTarget sanitizes a malformed payload to null', () => {
+		const store = new IdentityStore(dir);
+		store.setLastPaletteTarget({ channel: 7, member: '' } as unknown as { channel: string; member: string });
+		store.setLastPaletteTarget(null as unknown as { channel: string; member: string });
+
+		expect(store.load().lastPaletteChannel).toBeNull();
+		expect(store.load().lastPaletteMember).toBeNull();
+	});
+
+	it('sanitizes a hand-edited non-string or empty palette target back to null', () => {
+		const filePath = path.join(dir, 'state.json');
+		fs.writeFileSync(
+			filePath,
+			JSON.stringify({
+				version: 2,
+				memberId: 'self-member',
+				displayName: 'Self',
+				circles: [],
+				lastPaletteChannel: 42,
+				lastPaletteMember: '',
+			}),
+		);
+
+		const state = new IdentityStore(dir).load();
+		expect(state.lastPaletteChannel).toBeNull();
+		expect(state.lastPaletteMember).toBeNull();
+	});
+});

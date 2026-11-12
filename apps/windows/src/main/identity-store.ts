@@ -47,6 +47,8 @@ export interface PersistedState {
 	// `AppState`'s constructor in `session-store.ts` for where the persisted
 	// value is folded together with the runtime `isDev` flag.
 	devEchoBroadcasts: boolean;
+	lastPaletteChannel: string | null;
+	lastPaletteMember: string | null;
 }
 
 function defaultState(): PersistedState {
@@ -61,7 +63,13 @@ function defaultState(): PersistedState {
 		paletteHotkey: DEFAULT_PALETTE_HOTKEY,
 		allowInScreenshots: false,
 		devEchoBroadcasts: false,
+		lastPaletteChannel: null,
+		lastPaletteMember: null,
 	};
+}
+
+function paletteId(value: unknown): string | null {
+	return typeof value === 'string' && value.length > 0 ? value : null;
 }
 
 export class IdentityStore {
@@ -124,6 +132,8 @@ export class IdentityStore {
 				| 'paletteHotkey'
 				| 'allowInScreenshots'
 				| 'devEchoBroadcasts'
+				| 'lastPaletteChannel'
+				| 'lastPaletteMember'
 			>
 		>,
 	): void {
@@ -151,6 +161,14 @@ export class IdentityStore {
 		const state = this.load();
 		state.circles = state.circles.filter((c) => c.code !== code);
 		this.save(state);
+	}
+
+	setLastPaletteTarget(target: unknown): void {
+		const record = target && typeof target === 'object' ? (target as Record<string, unknown>) : {};
+		this.patch({
+			lastPaletteChannel: paletteId(record.channel),
+			lastPaletteMember: paletteId(record.member),
+		});
 	}
 
 	private migrate(parsed: unknown): PersistedState {
@@ -183,6 +201,12 @@ export class IdentityStore {
 		}
 		if (typeof draft.devEchoBroadcasts !== 'boolean') {
 			draft.devEchoBroadcasts = false;
+		}
+		if (typeof draft.lastPaletteChannel !== 'string' || draft.lastPaletteChannel.length === 0) {
+			draft.lastPaletteChannel = null;
+		}
+		if (typeof draft.lastPaletteMember !== 'string' || draft.lastPaletteMember.length === 0) {
+			draft.lastPaletteMember = null;
 		}
 		// v1 → v2: the v1 default was `devEchoBroadcasts: true`, which made
 		// every unpackaged dev session echo own broadcasts into the notch

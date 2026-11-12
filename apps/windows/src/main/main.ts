@@ -522,6 +522,17 @@ app.whenReady().then(async () => {
 		updateService?.setAutoCheckEnabled(value);
 		return true;
 	});
+	ipcMain.handle(IPC_CHANNELS.GET_LAST_PALETTE_TARGET, () => {
+		const state = identityStore.load();
+		return { channel: state.lastPaletteChannel, member: state.lastPaletteMember };
+	});
+	ipcMain.handle(IPC_CHANNELS.SET_LAST_PALETTE_TARGET, (event, target: unknown) => {
+		if (BrowserWindow.fromWebContents(event.sender) !== paletteWindow) {
+			console.warn('[munkel] rejected set-last-palette-target from non-palette sender');
+			return;
+		}
+		identityStore.setLastPaletteTarget(target);
+	});
 	// Rebindable palette hotkey (Plan 12 P3.1). Same menu-only sender guard
 	// as the launch-at-login / auto-update-check channels above — the
 	// settings-popover recorder is the only UI that changes this.
