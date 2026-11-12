@@ -3,7 +3,7 @@ import React from 'react';
 import { create, act } from 'react-test-renderer';
 import { AppProvider } from '../../store/app-store';
 import PaletteWindow from '../PaletteWindow';
-import type { StateUpdate } from '../../../shared/types';
+import type { LastPaletteTarget, StateUpdate } from '../../../shared/types';
 
 // Minimal electronAPI surface PaletteWindow (and the app-store it drives)
 // touches. Kept separate from MenuWindow's/NotchWidget's mocks so this file
@@ -17,6 +17,9 @@ function createMockElectronApi(initialState: StateUpdate) {
 			Promise.resolve({ ok: true }),
 		selectImages: () => Promise.resolve(undefined),
 		saveClipboardImage: () => Promise.resolve(null as string | null),
+		getLastPaletteTarget: () => Promise.resolve({ channel: null, member: null } as LastPaletteTarget),
+		setLastPaletteTarget: (_target: LastPaletteTarget) => Promise.resolve(),
+		onPaletteShow: (_cb: unknown) => () => {},
 		onStateUpdate: (_cb: unknown) => () => {},
 		onGitHubLoginState: (_cb: unknown) => () => {},
 		onUpdateState: (_cb: unknown) => () => {},
@@ -183,5 +186,290 @@ describe('PaletteWindow clipboard image paste (Plan 12 P3.4)', () => {
 		});
 
 		expect(saveClipboardImageSpy).toHaveBeenCalledTimes(0);
+	});
+});
+
+describe('PaletteWindow remembered target (issue #125)', () => {
+	const circles: StateUpdate['circles'] = [
+		{
+			code: 'blue-table-42',
+			groupId: 'group-1',
+			isConnected: true,
+			members: [{ memberId: 'a1', displayName: 'Alice' }],
+			relayUrl: 'wss://relay.example',
+		},
+		{
+			code: 'red-door-7',
+			groupId: 'group-2',
+			isConnected: true,
+			members: [{ memberId: 'c1', displayName: 'Carol' }],
+			relayUrl: 'wss://relay.example',
+		},
+	];
+
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let showCallback: (() => void) | null;
+
+	beforeEach(() => {
+		showCallback = null;
+		electronApi = createMockElectronApi(makeState(circles));
+		electronApi.onPaletteShow = (cb: () => void) => {
+			showCallback = cb;
+			return () => {};
+		};
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function flush() {
+		await Promise.resolve();
+		await Promise.resolve();
+		await Promise.resolve();
+	}
+
+	async function renderPalette(remembered: LastPaletteTarget) {
+		electronApi.getLastPaletteTarget = () => Promise.resolve(remembered);
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<PaletteWindow />
+				</AppProvider>,
+			);
+			await flush();
+		});
+		return root!;
+	}
+
+	function selectedLabel(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ className: 'recipient-row selected' }).findByProps({ className: 'recipient-label' }).props.children;
+	}
+
+	function searchInput(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ className: 'frosted-field' });
+	}
+
+	it('preselects the remembered member when the palette opens', async () => {
+		const root = await renderPalette({ channel: 'red-door-7', member: 'c1' });
+
+		expect(selectedLabel(root)).toBe('Carol');
+	});
+
+	it('preselects the Everyone row when the remembered member is null', async () => {
+		const root = await renderPalette({ channel: 'red-door-7', member: null });
+
+		expect(selectedLabel(root)).toBe('Everyone in red-door-7');
+	});
+
+	it('falls back to the first row when nothing was remembered', async () => {
+		const root = await renderPalette({ channel: null, member: null });
+
+		expect(selectedLabel(root)).toBe('Everyone in blue-table-42');
+	});
+
+	it('persists the target on every arrow key navigation', async () => {
+		const setSpy = spyOn(electronApi, 'setLastPaletteTarget');
+		const root = await renderPalette({ channel: null, member: null });
+
+		await act(async () => {
+			searchInput(root).props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} });
+			await flush();
+		});
+
+		expect(setSpy).toHaveBeenLastCalledWith({ channel: 'blue-table-42', member: 'a1' });
+	});
+
+	it('persists the target when a row is clicked', async () => {
+		const setSpy = spyOn(electronApi, 'setLastPaletteTarget');
+		const root = await renderPalette({ channel: null, member: null });
+
+		const carolRow = root.root.findAllByProps({ className: 'recipient-row ' }).find(
+			(row) => row.findByProps({ className: 'recipient-label' }).props.children === 'Carol',
+		);
+		await act(async () => {
+			carolRow!.props.onClick();
+			await flush();
+		});
+
+		expect(setSpy).toHaveBeenLastCalledWith({ channel: 'red-door-7', member: 'c1' });
+	});
+
+	it('persists an Everyone target as a null member', async () => {
+		const setSpy = spyOn(electronApi, 'setLastPaletteTarget');
+		const root = await renderPalette({ channel: 'red-door-7', member: 'c1' });
+
+		await act(async () => {
+			searchInput(root).props.onKeyDown({ key: 'ArrowUp', preventDefault: () => {} });
+			await flush();
+		});
+
+		expect(setSpy).toHaveBeenLastCalledWith({ channel: 'red-door-7', member: null });
+		for (let press = 0; press < 2; press++) {
+			await act(async () => {
+				searchInput(root).props.onKeyDown({ key: 'ArrowUp', preventDefault: () => {} });
+				await flush();
+			});
+		}
+
+		expect(setSpy).toHaveBeenLastCalledWith({ channel: 'blue-table-42', member: null });
+	});
+
+	it('re-resolves the selection from the remembered target on every reopen', async () => {
+		const root = await renderPalette({ channel: null, member: null });
+
+		await act(async () => {
+			searchInput(root).props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} });
+			await flush();
+		});
+		expect(selectedLabel(root)).toBe('Alice');
+
+		await act(async () => {
+			showCallback?.();
+			await flush();
+		});
+
+		expect(selectedLabel(root)).toBe('Alice');
+	});
+});
+
+describe('PaletteWindow selection persistence and reopen (issue #125 review)', () => {
+	const circles: StateUpdate['circles'] = [
+		{
+			code: 'blue-table-42',
+			groupId: 'group-1',
+			isConnected: true,
+			members: [{ memberId: 'a1', displayName: 'Alice' }],
+			relayUrl: 'wss://relay.example',
+		},
+		{
+			code: 'red-door-7',
+			groupId: 'group-2',
+			isConnected: true,
+			members: [{ memberId: 'c1', displayName: 'Carol' }],
+			relayUrl: 'wss://relay.example',
+		},
+	];
+
+	let electronApi: ReturnType<typeof createMockElectronApi>;
+	let showCallback: (() => void) | null;
+	let stateCallback: ((update: StateUpdate) => void) | null;
+
+	beforeEach(() => {
+		showCallback = null;
+		stateCallback = null;
+		electronApi = createMockElectronApi(makeState(circles));
+		electronApi.onPaletteShow = (cb: () => void) => {
+			showCallback = cb;
+			return () => {};
+		};
+		electronApi.onStateUpdate = (cb: (update: StateUpdate) => void) => {
+			stateCallback = cb;
+			return () => {};
+		};
+		(globalThis as unknown as { window: { electronAPI: typeof electronApi } }).window = { electronAPI: electronApi };
+	});
+
+	afterEach(() => {
+		delete (globalThis as unknown as { window?: unknown }).window;
+	});
+
+	async function flush() {
+		await Promise.resolve();
+		await Promise.resolve();
+		await Promise.resolve();
+	}
+
+	async function renderPalette(remembered: LastPaletteTarget) {
+		electronApi.getLastPaletteTarget = () => Promise.resolve(remembered);
+		let root: ReturnType<typeof create>;
+		await act(async () => {
+			root = create(
+				<AppProvider>
+					<PaletteWindow />
+				</AppProvider>,
+			);
+			await flush();
+		});
+		return root!;
+	}
+
+	function selectedLabel(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ className: 'recipient-row selected' }).findByProps({ className: 'recipient-label' }).props.children;
+	}
+
+	function searchInput(root: ReturnType<typeof create>) {
+		return root.root.findByProps({ className: 'frosted-field' });
+	}
+
+	function rowFor(root: ReturnType<typeof create>, label: string) {
+		return root.root.findAllByProps({ className: 'recipient-row ' }).find(
+			(row) => row.findByProps({ className: 'recipient-label' }).props.children === label,
+		)!;
+	}
+
+	it('Enter persists the highlighted target', async () => {
+		const setSpy = spyOn(electronApi, 'setLastPaletteTarget');
+		const root = await renderPalette({ channel: 'red-door-7', member: 'c1' });
+
+		await act(async () => {
+			searchInput(root).props.onKeyDown({ key: 'Enter', preventDefault: () => {} });
+			await flush();
+		});
+
+		expect(setSpy).toHaveBeenLastCalledWith({ channel: 'red-door-7', member: 'c1' });
+	});
+
+	it('mouse hover does not persist the target', async () => {
+		const setSpy = spyOn(electronApi, 'setLastPaletteTarget');
+		const root = await renderPalette({ channel: null, member: null });
+
+		await act(async () => {
+			rowFor(root, 'Carol').props.onMouseEnter();
+			await flush();
+		});
+
+		expect(setSpy).not.toHaveBeenCalled();
+	});
+
+	it('a recipients update does not reset a hover highlight during the same open', async () => {
+		const root = await renderPalette({ channel: null, member: null });
+
+		await act(async () => {
+			rowFor(root, 'Carol').props.onMouseEnter();
+			await flush();
+		});
+		await act(async () => {
+			stateCallback?.(makeState(circles.map((c) => ({ ...c, members: [...c.members] }))));
+			await flush();
+		});
+
+		expect(selectedLabel(root)).toBe('Carol');
+	});
+
+	it('recomputes the preselection on every open, discarding hover from the previous open', async () => {
+		const root = await renderPalette({ channel: null, member: null });
+
+		await act(async () => {
+			searchInput(root).props.onKeyDown({ key: 'ArrowDown', preventDefault: () => {} });
+			await flush();
+		});
+		await act(async () => {
+			rowFor(root, 'Carol').props.onMouseEnter();
+			await flush();
+		});
+		await act(async () => {
+			showCallback?.();
+			await flush();
+		});
+		expect(selectedLabel(root)).toBe('Alice');
+
+		await act(async () => {
+			showCallback?.();
+			await flush();
+		});
+		expect(selectedLabel(root)).toBe('Alice');
 	});
 });

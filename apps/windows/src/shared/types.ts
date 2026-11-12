@@ -5,6 +5,11 @@ export type { PresenceStatus, SendResult };
 
 export type WindowType = 'menu' | 'notch' | 'palette';
 
+export interface LastPaletteTarget {
+	channel: string | null;
+	member: string | null;
+}
+
 export interface Member {
 	memberId: string;
 	displayName?: string;
@@ -95,6 +100,9 @@ export interface IpcApi {
 	setMenuPickerOpen: (open: boolean) => Promise<void>;
 	quitApp: () => Promise<void>;
 	onGlobalShortcut: (callback: () => void) => () => void;
+	onPaletteShow: (callback: () => void) => () => void;
+	getLastPaletteTarget: () => Promise<LastPaletteTarget>;
+	setLastPaletteTarget: (target: LastPaletteTarget) => Promise<void>;
 
 	// Circle / session management.
 	joinCircle: (code: string, relayUrl?: string) => Promise<void>;

@@ -2,6 +2,7 @@ import { BrowserWindow, screen } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getWindowUrl } from './window-url';
+import { PUSH_CHANNELS } from '../shared/ipc-channels';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -44,7 +45,7 @@ export function showPalette(win: BrowserWindow | null): void {
 	if (!win) return;
 	win.show();
 	win.focus();
-	win.webContents.send('palette-show');
+	win.webContents.send(PUSH_CHANNELS.PALETTE_SHOW);
 }
 
 export function hidePalette(win: BrowserWindow | null): void {

@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppStore } from '../store/app-store';
 import { Avatar } from './Avatar';
 import { clipboardEventHasImage, pasteClipboardImage } from '../lib/clipboard-image';
 import { formatSkippedImages } from '../../shared/send-result';
+import type { LastPaletteTarget } from '../../shared/types';
+import { resolvePaletteStartIndex } from '../lib/resolve-palette-start-index';
 
 // Mirrors `MAX_IMAGES_PER_MESSAGE` in `core/image-codec.ts` — not imported
 // directly to avoid pulling that module's Node-oriented deps (`image-size`,
@@ -29,6 +31,9 @@ export default function PaletteWindow() {
 	const [imagePaths, setImagePaths] = useState<string[]>([]);
 	const [sending, setSending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
+	const [remembered, setRemembered] = useState<LastPaletteTarget | null>(null);
+	const [openToken, setOpenToken] = useState(0);
+	const selectionPendingRef = useRef(true);
 
 	const recipients = useMemo<Recipient[]>(() => {
 		const out: Recipient[] = [];
@@ -63,6 +68,34 @@ export default function PaletteWindow() {
 
 	const safeSelectedIndex = filtered.length === 0 ? -1 : Math.min(selectedIndex, filtered.length - 1);
 
+	useEffect(() => {
+		void window.electronAPI.getLastPaletteTarget().then(setRemembered);
+		return window.electronAPI.onPaletteShow(() => {
+			selectionPendingRef.current = true;
+			setQuery('');
+			setOpenToken((n) => n + 1);
+		});
+	}, []);
+
+	useEffect(() => {
+		if (!selectionPendingRef.current || remembered === null || recipients.length === 0) return;
+		selectionPendingRef.current = false;
+		setSelectedIndex(resolvePaletteStartIndex(recipients, remembered));
+	}, [openToken, remembered, recipients]);
+
+	function rememberRecipient(r: Recipient) {
+		selectionPendingRef.current = false;
+		const next: LastPaletteTarget = { channel: r.circleCode, member: r.isEveryone ? null : (r.memberId ?? null) };
+		setRemembered(next);
+		window.electronAPI.setLastPaletteTarget(next);
+	}
+
+	function moveSelection(index: number) {
+		setSelectedIndex(index);
+		const r = filtered[index];
+		if (r) rememberRecipient(r);
+	}
+
 	function handleKeyDown(e: React.KeyboardEvent) {
 		if (target) {
 			if (e.key === 'Escape') {
@@ -74,12 +107,13 @@ export default function PaletteWindow() {
 		}
 
 		if (e.key === 'ArrowDown') {
-			setSelectedIndex((i) => Math.min(i + 1, Math.max(filtered.length - 1, 0)));
+			moveSelection(Math.min(safeSelectedIndex + 1, Math.max(filtered.length - 1, 0)));
 		} else if (e.key === 'ArrowUp') {
-			setSelectedIndex((i) => Math.max(i - 1, 0));
+			moveSelection(Math.max(safeSelectedIndex - 1, 0));
 		} else if (e.key === 'Enter') {
 			const selected = filtered[safeSelectedIndex];
 			if (selected) {
+				rememberRecipient(selected);
 				setTarget(selected);
 				setQuery('');
 				setSelectedIndex(0);
@@ -262,6 +296,7 @@ export default function PaletteWindow() {
 					value={query}
 					onChange={(e) => {
 						setQuery(e.target.value);
+						selectionPendingRef.current = false;
 						setSelectedIndex(0);
 					}}
 					onKeyDown={handleKeyDown}
@@ -285,7 +320,11 @@ export default function PaletteWindow() {
 						<div
 							key={r.id}
 							className={`recipient-row ${i === safeSelectedIndex ? 'selected' : ''}`}
-							onClick={() => setTarget(r)}
+							onClick={() => {
+								rememberRecipient(r);
+								setSelectedIndex(i);
+								setTarget(r);
+							}}
 							onMouseEnter={() => setSelectedIndex(i)}
 						>
 							<Avatar name={r.label} size={24} isEveryone={r.isEveryone} />

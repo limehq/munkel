@@ -54,6 +54,9 @@ export const IPC_CHANNELS = {
   GET_PALETTE_HOTKEY: 'get-palette-hotkey',
   SET_PALETTE_HOTKEY: 'set-palette-hotkey',
 
+  GET_LAST_PALETTE_TARGET: 'get-last-palette-target',
+  SET_LAST_PALETTE_TARGET: 'set-last-palette-target',
+
   // Dev-only flag (Plan 13 items 5–6): backed by `!app.isPackaged` in main.ts
   // (NOT an env var like NODE_ENV, which a launcher could spoof to unlock the
   // toggles in a release build). Gates the two dev-only settings-popover
@@ -80,4 +83,5 @@ export const PUSH_CHANNELS = {
   NOTCH_COPY_HOVERED: 'notch-copy-hovered',
   RELAY_ERROR: 'relay-error',
   GLOBAL_SHORTCUT: 'global-shortcut',
+  PALETTE_SHOW: 'palette-show',
 } as const;

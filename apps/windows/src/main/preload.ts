@@ -53,6 +53,14 @@ const api: IpcApi = {
 	getPaletteHotkey: () => ipcRenderer.invoke(IPC_CHANNELS.GET_PALETTE_HOTKEY),
 	setPaletteHotkey: (accelerator) => ipcRenderer.invoke(IPC_CHANNELS.SET_PALETTE_HOTKEY, accelerator),
 
+	getLastPaletteTarget: () => ipcRenderer.invoke(IPC_CHANNELS.GET_LAST_PALETTE_TARGET),
+	setLastPaletteTarget: (target) => ipcRenderer.invoke(IPC_CHANNELS.SET_LAST_PALETTE_TARGET, target),
+	onPaletteShow: (callback) => {
+		const handler = () => callback();
+		ipcRenderer.on(PUSH_CHANNELS.PALETTE_SHOW, handler);
+		return () => ipcRenderer.removeListener(PUSH_CHANNELS.PALETTE_SHOW, handler);
+	},
+
 	isDev: () => ipcRenderer.invoke(IPC_CHANNELS.GET_IS_DEV),
 
 	getAllowInScreenshots: () => ipcRenderer.invoke(IPC_CHANNELS.GET_ALLOW_IN_SCREENSHOTS),
